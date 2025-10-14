@@ -1,57 +1,55 @@
+<!DOCTYPE html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  </head>
-  <body>
-    <a-scene 
-      mindar-image="imageTargetSrc: ./target.mind;" 
-      color-space="sRGB" 
-      renderer="colorManagement: true, physicallyCorrectLights" 
-      vr-mode-ui="enabled: false" 
-      device-orientation-permission-ui="enabled: false">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
-      <a-assets>
-        <!-- Your video asset -->
-        <video id="card" src="./overlay.mp4" preload="auto" crossorigin="anonymous" playsinline webkit-playsinline></video>
-      </a-assets>
+  <script>
+    AFRAME.registerComponent('auto-aspect', {
+      init: function () {
+        const videoEl = document.querySelector('#vid');
+        const videoPlane = this.el;
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        videoEl.addEventListener('loadedmetadata', () => {
+          const videoRatio = videoEl.videoWidth / videoEl.videoHeight;
+          const targetWidth = 1; // matches your target
+          const targetHeight = targetWidth / videoRatio;
 
-      <!-- Image target entity -->
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-plane 
-          src="#card" 
-          position="0 0 0" 
-          height="0.552" 
-          width="1" 
-          rotation="0 0 0">
-        </a-plane>
-      </a-entity>
-    </a-scene>
+          console.log(`Video Ratio: ${videoRatio} → Setting height to ${targetHeight}`);
 
-    <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        const target = document.querySelector("#target");
-        const video = document.querySelector("#card");
-
-        // Required: user must interact before video with audio can play (browser restriction)
-        document.body.addEventListener('click', () => {
-          video.muted = false; // unmute
-          video.play().catch(err => console.log("Autoplay blocked until user interacts", err));
-        }, { once: true });
-
-        target.addEventListener("targetFound", () => {
-          console.log("Target found ✅");
-          video.play();
+          videoPlane.setAttribute('geometry', {
+            width: targetWidth,
+            height: targetHeight
+          });
         });
-
-        target.addEventListener("targetLost", () => {
-          console.log("Target lost ❌");
-          video.pause();
-        });
-      });
-    </script>
-  </body>
+      }
+    });
+  </script>
+</head>
+<body>
+  <a-scene 
+    mindar-image="imageTargetSrc: target.mind;" 
+    embedded 
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-assets>
+      <video id="vid" autoplay loop muted src="overlay.mp4"></video>
+    </a-assets>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-entity mindar-image-target="targetIndex: 0">
+      <a-video 
+        id="video-plane"
+        src="#vid" 
+        width="1" 
+        height="0.552" 
+        position="0 0 0" 
+        rotation="0 0 0"
+        material="shader: flat; side: double; transparent: true;"
+        auto-aspect
+      ></a-video>
+    </a-entity>
+  </a-scene>
+</body>
 </html>
