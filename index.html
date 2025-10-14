@@ -1,64 +1,72 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script> <!-- For chromakey shader -->
-    
-    <script>
-        // Register the custom component as you provided
-        AFRAME.registerComponent('mytarget', {
-            init: function () {
-                this.el.addEventListener('targetFound', event => {
-                    console.log("Target found");
-                    document.querySelector("#video").play();  // Play the video
-                });
-                this.el.addEventListener('targetLost', event => {
-                    console.log("Target lost");
-                    document.querySelector("#video").pause();  // Pause the video
-                });
-            }
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
+
+  <script>
+    AFRAME.registerComponent('mytarget', {
+      init: function () {
+        const videoEl = document.querySelector('#video'); // Audio-only video
+        const danPlane = document.querySelector('#dan-plane'); // Chromakey plane
+
+        this.el.addEventListener('targetFound', event => {
+          console.log("🎯 Target FOUND!");
+          videoEl.play(); // Play audio
+          danPlane.setAttribute('visible', true); // Show chromakey video
         });
-    </script>
+
+        this.el.addEventListener('targetLost', event => {
+          console.log("❌ Target LOST");
+          videoEl.pause(); // Pause audio
+          danPlane.setAttribute('visible', false); // Hide chromakey video
+        });
+      }
+    });
+  </script>
 </head>
 <body>
-    <a-scene 
-        mindar-image="imageTargetSrc: ./target.mind; showStats: false; uiScanning: #example-scanning-overlay;" 
-        embedded 
-        color-space="sRGB" 
-        renderer="colorManagement: true, physicallyCorrectLights" 
-        vr-mode-ui="enabled: false" 
-        device-orientation-permission-ui="enabled: false"
-    >
-        <a-assets>
-            <!-- Single video asset for simplicity; use your MP4 file -->
-            <video id="video" src="./overlay.mp4" loop="true" autoplay muted crossorigin="anonymous"></video>
-            <!-- If you need a separate audio video, you can add it here, but we're keeping it simple -->
-        </a-assets>
+  <a-scene 
+    mindar-image="imageTargetSrc: ./targets.mind; showStats: false;" 
+    embedded 
+    color-space="sRGB" 
+    renderer="colorManagement: true, physicallyCorrectLights" 
+    vr-mode-ui="enabled: false" 
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-assets>
+      <!-- AUDIO-ONLY VIDEO -->
+      <video id="video" loop autoplay muted src="./overlay.mp4"></video>
 
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <!-- CHROMAKEY VIDEO (same file, but rendered with green screen removal) -->
+      <video id="chromaVideo" loop autoplay muted src="./overlay.mp4"></video>
+    </a-assets>
 
-        <a-entity id="mytarget" mytarget mindar-image-target="targetIndex: 0">
-            <!-- Optional: Add text or other elements if needed -->
-            <a-text value="" id="text-en" color="purple" align="center" width="2" position="0 0.4 0" 
-                animation="property: position; to: 0 0.5 0; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
-            ></a-text>
-            
-            <!-- Use a-plane with chromakey to display the video -->
-            <a-plane 
-                id="dan-plane"
-                material="
-                    shader: chromakey; 
-                    src: #video;  /* Reference the video asset */
-                    color: 0.1 0.9 0.2"  /* Green color for keying; adjust if your green screen is different (e.g., 0 1 0 for pure green) */
-                position="0 0 0.2"  /* Position it above the tracked image (Z-offset for "above") */
-                scale="1.3 1.3 1.3"  /* Scale to fit; adjust based on your video */
-                rotation="0 0 0"  /* Keep it flat; change if needed */
-                width="1"  /* Width of the plane */
-                height="0.5625"  /* Height for 16:9 aspect ratio */
-            ></a-plane>
-        </a-entity>
-    </a-scene>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity id="mytarget" mytarget mindar-image-target="targetIndex: 0">
+      <!-- TEXT (optional) -->
+      <a-text value="" id="text-en" color="purple" align="center" width="2" position="0 0.4 0"
+        animation="property: position; to: 0 0.5 0; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
+      ></a-text>
+
+      <!-- CHROMAKEY PLANE -->
+      <a-plane 
+        id="dan-plane"
+        material="
+          shader: chromakey;
+          src: #chromaVideo;
+          color: 0.1 0.9 0.2;
+          transparent: true;"
+        width="1"
+        height="0.552"
+        position="0 0 0"
+        rotation="0 0 0"
+        visible="false"
+      ></a-plane>
+    </a-entity>
+  </a-scene>
 </body>
 </html>
