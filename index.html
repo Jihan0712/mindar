@@ -1,55 +1,65 @@
-<!DOCTYPE html>
 <html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  </head>
+  <body>
+    <a-scene
+      mindar-image="imageTargetSrc: ./target.mind;"
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false">
 
-  <script>
-    AFRAME.registerComponent('auto-aspect', {
-      init: function () {
-        const videoEl = document.querySelector('#vid');
-        const videoPlane = this.el;
+      <a-assets>
+        <video id="card" src="./overlay.mp4" preload="auto" crossorigin="anonymous"
+               playsinline webkit-playsinline></video>
+      </a-assets>
 
-        videoEl.addEventListener('loadedmetadata', () => {
-          const videoRatio = videoEl.videoWidth / videoEl.videoHeight;
-          const targetWidth = 1; // matches your target
-          const targetHeight = targetWidth / videoRatio;
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-          console.log(`Video Ratio: ${videoRatio} → Setting height to ${targetHeight}`);
+      <a-entity id="target" mindar-image-target="targetIndex: 0">
+        <a-plane id="video-plane" src="#card"
+                 position="0 0 0"
+                 width="1"
+                 height="0.562"
+                 rotation="0 0 0">
+        </a-plane>
+      </a-entity>
+    </a-scene>
 
-          videoPlane.setAttribute('geometry', {
-            width: targetWidth,
-            height: targetHeight
-          });
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        const video = document.querySelector("#card");
+        const plane = document.querySelector("#video-plane");
+        const target = document.querySelector("#target");
+
+        // Dynamically adjust plane size based on video aspect ratio
+        video.addEventListener("loadedmetadata", () => {
+          const aspect = video.videoHeight / video.videoWidth;
+          plane.setAttribute("width", 1);            // match marker width
+          plane.setAttribute("height", 1 * aspect);  // maintain correct ratio
+          console.log("Adjusted plane size:", 1, "x", (1 * aspect).toFixed(3));
         });
-      }
-    });
-  </script>
-</head>
-<body>
-  <a-scene 
-    mindar-image="imageTargetSrc: target.mind;" 
-    embedded 
-    vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: false"
-  >
-    <a-assets>
-      <video id="vid" autoplay loop muted src="overlay.mp4"></video>
-    </a-assets>
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-    <a-entity mindar-image-target="targetIndex: 0">
-      <a-video 
-        id="video-plane"
-        src="#vid" 
-        width="1" 
-        height="0.552" 
-        position="0 0 0" 
-        rotation="0 0 0"
-        material="shader: flat; side: double; transparent: true;"
-        auto-aspect
-      ></a-video>
-    </a-entity>
-  </a-scene>
-</body>
+
+        // Enable sound after first tap (browser rule)
+        document.body.addEventListener('click', () => {
+          video.muted = false;
+          video.play().catch(err => console.log("Autoplay blocked until interaction:", err));
+        }, { once: true });
+
+        // Play/pause based on tracking
+        target.addEventListener("targetFound", () => {
+          console.log("Target found ✅");
+          video.play();
+        });
+
+        target.addEventListener("targetLost", () => {
+          console.log("Target lost ❌");
+          video.pause();
+        });
+      });
+    </script>
+  </body>
 </html>
