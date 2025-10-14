@@ -1,27 +1,91 @@
-
+<!DOCTYPE html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
-  </head>
-  <body>
-    <a-scene mindar-image="imageTargetSrc: ./target.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-      <a-assets>
-	<vid id="card" src="./overlay.mp4" />
-	<a-asset-item id="avatarModel" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/softmind/scene.gltf"></a-asset-item>
-      </a-assets>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MindAR Video on Target</title>
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  
+  <!-- MindAR for A-Frame -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
-      <a-entity mindar-image-target="targetIndex: 0">
-        <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model rotation="0 0 0 " position="0 0 0.1" scale="0.005 0.005 0.005" src="#avatarModel"
-          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
-        >
-            
-      </a-entity>
-    </a-scene>
-  </body>
+  <!-- Custom component to control video playback -->
+  <script>
+    AFRAME.registerComponent('track-video', {
+      init: function () {
+        // Get the video element and the plane that displays it
+        const videoEl = document.querySelector('#overlayVideo');
+        const videoPlane = this.el.querySelector('a-plane');
+
+        // When target is FOUND
+        this.el.addEventListener('targetFound', () => {
+          console.log('🎯 Target FOUND — Playing video');
+          videoPlane.setAttribute('visible', true);
+          videoEl.play().catch(e => console.log('Autoplay blocked:', e));
+        });
+
+        // When target is LOST
+        this.el.addEventListener('targetLost', () => {
+          console.log('❌ Target LOST — Pausing video');
+          videoPlane.setAttribute('visible', false);
+          videoEl.pause();
+        });
+      }
+    });
+  </script>
+
+  <style>
+    body { margin: 0; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <a-scene 
+    mindar-image="imageTargetSrc: ./target.mind;" 
+    embedded 
+    color-space="sRGB" 
+    renderer="colorManagement: true, physicallyCorrectLights" 
+    vr-mode-ui="enabled: false" 
+    device-orientation-permission-ui="enabled: false"
+  >
+    <!-- Assets: video and optional 3D model -->
+    <a-assets>
+      <!-- Your video file -->
+      <video id="overlayVideo" loop muted webkit-playsinline playsinline src="./overlay.mp4"></video>
+      
+      <!-- Optional: 3D model (you can remove this if not needed) -->
+      <a-asset-item 
+        id="avatarModel" 
+        src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/softmind/scene.gltf">
+      </a-asset-item>
+    </a-assets>
+
+    <!-- Camera (fixed, no look controls) -->
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- AR Target Entity -->
+    <a-entity mindar-image-target="targetIndex: 0" track-video>
+      <!-- Video plane (will be shown/hidden by the component) -->
+      <a-plane 
+        src="#overlayVideo"
+        width="1"
+        height="0.552"
+        position="0 0 0"
+        rotation="0 0 0"
+        visible="false"
+        material="shader: flat; side: double; transparent: true;"
+      ></a-plane>
+
+      <!-- Optional: Animated 3D model (remove if not needed) -->
+      <a-gltf-model 
+        rotation="0 0 0" 
+        position="0 0 0.1" 
+        scale="0.005 0.005 0.005" 
+        src="#avatarModel"
+        animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
+      ></a-gltf-model>
+    </a-entity>
+  </a-scene>
+</body>
 </html>
