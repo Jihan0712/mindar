@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MindAR Video Fix</title>
+  <title>MindAR Video Control (Official Way)</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -11,42 +11,41 @@
   <!-- MindAR for A-Frame -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
+  <!-- Optional: Chromakey (if needed) -->
+  <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
+
   <script>
-    AFRAME.registerComponent('track-video', {
-      init: function () {
-        const videoPlane = this.el.querySelector('a-plane');
+    document.addEventListener("DOMContentLoaded", function() {
+      const sceneEl = document.querySelector('a-scene');
+      let arSystem;
+
+      // Wait for scene to load
+      sceneEl.addEventListener('loaded', function () {
+        arSystem = sceneEl.systems["mindar-image-system"];
+        console.log('✅ MindAR System Ready');
+      });
+
+      // Get the target entity
+      const targetEntity = document.querySelector('#my-target');
+
+      // Listen for target events
+      targetEntity.addEventListener('targetFound', () => {
+        console.log('🎯 Target FOUND — Playing video');
+        const videoPlane = document.querySelector('#video-plane');
         const videoEl = document.querySelector('#overlayVideo');
+        
+        videoPlane.setAttribute('visible', true);
+        videoEl.play().catch(e => console.log('Autoplay blocked:', e));
+      });
 
-        this.el.addEventListener('targetFound', () => {
-          console.log('🎯 Target FOUND — Showing & Playing video');
-          videoPlane.setAttribute('visible', true);
-          
-          // Try to play the internal video element
-          setTimeout(() => {
-            const internalVideo = videoPlane.components.material.material.map.image;
-            if (internalVideo && internalVideo.play) {
-              internalVideo.play().catch(e => {
-                console.log('Autoplay blocked:', e);
-                // Fallback: try to play via DOM video
-                videoEl.play().catch(err => console.log('DOM play failed:', err));
-              });
-            }
-          }, 100); // Small delay to ensure video is ready
-        });
-
-        this.el.addEventListener('targetLost', () => {
-          console.log('❌ Target LOST — Hiding & Pausing video');
-          videoPlane.setAttribute('visible', false);
-          
-          // Pause internal video
-          const internalVideo = videoPlane.components.material.material.map.image;
-          if (internalVideo && internalVideo.pause) {
-            internalVideo.pause();
-          }
-          // Also pause DOM video
-          videoEl.pause();
-        });
-      }
+      targetEntity.addEventListener('targetLost', () => {
+        console.log('❌ Target LOST — Pausing video');
+        const videoPlane = document.querySelector('#video-plane');
+        const videoEl = document.querySelector('#overlayVideo');
+        
+        videoPlane.setAttribute('visible', false);
+        videoEl.pause();
+      });
     });
   </script>
 
@@ -77,35 +76,37 @@
     device-orientation-permission-ui="enabled: false"
   >
     <a-assets>
-      <!-- Your video file — MUST be muted for autoplay on mobile -->
-      <video 
-        id="overlayVideo" 
-        loop 
-        muted 
-        webkit-playsinline 
-        playsinline 
-        src="./overlay.mp4">
-      </video>
+      <!-- ✅ CORRECT VIDEO TAG -->
+      <video id="overlayVideo" loop muted webkit-playsinline playsinline src="./overlay.mp4"></video>
+      
+      <!-- Optional 3D model -->
+      <a-asset-item id="avatarModel" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/softmind/scene.gltf"></a-asset-item>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <a-entity mindar-image-target="targetIndex: 0" track-video>
-      <!-- VIDEO PLANE — with fixes -->
+    <!-- ✅ ADD ID TO TARGET ENTITY -->
+    <a-entity id="my-target" mindar-image-target="targetIndex: 0">
+      <!-- ✅ VIDEO PLANE WITH ID -->
       <a-plane 
+        id="video-plane"
         src="#overlayVideo"
         width="1"
         height="0.552"
-        position="0 0 0.01"  <!-- slight forward offset -->
+        position="0 0 0.01"
         rotation="0 0 0"
         visible="false"
-        material="
-          shader: flat; 
-          side: double; 
-          transparent: true;
-          depthTest: false;  <!-- prevent z-fighting -->
-          opacity: 1.0;"
+        material="shader: flat; side: double; transparent: true;"
       ></a-plane>
+
+      <!-- Optional 3D model -->
+      <a-gltf-model 
+        rotation="0 0 0" 
+        position="0 0 0.1" 
+        scale="0.005 0.005 0.005" 
+        src="#avatarModel"
+        animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
+      ></a-gltf-model>
     </a-entity>
   </a-scene>
 
@@ -115,12 +116,12 @@
       document.getElementById('status').textContent = 'SCENE LOADED';
     });
 
-    document.querySelector('[mindar-image-target]').addEventListener('targetFound', () => {
+    document.querySelector('#my-target').addEventListener('targetFound', () => {
       document.getElementById('status').textContent = 'TRACKING ✅';
       document.getElementById('status').style.color = '#0f0';
     });
 
-    document.querySelector('[mindar-image-target]').addEventListener('targetLost', () => {
+    document.querySelector('#my-target').addEventListener('targetLost', () => {
       document.getElementById('status').textContent = 'NOT TRACKING ❌';
       document.getElementById('status').style.color = '#f00';
     });
