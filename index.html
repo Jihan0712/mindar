@@ -1,48 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 </head>
 <body>
-  <a-scene 
-    mindar-image="imageTargetSrc: ./target.mind;" 
-    embedded 
-    color-space="sRGB" 
-    renderer="colorManagement: true, physicallyCorrectLights" 
-    vr-mode-ui="enabled: false" 
-    device-orientation-permission-ui="enabled: false"
-  >
-    <a-assets>
-      <img id="card" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png" />
-      <a-asset-item id="avatarModel" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/softmind/scene.gltf"></a-asset-item>
-      <!-- ✅ YOUR VIDEO HERE -->
-      <video id="overlayVideo" autoplay loop muted src="overlay.mp4"></video>
-    </a-assets>
+    <a-scene 
+        mindar-image="imageTargetSrc: ./target.mind;" 
+        color-space="sRGB" 
+        renderer="colorManagement: true, physicallyCorrectLights" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false"
+    >
+        <a-assets>
+            <!-- Load the image asset (if needed for reference) -->
+            <img id="card" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png" />
+            
+            <!-- Add the video asset -->
+            <video id="myVideo" src="./overlay.mp4" loop="true" muted="true" crossorigin="anonymous"></video>
+            <!-- 
+                - 'src': Replace 'video.mp4' with the path to your video file (e.g., if it's in the same folder).
+                - 'loop': Makes the video loop continuously.
+                - 'muted': Required for autoplay on most browsers; remove if you want sound and handle user interaction.
+                - 'crossorigin': Helps with loading videos from external sources if needed.
+            -->
+        </a-assets>
 
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <a-entity mindar-image-target="targetIndex: 0">
-      <!-- ✅ VIDEO REPLACES STATIC IMAGE -->
-      <a-video
-        src="#overlayVideo"
-        width="1"
-        height="0.552"
-        position="0 0 0"
-        rotation="0 0 0"
-        material="shader: flat; side: double; transparent: true;"
-      ></a-video>
-
-      <!-- Optional: Keep the 3D model if you want both -->
-      <a-gltf-model 
-        rotation="0 0 0" 
-        position="0 0 0.1" 
-        scale="0.005 0.005 0.005" 
-        src="#avatarModel"
-        animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
-      ></a-gltf-model>
-    </a-entity>
-  </a-scene>
+        <a-entity mindar-image-target="targetIndex: 0">
+            <!-- Optional: Keep the plane if you want to overlay the video on the tracked image -->
+            <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
+            
+            <!-- Add the video entity -->
+            <a-video 
+                src="#myVideo" 
+                width="1"  <!-- Width of the video plane; adjust as needed -->
+                height="0.5625"  <!-- Height for a 16:9 aspect ratio; adjust based on your video -->
+                position="0 0 0.1"  <!-- Position it slightly above the plane (Z-axis offset) -->
+                rotation="0 0 0" 
+                autoplay="true"  <!-- Auto-play when the target is found -->
+            ></a-video>
+        </a-entity>
+    </a-scene>
 </body>
 </html>
