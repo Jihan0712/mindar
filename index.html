@@ -1,65 +1,93 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TUP GEAR AR Viewer</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
-  <body>
-    <a-scene
-      mindar-image="imageTargetSrc: ./target.mind;"
-      color-space="sRGB"
+  <body style="margin: 0; overflow: hidden;">
+
+    <div id="status" style="position: absolute; color: white; z-index: 1000; top: 10px; left: 10px;">
+      Loading targets...
+    </div>
+
+    <a-scene 
+      id="scene"
+      color-space="sRGB" 
       renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false"
+      vr-mode-ui="enabled: false" 
       device-orientation-permission-ui="enabled: false">
-
-      <a-assets>
-        <video id="card" src="./overlay.mp4" preload="auto" crossorigin="anonymous"
-               playsinline webkit-playsinline></video>
-      </a-assets>
-
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-plane id="video-plane" src="#card"
-                 position="0 0 0"
-                 width="1"
-                 height="0.562"
-                 rotation="0 0 0">
-        </a-plane>
-      </a-entity>
     </a-scene>
 
     <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        const video = document.querySelector("#card");
-        const plane = document.querySelector("#video-plane");
-        const target = document.querySelector("#target");
+      const SUPABASE_URL = 'https://vleqrpqfjkcazeowczjy.supabase.co/';
+      const SUPABASE_ANON_KEY = 'sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ';
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Dynamically adjust plane size based on video aspect ratio
-        video.addEventListener("loadedmetadata", () => {
-          const aspect = video.videoHeight / video.videoWidth;
-          plane.setAttribute("width", 1);            // match marker width
-          plane.setAttribute("height", 1 * aspect);  // maintain correct ratio
-          console.log("Adjusted plane size:", 1, "x", (1 * aspect).toFixed(3));
-        });
+      const scene = document.querySelector('#scene');
+      const status = document.querySelector('#status');
 
-        // Enable sound after first tap (browser rule)
-        document.body.addEventListener('click', () => {
-          video.muted = false;
-          video.play().catch(err => console.log("Autoplay blocked until interaction:", err));
-        }, { once: true });
+      async function initAR() {
+        const { data: targets, error } = await supabase.from('targets').select('*');
+        if (error) {
+          status.textContent = '❌ Failed to load targets: ' + error.message;
+          return;
+        }
+        if (!targets.length) {
+          status.textContent = '⚠️ No targets found in database.';
+          return;
+        }
 
-        // Play/pause based on tracking
-        target.addEventListener("targetFound", () => {
-          console.log("Target found ✅");
+        status.textContent = `✅ Loaded ${targets.length} targets`;
+
+        // Only support one .mind at a time for now
+        const target = targets[0];
+        scene.setAttribute('mindar-image', `imageTargetSrc: ${target.mindUrl};`);
+
+        // Add assets (video)
+        const assets = document.createElement('a-assets');
+        const video = document.createElement('video');
+        video.id = 'video';
+        video.src = target.videoUrl;
+        video.setAttribute('preload', 'auto');
+        video.setAttribute('crossorigin', 'anonymous');
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        assets.appendChild(video);
+        scene.appendChild(assets);
+
+        // Add image target entity
+        const entity = document.createElement('a-entity');
+        entity.setAttribute('mindar-image-target', 'targetIndex: 0');
+        const plane = document.createElement('a-plane');
+        plane.setAttribute('src', '#video');
+        plane.setAttribute('position', '0 0 0');
+        plane.setAttribute('height', '0.552');
+        plane.setAttribute('width', '1');
+        entity.appendChild(plane);
+        scene.appendChild(entity);
+
+        // Events for play/pause
+        entity.addEventListener('targetFound', () => {
+          status.textContent = '🎯 Target found — playing video';
           video.play();
         });
 
-        target.addEventListener("targetLost", () => {
-          console.log("Target lost ❌");
+        entity.addEventListener('targetLost', () => {
+          status.textContent = '❌ Lost tracking — paused';
           video.pause();
         });
-      });
+
+        // Autoplay unblock
+        document.body.addEventListener('click', () => {
+          video.muted = false;
+          video.play().catch(() => {});
+        }, { once: true });
+      }
+
+      initAR();
     </script>
   </body>
 </html>

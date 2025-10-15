@@ -1,0 +1,73 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TUP GEAR AR Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body style="font-family: sans-serif; max-width: 600px; margin: 40px auto;">
+    <h2>🎛️ AR Admin Control Panel</h2>
+    <p>Upload a new image target and its overlay video.</p>
+
+    <label>Target name:</label><br>
+    <input id="name" placeholder="Target name" style="width:100%; padding:8px;"><br><br>
+
+    <label>.mind file:</label><br>
+    <input type="file" id="mindFile" accept=".mind"><br><br>
+
+    <label>.mp4 video:</label><br>
+    <input type="file" id="videoFile" accept="video/mp4"><br><br>
+
+    <button id="upload" style="padding:10px 20px;">Upload</button>
+    <p id="status"></p>
+
+    <script>
+      const SUPABASE_URL = 'https://vleqrpqfjkcazeowczjy.supabase.co';
+      const SUPABASE_ANON_KEY = 'sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ';
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const uploadBtn = document.getElementById('upload');
+      const statusEl = document.getElementById('status');
+
+      uploadBtn.addEventListener('click', async () => {
+        const name = document.getElementById('name').value;
+        const mind = document.getElementById('mindFile').files[0];
+        const video = document.getElementById('videoFile').files[0];
+
+        if (!mind || !video || !name) {
+          alert('⚠️ Please fill all fields and choose files.');
+          return;
+        }
+
+        statusEl.textContent = 'Uploading... ⏳';
+
+        const mindPath = `minds/${Date.now()}-${mind.name}`;
+        const videoPath = `videos/${Date.now()}-${video.name}`;
+
+        // Upload .mind
+        const { error: mindErr } = await supabase.storage
+          .from('assets')
+          .upload(mindPath, mind);
+        if (mindErr) return statusEl.textContent = '❌ Mind upload failed: ' + mindErr.message;
+
+        // Upload video
+        const { error: vidErr } = await supabase.storage
+          .from('assets')
+          .upload(videoPath, video);
+        if (vidErr) return statusEl.textContent = '❌ Video upload failed: ' + vidErr.message;
+
+        // Public URLs
+        const mindUrl = supabase.storage.from('assets').getPublicUrl(mindPath).data.publicUrl;
+        const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+
+        // Save to DB
+        const { error: dbErr } = await supabase.from('targets').insert([{ name, mindUrl, videoUrl }]);
+        if (dbErr) return statusEl.textContent = '❌ Database insert failed: ' + dbErr.message;
+
+        statusEl.textContent = '✅ Upload complete!';
+        document.getElementById('name').value = '';
+        document.getElementById('mindFile').value = '';
+        document.getElementById('videoFile').value = '';
+      });
+    </script>
+  </body>
+</html>
