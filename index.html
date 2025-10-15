@@ -1,92 +1,119 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MindAR with Supabase</title>
+
+    <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Supabase Client -->
+    <script type="module">
+      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+      // 🔑 Replace with your own Supabase details
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        console.log("📡 Connecting to Supabase...");
+
+        const { data, error } = await supabase
+          .from("targets")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) {
+          console.error("❌ Error fetching data:", error);
+          return;
+        }
+
+        console.log("✅ Data loaded from Supabase:", data);
+
+        const mindUrl = data.mindUrl;
+        const videoUrl = data.videoUrl;
+
+        // ✅ Update the MindAR scene dynamically
+        const scene = document.querySelector("a-scene");
+        const video = document.querySelector("#card");
+        const plane = document.querySelector("#video-plane");
+        const target = document.querySelector("#target");
+
+        // Set .mind file
+        scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
+        // Set video
+        video.src = videoUrl;
+
+        // Adjust aspect ratio dynamically
+        video.addEventListener("loadedmetadata", () => {
+          const aspect = video.videoHeight / video.videoWidth;
+          plane.setAttribute("width", 1);
+          plane.setAttribute("height", 1 * aspect);
+          console.log("🎬 Video aspect set:", 1, "x", (1 * aspect).toFixed(2));
+        });
+
+        // Enable audio after user tap
+        document.body.addEventListener(
+          "click",
+          () => {
+            video.muted = false;
+            video.play().catch((err) =>
+              console.log("Autoplay blocked until user interacts:", err)
+            );
+          },
+          { once: true }
+        );
+
+        // Tracking events
+        target.addEventListener("targetFound", () => {
+          console.log("🎯 Target found!");
+          video.play();
+        });
+
+        target.addEventListener("targetLost", () => {
+          console.log("👀 Target lost!");
+          video.pause();
+        });
+      });
+    </script>
   </head>
+
   <body>
     <a-scene
-      id="scene"
+      mindar-image="imageTargetSrc: ./placeholder.mind;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
 
       <a-assets>
-        <video id="card" preload="auto" crossorigin="anonymous"
-               playsinline webkit-playsinline></video>
+        <video
+          id="card"
+          preload="auto"
+          crossorigin="anonymous"
+          playsinline
+          webkit-playsinline
+        ></video>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-plane id="video-plane"
-                 src="#card"
-                 position="0 0 0"
-                 width="1"
-                 height="0.562"
-                 rotation="0 0 0"></a-plane>
+        <a-plane
+          id="video-plane"
+          src="#card"
+          position="0 0 0"
+          width="1"
+          height="0.562"
+          rotation="0 0 0"
+        ></a-plane>
       </a-entity>
     </a-scene>
-
-    <script>
-      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
-      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
-
-      const { createClient } = window.supabase;
-      const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-      document.addEventListener("DOMContentLoaded", async function() {
-        const video = document.querySelector("#card");
-        const plane = document.querySelector("#video-plane");
-        const target = document.querySelector("#target");
-        const scene = document.querySelector("#scene");
-
-        // Fetch latest record
-        const { data, error } = await db
-          .from("targets")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (error || !data || !data.length) {
-          console.error("Failed to fetch target:", error);
-          return;
-        }
-
-        const { mind_file, video_file } = data[0];
-        console.log("Fetched target:", mind_file, video_file);
-
-        // Load .mind file into MindAR
-        scene.setAttribute("mindar-image", `imageTargetSrc: ${mind_file};`);
-
-        // Set video source
-        video.src = video_file;
-
-        // Adjust plane based on aspect ratio
-        video.addEventListener("loadedmetadata", () => {
-          const aspect = video.videoHeight / video.videoWidth;
-          plane.setAttribute("width", 1);
-          plane.setAttribute("height", 1 * aspect);
-        });
-
-        // Enable sound after click (browser rule)
-        document.body.addEventListener('click', () => {
-          video.muted = false;
-          video.play().catch(err => console.log("Autoplay blocked:", err));
-        }, { once: true });
-
-        target.addEventListener("targetFound", () => {
-          console.log("Target found ✅");
-          video.play();
-        });
-
-        target.addEventListener("targetLost", () => {
-          console.log("Target lost ❌");
-          video.pause();
-        });
-      });
-    </script>
   </body>
 </html>
