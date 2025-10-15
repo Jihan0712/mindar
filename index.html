@@ -12,29 +12,30 @@
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
-      
+
       <a-assets>
-        <video id="card" preload="auto" crossorigin="anonymous" playsinline webkit-playsinline></video>
+        <video id="card" preload="auto" crossorigin="anonymous"
+               playsinline webkit-playsinline></video>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-plane id="video-plane"
-          src="#card"
-          position="0 0 0"
-          width="1"
-          height="0.562"
-          rotation="0 0 0">
-        </a-plane>
+                 src="#card"
+                 position="0 0 0"
+                 width="1"
+                 height="0.562"
+                 rotation="0 0 0"></a-plane>
       </a-entity>
     </a-scene>
 
     <script>
-      // Your Supabase credentials
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
-      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const { createClient } = window.supabase;
+      const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       document.addEventListener("DOMContentLoaded", async function() {
         const video = document.querySelector("#card");
@@ -42,45 +43,45 @@
         const target = document.querySelector("#target");
         const scene = document.querySelector("#scene");
 
-        // Fetch the latest target info
-        const { data, error } = await supabase
+        // Fetch latest record
+        const { data, error } = await db
           .from("targets")
           .select("*")
           .order("created_at", { ascending: false })
           .limit(1);
 
         if (error || !data || !data.length) {
-          console.error("Failed to fetch target from Supabase:", error);
+          console.error("Failed to fetch target:", error);
           return;
         }
 
         const { mind_file, video_file } = data[0];
-        console.log("Fetched:", mind_file, video_file);
+        console.log("Fetched target:", mind_file, video_file);
 
-        // Apply the MindAR source dynamically
+        // Load .mind file into MindAR
         scene.setAttribute("mindar-image", `imageTargetSrc: ${mind_file};`);
 
-        // Load the video from Supabase
+        // Set video source
         video.src = video_file;
 
-        // Adjust plane size to match video aspect
+        // Adjust plane based on aspect ratio
         video.addEventListener("loadedmetadata", () => {
           const aspect = video.videoHeight / video.videoWidth;
           plane.setAttribute("width", 1);
           plane.setAttribute("height", 1 * aspect);
         });
 
-        // Required for autoplay with sound
+        // Enable sound after click (browser rule)
         document.body.addEventListener('click', () => {
           video.muted = false;
-          video.play().catch(err => console.log("Waiting for user interaction:", err));
+          video.play().catch(err => console.log("Autoplay blocked:", err));
         }, { once: true });
 
-        // Play/pause when image is tracked
         target.addEventListener("targetFound", () => {
           console.log("Target found ✅");
           video.play();
         });
+
         target.addEventListener("targetLost", () => {
           console.log("Target lost ❌");
           video.pause();
