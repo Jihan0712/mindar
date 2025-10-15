@@ -1,93 +1,91 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TUP GEAR AR Viewer</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
-  <body style="margin: 0; overflow: hidden;">
-
-    <div id="status" style="position: absolute; color: white; z-index: 1000; top: 10px; left: 10px;">
-      Loading targets...
-    </div>
-
-    <a-scene 
+  <body>
+    <a-scene
       id="scene"
-      color-space="sRGB" 
+      color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false" 
+      vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
+      
+      <a-assets>
+        <video id="card" preload="auto" crossorigin="anonymous" playsinline webkit-playsinline></video>
+      </a-assets>
+
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <a-entity id="target" mindar-image-target="targetIndex: 0">
+        <a-plane id="video-plane"
+          src="#card"
+          position="0 0 0"
+          width="1"
+          height="0.562"
+          rotation="0 0 0">
+        </a-plane>
+      </a-entity>
     </a-scene>
 
     <script>
-      const SUPABASE_URL = 'https://vleqrpqfjkcazeowczjy.supabase.co/';
-      const SUPABASE_ANON_KEY = 'sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ';
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // Your Supabase credentials
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      const scene = document.querySelector('#scene');
-      const status = document.querySelector('#status');
+      document.addEventListener("DOMContentLoaded", async function() {
+        const video = document.querySelector("#card");
+        const plane = document.querySelector("#video-plane");
+        const target = document.querySelector("#target");
+        const scene = document.querySelector("#scene");
 
-      async function initAR() {
-        const { data: targets, error } = await supabase.from('targets').select('*');
-        if (error) {
-          status.textContent = '❌ Failed to load targets: ' + error.message;
+        // Fetch the latest target info
+        const { data, error } = await supabase
+          .from("targets")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (error || !data || !data.length) {
+          console.error("Failed to fetch target from Supabase:", error);
           return;
         }
-        if (!targets.length) {
-          status.textContent = '⚠️ No targets found in database.';
-          return;
-        }
 
-        status.textContent = `✅ Loaded ${targets.length} targets`;
+        const { mind_file, video_file } = data[0];
+        console.log("Fetched:", mind_file, video_file);
 
-        // Only support one .mind at a time for now
-        const target = targets[0];
-        scene.setAttribute('mindar-image', `imageTargetSrc: ${target.mindUrl};`);
+        // Apply the MindAR source dynamically
+        scene.setAttribute("mindar-image", `imageTargetSrc: ${mind_file};`);
 
-        // Add assets (video)
-        const assets = document.createElement('a-assets');
-        const video = document.createElement('video');
-        video.id = 'video';
-        video.src = target.videoUrl;
-        video.setAttribute('preload', 'auto');
-        video.setAttribute('crossorigin', 'anonymous');
-        video.setAttribute('playsinline', '');
-        video.setAttribute('webkit-playsinline', '');
-        assets.appendChild(video);
-        scene.appendChild(assets);
+        // Load the video from Supabase
+        video.src = video_file;
 
-        // Add image target entity
-        const entity = document.createElement('a-entity');
-        entity.setAttribute('mindar-image-target', 'targetIndex: 0');
-        const plane = document.createElement('a-plane');
-        plane.setAttribute('src', '#video');
-        plane.setAttribute('position', '0 0 0');
-        plane.setAttribute('height', '0.552');
-        plane.setAttribute('width', '1');
-        entity.appendChild(plane);
-        scene.appendChild(entity);
-
-        // Events for play/pause
-        entity.addEventListener('targetFound', () => {
-          status.textContent = '🎯 Target found — playing video';
-          video.play();
+        // Adjust plane size to match video aspect
+        video.addEventListener("loadedmetadata", () => {
+          const aspect = video.videoHeight / video.videoWidth;
+          plane.setAttribute("width", 1);
+          plane.setAttribute("height", 1 * aspect);
         });
 
-        entity.addEventListener('targetLost', () => {
-          status.textContent = '❌ Lost tracking — paused';
-          video.pause();
-        });
-
-        // Autoplay unblock
+        // Required for autoplay with sound
         document.body.addEventListener('click', () => {
           video.muted = false;
-          video.play().catch(() => {});
+          video.play().catch(err => console.log("Waiting for user interaction:", err));
         }, { once: true });
-      }
 
-      initAR();
+        // Play/pause when image is tracked
+        target.addEventListener("targetFound", () => {
+          console.log("Target found ✅");
+          video.play();
+        });
+        target.addEventListener("targetLost", () => {
+          console.log("Target lost ❌");
+          video.pause();
+        });
+      });
     </script>
   </body>
 </html>
