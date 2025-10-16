@@ -1,164 +1,222 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TUP GEAR AR Admin</title>
+
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Dropzone for file upload -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/min/dropzone.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/dropzone.min.css">
+
+  <!-- TensorFlow.js (required by MindAR) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
 
   <style>
     body {
-      font-family: sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       max-width: 600px;
       margin: 40px auto;
       padding: 20px;
+      line-height: 1.6;
     }
-    #container {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 16px;
+    }
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
     }
     .dropzone {
-      border: 2px dashed #ccc;
-      padding: 20px;
+      border: 2px dashed #4a90e2;
+      border-radius: 8px;
+      padding: 30px;
       text-align: center;
+      background-color: #f9fbff;
       margin: 10px 0;
+      min-height: 120px;
     }
     button {
-      padding: 10px 20px;
-      margin: 5px 0;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 8px 0;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #357abd;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
     }
     #progress {
       font-weight: bold;
+      color: #2c6fbb;
+      display: block;
+      margin: 10px 0;
     }
     .error {
-      color: red;
+      color: #d32f2f;
       font-weight: bold;
+    }
+    #container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    #container canvas {
+      max-width: 100%;
+      border: 1px solid #eee;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .step {
+      background: #f0f7ff;
+      padding: 12px;
+      border-left: 4px solid #4a90e2;
+      margin: 16px 0;
     }
   </style>
 </head>
 <body>
   <h2>🎛️ AR Admin Control Panel</h2>
-  <p>Upload an image (JPG/PNG) → convert to .mind → then upload video.</p>
+  <p>Upload an image (JPG/PNG) → convert to .mind → upload video → go live!</p>
 
-  <label>Target name:</label><br>
-  <input id="name" placeholder="Target name" style="width:100%; padding:8px;"><br><br>
+  <label for="name">Target Name</label>
+  <input id="name" type="text" placeholder="e.g., TUP Poster" />
 
-  <!-- Image Drop Zone -->
-  <div>
-    <strong>Step 1: Upload Image</strong><br>
-    <div id="imageDropzone" class="dropzone"></div>
+  <div class="step">
+    <strong>Step 1: Upload Image (JPG/PNG)</strong>
+    <div id="imageDropzone" class="dropzone">
+      <p>Drag & drop your image here<br>or click to browse</p>
+    </div>
     <button id="startCompile">Generate .mind File</button>
     <span id="progress"></span>
     <div id="container"></div>
   </div>
 
-  <!-- Video Upload -->
-  <div>
-    <strong>Step 2: Upload Video</strong><br>
-    <label>.mp4 video:</label><br>
-    <input type="file" id="videoFile" accept="video/mp4"><br><br>
+  <div class="step">
+    <strong>Step 2: Upload Video (.mp4)</strong>
+    <input type="file" id="videoFile" accept="video/mp4" />
   </div>
 
-  <!-- Final Upload Button -->
-  <button id="uploadToSupabase">Upload to Supabase</button>
+  <button id="uploadToSupabase">📤 Upload to Supabase</button>
   <p id="status"></p>
 
   <script>
-    // Initialize Supabase
+    // === CONFIG ===
     const SUPABASE_URL = 'https://vleqrpqfjkcazeowczjy.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // === INIT ===
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let compiler = null;
     let generatedMindBlob = null;
 
-    // Initialize Dropzone for image
+    // Initialize Dropzone
     const imageDropzone = new Dropzone("#imageDropzone", {
       url: "#",
       autoProcessQueue: false,
       addRemoveLinks: true,
-      acceptedFiles: "image/jpeg,image/png"
+      acceptedFiles: "image/jpeg,image/png",
+      dictDefaultMessage: "Drop image here or click",
+      maxFilesize: 5, // MB
     });
 
-    // We'll load MindAR SDK dynamically as a module
-    let compiler = null;
-
+    // === LOAD MINDAR COMPILER ===
     document.addEventListener('DOMContentLoaded', async () => {
+      const statusEl = document.getElementById('status');
       try {
-        // Load TensorFlow.js first
+        statusEl.textContent = 'Loading TensorFlow.js...';
         await tf.ready();
-        console.log("✅ TensorFlow.js loaded");
+        console.log("✅ TensorFlow.js ready");
 
-        // Dynamically import MindAR SDK
+        statusEl.textContent = 'Loading MindAR SDK...';
         const mindarModule = await import("https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js");
         
-        // Access Compiler (if available)
-        if (mindarModule.Compiler) {
-          compiler = new mindarModule.Compiler();
-          console.log("✅ MindAR Compiler initialized");
-          document.getElementById('status').textContent = '';
-        } else {
-          throw new Error("Compiler not found in MindAR SDK");
+        if (!mindarModule.Compiler) {
+          throw new Error("MindAR Compiler not available");
         }
 
+        compiler = new mindarModule.Compiler();
+        statusEl.textContent = '✅ Ready! Upload an image to begin.';
+        console.log("✅ MindAR Compiler initialized");
       } catch (err) {
-        console.error("❌ Failed to initialize processor:", err);
-        document.getElementById('status').innerHTML = '<span class="error">❌ Error initializing processor. Please refresh or use a different browser.</span>';
+        console.error("❌ Initialization failed:", err);
+        statusEl.innerHTML = `<span class="error">❌ Failed to load processor: ${err.message}<br>Please use Chrome or Firefox.</span>`;
       }
     });
 
-    // Compile image to .mind
+    // === COMPILE IMAGE TO .MIND ===
     document.getElementById('startCompile').addEventListener('click', async () => {
       const files = imageDropzone.files;
       if (files.length === 0) {
-        alert('⚠️ Please drop an image first.');
+        alert('⚠️ Please upload an image first.');
         return;
       }
 
       const imageFile = files[0];
       const ext = imageFile.name.split('.').pop().toLowerCase();
       if (!['jpg', 'jpeg', 'png'].includes(ext)) {
-        alert('⚠️ Only JPG/PNG images are supported.');
+        alert('⚠️ Only JPG or PNG images are supported.');
         return;
       }
 
-      document.getElementById('progress').textContent = 'Processing...';
+      const progressEl = document.getElementById('progress');
+      progressEl.textContent = 'Processing...';
 
       try {
-        // Load image
-        const img = new Image();
-        img.src = URL.createObjectURL(imageFile);
+        // Load image as ImageBitmap (robust method)
+        const arrayBuf = await imageFile.arrayBuffer();
+        const blob = new Blob([arrayBuf], { type: imageFile.type });
+        const imageBitmap = await createImageBitmap(blob);
 
-        await new Promise((resolve) => {
-          img.onload = resolve;
-        });
+        // Validate size
+        if (imageBitmap.width < 300 || imageBitmap.height < 300) {
+          throw new Error("Image must be at least 300×300 pixels");
+        }
 
-        // Convert to canvas
+        // Create canvas and draw image
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = imageBitmap.width;
+        canvas.height = imageBitmap.height;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(imageBitmap, 0, 0);
 
-        // Convert to ImageData
+        // Extract ImageData
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-        // Compile
+        // Compile to .mind
         const start = Date.now();
         const dataList = await compiler.compileImageTargets([imageData], (progress) => {
-          document.getElementById('progress').textContent = `Progress: ${(progress * 100).toFixed(1)}%`;
+          progressEl.textContent = `Progress: ${(progress * 100).toFixed(1)}%`;
         });
-        console.log('⏱️ Compile time:', Date.now() - start, 'ms');
 
-        // Export .mind
+        console.log(`⏱️ Compilation took ${Date.now() - start} ms`);
+
+        // Export .mind buffer
         const buffer = await compiler.exportData();
         generatedMindBlob = new Blob([buffer], { type: 'application/octet-stream' });
 
-        document.getElementById('progress').textContent = '✅ .mind file generated!';
-
-        // Optional: Show debug points
+        progressEl.textContent = '✅ .mind file generated!';
         showDebugImages(dataList, imageData);
 
       } catch (err) {
@@ -168,48 +226,58 @@
       }
     });
 
-    // Helper: Show debug points (optional)
+    // === SHOW DEBUG POINTS (OPTIONAL) ===
     function showDebugImages(dataList, originalImageData) {
       const container = document.getElementById('container');
       container.innerHTML = '';
 
-      dataList.forEach((data, i) => {
+      dataList.forEach((data) => {
         const canvas = document.createElement('canvas');
         canvas.width = originalImageData.width;
         canvas.height = originalImageData.height;
         const ctx = canvas.getContext('2d');
         ctx.putImageData(originalImageData, 0, 0);
 
-        // Draw points
+        // Draw feature points
         const points = data.trackingData?.[0]?.points || [];
-        ctx.fillStyle = 'red';
+        ctx.strokeStyle = '#ff0000';
+        ctx.fillStyle = '#ff0000';
         points.forEach(p => {
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
           ctx.fill();
+          ctx.stroke();
         });
 
         container.appendChild(canvas);
       });
     }
 
-    // Upload to Supabase
+    // === UPLOAD TO SUPABASE ===
     document.getElementById('uploadToSupabase').addEventListener('click', async () => {
       const name = document.getElementById('name').value.trim();
       const videoFile = document.getElementById('videoFile').files[0];
 
-      if (!name || !generatedMindBlob || !videoFile) {
-        alert('⚠️ Please fill all fields and generate .mind file first.');
+      if (!name) {
+        alert('⚠️ Please enter a target name.');
+        return;
+      }
+      if (!generatedMindBlob) {
+        alert('⚠️ Please generate a .mind file first.');
+        return;
+      }
+      if (!videoFile) {
+        alert('⚠️ Please upload a video.');
         return;
       }
 
       const statusEl = document.getElementById('status');
-      statusEl.textContent = 'Uploading to Supabase... ⏳';
+      statusEl.textContent = '📤 Uploading to Supabase...';
 
       try {
         const timestamp = Date.now();
-        const mindPath = `minds/${timestamp}-target.mind`;
-        const videoPath = `videos/${timestamp}-${videoFile.name}`;
+        const mindPath = `minds/${timestamp}-${encodeURIComponent(name)}.mind`;
+        const videoPath = `videos/${timestamp}-${encodeURIComponent(videoFile.name)}`;
 
         // Upload .mind
         const { error: mindErr } = await supabase.storage
@@ -224,25 +292,28 @@
         if (vidErr) throw vidErr;
 
         // Get public URLs
-        const mindUrl = supabase.storage.from('assets').getPublicUrl(mindPath).data.publicUrl;
-        const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+        const { data: mindData } = supabase.storage.from('assets').getPublicUrl(mindPath);
+        const { data: videoData } = supabase.storage.from('assets').getPublicUrl(videoPath);
 
-        // Insert into DB
+        // Save to DB
         const { error: dbErr } = await supabase
           .from('targets')
-          .insert([{ name, mindUrl, videoUrl }]);
+          .insert([{ name, mindUrl: mindData.publicUrl, videoUrl: videoData.publicUrl }]);
         if (dbErr) throw dbErr;
 
+        // Success!
         statusEl.textContent = '✅ Success! AR target is live.';
-        // Reset form
+        // Reset
         document.getElementById('name').value = '';
         imageDropzone.removeAllFiles(true);
         document.getElementById('videoFile').value = '';
         generatedMindBlob = null;
+        document.getElementById('container').innerHTML = '';
+        document.getElementById('progress').textContent = '';
 
       } catch (err) {
-        statusEl.textContent = '❌ Error: ' + err.message;
-        console.error(err);
+        console.error('Supabase upload error:', err);
+        statusEl.innerHTML = `<span class="error">❌ Upload failed: ${err.message}</span>`;
       }
     });
   </script>
