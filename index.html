@@ -13,7 +13,6 @@
     <script type="module">
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-      // 🔑 Replace with your own Supabase details
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
 
@@ -31,6 +30,7 @@
 
         if (error) {
           console.error("❌ Error fetching data:", error);
+          document.body.innerHTML = "<h2>Failed to load AR target.</h2>";
           return;
         }
 
@@ -39,18 +39,51 @@
         const mindUrl = data.mindUrl;
         const videoUrl = data.videoUrl;
 
-        // ✅ Update the MindAR scene dynamically
-        const scene = document.querySelector("a-scene");
-        const video = document.querySelector("#card");
-        const plane = document.querySelector("#video-plane");
-        const target = document.querySelector("#target");
-
-        // Set .mind file
+        // ✅ Build the A-Frame scene dynamically
+        const scene = document.createElement("a-scene");
         scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
-        // Set video
-        video.src = videoUrl;
+        scene.setAttribute("color-space", "sRGB");
+        scene.setAttribute("renderer", "colorManagement: true, physicallyCorrectLights");
+        scene.setAttribute("vr-mode-ui", "enabled: false");
+        scene.setAttribute("device-orientation-permission-ui", "enabled: false");
 
-        // Adjust aspect ratio dynamically
+        // Assets
+        const assets = document.createElement("a-assets");
+        const video = document.createElement("video");
+        video.id = "card";
+        video.setAttribute("preload", "auto");
+        video.setAttribute("crossorigin", "anonymous");
+        video.setAttribute("playsinline", "");
+        video.setAttribute("webkit-playsinline", "");
+        video.src = videoUrl;
+        assets.appendChild(video);
+        scene.appendChild(assets);
+
+        // Camera
+        const camera = document.createElement("a-camera");
+        camera.setAttribute("position", "0 0 0");
+        camera.setAttribute("look-controls", "enabled: false");
+        scene.appendChild(camera);
+
+        // Target
+        const target = document.createElement("a-entity");
+        target.setAttribute("id", "target");
+        target.setAttribute("mindar-image-target", "targetIndex: 0");
+
+        const plane = document.createElement("a-plane");
+        plane.setAttribute("id", "video-plane");
+        plane.setAttribute("src", "#card");
+        plane.setAttribute("position", "0 0 0");
+        plane.setAttribute("width", "1");
+        plane.setAttribute("height", "0.562");
+        plane.setAttribute("rotation", "0 0 0");
+
+        target.appendChild(plane);
+        scene.appendChild(target);
+
+        document.body.appendChild(scene);
+
+        // Handle video aspect ratio
         video.addEventListener("loadedmetadata", () => {
           const aspect = video.videoHeight / video.videoWidth;
           plane.setAttribute("width", 1);
@@ -83,37 +116,8 @@
       });
     </script>
   </head>
-
   <body>
-    <a-scene
-      mindar-image="imageTargetSrc: ./placeholder.mind;"
-      color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false">
-
-      <a-assets>
-        <video
-          id="card"
-          preload="auto"
-          crossorigin="anonymous"
-          playsinline
-          webkit-playsinline
-        ></video>
-      </a-assets>
-
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-plane
-          id="video-plane"
-          src="#card"
-          position="0 0 0"
-          width="1"
-          height="0.562"
-          rotation="0 0 0"
-        ></a-plane>
-      </a-entity>
-    </a-scene>
+    <!-- Scene will be injected here after data loads -->
+    <p>Loading AR experience...</p>
   </body>
 </html>
