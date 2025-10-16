@@ -8,11 +8,11 @@
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- Dropzone for file upload -->
+  <!-- Dropzone -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/min/dropzone.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/dropzone.min.css">
 
-  <!-- TensorFlow.js (required by MindAR) -->
+  <!-- TensorFlow.js -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
 
   <style>
@@ -184,27 +184,38 @@
       progressEl.textContent = 'Processing...';
 
       try {
-        // Load image as ImageBitmap (robust method)
-        const arrayBuf = await imageFile.arrayBuffer();
-        const blob = new Blob([arrayBuf], { type: imageFile.type });
-        const imageBitmap = await createImageBitmap(blob);
+        // Create image element
+        const img = new Image();
+        img.src = URL.createObjectURL(imageFile);
+
+        // Wait for image to load
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error("Failed to load image"));
+        });
 
         // Validate size
-        if (imageBitmap.width < 300 || imageBitmap.height < 300) {
+        if (img.width < 300 || img.height < 300) {
           throw new Error("Image must be at least 300×300 pixels");
         }
 
         // Create canvas and draw image
         const canvas = document.createElement('canvas');
-        canvas.width = imageBitmap.width;
-        canvas.height = imageBitmap.height;
+        canvas.width = img.width;
+        canvas.height = img.height;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(imageBitmap, 0, 0);
 
-        // Extract ImageData
+        // Ensure canvas is ready
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw image
+        ctx.drawImage(img, 0, 0);
+
+        // Get ImageData
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-        // Compile to .mind
+        // Compile
         const start = Date.now();
         const dataList = await compiler.compileImageTargets([imageData], (progress) => {
           progressEl.textContent = `Progress: ${(progress * 100).toFixed(1)}%`;
@@ -212,7 +223,7 @@
 
         console.log(`⏱️ Compilation took ${Date.now() - start} ms`);
 
-        // Export .mind buffer
+        // Export .mind
         const buffer = await compiler.exportData();
         generatedMindBlob = new Blob([buffer], { type: 'application/octet-stream' });
 
@@ -221,12 +232,12 @@
 
       } catch (err) {
         console.error("❌ Compilation error:", err);
-        document.getElementById('progress').textContent = '❌ Failed to generate .mind file.';
+        progressEl.textContent = '❌ Failed to generate .mind file.';
         document.getElementById('status').innerHTML = `<span class="error">❌ ${err.message}</span>`;
       }
     });
 
-    // === SHOW DEBUG POINTS (OPTIONAL) ===
+    // === SHOW DEBUG POINTS ===
     function showDebugImages(dataList, originalImageData) {
       const container = document.getElementById('container');
       container.innerHTML = '';
@@ -292,8 +303,8 @@
         if (vidErr) throw vidErr;
 
         // Get public URLs
-        const { data: mindData } = supabase.storage.from('assets').getPublicUrl(mindPath);
-        const { data: videoData } = supabase.storage.from('assets').getPublicUrl(videoPath);
+        const {  mindData } = supabase.storage.from('assets').getPublicUrl(mindPath);
+        const {  videoData } = supabase.storage.from('assets').getPublicUrl(videoPath);
 
         // Save to DB
         const { error: dbErr } = await supabase
