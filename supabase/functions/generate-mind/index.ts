@@ -1,124 +1,56 @@
-// import Deno standard HTTP server
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-// import Supabase client for Deno
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ImageTargetCompiler } from "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js";
 
-// ✅ Environment variables are securely provided by Supabase
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-// Initialize Supabase client (with full service role for storage + DB)
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-// ✅ Helper: JSON Response utility
-function jsonResponse(data: any, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-// ✅ Helper: convert image buffer to `.mind` data
-async function convertToMindFile(imageBuffer: Uint8Array): Promise<Uint8Array> {
-  // ⚠️ In a real setup, replace this with your actual MindAR converter logic
-  // Example: using a CLI tool or web API to generate `.mind`
-  // For now, we just simulate conversion by returning the original buffer
-  console.log("🧠 Converting image to .mind format...");
-  await new Promise((r) => setTimeout(r, 800)); // simulate processing delay
-  return imageBuffer;
-}
-
-// ✅ Handle HTTP requests
-serve(async (req) => {
+Deno.serve(async (req) => {
   try {
-    if (req.method !== "POST") {
-      return jsonResponse({ error: "Only POST requests allowed" }, 405);
-    }
+    const { imageUrl, videoUrl } = await req.json();
 
-    const contentType = req.headers.get("content-type") || "";
-    if (!contentType.includes("multipart/form-data")) {
-      return jsonResponse({ error: "Expected multipart/form-data" }, 400);
-    }
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Parse form data
-    const form = await req.formData();
-    const file = form.get("file") as File | null;
-    const videoUrl = form.get("videoUrl") as string | null;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    if (!file) {
-      return jsonResponse({ error: "Missing image file" }, 400);
-    }
+    // 1️⃣ Download the uploaded image
+    const res = await fetch(imageUrl);
+    const buffer = await res.arrayBuffer();
+    const blob = new Blob([buffer]);
 
-    if (!videoUrl) {
-      return jsonResponse({ error: "Missing video URL" }, 400);
-    }
+    // 2️⃣ Compile to .mind (using MindAR's built-in ImageTargetCompiler)
+    const compiler = new ImageTargetCompiler();
+    const targetImage = await createImageBitmap(blob);
+    const mindResult = await compiler.compileImageTargets([targetImage]);
 
-    // Read file into buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const imageBuffer = new Uint8Array(arrayBuffer);
-    const fileExt = file.name.split(".").pop() ?? "jpg";
+    // 3️⃣ Get the generated .mind file (as Uint8Array)
+    const mindFile = new Uint8Array(mindResult);
 
-    // 1️⃣ Upload original image
-    const imageFileName = `targets/${crypto.randomUUID()}.${fileExt}`;
-    const { data: imageUpload, error: imageError } = await supabase.storage
-      .from("mindar-targets")
-      .upload(imageFileName, imageBuffer, {
-        contentType: file.type,
-      });
-
-    if (imageError) {
-      console.error("❌ Error uploading image:", imageError.message);
-      return jsonResponse({ error: "Failed to upload image" }, 500);
-    }
-
-    const imagePublicUrl = `${SUPABASE_URL}/storage/v1/object/public/mindar-targets/${imageFileName}`;
-
-    // 2️⃣ Convert to .mind file
-    const mindBuffer = await convertToMindFile(imageBuffer);
-
-    // 3️⃣ Upload .mind file
-    const mindFileName = imageFileName.replace(/\.[^/.]+$/, ".mind");
-    const { error: mindError } = await supabase.storage
-      .from("mindar-targets")
-      .upload(mindFileName, mindBuffer, {
+    // 4️⃣ Upload to Supabase Storage
+    const filename = imageUrl.split("/").pop()?.replace(/\.(jpg|jpeg|png)$/i, ".mind") ?? "output.mind";
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("assets")
+      .upload(`mindfiles/${filename}`, mindFile, {
+        upsert: true,
         contentType: "application/octet-stream",
       });
 
-    if (mindError) {
-      console.error("❌ Error uploading .mind file:", mindError.message);
-      return jsonResponse({ error: "Failed to upload .mind file" }, 500);
-    }
+    if (uploadError) throw uploadError;
 
-    const mindPublicUrl = `${SUPABASE_URL}/storage/v1/object/public/mindar-targets/${mindFileName}`;
+    // 5️⃣ Get public URL
+    const { data: mindPublic } = supabase.storage
+      .from("assets")
+      .getPublicUrl(`mindfiles/${filename}`);
 
-    // 4️⃣ Save record to database
+    // 6️⃣ Save record to targets table
     const { error: dbError } = await supabase.from("targets").insert([
-      {
-        mindUrl: mindPublicUrl,
-        videoUrl,
-        imageUrl: imagePublicUrl,
-        created_at: new Date().toISOString(),
-      },
+      { mindUrl: mindPublic.publicUrl, videoUrl },
     ]);
 
-    if (dbError) {
-      console.error("❌ Error saving to database:", dbError.message);
-      return jsonResponse({ error: "Database insert failed" }, 500);
-    }
+    if (dbError) throw dbError;
 
-    // ✅ All done
-    console.log("✅ Upload + save successful!");
-    return jsonResponse({
-      success: true,
-      message: "Target successfully uploaded and converted",
-      mindUrl: mindPublicUrl,
-      imageUrl: imagePublicUrl,
+    return new Response(JSON.stringify({ mindUrl: mindPublic.publicUrl }), {
+      headers: { "Content-Type": "application/json" },
     });
-  } catch (err: unknown) {
-    console.error("🔥 Unexpected error:", err);
-    if (err instanceof Error) {
-      return jsonResponse({ error: err.message }, 500);
-    }
-    return jsonResponse({ error: "Unknown server error" }, 500);
+  } catch (err) {
+    console.error(err);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 });
