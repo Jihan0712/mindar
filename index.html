@@ -3,63 +3,91 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MindAR + Supabase (Secure)</title>
+    <title>MindAR Viewer</title>
 
-    <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script type="module">
-      import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-      // Public values (safe for frontend)
-      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co"
-      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ"
-      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      // This calls your deployed Supabase Edge Function
-      const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/generate-mind`
+      document.addEventListener("DOMContentLoaded", async () => {
+        console.log("📡 Connecting to Supabase...");
 
-      async function handleUpload(file, videoUrl) {
-        // Upload to your "assets" bucket
-        const { data, error } = await supabase.storage.from("assets").upload(`uploads/${file.name}`, file, {
-          upsert: true,
-        })
-        if (error) throw error
+        const { data, error } = await supabase
+          .from("targets")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
 
-        const { data: publicUrl } = supabase.storage.from("assets").getPublicUrl(`uploads/${file.name}`)
-        const imageUrl = publicUrl.publicUrl
+        if (error) {
+          console.error("❌ Error fetching data:", error);
+          return;
+        }
 
-        // Call Supabase Function securely
-        const res = await fetch(FUNCTION_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl, videoUrl }),
-        })
+        console.log("✅ Data loaded:", data);
 
-        const result = await res.json()
-        if (result.error) throw result.error
-        alert("✅ .mind created: " + result.mindUrl)
-      }
+        const scene = document.querySelector("a-scene");
+        const video = document.querySelector("#card");
+        const plane = document.querySelector("#video-plane");
+        const target = document.querySelector("#target");
 
-      document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
-          e.preventDefault()
-          const file = document.getElementById("fileInput").files[0]
-          const videoUrl = document.getElementById("videoUrl").value
-          if (!file || !videoUrl) return alert("Please select an image and video URL")
-          await handleUpload(file, videoUrl)
-        })
-      })
+        scene.setAttribute("mindar-image", `imageTargetSrc: ${data.mindUrl};`);
+        video.src = data.videoUrl;
+
+        video.addEventListener("loadedmetadata", () => {
+          const aspect = video.videoHeight / video.videoWidth;
+          plane.setAttribute("width", 1);
+          plane.setAttribute("height", 1 * aspect);
+        });
+
+        document.body.addEventListener(
+          "click",
+          () => {
+            video.muted = false;
+            video.play().catch((e) => console.log("Autoplay blocked:", e));
+          },
+          { once: true }
+        );
+
+        target.addEventListener("targetFound", () => video.play());
+        target.addEventListener("targetLost", () => video.pause());
+      });
     </script>
   </head>
 
   <body>
-    <h2>🧠 Upload Image to Auto-Convert (.mind)</h2>
-    <form id="uploadForm">
-      <input type="file" id="fileInput" accept="image/png,image/jpeg" required />
-      <input type="text" id="videoUrl" placeholder="Video URL" required />
-      <button type="submit">Upload & Convert</button>
-    </form>
+    <a-scene
+      mindar-image="imageTargetSrc: ./placeholder.mind;"
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false">
+      <a-assets>
+        <video
+          id="card"
+          preload="auto"
+          crossorigin="anonymous"
+          playsinline
+          webkit-playsinline></video>
+      </a-assets>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <a-entity id="target" mindar-image-target="targetIndex: 0">
+        <a-plane
+          id="video-plane"
+          src="#card"
+          position="0 0 0"
+          width="1"
+          height="0.562"
+          rotation="0 0 0"></a-plane>
+      </a-entity>
+    </a-scene>
   </body>
 </html>

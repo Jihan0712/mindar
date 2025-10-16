@@ -1,72 +1,111 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TUP GEAR AR Admin</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindAR Admin Upload</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #0f172a;
+        color: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        gap: 1rem;
+      }
+      input, button {
+        padding: 10px;
+        border-radius: 6px;
+        border: none;
+      }
+      button {
+        background: #2563eb;
+        color: white;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1e40af;
+      }
+      .status {
+        margin-top: 1rem;
+        font-size: 0.9rem;
+        color: #38bdf8;
+      }
+    </style>
   </head>
-  <body style="font-family: sans-serif; max-width: 600px; margin: 40px auto;">
-    <h2>🎛️ AR Admin Control Panel</h2>
-    <p>Upload a new image target and its overlay video.</p>
 
-    <label>Target name:</label><br>
-    <input id="name" placeholder="Target name" style="width:100%; padding:8px;"><br><br>
+  <body>
+    <h1>🧠 Upload New Target</h1>
 
-    <label>.mind file:</label><br>
-    <input type="file" id="mindFile" accept=".mind"><br><br>
+    <input type="file" id="image" accept=".jpg,.jpeg,.png" />
+    <input type="file" id="video" accept=".mp4" />
+    <button id="upload-btn">Upload & Generate</button>
 
-    <label>.mp4 video:</label><br>
-    <input type="file" id="videoFile" accept="video/mp4"><br><br>
+    <div class="status" id="status"></div>
 
-    <button id="upload" style="padding:10px 20px;">Upload</button>
-    <p id="status"></p>
+    <script type="module">
+      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-    <script>
-      const SUPABASE_URL = 'https://vleqrpqfjkcazeowczjy.supabase.co';
-      const SUPABASE_ANON_KEY = 'sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ';
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      const uploadBtn = document.getElementById('upload');
-      const statusEl = document.getElementById('status');
+      const statusEl = document.getElementById("status");
 
-      uploadBtn.addEventListener('click', async () => {
-        const name = document.getElementById('name').value;
-        const mind = document.getElementById('mindFile').files[0];
-        const video = document.getElementById('videoFile').files[0];
+      document.getElementById("upload-btn").addEventListener("click", async () => {
+        const image = document.getElementById("image").files[0];
+        const video = document.getElementById("video").files[0];
 
-        if (!mind || !video || !name) {
-          alert('⚠️ Please fill all fields and choose files.');
+        if (!image || !video) {
+          alert("Please upload both image and video files.");
           return;
         }
 
-        statusEl.textContent = 'Uploading... ⏳';
+        statusEl.textContent = "⏳ Uploading to Supabase...";
 
-        const mindPath = `minds/${Date.now()}-${mind.name}`;
-        const videoPath = `videos/${Date.now()}-${video.name}`;
+        const imagePath = `uploads/${Date.now()}_${image.name}`;
+        const videoPath = `uploads/${Date.now()}_${video.name}`;
 
-        // Upload .mind
-        const { error: mindErr } = await supabase.storage
-          .from('assets')
-          .upload(mindPath, mind);
-        if (mindErr) return statusEl.textContent = '❌ Mind upload failed: ' + mindErr.message;
-
-        // Upload video
+        const { error: imgErr } = await supabase.storage
+          .from("assets")
+          .upload(imagePath, image);
         const { error: vidErr } = await supabase.storage
-          .from('assets')
+          .from("assets")
           .upload(videoPath, video);
-        if (vidErr) return statusEl.textContent = '❌ Video upload failed: ' + vidErr.message;
 
-        // Public URLs
-        const mindUrl = supabase.storage.from('assets').getPublicUrl(mindPath).data.publicUrl;
-        const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+        if (imgErr || vidErr) {
+          statusEl.textContent = "❌ Upload failed.";
+          return;
+        }
 
-        // Save to DB
-        const { error: dbErr } = await supabase.from('targets').insert([{ name, mindUrl, videoUrl }]);
-        if (dbErr) return statusEl.textContent = '❌ Database insert failed: ' + dbErr.message;
+        const { data: imgUrl } = supabase.storage.from("assets").getPublicUrl(imagePath);
+        const { data: vidUrl } = supabase.storage.from("assets").getPublicUrl(videoPath);
 
-        statusEl.textContent = '✅ Upload complete!';
-        document.getElementById('name').value = '';
-        document.getElementById('mindFile').value = '';
-        document.getElementById('videoFile').value = '';
+        statusEl.textContent = "⚙️ Generating .mind file (please wait)...";
+
+        const response = await fetch(
+          `${SUPABASE_URL}/functions/v1/generate-mind`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageUrl: imgUrl.publicUrl,
+              videoUrl: vidUrl.publicUrl,
+            }),
+          }
+        );
+
+        const result = await response.json();
+        console.log(result);
+
+        if (result.error) {
+          statusEl.textContent = "❌ Error generating .mind: " + result.error;
+        } else {
+          statusEl.textContent = "✅ Successfully generated .mind file!";
+        }
       });
     </script>
   </body>

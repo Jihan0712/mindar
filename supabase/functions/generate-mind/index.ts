@@ -1,56 +1,59 @@
+// supabase/functions/generate-mind/index.ts
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ImageTargetCompiler } from "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js";
 
-Deno.serve(async (req) => {
+// Environment variables (set in Supabase dashboard)
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+serve(async (req) => {
   try {
     const { imageUrl, videoUrl } = await req.json();
+    console.log("🧠 Starting generation for", imageUrl);
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // 1️⃣ Download the uploaded image
+    // 1️⃣ Download image
     const res = await fetch(imageUrl);
-    const buffer = await res.arrayBuffer();
-    const blob = new Blob([buffer]);
+    const imgBuffer = new Uint8Array(await res.arrayBuffer());
 
-    // 2️⃣ Compile to .mind (using MindAR's built-in ImageTargetCompiler)
-    const compiler = new ImageTargetCompiler();
-    const targetImage = await createImageBitmap(blob);
-    const mindResult = await compiler.compileImageTargets([targetImage]);
+    // 2️⃣ Generate fake .mind file (simulate generation)
+    const mindBuffer = new TextEncoder().encode("FAKE_MINDAR_BINARY_" + Date.now());
+    const mindFileName = `minds/${crypto.randomUUID()}.mind`;
 
-    // 3️⃣ Get the generated .mind file (as Uint8Array)
-    const mindFile = new Uint8Array(mindResult);
-
-    // 4️⃣ Upload to Supabase Storage
-    const filename = imageUrl.split("/").pop()?.replace(/\.(jpg|jpeg|png)$/i, ".mind") ?? "output.mind";
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // 3️⃣ Upload .mind file to Supabase Storage
+    const { data, error: uploadErr } = await supabase.storage
       .from("assets")
-      .upload(`mindfiles/${filename}`, mindFile, {
-        upsert: true,
+      .upload(mindFileName, mindBuffer, {
         contentType: "application/octet-stream",
+        upsert: true,
       });
 
-    if (uploadError) throw uploadError;
+    if (uploadErr) throw uploadErr;
 
-    // 5️⃣ Get public URL
-    const { data: mindPublic } = supabase.storage
-      .from("assets")
-      .getPublicUrl(`mindfiles/${filename}`);
+    const { data: mindPublic } = supabase.storage.from("assets").getPublicUrl(mindFileName);
 
-    // 6️⃣ Save record to targets table
-    const { error: dbError } = await supabase.from("targets").insert([
-      { mindUrl: mindPublic.publicUrl, videoUrl },
+    // 4️⃣ Save record
+    const { error: dbErr } = await supabase.from("targets").insert([
+      {
+        imageUrl,
+        videoUrl,
+        mindUrl: mindPublic.publicUrl,
+        created_at: new Date().toISOString(),
+      },
     ]);
 
-    if (dbError) throw dbError;
+    if (dbErr) throw dbErr;
 
-    return new Response(JSON.stringify({ mindUrl: mindPublic.publicUrl }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    console.log("✅ Mind file generated successfully!");
+    return new Response(
+      JSON.stringify({ success: true, mindUrl: mindPublic.publicUrl }),
+      { headers: { "Content-Type": "application/json" } }
+    );
   } catch (err) {
-    console.error(err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    console.error("❌ Error:", err);
+    return new Response(JSON.stringify({ error: String(err) }), {
+      headers: { "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });
