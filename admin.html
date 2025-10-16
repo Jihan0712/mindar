@@ -7,7 +7,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/min/dropzone.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/dropzone.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
 
   <style>
     body {
@@ -32,6 +31,10 @@
       margin: 5px 0;
     }
     #progress {
+      font-weight: bold;
+    }
+    .error {
+      color: red;
       font-weight: bold;
     }
   </style>
@@ -79,7 +82,7 @@
       acceptedFiles: "image/jpeg,image/png"
     });
 
-    // Compiler setup
+    // We'll load MindAR SDK dynamically as a module
     let compiler = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -88,13 +91,21 @@
         await tf.ready();
         console.log("✅ TensorFlow.js loaded");
 
-        // Initialize Compiler (from MindAR)
-        compiler = new window.MINDAR.IMAGE.Compiler();
+        // Dynamically import MindAR SDK
+        const mindarModule = await import("https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js");
+        
+        // Access Compiler (if available)
+        if (mindarModule.Compiler) {
+          compiler = new mindarModule.Compiler();
+          console.log("✅ MindAR Compiler initialized");
+          document.getElementById('status').textContent = '';
+        } else {
+          throw new Error("Compiler not found in MindAR SDK");
+        }
 
-        console.log("✅ MindAR Compiler initialized");
       } catch (err) {
-        console.error("❌ Failed to initialize compiler:", err);
-        document.getElementById('status').textContent = '❌ Error initializing processor. Please refresh.';
+        console.error("❌ Failed to initialize processor:", err);
+        document.getElementById('status').innerHTML = '<span class="error">❌ Error initializing processor. Please refresh or use a different browser.</span>';
       }
     });
 
@@ -147,12 +158,13 @@
 
         document.getElementById('progress').textContent = '✅ .mind file generated!';
 
-        // Optional: Show debug points (optional)
+        // Optional: Show debug points
         showDebugImages(dataList, imageData);
 
       } catch (err) {
         console.error("❌ Compilation error:", err);
         document.getElementById('progress').textContent = '❌ Failed to generate .mind file.';
+        document.getElementById('status').innerHTML = `<span class="error">❌ ${err.message}</span>`;
       }
     });
 
