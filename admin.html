@@ -1,91 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Upload Panel</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background: #111;
-        color: #fff;
-        padding: 20px;
-        max-width: 600px;
-        margin: auto;
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Upload - MindAR Targets</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    input, button {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Upload AR Target</h2>
+    <form id="uploadForm">
+      <input type="text" id="name" placeholder="Target Name" required>
+      <label>.mind File:</label>
+      <input type="file" id="mindFile" accept=".mind" required>
+      <label>Tracking Image (jpg/png):</label>
+      <input type="file" id="imageFile" accept="image/*" required>
+      <label>Video File (mp4):</label>
+      <input type="file" id="videoFile" accept="video/mp4" required>
+      <button type="submit">Upload</button>
+    </form>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const uploadForm = document.getElementById("uploadForm");
+    const statusEl = document.getElementById("status");
+
+    uploadForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const mindFile = document.getElementById("mindFile").files[0];
+      const imageFile = document.getElementById("imageFile").files[0];
+      const videoFile = document.getElementById("videoFile").files[0];
+
+      if (!mindFile || !imageFile || !videoFile) {
+        statusEl.textContent = "Please select all files.";
+        return;
       }
-      label {
-        display: block;
-        margin-top: 12px;
+
+      statusEl.textContent = "Uploading...";
+
+      try {
+        const mindPath = `minds/${Date.now()}_${mindFile.name}`;
+        const imagePath = `images/${Date.now()}_${imageFile.name}`;
+        const videoPath = `videos/${Date.now()}_${videoFile.name}`;
+
+        const { data: mindData, error: mindErr } = await supabase.storage.from("assets").upload(mindPath, mindFile);
+        if (mindErr) throw mindErr;
+
+        const { data: imageData, error: imageErr } = await supabase.storage.from("assets").upload(imagePath, imageFile);
+        if (imageErr) throw imageErr;
+
+        const { data: videoData, error: videoErr } = await supabase.storage.from("assets").upload(videoPath, videoFile);
+        if (videoErr) throw videoErr;
+
+        const { data: mindUrl } = supabase.storage.from("assets").getPublicUrl(mindPath);
+        const { data: imageUrl } = supabase.storage.from("assets").getPublicUrl(imagePath);
+        const { data: videoUrl } = supabase.storage.from("assets").getPublicUrl(videoPath);
+
+        const { error: insertErr } = await supabase.from("assets").insert({
+          name,
+          mindUrl: mindUrl.publicUrl,
+          imageUrl: imageUrl.publicUrl,
+          videoUrl: videoUrl.publicUrl
+        });
+        if (insertErr) throw insertErr;
+
+        statusEl.textContent = "✅ Upload complete!";
+        uploadForm.reset();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "❌ Upload failed. Check console.";
       }
-      button {
-        margin-top: 20px;
-        padding: 10px 20px;
-        background: #00ffff;
-        border: none;
-        border-radius: 8px;
-        font-weight: bold;
-        cursor: pointer;
-      }
-    </style>
-  </head>
-  <body>
-    <h2>🧠 MindAR Admin Panel</h2>
-
-    <label>Target Name</label>
-    <input id="name" placeholder="e.g. anime" style="width:100%;padding:6px;" />
-
-    <label>.mind file</label>
-    <input id="mindFile" type="file" accept=".mind" />
-
-    <label>Video file (.mp4)</label>
-    <input id="videoFile" type="file" accept="video/mp4" />
-
-    <button id="upload">Upload</button>
-    <p id="status"></p>
-
-    <script>
-      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
-      const SUPABASE_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-      const uploadBtn = document.getElementById("upload");
-      const status = document.getElementById("status");
-
-      uploadBtn.addEventListener("click", async () => {
-        const name = document.getElementById("name").value.trim();
-        const mindFile = document.getElementById("mindFile").files[0];
-        const videoFile = document.getElementById("videoFile").files[0];
-
-        if (!name || !mindFile || !videoFile) {
-          alert("Please provide all inputs!");
-          return;
-        }
-
-        status.textContent = "⏳ Uploading files...";
-
-        const timestamp = Date.now();
-        const mindPath = `minds/${timestamp}-${mindFile.name}`;
-        const videoPath = `videos/${timestamp}-${videoFile.name}`;
-
-        const { error: mindErr } = await supabase.storage
-          .from("assets")
-          .upload(mindPath, mindFile, { upsert: true });
-        if (mindErr) return (status.textContent = "❌ Mind upload failed: " + mindErr.message);
-
-        const { error: videoErr } = await supabase.storage
-          .from("assets")
-          .upload(videoPath, videoFile, { upsert: true });
-        if (videoErr) return (status.textContent = "❌ Video upload failed: " + videoErr.message);
-
-        const mindUrl = supabase.storage.from("assets").getPublicUrl(mindPath).data.publicUrl;
-        const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
-
-        const { error: dbErr } = await supabase.from("targets").insert([{ name, mindUrl, videoUrl }]);
-        if (dbErr) return (status.textContent = "❌ Database insert failed: " + dbErr.message);
-
-        status.textContent = "✅ Upload complete!";
-      });
-    </script>
-  </body>
+    });
+  </script>
+</body>
 </html>
