@@ -20,50 +20,26 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
   </a-scene>
 
-  <script>
-    const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-    async function loadTargets() {
-      const { data: targets, error } = await supabase.from("targets").select("*");
-      if (error) {
-        console.error("Supabase fetch error:", error);
-        return;
-      }
+  const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+  const SUPABASE_ANON_KEY = "sb-publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
 
-      const assets = document.getElementById("assets");
-      const scene = document.querySelector("a-scene");
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      for (let i = 0; i < targets.length; i++) {
-        const t = targets[i];
+  document.addEventListener("DOMContentLoaded", async () => {
+    console.log("📡 Connecting to Supabase...");
 
-        const videoEl = document.createElement("video");
-        videoEl.setAttribute("id", `video${i}`);
-        videoEl.setAttribute("src", t.videoUrl);
-        videoEl.setAttribute("loop", true);
-        videoEl.setAttribute("playsinline", true);
-        videoEl.crossOrigin = "anonymous";
-        assets.appendChild(videoEl);
-
-        const entity = document.createElement("a-entity");
-        entity.setAttribute("mindar-image-target", `targetIndex: ${i}`);
-        entity.innerHTML = `
-          <a-video src="#video${i}" width="1" height="0.56" position="0 0 0"></a-video>
-        `;
-        scene.appendChild(entity);
-
-        entity.addEventListener("targetFound", () => videoEl.play());
-        entity.addEventListener("targetLost", () => videoEl.pause());
-      }
-
-      // Generate .mind database file dynamically
-      const mindUrls = targets.map(t => t.mindUrl);
-      const mindarAttr = `imageTargetSrc: [${mindUrls.map(u => `'${u}'`).join(", ")}]`;
-      scene.setAttribute("mindar-image", mindarAttr);
+    const { data, error } = await supabase.from("targets").select("*");
+    if (error) {
+      console.error("❌ Error fetching data:", error);
+      return;
     }
 
-    loadTargets();
-  </script>
+    console.log("✅ Targets loaded:", data);
+  });
+</script>
+
 </body>
 </html>
