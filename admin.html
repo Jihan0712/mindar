@@ -12,7 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/min/dropzone.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/dropzone.min.css">
 
-  <!-- TensorFlow.js (use CPU backend to avoid WebGL kernel warnings) -->
+  <!-- TensorFlow.js (use CPU backend) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
 
   <style>
@@ -48,6 +48,10 @@
       background-color: #f9fbff;
       margin: 10px 0;
       min-height: 120px;
+      cursor: pointer;
+    }
+    .dropzone:hover {
+      background-color: #eaf3ff;
     }
     button {
       background-color: #4a90e2;
@@ -138,12 +142,12 @@
     let generatedMindBlob = null;
     let imageDropzone = null;
 
-    // Initialize Dropzone (safely)
+    // Wait for all scripts to load
     document.addEventListener('DOMContentLoaded', async () => {
       const statusEl = document.getElementById('status');
 
       try {
-        // Set TensorFlow.js to use CPU backend (avoids WebGL kernel warnings)
+        // Set TensorFlow.js to use CPU backend
         await tf.setBackend('cpu');
         console.log("✅ TensorFlow.js using CPU backend");
 
@@ -159,18 +163,30 @@
         console.log("✅ MindAR Compiler initialized");
 
         // Initialize Dropzone only if not already attached
-        if (!Dropzone.instances.some(instance => instance.element.id === 'imageDropzone')) {
-          imageDropzone = new Dropzone("#imageDropzone", {
-            url: "#",
-            autoProcessQueue: false,
-            addRemoveLinks: true,
-            acceptedFiles: "image/jpeg,image/png",
-            dictDefaultMessage: "Drop image here or click",
-            maxFilesize: 5, // MB
-          });
+        if (typeof Dropzone !== 'undefined') {
+          if (!Dropzone.instances.some(instance => instance.element.id === 'imageDropzone')) {
+            imageDropzone = new Dropzone("#imageDropzone", {
+              url: "#",
+              autoProcessQueue: false,
+              addRemoveLinks: true,
+              acceptedFiles: "image/jpeg,image/png",
+              dictDefaultMessage: "Drop image here or click",
+              maxFilesize: 5, // MB
+              clickable: true, // Make sure it's clickable
+              previewsContainer: false, // Hide default preview
+            });
+
+            // Optional: Show file name after upload
+            imageDropzone.on("addedfile", function(file) {
+              document.getElementById('progress').textContent = `Selected: ${file.name}`;
+            });
+
+          } else {
+            console.warn("⚠️ Dropzone already attached to #imageDropzone");
+            imageDropzone = Dropzone.forElement('#imageDropzone');
+          }
         } else {
-          console.warn("⚠️ Dropzone already attached to #imageDropzone");
-          imageDropzone = Dropzone.forElement('#imageDropzone');
+          throw new Error("Dropzone.js not loaded");
         }
 
       } catch (err) {
@@ -208,7 +224,7 @@
         const blob = new Blob([arrayBuf], { type: imageFile.type });
         const imageBitmap = await createImageBitmap(blob);
 
-        // Validate size (MindAR works best with 300–800px)
+        // Validate size
         if (imageBitmap.width > 1000 || imageBitmap.height > 1000) {
           throw new Error("Image too large! Please resize to under 1000x1000px.");
         }
