@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MindAR with Supabase</title>
+    <title>MindAR Multi-Tracking with Supabase</title>
 
     <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -13,7 +13,6 @@
     <script type="module">
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-      // 🔑 Replace with your own Supabase details
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
 
@@ -22,64 +21,72 @@
       document.addEventListener("DOMContentLoaded", async () => {
         console.log("📡 Connecting to Supabase...");
 
+        // ✅ Fetch all trackers
         const { data, error } = await supabase
           .from("targets")
           .select("*")
-          .order("created_at", { ascending: false })
-          .limit(3)
-          .single();
+          .order("created_at", { ascending: true });
 
         if (error) {
           console.error("❌ Error fetching data:", error);
           return;
         }
 
-        console.log("✅ Data loaded from Supabase:", data);
+        console.log(`✅ Loaded ${data.length} trackers from Supabase.`);
 
-        const mindUrl = data.mindUrl;
-        const videoUrl = data.videoUrl;
-
-        // ✅ Update the MindAR scene dynamically
         const scene = document.querySelector("a-scene");
-        const video = document.querySelector("#card");
-        const plane = document.querySelector("#video-plane");
-        const target = document.querySelector("#target");
+        const assets = document.querySelector("a-assets");
 
-        // Set .mind file
+        // 🔹 Assume you uploaded a single .mind file with multiple targets
+        // (combined via MindAR Creator or CLI)
+        // We’ll just use the latest mindUrl (same for all targets)
+        const mindUrl = data[data.length - 1].mindUrl;
         scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
-        // Set video
-        video.src = videoUrl;
 
-        // Adjust aspect ratio dynamically
-        video.addEventListener("loadedmetadata", () => {
-          const aspect = video.videoHeight / video.videoWidth;
-          plane.setAttribute("width", 1);
-          plane.setAttribute("height", 1 * aspect);
-          console.log("🎬 Video aspect set:", 1, "x", (1 * aspect).toFixed(2));
+        // 🔹 For each tracker, create <video> + <a-entity>
+        data.forEach((item, index) => {
+          // Create video asset
+          const video = document.createElement("video");
+          video.setAttribute("id", `video${index}`);
+          video.setAttribute("preload", "auto");
+          video.setAttribute("crossorigin", "anonymous");
+          video.setAttribute("playsinline", "");
+          video.setAttribute("webkit-playsinline", "");
+          video.setAttribute("loop", "");
+          video.src = item.videoUrl;
+          assets.appendChild(video);
+
+          // Create tracking entity for each image target
+          const entity = document.createElement("a-entity");
+          entity.setAttribute("mindar-image-target", `targetIndex: ${index}`);
+          entity.innerHTML = `
+            <a-plane src="#video${index}" width="1" height="0.562" position="0 0 0"></a-plane>
+          `;
+          scene.appendChild(entity);
+
+          // Setup tracking events
+          entity.addEventListener("targetFound", () => {
+            console.log(`🎯 Target ${index} found: playing video`);
+            video.play();
+          });
+
+          entity.addEventListener("targetLost", () => {
+            console.log(`👀 Target ${index} lost: pausing video`);
+            video.pause();
+          });
         });
 
-        // Enable audio after user tap
+        // 🔊 Enable sound after first user interaction
         document.body.addEventListener(
           "click",
           () => {
-            video.muted = false;
-            video.play().catch((err) =>
-              console.log("Autoplay blocked until user interacts:", err)
-            );
+            document.querySelectorAll("video").forEach((v) => {
+              v.muted = false;
+              v.play().catch(() => {});
+            });
           },
           { once: true }
         );
-
-        // Tracking events
-        target.addEventListener("targetFound", () => {
-          console.log("🎯 Target found!");
-          video.play();
-        });
-
-        target.addEventListener("targetLost", () => {
-          console.log("👀 Target lost!");
-          video.pause();
-        });
       });
     </script>
   </head>
@@ -90,30 +97,10 @@
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false">
-
-      <a-assets>
-        <video
-          id="card"
-          preload="auto"
-          crossorigin="anonymous"
-          playsinline
-          webkit-playsinline
-        ></video>
-      </a-assets>
-
+      device-orientation-permission-ui="enabled: false"
+    >
+      <a-assets></a-assets>
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-plane
-          id="video-plane"
-          src="#card"
-          position="0 0 0"
-          width="1"
-          height="0.562"
-          rotation="0 0 0"
-        ></a-plane>
-      </a-entity>
     </a-scene>
   </body>
 </html>
