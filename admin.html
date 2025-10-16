@@ -12,7 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/min/dropzone.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.2/dropzone.min.css">
 
-  <!-- TensorFlow.js -->
+  <!-- TensorFlow.js (use CPU backend to avoid WebGL kernel warnings) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
 
   <style>
@@ -94,6 +94,11 @@
       border-left: 4px solid #4a90e2;
       margin: 16px 0;
     }
+    .info {
+      font-size: 14px;
+      color: #666;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
@@ -111,6 +116,7 @@
     <button id="startCompile">Generate .mind File</button>
     <span id="progress"></span>
     <div id="container"></div>
+    <p class="info">💡 Tip: Use images 300–800px for best results.</p>
   </div>
 
   <div class="step">
@@ -130,26 +136,18 @@
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let compiler = null;
     let generatedMindBlob = null;
+    let imageDropzone = null;
 
-    // Initialize Dropzone
-    const imageDropzone = new Dropzone("#imageDropzone", {
-      url: "#",
-      autoProcessQueue: false,
-      addRemoveLinks: true,
-      acceptedFiles: "image/jpeg,image/png",
-      dictDefaultMessage: "Drop image here or click",
-      maxFilesize: 5, // MB
-    });
-
-    // === LOAD MINDAR COMPILER ===
+    // Initialize Dropzone (safely)
     document.addEventListener('DOMContentLoaded', async () => {
       const statusEl = document.getElementById('status');
-      try {
-        statusEl.textContent = 'Loading TensorFlow.js...';
-        await tf.ready();
-        console.log("✅ TensorFlow.js ready");
 
-        statusEl.textContent = 'Loading MindAR SDK...';
+      try {
+        // Set TensorFlow.js to use CPU backend (avoids WebGL kernel warnings)
+        await tf.setBackend('cpu');
+        console.log("✅ TensorFlow.js using CPU backend");
+
+        // Load MindAR SDK
         const mindarModule = await import("https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js");
         
         if (!mindarModule.Compiler) {
@@ -159,6 +157,22 @@
         compiler = new mindarModule.Compiler();
         statusEl.textContent = '✅ Ready! Upload an image to begin.';
         console.log("✅ MindAR Compiler initialized");
+
+        // Initialize Dropzone only if not already attached
+        if (!Dropzone.instances.some(instance => instance.element.id === 'imageDropzone')) {
+          imageDropzone = new Dropzone("#imageDropzone", {
+            url: "#",
+            autoProcessQueue: false,
+            addRemoveLinks: true,
+            acceptedFiles: "image/jpeg,image/png",
+            dictDefaultMessage: "Drop image here or click",
+            maxFilesize: 5, // MB
+          });
+        } else {
+          console.warn("⚠️ Dropzone already attached to #imageDropzone");
+          imageDropzone = Dropzone.forElement('#imageDropzone');
+        }
+
       } catch (err) {
         console.error("❌ Initialization failed:", err);
         statusEl.innerHTML = `<span class="error">❌ Failed to load processor: ${err.message}<br>Please use Chrome or Firefox.</span>`;
@@ -167,6 +181,11 @@
 
     // === COMPILE IMAGE TO .MIND ===
     document.getElementById('startCompile').addEventListener('click', async () => {
+      if (!imageDropzone) {
+        alert('⚠️ Dropzone not initialized.');
+        return;
+      }
+
       const files = imageDropzone.files;
       if (files.length === 0) {
         alert('⚠️ Please upload an image first.');
@@ -184,33 +203,25 @@
       progressEl.textContent = 'Processing...';
 
       try {
-        // Create image element
-        const img = new Image();
-        img.src = URL.createObjectURL(imageFile);
+        // Load image as ImageBitmap
+        const arrayBuf = await imageFile.arrayBuffer();
+        const blob = new Blob([arrayBuf], { type: imageFile.type });
+        const imageBitmap = await createImageBitmap(blob);
 
-        // Wait for image to load
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = () => reject(new Error("Failed to load image"));
-        });
-
-        // Validate size
-        if (img.width < 300 || img.height < 300) {
-          throw new Error("Image must be at least 300×300 pixels");
+        // Validate size (MindAR works best with 300–800px)
+        if (imageBitmap.width > 1000 || imageBitmap.height > 1000) {
+          throw new Error("Image too large! Please resize to under 1000x1000px.");
+        }
+        if (imageBitmap.width < 300 || imageBitmap.height < 300) {
+          throw new Error("Image too small! Please use at least 300x300px.");
         }
 
         // Create canvas and draw image
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = imageBitmap.width;
+        canvas.height = imageBitmap.height;
         const ctx = canvas.getContext('2d');
-
-        // Ensure canvas is ready
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw image
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(imageBitmap, 0, 0);
 
         // Get ImageData
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
