@@ -3,104 +3,81 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MindAR Multi-Tracking with Supabase</title>
+    <title>Multi-Tracker MindAR Viewer</title>
 
-    <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
-    <!-- Supabase Client -->
-    <script type="module">
-      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
-      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
-
-      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-      document.addEventListener("DOMContentLoaded", async () => {
-        console.log("📡 Connecting to Supabase...");
-
-        // ✅ Fetch all trackers
-        const { data, error } = await supabase
-          .from("targets")
-          .select("*")
-          .order("created_at", { ascending: true });
-
-        if (error) {
-          console.error("❌ Error fetching data:", error);
-          return;
-        }
-
-        console.log(`✅ Loaded ${data.length} trackers from Supabase.`);
-
-        const scene = document.querySelector("a-scene");
-        const assets = document.querySelector("a-assets");
-
-        // 🔹 Assume you uploaded a single .mind file with multiple targets
-        // (combined via MindAR Creator or CLI)
-        // We’ll just use the latest mindUrl (same for all targets)
-        const mindUrl = data[data.length - 1].mindUrl;
-        scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
-
-        // 🔹 For each tracker, create <video> + <a-entity>
-        data.forEach((item, index) => {
-          // Create video asset
-          const video = document.createElement("video");
-          video.setAttribute("id", `video${index}`);
-          video.setAttribute("preload", "auto");
-          video.setAttribute("crossorigin", "anonymous");
-          video.setAttribute("playsinline", "");
-          video.setAttribute("webkit-playsinline", "");
-          video.setAttribute("loop", "");
-          video.src = item.videoUrl;
-          assets.appendChild(video);
-
-          // Create tracking entity for each image target
-          const entity = document.createElement("a-entity");
-          entity.setAttribute("mindar-image-target", `targetIndex: ${index}`);
-          entity.innerHTML = `
-            <a-plane src="#video${index}" width="1" height="0.562" position="0 0 0"></a-plane>
-          `;
-          scene.appendChild(entity);
-
-          // Setup tracking events
-          entity.addEventListener("targetFound", () => {
-            console.log(`🎯 Target ${index} found: playing video`);
-            video.play();
-          });
-
-          entity.addEventListener("targetLost", () => {
-            console.log(`👀 Target ${index} lost: pausing video`);
-            video.pause();
-          });
-        });
-
-        // 🔊 Enable sound after first user interaction
-        document.body.addEventListener(
-          "click",
-          () => {
-            document.querySelectorAll("video").forEach((v) => {
-              v.muted = false;
-              v.play().catch(() => {});
-            });
-          },
-          { once: true }
-        );
-      });
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
-
   <body>
     <a-scene
-      mindar-image="imageTargetSrc: ./placeholder.mind;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-    >
-      <a-assets></a-assets>
+      device-orientation-permission-ui="enabled: false">
+      
+      <a-assets id="assets"></a-assets>
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     </a-scene>
+
+    <script>
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      const scene = document.querySelector("a-scene");
+      const assets = document.getElementById("assets");
+
+      async function setupTrackers() {
+        const { data: targets, error } = await supabase.from("targets").select("*");
+        if (error) {
+          console.error("❌ Error loading targets:", error);
+          return;
+        }
+
+        console.log("✅ Loaded targets:", targets);
+
+        targets.forEach((target, index) => {
+          const videoId = `video-${index}`;
+          const video = document.createElement("video");
+          video.id = videoId;
+          video.src = target.videoUrl;
+          video.loop = true;
+          video.crossOrigin = "anonymous";
+          video.playsInline = true;
+          assets.appendChild(video);
+
+          // Create individual MindAR scene for each target
+          const mindarEntity = document.createElement("a-entity");
+          mindarEntity.setAttribute(
+            "mindar-image",
+            `imageTargetSrc: ${target.mindUrl}; autoStart: true;`
+          );
+
+          // Add a child with the video plane
+          const targetEntity = document.createElement("a-entity");
+          targetEntity.setAttribute("mindar-image-target", "targetIndex: 0");
+
+          const plane = document.createElement("a-plane");
+          plane.setAttribute("src", `#${videoId}`);
+          plane.setAttribute("width", "1");
+          plane.setAttribute("height", "0.562");
+          targetEntity.appendChild(plane);
+
+          // Play/pause logic
+          targetEntity.addEventListener("targetFound", () => {
+            video.play();
+          });
+          targetEntity.addEventListener("targetLost", () => {
+            video.pause();
+          });
+
+          mindarEntity.appendChild(targetEntity);
+          scene.appendChild(mindarEntity);
+        });
+      }
+
+      setupTrackers();
+    </script>
   </body>
 </html>
