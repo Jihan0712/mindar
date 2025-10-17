@@ -1,72 +1,159 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TUP GEAR AR Admin</title>
+    <title>INRL AR Admin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 700px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+      label { font-weight: 600; }
+      input[type="text"], input[type="file"] {
+        width: 100%; padding: 8px; margin-top: 4px;
+      }
+      button {
+        padding: 8px 16px; margin-top: 10px; cursor: pointer;
+      }
+      table {
+        width: 100%; border-collapse: collapse; margin-top: 30px;
+      }
+      th, td {
+        border-bottom: 1px solid #ccc; padding: 8px; text-align: left;
+      }
+      .active-row { background: #e6ffe6; }
+    </style>
   </head>
-  <body style="font-family: sans-serif; max-width: 600px; margin: 40px auto;">
-    <h2>🎛️ AR Admin Control Panel</h2>
-    <p>Upload a new image target and its overlay video.</p>
 
-    <label>Target name:</label><br>
-    <input id="name" placeholder="Target name" style="width:100%; padding:8px;"><br><br>
+  <body>
+    <h2>🎛️ TUP GEAR AR Admin Panel</h2>
+    <p>Upload a new image target and video, and choose the active one.</p>
 
-    <label>.mind file:</label><br>
-    <input type="file" id="mindFile" accept=".mind"><br><br>
+    <label>Target name:</label>
+    <input id="name" type="text" placeholder="Target name" />
 
-    <label>.mp4 video:</label><br>
-    <input type="file" id="videoFile" accept="video/mp4"><br><br>
+    <label>.mind file:</label>
+    <input type="file" id="mindFile" accept=".mind" />
 
-    <button id="upload" style="padding:10px 20px;">Upload</button>
+    <label>.mp4 video:</label>
+    <input type="file" id="videoFile" accept="video/mp4" />
+
+    <label style="margin-top:10px;">
+      <input type="checkbox" id="makeActive" /> Make this the active target
+    </label>
+
+    <br />
+    <button id="upload">Upload Target</button>
     <p id="status"></p>
 
+    <h3>📋 Existing Targets</h3>
+    <table id="targetsTable">
+      <thead>
+        <tr><th>Name</th><th>Created</th><th>Active</th><th>Action</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
     <script>
-      const SUPABASE_URL = 'https://vleqrpqfjkcazeowczjy.supabase.co';
-      const SUPABASE_ANON_KEY = 'sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ';
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      const uploadBtn = document.getElementById('upload');
-      const statusEl = document.getElementById('status');
+      const uploadBtn = document.getElementById("upload");
+      const statusEl = document.getElementById("status");
+      const tableBody = document.querySelector("#targetsTable tbody");
 
-      uploadBtn.addEventListener('click', async () => {
-        const name = document.getElementById('name').value;
-        const mind = document.getElementById('mindFile').files[0];
-        const video = document.getElementById('videoFile').files[0];
+      // Load existing targets on page load
+      document.addEventListener("DOMContentLoaded", loadTargets);
 
-        if (!mind || !video || !name) {
-          alert('⚠️ Please fill all fields and choose files.');
+      async function loadTargets() {
+        const { data, error } = await supabase.from("targets").select("*").order("created_at", { ascending: false });
+        if (error) {
+          console.error(error);
+          statusEl.textContent = "❌ Error loading targets: " + error.message;
           return;
         }
 
-        statusEl.textContent = 'Uploading... ⏳';
+        tableBody.innerHTML = "";
+        data.forEach((t) => {
+          const tr = document.createElement("tr");
+          if (t.is_active) tr.classList.add("active-row");
+
+          tr.innerHTML = `
+            <td>${t.name}</td>
+            <td>${new Date(t.created_at).toLocaleString()}</td>
+            <td>${t.is_active ? "✅ Active" : ""}</td>
+            <td><button data-id="${t.id}">Set Active</button></td>
+          `;
+          tableBody.appendChild(tr);
+        });
+
+        // Bind click handlers
+        document.querySelectorAll("button[data-id]").forEach((btn) => {
+          btn.addEventListener("click", () => setActive(btn.dataset.id));
+        });
+      }
+
+      async function setActive(id) {
+        statusEl.textContent = "Updating active target...";
+
+        // set all inactive
+        await supabase.from("targets").update({ is_active: false }).neq("id", id);
+        // set chosen active
+        const { error } = await supabase.from("targets").update({ is_active: true }).eq("id", id);
+
+        if (error) {
+          statusEl.textContent = "❌ Failed to set active: " + error.message;
+        } else {
+          statusEl.textContent = "✅ Active target updated.";
+          loadTargets();
+        }
+      }
+
+      uploadBtn.addEventListener("click", async () => {
+        const name = document.getElementById("name").value.trim();
+        const mind = document.getElementById("mindFile").files[0];
+        const video = document.getElementById("videoFile").files[0];
+        const makeActive = document.getElementById("makeActive").checked;
+
+        if (!name || !mind || !video) {
+          alert("⚠️ Please fill in all fields and choose files.");
+          return;
+        }
+
+        statusEl.textContent = "Uploading files... ⏳";
 
         const mindPath = `minds/${Date.now()}-${mind.name}`;
         const videoPath = `videos/${Date.now()}-${video.name}`;
 
-        // Upload .mind
-        const { error: mindErr } = await supabase.storage
-          .from('assets')
-          .upload(mindPath, mind);
-        if (mindErr) return statusEl.textContent = '❌ Mind upload failed: ' + mindErr.message;
+        const { error: mindErr } = await supabase.storage.from("assets").upload(mindPath, mind);
+        if (mindErr) return (statusEl.textContent = "❌ Mind upload failed: " + mindErr.message);
 
-        // Upload video
-        const { error: vidErr } = await supabase.storage
-          .from('assets')
-          .upload(videoPath, video);
-        if (vidErr) return statusEl.textContent = '❌ Video upload failed: ' + vidErr.message;
+        const { error: vidErr } = await supabase.storage.from("assets").upload(videoPath, video);
+        if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
 
-        // Public URLs
-        const mindUrl = supabase.storage.from('assets').getPublicUrl(mindPath).data.publicUrl;
-        const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+        const mindUrl = supabase.storage.from("assets").getPublicUrl(mindPath).data.publicUrl;
+        const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
 
-        // Save to DB
-        const { error: dbErr } = await supabase.from('targets').insert([{ name, mindUrl, videoUrl }]);
-        if (dbErr) return statusEl.textContent = '❌ Database insert failed: ' + dbErr.message;
+        // if makeActive, clear others first
+        if (makeActive) {
+          await supabase.from("targets").update({ is_active: false }).neq("name", name);
+        }
 
-        statusEl.textContent = '✅ Upload complete!';
-        document.getElementById('name').value = '';
-        document.getElementById('mindFile').value = '';
-        document.getElementById('videoFile').value = '';
+        const { error: dbErr } = await supabase
+          .from("targets")
+          .insert([{ name, mindUrl, videoUrl, is_active: makeActive }]);
+
+        if (dbErr) return (statusEl.textContent = "❌ DB insert failed: " + dbErr.message);
+
+        statusEl.textContent = "✅ Upload complete!";
+        document.getElementById("name").value = "";
+        document.getElementById("mindFile").value = "";
+        document.getElementById("videoFile").value = "";
+        document.getElementById("makeActive").checked = false;
+        loadTargets();
       });
     </script>
   </body>
