@@ -76,17 +76,32 @@
       }
 
       // 🔹 Set a target active
-      async function setActive(targetId) {
-        try {
-          statusEl.textContent = "Updating active target...";
+async function setActive(targetId) {
+  console.log("🟡 setActive called with id:", targetId);
+  statusEl.textContent = "Updating active target...";
 
-          // 1️⃣ Reset all to false
-          const { error: resetErr } = await supabase
-            .from("targets")
-            .update({ is_active: false })
-            .neq("id", targetId);
+  const reset = await supabase
+    .from("targets")
+    .update({ is_active: false })
+    .neq("id", targetId);
+  console.log("🔹 reset:", reset);
 
-          if (resetErr) throw resetErr;
+  const update = await supabase
+    .from("targets")
+    .update({ is_active: true })
+    .eq("id", targetId);
+  console.log("🔹 update:", update);
+
+  if (update.error) {
+    console.error("❌ Update error:", update.error);
+    statusEl.textContent = "❌ Error: " + update.error.message;
+  } else {
+    console.log("✅ Updated row:", update.data);
+    statusEl.textContent = "✅ Active target updated!";
+    await loadTargets();
+  }
+}
+
 
           // 2️⃣ Set selected target to true
           const { error: setErr } = await supabase
