@@ -4,25 +4,25 @@
     <title>TUP GEAR AR Admin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
-  <body style="font-family: sans-serif; max-width: 700px; margin: 40px auto;">
-    <h2>AR Admin Control Panel</h2>
+  <body style="font-family:sans-serif; max-width:700px; margin:40px auto;">
+    <h2>🎛️ TUP GEAR AR Admin Panel</h2>
 
-    <p>Upload a new image target and its overlay video.</p>
+    <p>Upload a new target and choose which one is active for AR display.</p>
 
-    <label>Target name:</label><br />
-    <input id="name" placeholder="Target name" style="width: 100%; padding: 8px;" /><br /><br />
+    <label>Target name:</label><br>
+    <input id="name" placeholder="Target name" style="width:100%; padding:8px;"><br><br>
 
-    <label>.mind file:</label><br />
-    <input type="file" id="mindFile" accept=".mind" /><br /><br />
+    <label>.mind file:</label><br>
+    <input type="file" id="mindFile" accept=".mind"><br><br>
 
-    <label>.mp4 video:</label><br />
-    <input type="file" id="videoFile" accept="video/mp4" /><br /><br />
+    <label>.mp4 video:</label><br>
+    <input type="file" id="videoFile" accept="video/mp4"><br><br>
 
-    <button id="upload" style="padding: 10px 20px;">Upload</button>
+    <button id="upload" style="padding:10px 20px;">Upload</button>
     <p id="status"></p>
 
-    <hr />
-    <h3>Existing Targets</h3>
+    <hr>
+    <h3>📋 Existing Targets</h3>
     <table border="1" cellspacing="0" cellpadding="8" width="100%">
       <thead>
         <tr>
@@ -44,13 +44,16 @@
       const statusEl = document.getElementById("status");
       const targetsEl = document.getElementById("targets");
 
+      // 🔹 Load targets from database
       async function loadTargets() {
         const { data, error } = await supabase
           .from("targets")
           .select("*")
           .order("created_at", { ascending: false });
+
         if (error) {
-          console.error(error);
+          console.error("Error loading targets:", error);
+          statusEl.textContent = "❌ Failed to load targets: " + error.message;
           return;
         }
 
@@ -66,42 +69,42 @@
           targetsEl.appendChild(tr);
         });
 
-        // Add click listeners
+        // Add event listeners
         document.querySelectorAll(".set-active").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            const id = btn.getAttribute("data-id");
-            statusEl.textContent = "Updating active target...";
-
-            // Set all inactive first
-            const { error: resetErr } = await supabase
-              .from("targets")
-              .update({ is_active: false })
-              .neq("id", id);
-
-            if (resetErr) {
-              console.error(resetErr);
-              statusEl.textContent = "❌ Error resetting: " + resetErr.message;
-              return;
-            }
-
-            // Set chosen one active
-            const { error: setErr } = await supabase
-              .from("targets")
-              .update({ is_active: true })
-              .eq("id", id);
-
-            if (setErr) {
-              console.error(setErr);
-              statusEl.textContent = "❌ Error setting active: " + setErr.message;
-              return;
-            }
-
-            statusEl.textContent = "✅ Active target updated.";
-            await loadTargets();
-          });
+          btn.addEventListener("click", () => setActive(btn.getAttribute("data-id")));
         });
       }
 
+      // 🔹 Set a target active
+      async function setActive(targetId) {
+        try {
+          statusEl.textContent = "Updating active target...";
+
+          // 1️⃣ Reset all to false
+          const { error: resetErr } = await supabase
+            .from("targets")
+            .update({ is_active: false })
+            .neq("id", targetId);
+
+          if (resetErr) throw resetErr;
+
+          // 2️⃣ Set selected target to true
+          const { error: setErr } = await supabase
+            .from("targets")
+            .update({ is_active: true })
+            .eq("id", targetId);
+
+          if (setErr) throw setErr;
+
+          statusEl.textContent = "✅ Active target updated!";
+          await loadTargets();
+        } catch (err) {
+          console.error("Error updating active target:", err);
+          statusEl.textContent = "❌ Error updating: " + err.message;
+        }
+      }
+
+      // 🔹 Upload handler
       uploadBtn.addEventListener("click", async () => {
         const name = document.getElementById("name").value;
         const mind = document.getElementById("mindFile").files[0];
@@ -117,23 +120,37 @@
         const mindPath = `minds/${Date.now()}-${mind.name}`;
         const videoPath = `videos/${Date.now()}-${video.name}`;
 
+        // Upload mind file
         const { error: mindErr } = await supabase.storage
           .from("assets")
-          .upload(mindPath, mind);
-        if (mindErr) return (statusEl.textContent = "❌ Mind upload failed: " + mindErr.message);
+          .upload(mindPath, mind, { upsert: false });
+        if (mindErr) {
+          statusEl.textContent = "❌ Mind upload failed: " + mindErr.message;
+          return;
+        }
 
+        // Upload video
         const { error: vidErr } = await supabase.storage
           .from("assets")
-          .upload(videoPath, video);
-        if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
+          .upload(videoPath, video, { upsert: false });
+        if (vidErr) {
+          statusEl.textContent = "❌ Video upload failed: " + vidErr.message;
+          return;
+        }
 
+        // Get public URLs
         const mindUrl = supabase.storage.from("assets").getPublicUrl(mindPath).data.publicUrl;
         const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
 
+        // Insert into DB
         const { error: dbErr } = await supabase
           .from("targets")
           .insert([{ name, mindUrl, videoUrl, is_active: false }]);
-        if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
+
+        if (dbErr) {
+          statusEl.textContent = "❌ Database insert failed: " + dbErr.message;
+          return;
+        }
 
         statusEl.textContent = "✅ Upload complete!";
         document.getElementById("name").value = "";
