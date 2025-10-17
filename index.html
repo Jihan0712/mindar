@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MindAR with Supabase</title>
+    <title>TUP GEAR AR Viewer</title>
 
     <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -13,31 +13,37 @@
     <script type="module">
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-      // 🔑 Replace with your own Supabase details
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
 
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      document.addEventListener("DOMContentLoaded", async () => {
-        console.log("📡 Connecting to Supabase...");
+      async function loadActiveTarget() {
+        console.log("📡 Loading active target from Supabase...");
 
         const { data, error } = await supabase
           .from("targets")
           .select("*")
-          .order("created_at", { ascending: false })
-          .limit(1)
+          .eq("is_active", true)
           .single();
 
-        if (error) {
-          console.error("❌ Error fetching data:", error);
-          return;
+        if (error || !data) {
+          console.error("❌ No active target found or DB error:", error);
+          document.body.innerHTML =
+            "<h2 style='text-align:center; color:red;'>❌ No active target found in database.</h2>";
+          return null;
         }
 
-        console.log("✅ Data loaded from Supabase:", data);
+        console.log("✅ Active target loaded:", data);
+        return data;
+      }
 
-        const mindUrl = data.mindUrl;
-        const videoUrl = data.videoUrl;
+      document.addEventListener("DOMContentLoaded", async () => {
+        const activeTarget = await loadActiveTarget();
+        if (!activeTarget) return;
+
+        const mindUrl = activeTarget.mindUrl;
+        const videoUrl = activeTarget.videoUrl;
 
         // ✅ Update the MindAR scene dynamically
         const scene = document.querySelector("a-scene");
@@ -47,24 +53,25 @@
 
         // Set .mind file
         scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
-        // Set video
+
+        // Set video source
         video.src = videoUrl;
 
-        // Adjust aspect ratio dynamically
+        // Adjust aspect ratio when video metadata loads
         video.addEventListener("loadedmetadata", () => {
           const aspect = video.videoHeight / video.videoWidth;
           plane.setAttribute("width", 1);
           plane.setAttribute("height", 1 * aspect);
-          console.log("🎬 Video aspect set:", 1, "x", (1 * aspect).toFixed(2));
+          console.log("🎬 Video aspect set:", 1, "x", aspect.toFixed(2));
         });
 
-        // Enable audio after user tap
+        // Unmute & play video after first tap (required by browsers)
         document.body.addEventListener(
           "click",
           () => {
             video.muted = false;
             video.play().catch((err) =>
-              console.log("Autoplay blocked until user interacts:", err)
+              console.warn("Autoplay blocked until user interacts:", err)
             );
           },
           { once: true }
