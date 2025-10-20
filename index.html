@@ -14,13 +14,12 @@
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
-      const SUPABASE_ANON_KEY =
-        "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
 
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       async function loadActiveTarget() {
-        console.log("Loading active target from Supabase...");
+        console.log("📡 Loading active target from Supabase...");
 
         const { data, error } = await supabase
           .from("targets")
@@ -35,7 +34,7 @@
           return null;
         }
 
-        console.log("Active target loaded:", data);
+        console.log("✅ Active target loaded:", data);
         return data;
       }
 
@@ -46,107 +45,189 @@
         const mindUrl = activeTarget.mindUrl;
         const videoUrl = activeTarget.videoUrl;
 
+        // Grab existing DOM elements (matching your original file)
         const scene = document.querySelector("a-scene");
-        const plane = document.querySelector("#video-plane");
+        const aframeVideoAsset = document.querySelector("#card"); // <video id="card"> in a-assets
+        const planeEl = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
 
-        // Create and load video
-        const video = document.createElement("video");
-        video.src = videoUrl;
-        video.crossOrigin = "anonymous";
-        video.loop = true;
-        video.playsInline = true;
-        video.muted = true;
-        video.preload = "auto";
+        // Set .mind file (as before)
+        scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
 
-        // ✅ Create an offscreen 1:1 canvas to letterbox the video
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const texture = new THREE.CanvasTexture(canvas);
-        plane.getObject3D("mesh").material.map = texture;
-        plane.getObject3D("mesh").material.needsUpdate = true;
+        // Use the asset video element but we will draw it into a square canvas and use that canvas as the texture
+        aframeVideoAsset.crossOrigin = "anonymous";
+        aframeVideoAsset.src = videoUrl;
+        aframeVideoAsset.loop = true;
+        aframeVideoAsset.muted = true;
+        aframeVideoAsset.playsInline = true;
+        aframeVideoAsset.preload = "auto";
 
-        // ✅ Handle video metadata for sizing
-        video.addEventListener("loadedmetadata", () => {
-          const size = 512; // 1:1 square canvas
-          canvas.width = size;
-          canvas.height = size;
+        // Wait until the plane's three mesh exists (A-Frame creates it asynchronously)
+        function whenPlaneMeshReady(cb) {
+          const mesh = planeEl.getObject3D && planeEl.getObject3D("mesh");
+          if (mesh) return cb(mesh);
+          // try again when model/geometry finishes
+          planeEl.addEventListener("model-loaded", () => {
+            cb(planeEl.getObject3D("mesh"));
+          });
+          // fallback: poll a few times
+          let tries = 0;
+          const iv = setInterval(() => {
+            const m = planeEl.getObject3D && planeEl.getObject3D("mesh");
+            if (m) {
+              clearInterval(iv);
+              cb(m);
+            } else if (++tries > 20) {
+              clearInterval(iv);
+              console.warn("Could not find plane mesh.");
+            }
+          }, 100);
+        }
 
-          const videoAspect = video.videoWidth / video.videoHeight;
-          let drawWidth, drawHeight, offsetX, offsetY;
+        // Create offscreen square canvas, draw video into it with black bars
+        // then create a THREE texture from it and assign to the plane material.
+        whenPlaneMeshReady((mesh) => {
+          // make plane 1:1 in world units
+          planeEl.setAttribute("width", 1);
+          planeEl.setAttribute("height", 1);
 
-          // Fit video inside square, add black borders where needed
-          if (videoAspect > 1) {
-            // Wider video — black bars top/bottom
-            drawWidth = size;
-            drawHeight = size / videoAspect;
-            offsetX = 0;
-            offsetY = (size - drawHeight) / 2;
+          // Offscreen canvas size (power of two helps compatibility)
+          const CANVAS_SIZE = 1024; // large enough for good quality; square
+          const canvas = document.createElement("canvas");
+          canvas.width = CANVAS_SIZE;
+          canvas.height = CANVAS_SIZE;
+          const ctx = canvas.getContext("2d");
+
+          // Create a Three texture from the canvas
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.format = THREE.RGBAFormat;
+
+          // Ensure the plane's material uses the canvas texture
+          // If mesh material is an array, set map on each material; otherwise single material.
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => {
+              m.map = texture;
+              m.needsUpdate = true;
+              // ensure flat shader so video looks correct
+              if (m.userData) m.userData.flatShaded = true;
+            });
           } else {
-            // Taller video — black bars left/right
-            drawHeight = size;
-            drawWidth = size * videoAspect;
-            offsetX = (size - drawWidth) / 2;
-            offsetY = 0;
+            mesh.material.map = texture;
+            mesh.material.needsUpdate = true;
+            // use flat shading for accurate colors
+            mesh.material.flatShading = true;
           }
 
-          // Draw continuously to canvas
-          const drawFrame = () => {
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, size, size);
-            ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
-            texture.needsUpdate = true;
-            requestAnimationFrame(drawFrame);
-          };
-          drawFrame();
+          // Draw loop: letterbox video into square canvas with black background
+          function startDrawLoop() {
+            // Compute draw sizes
+            const vw = aframeVideoAsset.videoWidth;
+            const vh = aframeVideoAsset.videoHeight;
+            if (!vw || !vh) {
+              // wait a bit and retry
+              requestAnimationFrame(startDrawLoop);
+              return;
+            }
 
-          console.log("🎬 Video aspect:", videoAspect.toFixed(2));
+            const videoAspect = vw / vh;
+            const canvasSize = CANVAS_SIZE;
+
+            let drawW, drawH, offsetX, offsetY;
+
+            if (videoAspect > 1) {
+              // video wider than tall — full width, black bars top/bottom
+              drawW = canvasSize;
+              drawH = canvasSize / videoAspect;
+              offsetX = 0;
+              offsetY = Math.round((canvasSize - drawH) / 2);
+            } else {
+              // video taller than wide — full height, black bars left/right
+              drawH = canvasSize;
+              drawW = Math.round(canvasSize * videoAspect);
+              offsetX = Math.round((canvasSize - drawW) / 2);
+              offsetY = 0;
+            }
+
+            // continuous draw
+            (function drawFrame() {
+              // clear with black
+              ctx.fillStyle = "black";
+              ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+              // draw the current video frame into the correct box
+              try {
+                ctx.drawImage(aframeVideoAsset, offsetX, offsetY, drawW, drawH);
+              } catch (e) {
+                // drawImage may throw if video not ready; ignore and continue
+              }
+
+              texture.needsUpdate = true;
+              requestAnimationFrame(drawFrame);
+            })();
+          }
+
+          // Start the draw loop once metadata is available
+          if (aframeVideoAsset.readyState >= 1) {
+            startDrawLoop();
+          } else {
+            aframeVideoAsset.addEventListener("loadedmetadata", startDrawLoop, { once: true });
+          }
         });
 
-        // ✅ Handle video playback and target tracking
+        // Play/unmute on first user interaction (browser autoplay policy)
         document.body.addEventListener(
           "click",
           () => {
-            video.muted = false;
-            video.play().catch((err) => {
-              console.warn("Autoplay blocked:", err);
+            aframeVideoAsset.muted = false;
+            aframeVideoAsset.play().catch((err) => {
+              console.warn("video play blocked:", err);
             });
           },
           { once: true }
         );
 
+        // MindAR target events: start/pause playback
         target.addEventListener("targetFound", () => {
-          console.log("🎯 Target found!");
-          video.play();
+          console.log("🎯 Target found — play video");
+          aframeVideoAsset.play().catch((e) => console.warn("play error:", e));
         });
 
         target.addEventListener("targetLost", () => {
-          console.log("👀 Target lost!");
-          video.pause();
+          console.log("👀 Target lost — pause video");
+          aframeVideoAsset.pause();
         });
-
-        // ✅ Set MindAR target dynamically
-        scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
       });
     </script>
   </head>
 
-  <body style="margin: 0; overflow: hidden; background: transparent;">
+  <body>
     <a-scene
       mindar-image="imageTargetSrc: ./placeholder.mind;"
       color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights, alpha: true"
+      renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-      embedded
-      style="width: 100%; height: 100%;"
-    >
+      device-orientation-permission-ui="enabled: false">
+
+      <a-assets>
+        <!-- keep the asset element so A-Frame manages it; we use this video element as source for canvas -->
+        <video
+          id="card"
+          preload="auto"
+          crossorigin="anonymous"
+          playsinline
+          webkit-playsinline
+        ></video>
+      </a-assets>
+
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <!-- 1:1 video surface -->
+        <!-- keep the plane but we'll override its material map with the canvas texture -->
         <a-plane
           id="video-plane"
+          src="#card"
           position="0 0 0"
           width="1"
           height="1"
