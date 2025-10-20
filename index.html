@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>INRL AR Viewer</title>
+    <title>INRL AR Viewer (Stabilized)</title>
 
     <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -14,13 +14,11 @@
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
-      const SUPABASE_ANON_KEY =
-        "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       async function loadActiveTarget() {
         console.log("📡 Loading active target from Supabase...");
-
         const { data, error } = await supabase
           .from("targets")
           .select("*")
@@ -28,7 +26,7 @@
           .single();
 
         if (error || !data) {
-          console.error("❌ No active target found or DB error:", error);
+          console.error("❌ No active target found:", error);
           document.body.innerHTML =
             "<h2 style='text-align:center; color:red;'>❌ No active target found in database.</h2>";
           return null;
@@ -45,91 +43,147 @@
         const mindUrl = activeTarget.mindUrl;
         const videoUrl = activeTarget.videoUrl;
 
-        // ✅ Update the MindAR scene dynamically
         const scene = document.querySelector("a-scene");
-        const video = document.querySelector("#card");
-        const plane = document.querySelector("#video-plane");
+        const aframeVideoAsset = document.querySelector("#card");
+        const planeEl = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
 
-        // Set .mind file
         scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
 
-        // Set video source
-        video.src = videoUrl;
+        aframeVideoAsset.crossOrigin = "anonymous";
+        aframeVideoAsset.src = videoUrl;
+        aframeVideoAsset.loop = true;
+        aframeVideoAsset.muted = true;
+        aframeVideoAsset.playsInline = true;
+        aframeVideoAsset.preload = "auto";
 
-        // Adjust aspect ratio when video metadata loads
-        video.addEventListener("loadedmetadata", () => {
-          const aspect = video.videoHeight / video.videoWidth;
-          const planeSize = 1; // Base width
-          plane.setAttribute("width", planeSize);
-          plane.setAttribute("height", planeSize * aspect);
-          console.log("🎬 Video aspect set:", planeSize, "x", aspect.toFixed(2));
+        // Wait until mesh is ready
+        function whenPlaneMeshReady(cb) {
+          const mesh = planeEl.getObject3D && planeEl.getObject3D("mesh");
+          if (mesh) return cb(mesh);
+          planeEl.addEventListener("model-loaded", () => cb(planeEl.getObject3D("mesh")));
+          let tries = 0;
+          const iv = setInterval(() => {
+            const m = planeEl.getObject3D && planeEl.getObject3D("mesh");
+            if (m) {
+              clearInterval(iv);
+              cb(m);
+            } else if (++tries > 20) {
+              clearInterval(iv);
+              console.warn("Could not find plane mesh.");
+            }
+          }, 100);
+        }
+
+        // Draw video into square canvas texture
+        whenPlaneMeshReady((mesh) => {
+          planeEl.setAttribute("width", 1);
+          planeEl.setAttribute("height", 1);
+
+          const CANVAS_SIZE = 1024;
+          const canvas = document.createElement("canvas");
+          canvas.width = CANVAS_SIZE;
+          canvas.height = CANVAS_SIZE;
+          const ctx = canvas.getContext("2d");
+
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.format = THREE.RGBAFormat;
+
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => {
+              m.map = texture;
+              m.needsUpdate = true;
+            });
+          } else {
+            mesh.material.map = texture;
+            mesh.material.needsUpdate = true;
+          }
+
+          function startDrawLoop() {
+            const vw = aframeVideoAsset.videoWidth;
+            const vh = aframeVideoAsset.videoHeight;
+            if (!vw || !vh) {
+              requestAnimationFrame(startDrawLoop);
+              return;
+            }
+
+            const videoAspect = vw / vh;
+            const canvasSize = CANVAS_SIZE;
+            let drawW, drawH, offsetX, offsetY;
+
+            if (videoAspect > 1) {
+              drawW = canvasSize;
+              drawH = canvasSize / videoAspect;
+              offsetX = 0;
+              offsetY = Math.round((canvasSize - drawH) / 2);
+            } else {
+              drawH = canvasSize;
+              drawW = Math.round(canvasSize * videoAspect);
+              offsetX = Math.round((canvasSize - drawW) / 2);
+              offsetY = 0;
+            }
+
+            (function drawFrame() {
+              ctx.fillStyle = "black";
+              ctx.fillRect(0, 0, canvasSize, canvasSize);
+              try {
+                ctx.drawImage(aframeVideoAsset, offsetX, offsetY, drawW, drawH);
+              } catch (e) {}
+              texture.needsUpdate = true;
+              requestAnimationFrame(drawFrame);
+            })();
+          }
+
+          if (aframeVideoAsset.readyState >= 1) startDrawLoop();
+          else aframeVideoAsset.addEventListener("loadedmetadata", startDrawLoop, { once: true });
         });
 
-        // Unmute & play video after first tap (required by browsers)
+        // Play on user interaction
         document.body.addEventListener(
           "click",
           () => {
-            video.muted = false;
-            video.play().catch((err) =>
-              console.warn("Autoplay blocked until user interacts:", err)
-            );
+            aframeVideoAsset.muted = false;
+            aframeVideoAsset.play().catch((err) => console.warn("play blocked:", err));
           },
           { once: true }
         );
 
-        // Tracking events
+        // Stabilizer - smooth movement/rotation
+        const SMOOTHING_FACTOR = 0.15; // smaller = smoother (but slower)
+        let lastPosition = new THREE.Vector3();
+        let lastRotation = new THREE.Euler();
+
+        scene.addEventListener("renderstart", () => {
+          const obj = target.object3D;
+          const tick = () => {
+            // interpolate position
+            lastPosition.lerp(obj.position, SMOOTHING_FACTOR);
+            obj.position.copy(lastPosition);
+
+            // interpolate rotation (Euler)
+            lastRotation.x += (obj.rotation.x - lastRotation.x) * SMOOTHING_FACTOR;
+            lastRotation.y += (obj.rotation.y - lastRotation.y) * SMOOTHING_FACTOR;
+            lastRotation.z += (obj.rotation.z - lastRotation.z) * SMOOTHING_FACTOR;
+            obj.rotation.copy(lastRotation);
+
+            requestAnimationFrame(tick);
+          };
+          tick();
+        });
+
         target.addEventListener("targetFound", () => {
-          console.log("🎯 Target found!");
-          video.play();
+          console.log("🎯 Target found — play video");
+          aframeVideoAsset.play().catch((e) => console.warn("play error:", e));
         });
 
         target.addEventListener("targetLost", () => {
-          console.log("👀 Target lost!");
-          video.pause();
+          console.log("👀 Target lost — pause video");
+          aframeVideoAsset.pause();
         });
       });
-
-      // ✅ Smooth tracking component
-      AFRAME.registerComponent("smooth-follow", {
-        schema: {
-          target: { type: "selector" },
-          lerpFactor: { default: 0.15 },
-        },
-        tick: function () {
-          if (!this.data.target) return;
-          const targetObj = this.data.target.object3D;
-          const currentObj = this.el.object3D;
-
-          // Linear interpolation for position and rotation
-          currentObj.position.lerp(targetObj.position, this.data.lerpFactor);
-          currentObj.quaternion.slerp(
-            targetObj.quaternion,
-            this.data.lerpFactor
-          );
-        },
-      });
-
-      // Apply smooth-follow after scene loads
-      document.addEventListener("DOMContentLoaded", () => {
-        const stabilizer = document.querySelector("#stabilizer");
-        stabilizer.setAttribute(
-          "smooth-follow",
-          "target: #target; lerpFactor: 0.15"
-        );
-      });
     </script>
-
-    <style>
-      body {
-        margin: 0;
-        background-color: black;
-        overflow: hidden;
-      }
-      h2 {
-        font-family: Arial, sans-serif;
-      }
-    </style>
   </head>
 
   <body>
@@ -138,33 +192,24 @@
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-    >
+      device-orientation-permission-ui="enabled: false">
+
       <a-assets>
-        <video
-          id="card"
-          preload="auto"
-          crossorigin="anonymous"
-          playsinline
-          webkit-playsinline
-        ></video>
+        <video id="card" preload="auto" crossorigin="anonymous" playsinline webkit-playsinline></video>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <!-- ✅ Smooth stabilizer wrapper -->
-        <a-entity id="stabilizer" position="0 0 0">
-          <a-plane
-            id="video-plane"
-            src="#card"
-            position="0 0 0"
-            width="1"
-            height="1"
-            rotation="0 0 0"
-            material="shader: flat; color: black;"
-          ></a-plane>
-        </a-entity>
+        <a-plane
+          id="video-plane"
+          src="#card"
+          position="0 0 0"
+          width="1"
+          height="1"
+          rotation="0 0 0"
+          material="shader: flat; transparent: true;">
+        </a-plane>
       </a-entity>
     </a-scene>
   </body>
