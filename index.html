@@ -15,6 +15,7 @@
 
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       async function loadActiveTarget() {
@@ -43,32 +44,35 @@
         const mindUrl = activeTarget.mindUrl;
         const videoUrl = activeTarget.videoUrl;
 
-        // ✅ Update the MindAR scene dynamically
         const scene = document.querySelector("a-scene");
         const video = document.querySelector("#card");
         const plane = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
 
-        // Set .mind file
+        // Set MindAR target dynamically
         scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
 
-        // Set video source
+        // Load video
         video.src = videoUrl;
 
-        // Adjust aspect ratio and scale when video metadata loads
+        // Adjust video size and preserve 1:1
         video.addEventListener("loadedmetadata", () => {
           const vidAspect = video.videoHeight / video.videoWidth;
-          const targetAspect = 1; // force 1:1 ratio
-          const scale = vidAspect > targetAspect ? targetAspect / vidAspect : 1;
+          const targetAspect = 1; // 1:1 plane
+          let scale = 1;
+
+          if (vidAspect > targetAspect) {
+            scale = targetAspect / vidAspect;
+          }
 
           plane.setAttribute("width", 1);
           plane.setAttribute("height", 1);
           plane.object3D.scale.set(scale, scale, 1);
 
-          console.log(`🎬 Video scaled to 1:1 marker (scale: ${scale})`);
+          console.log(`🎬 Video adjusted. Aspect: ${vidAspect.toFixed(2)}, scale: ${scale.toFixed(2)}`);
         });
 
-        // Unmute & play video after first tap (required by browsers)
+        // Unmute & play video after user tap
         document.body.addEventListener(
           "click",
           () => {
@@ -80,7 +84,7 @@
           { once: true }
         );
 
-        // Tracking events
+        // Tracking
         target.addEventListener("targetFound", () => {
           console.log("🎯 Target found!");
           video.play();
@@ -94,7 +98,7 @@
     </script>
   </head>
 
-  <body style="margin: 0; background: black;">
+  <body style="margin: 0; overflow: hidden; background: transparent;">
     <a-scene
       mindar-image="imageTargetSrc: ./placeholder.mind;"
       color-space="sRGB"
@@ -102,7 +106,7 @@
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
       embedded
-      style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black;"
+      style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent;"
     >
       <a-assets>
         <video
@@ -118,14 +122,15 @@
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
+        <!-- The plane with transparent shader -->
         <a-plane
           id="video-plane"
           src="#card"
-          position="0 0 0"
           width="1"
           height="1"
-          rotation="0 0 0"
           material="shader: flat; transparent: true;"
+          position="0 0 0"
+          rotation="0 0 0"
         ></a-plane>
       </a-entity>
     </a-scene>
