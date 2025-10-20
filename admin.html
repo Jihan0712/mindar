@@ -3,215 +3,131 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>INRL AR Admin Dashboard</title>
+    <title>INRL AR Viewer</title>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Supabase JS -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  </head>
-  <body class="bg-gray-100 text-gray-800 font-sans">
+    <!-- A-Frame + MindAR -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
-    <!-- Layout -->
-    <div class="flex min-h-screen">
-      <!-- Sidebar -->
-      <aside class="w-64 bg-gray-900 text-white flex flex-col p-6">
-        <h1 class="text-2xl font-bold mb-8 text-center">INRL AR</h1>
-        <nav class="flex flex-col space-y-3">
-          <button id="uploadTab" class="py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 text-left">Upload Target</button>
-          <button id="listTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left">Existing Targets</button>
-        </nav>
-        <footer class="mt-auto text-xs text-gray-400 pt-4 border-t border-gray-700">
-          &copy; 2025 INRL
-        </footer>
-      </aside>
+    <!-- Supabase Client -->
+    <script type="module">
+      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-      <!-- Main content -->
-      <main class="flex-1 p-8">
-        <!-- Status -->
-        <p id="status" class="mb-4 text-sm text-gray-600"></p>
-
-        <!-- Upload Section -->
-        <section id="uploadSection">
-          <h2 class="text-xl font-semibold mb-4">Upload a New AR Target</h2>
-          <div class="bg-white shadow rounded-lg p-6 space-y-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">Target Name</label>
-              <input id="name" type="text" placeholder="Target name"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1">Company</label>
-              <input  type="text" placeholder="Company"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1">Brand</label>
-              <input  type="text" placeholder="Brand"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1">.mind File</label>
-              <input id="mindFile" type="file" accept=".mind" class="w-full" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1">.mp4 Video</label>
-              <input id="videoFile" type="file" accept="video/mp4" class="w-full" />
-            </div>
-
-            <button id="upload" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">
-              Upload
-            </button>
-          </div>
-        </section>
-
-        <!-- List Section -->
-        <section id="listSection" class="hidden">
-          <h2 class="text-xl font-semibold mb-4">Existing Targets</h2>
-          <div id="targetsList" class="bg-white shadow rounded-lg overflow-hidden">
-            <table class="w-full text-left border-collapse">
-              <thead class="bg-gray-200">
-                <tr>
-                  <th class="p-3">Name</th>
-                  <th class="p-3">Created</th>
-                  <th class="p-3">Active</th>
-                  <th class="p-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody id="targetsTable"></tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <script>
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      const uploadBtn = document.getElementById("upload");
-      const statusEl = document.getElementById("status");
-      const uploadSection = document.getElementById("uploadSection");
-      const listSection = document.getElementById("listSection");
-      const uploadTab = document.getElementById("uploadTab");
-      const listTab = document.getElementById("listTab");
-      const targetsTable = document.getElementById("targetsTable");
-
-      // Switch between tabs
-      uploadTab.addEventListener("click", () => {
-        uploadSection.classList.remove("hidden");
-        listSection.classList.add("hidden");
-        uploadTab.classList.add("bg-blue-600");
-        listTab.classList.remove("bg-blue-600");
-        loadTargets();
-      });
-
-      listTab.addEventListener("click", () => {
-        listSection.classList.remove("hidden");
-        uploadSection.classList.add("hidden");
-        listTab.classList.add("bg-blue-600");
-        uploadTab.classList.remove("bg-blue-600");
-        loadTargets();
-      });
-
-      // Upload function
-      uploadBtn.addEventListener("click", async () => {
-        const name = document.getElementById("name").value.trim();
-        const mind = document.getElementById("mindFile").files[0];
-        const video = document.getElementById("videoFile").files[0];
-
-        if (!name || !mind || !video) {
-          alert("⚠️ Please fill all fields and upload required files.");
-          return;
-        }
-
-        statusEl.textContent = "⏳ Uploading files...";
-        const timestamp = Date.now();
-
-        const mindPath = `minds/${timestamp}-${mind.name}`;
-        const videoPath = `videos/${timestamp}-${video.name}`;
-
-        // Upload files
-        const { error: mindErr } = await supabase.storage.from("assets").upload(mindPath, mind);
-        if (mindErr) return (statusEl.textContent = "❌ Mind upload failed: " + mindErr.message);
-
-        const { error: vidErr } = await supabase.storage.from("assets").upload(videoPath, video);
-        if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
-
-        const mindUrl = supabase.storage.from("assets").getPublicUrl(mindPath).data.publicUrl;
-        const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
-
-        const { error: dbErr } = await supabase
-          .from("targets")
-          .insert([{ name, mindUrl, videoUrl, is_active: false }]);
-
-        if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
-
-        statusEl.textContent = "✅ Upload complete!";
-        document.getElementById("name").value = "";
-        document.getElementById("mindFile").value = "";
-        document.getElementById("videoFile").value = "";
-        loadTargets();
-      });
-
-      // Load existing targets
-      async function loadTargets() {
+      async function loadActiveTarget() {
+        console.log("Loading active target from Supabase...");
         const { data, error } = await supabase
           .from("targets")
           .select("*")
-          .order("created_at", { ascending: false });
+          .eq("is_active", true)
+          .single();
 
-        if (error) {
-          console.error("Error loading targets:", error);
-          return;
+        if (error || !data) {
+          console.error("❌ No active target found or DB error:", error);
+          document.body.innerHTML =
+            "<h2 style='text-align:center; color:red;'>❌ No active target found in database.</h2>";
+          return null;
         }
 
-        targetsTable.innerHTML = "";
-        data.forEach((t) => {
-          const isActive = t.is_active ? "✅" : "❌";
-          const activeClass = t.is_active
-            ? "bg-green-50 border-l-4 border-green-500"
-            : "";
+        console.log("Active target loaded:", data);
+        return data;
+      }
 
-          const row = `
-            <tr class="${activeClass}">
-              <td class="p-3">${t.name}</td>
-              <td class="p-3 text-gray-500">${new Date(t.created_at).toLocaleString()}</td>
-              <td class="p-3">${isActive}</td>
-              <td class="p-3 text-center">
-                <button onclick="setActive('${t.id}')" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
-                  Set Active
-                </button>
-              </td>
-            </tr>`;
-          targetsTable.innerHTML += row;
+      document.addEventListener("DOMContentLoaded", async () => {
+        const activeTarget = await loadActiveTarget();
+        if (!activeTarget) return;
+
+        const mindUrl = activeTarget.mindUrl;
+        const videoUrl = activeTarget.videoUrl;
+
+        // Update the MindAR scene dynamically
+        const scene = document.querySelector("a-scene");
+        const video = document.querySelector("#card");
+        const plane = document.querySelector("#video-plane");
+        const target = document.querySelector("#target");
+
+        // Set .mind file
+        scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
+
+        // Set video source
+        video.src = videoUrl;
+
+        // Adjust aspect ratio and scale when video metadata loads
+        video.addEventListener("loadedmetadata", () => {
+          const vidAspect = video.videoHeight / video.videoWidth;
+          const targetAspect = 1; // force 1:1 ratio
+          const scale = vidAspect > targetAspect ? targetAspect / vidAspect : 1;
+
+          plane.setAttribute("width", 1);
+          plane.setAttribute("height", 1);
+          plane.object3D.scale.set(scale, scale, 1);
+
+          console.log(`Video scaled to 1:1 marker (scale: ${scale})`);
         });
-      }
 
-      // Set active target
-      async function setActive(targetId) {
-        statusEl.textContent = "⏳ Updating active target...";
-        const reset = await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
-        console.log("reset:", reset);
+        // Unmute & play video after first tap (required by browsers)
+        document.body.addEventListener(
+          "click",
+          () => {
+            video.muted = false;
+            video.play().catch((err) =>
+              console.warn("Autoplay blocked until user interacts:", err)
+            );
+          },
+          { once: true }
+        );
 
-        const update = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
-        console.log("update:", update);
+        // Tracking events
+        target.addEventListener("targetFound", () => {
+          console.log("🎯 Target found!");
+          video.play();
+        });
 
-        if (update.error) {
-          statusEl.textContent = "❌ Error: " + update.error.message;
-        } else {
-          statusEl.textContent = "✅ Active target updated!";
-          loadTargets();
-        }
-      }
-
-      // Initial load
-      loadTargets();
+        target.addEventListener("targetLost", () => {
+          console.log("👀 Target lost!");
+          video.pause();
+        });
+      });
     </script>
+  </head>
+
+  <body style="margin: 0; background: black;">
+    <a-scene
+      mindar-image="imageTargetSrc: ./placeholder.mind;"
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights, alpha: true"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+      embedded
+      style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black;"
+    >
+      <a-assets>
+        <video
+          id="card"
+          preload="auto"
+          crossorigin="anonymous"
+          playsinline
+          webkit-playsinline
+          loop
+        ></video>
+      </a-assets>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <a-entity id="target" mindar-image-target="targetIndex: 0">
+        <a-plane
+          id="video-plane"
+          src="#card"
+          position="0 0 0"
+          width="1"
+          height="1"
+          rotation="0 0 0"
+          material="shader: flat; transparent: true;"
+        ></a-plane>
+      </a-entity>
+    </a-scene>
   </body>
 </html>
