@@ -10,29 +10,28 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
-
   <body class="bg-gray-100 text-gray-800 font-sans">
     <div class="flex min-h-screen">
       <!-- Sidebar -->
       <aside class="w-64 bg-gray-900 text-white flex flex-col p-6">
-        <h1 class="text-2xl font-bold mb-8 text-center tracking-wide">INRL AR</h1>
+        <h1 class="text-2xl font-bold mb-8 text-center">INRL AR</h1>
         <nav class="flex flex-col space-y-3">
-          <button id="uploadTab" class="py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 text-left transition">Upload Target</button>
-          <button id="listTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left transition">Existing Targets</button>
+          <button id="uploadTab" class="py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 text-left">Upload Target</button>
+          <button id="listTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left">Existing Targets</button>
         </nav>
-        <footer class="mt-auto text-xs text-gray-400 pt-4 border-t border-gray-700 text-center">
+        <footer class="mt-auto text-xs text-gray-400 pt-4 border-t border-gray-700">
           &copy; 2025 INRL
         </footer>
       </aside>
 
       <!-- Main content -->
-      <main class="flex-1 p-8 overflow-y-auto">
+      <main class="flex-1 p-8">
         <p id="status" class="mb-4 text-sm text-gray-600"></p>
 
         <!-- Upload Section -->
         <section id="uploadSection">
           <h2 class="text-xl font-semibold mb-4">Upload a New AR Target</h2>
-          <div class="bg-white shadow-lg rounded-lg p-6 space-y-4">
+          <div class="bg-white shadow rounded-lg p-6 space-y-4">
             <div>
               <label class="block text-sm font-medium mb-1">Target Name</label>
               <input id="name" type="text" placeholder="Target name"
@@ -61,7 +60,7 @@
               <input id="videoFile" type="file" accept="video/mp4" class="w-full" />
             </div>
 
-            <button id="upload" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition">
+            <button id="upload" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">
               Upload
             </button>
           </div>
@@ -70,14 +69,14 @@
         <!-- List Section -->
         <section id="listSection" class="hidden">
           <h2 class="text-xl font-semibold mb-4">Existing Targets</h2>
-          <div id="targetsList" class="bg-white shadow-lg rounded-lg overflow-hidden">
+          <div id="targetsList" class="bg-white shadow rounded-lg overflow-hidden">
             <table class="w-full text-left border-collapse">
               <thead class="bg-gray-200">
                 <tr>
                   <th class="p-3">Name</th>
                   <th class="p-3">Created</th>
                   <th class="p-3">Active</th>
-                  <th class="p-3 text-center">Action</th>
+                  <th class="p-3 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody id="targetsTable"></tbody>
@@ -100,12 +99,12 @@
       const listTab = document.getElementById("listTab");
       const targetsTable = document.getElementById("targetsTable");
 
-      // Tab switching
       uploadTab.addEventListener("click", () => {
         uploadSection.classList.remove("hidden");
         listSection.classList.add("hidden");
         uploadTab.classList.add("bg-blue-600");
         listTab.classList.remove("bg-blue-600");
+        loadTargets();
       });
 
       listTab.addEventListener("click", () => {
@@ -116,7 +115,6 @@
         loadTargets();
       });
 
-      // Upload new target
       uploadBtn.addEventListener("click", async () => {
         const name = document.getElementById("name").value.trim();
         const mind = document.getElementById("mindFile").files[0];
@@ -127,7 +125,7 @@
           return;
         }
 
-        statusEl.textContent = "Uploading files...";
+        statusEl.textContent = "⏳ Uploading files...";
         const timestamp = Date.now();
 
         const mindPath = `minds/${timestamp}-${mind.name}`;
@@ -146,16 +144,15 @@
           .from("targets")
           .insert([{ name, mindUrl, videoUrl, is_active: false }]);
 
-        if (dbErr) return (statusEl.textContent = "Database insert failed: " + dbErr.message);
+        if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
 
-        statusEl.textContent = "Upload complete!";
+        statusEl.textContent = "✅ Upload complete!";
         document.getElementById("name").value = "";
         document.getElementById("mindFile").value = "";
         document.getElementById("videoFile").value = "";
         loadTargets();
       });
 
-      // Load targets
       async function loadTargets() {
         const { data, error } = await supabase
           .from("targets")
@@ -179,28 +176,25 @@
               <td class="p-3">${isActive}</td>
               <td class="p-3 text-center space-x-2">
                 <button onclick="setActive('${t.id}')" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">Set Active</button>
-                <button onclick="editVideo('${t.id}', '${t.name}')" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">Edit Video</button>
+                <button onclick="editVideo('${t.id}', '${t.name}')" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">Edit</button>
+                <button onclick="deleteTarget('${t.id}', '${t.name}', '${t.mindUrl}', '${t.videoUrl}')" class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">Delete</button>
               </td>
             </tr>`;
           targetsTable.innerHTML += row;
         });
       }
 
-      // Set active
       async function setActive(targetId) {
-        statusEl.textContent = "Updating active target...";
-        await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
+        statusEl.textContent = "⏳ Updating active target...";
+        const reset = await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
         const update = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
-
-        if (update.error) {
-          statusEl.textContent = "❌ Error: " + update.error.message;
-        } else {
+        if (update.error) statusEl.textContent = "❌ Error: " + update.error.message;
+        else {
           statusEl.textContent = "✅ Active target updated!";
           loadTargets();
         }
       }
 
-      // Edit video
       async function editVideo(id, name) {
         const input = document.createElement("input");
         input.type = "file";
@@ -210,8 +204,7 @@
         input.onchange = async () => {
           const file = input.files[0];
           if (!file) return;
-
-          statusEl.textContent = "Uploading new video...";
+          statusEl.textContent = "⏳ Uploading new video...";
           const timestamp = Date.now();
           const videoPath = `videos/${timestamp}-${file.name}`;
 
@@ -219,10 +212,7 @@
           if (vidErr) return (statusEl.textContent = "❌ Upload failed: " + vidErr.message);
 
           const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
-          const { error: updateErr } = await supabase
-            .from("targets")
-            .update({ videoUrl })
-            .eq("id", id);
+          const { error: updateErr } = await supabase.from("targets").update({ videoUrl }).eq("id", id);
 
           if (updateErr) statusEl.textContent = "❌ Update failed: " + updateErr.message;
           else {
@@ -232,7 +222,35 @@
         };
       }
 
-      // Initial load
+      async function deleteTarget(id, name, mindUrl, videoUrl) {
+        const confirm1 = confirm(`⚠️ Are you sure you want to delete "${name}"?`);
+        if (!confirm1) return;
+
+        const confirm2 = prompt('Type "delete" to confirm this action:');
+        if (confirm2?.toLowerCase() !== "delete") {
+          alert("❌ Deletion cancelled — confirmation failed.");
+          return;
+        }
+
+        statusEl.textContent = "⏳ Deleting target...";
+
+        // delete database row
+        const { error: delErr } = await supabase.from("targets").delete().eq("id", id);
+        if (delErr) {
+          statusEl.textContent = "❌ Failed to delete from database: " + delErr.message;
+          return;
+        }
+
+        // try deleting files from storage
+        const mindPath = mindUrl.split("/").slice(-2).join("/"); // crude extraction
+        const videoPath = videoUrl.split("/").slice(-2).join("/");
+        await supabase.storage.from("assets").remove([mindPath]);
+        await supabase.storage.from("assets").remove([videoPath]);
+
+        statusEl.textContent = "✅ Target deleted successfully!";
+        loadTargets();
+      }
+
       loadTargets();
     </script>
   </body>
