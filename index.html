@@ -14,12 +14,14 @@
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
-      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const SUPABASE_ANON_KEY =
+        "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
 
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       async function loadActiveTarget() {
-        console.log("📡 Loading active target from Supabase...");
+        console.log("Loading active target from Supabase...");
+
         const { data, error } = await supabase
           .from("targets")
           .select("*")
@@ -33,7 +35,7 @@
           return null;
         }
 
-        console.log("✅ Active target loaded:", data);
+        console.log("Active target loaded:", data);
         return data;
       }
 
@@ -45,46 +47,74 @@
         const videoUrl = activeTarget.videoUrl;
 
         const scene = document.querySelector("a-scene");
-        const video = document.querySelector("#card");
         const plane = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
 
-        // Set MindAR target dynamically
-        scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
-
-        // Load video
+        // Create and load video
+        const video = document.createElement("video");
         video.src = videoUrl;
+        video.crossOrigin = "anonymous";
+        video.loop = true;
+        video.playsInline = true;
+        video.muted = true;
+        video.preload = "auto";
 
-        // Adjust video size and preserve 1:1
+        // ✅ Create an offscreen 1:1 canvas to letterbox the video
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const texture = new THREE.CanvasTexture(canvas);
+        plane.getObject3D("mesh").material.map = texture;
+        plane.getObject3D("mesh").material.needsUpdate = true;
+
+        // ✅ Handle video metadata for sizing
         video.addEventListener("loadedmetadata", () => {
-          const vidAspect = video.videoHeight / video.videoWidth;
-          const targetAspect = 1; // 1:1 plane
-          let scale = 1;
+          const size = 512; // 1:1 square canvas
+          canvas.width = size;
+          canvas.height = size;
 
-          if (vidAspect > targetAspect) {
-            scale = targetAspect / vidAspect;
+          const videoAspect = video.videoWidth / video.videoHeight;
+          let drawWidth, drawHeight, offsetX, offsetY;
+
+          // Fit video inside square, add black borders where needed
+          if (videoAspect > 1) {
+            // Wider video — black bars top/bottom
+            drawWidth = size;
+            drawHeight = size / videoAspect;
+            offsetX = 0;
+            offsetY = (size - drawHeight) / 2;
+          } else {
+            // Taller video — black bars left/right
+            drawHeight = size;
+            drawWidth = size * videoAspect;
+            offsetX = (size - drawWidth) / 2;
+            offsetY = 0;
           }
 
-          plane.setAttribute("width", 1);
-          plane.setAttribute("height", 1);
-          plane.object3D.scale.set(scale, scale, 1);
+          // Draw continuously to canvas
+          const drawFrame = () => {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, size, size);
+            ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+            texture.needsUpdate = true;
+            requestAnimationFrame(drawFrame);
+          };
+          drawFrame();
 
-          console.log(`🎬 Video adjusted. Aspect: ${vidAspect.toFixed(2)}, scale: ${scale.toFixed(2)}`);
+          console.log("🎬 Video aspect:", videoAspect.toFixed(2));
         });
 
-        // Unmute & play video after user tap
+        // ✅ Handle video playback and target tracking
         document.body.addEventListener(
           "click",
           () => {
             video.muted = false;
-            video.play().catch((err) =>
-              console.warn("Autoplay blocked until user interacts:", err)
-            );
+            video.play().catch((err) => {
+              console.warn("Autoplay blocked:", err);
+            });
           },
           { once: true }
         );
 
-        // Tracking
         target.addEventListener("targetFound", () => {
           console.log("🎯 Target found!");
           video.play();
@@ -94,6 +124,9 @@
           console.log("👀 Target lost!");
           video.pause();
         });
+
+        // ✅ Set MindAR target dynamically
+        scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
       });
     </script>
   </head>
@@ -106,31 +139,19 @@
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
       embedded
-      style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent;"
+      style="width: 100%; height: 100%;"
     >
-      <a-assets>
-        <video
-          id="card"
-          preload="auto"
-          crossorigin="anonymous"
-          playsinline
-          webkit-playsinline
-          loop
-        ></video>
-      </a-assets>
-
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <!-- The plane with transparent shader -->
+        <!-- 1:1 video surface -->
         <a-plane
           id="video-plane"
-          src="#card"
+          position="0 0 0"
           width="1"
           height="1"
-          material="shader: flat; transparent: true;"
-          position="0 0 0"
           rotation="0 0 0"
+          material="shader: flat; transparent: true;"
         ></a-plane>
       </a-entity>
     </a-scene>
