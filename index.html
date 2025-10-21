@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>INRL AR Viewer (Tap to Start)</title>
+    <title>INRL AR Viewer (Stabilized)</title>
 
     <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
-      /* Fullscreen tap screen */
+      /* 👇 Added: Tap-to-Start overlay */
       #start-screen {
         position: fixed;
         inset: 0;
@@ -27,9 +27,15 @@
         transition: opacity 0.5s ease;
       }
 
+      #start-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
       #start-screen h1 {
         font-size: 2rem;
         margin-bottom: 0.5rem;
+        animation: pulse 1.5s infinite;
       }
 
       #start-screen p {
@@ -37,32 +43,14 @@
         opacity: 0.8;
       }
 
-      #start-screen.hidden {
-        opacity: 0;
-        pointer-events: none;
-      }
-
-      .pulse {
-        animation: pulse 1.5s infinite;
-      }
-
       @keyframes pulse {
-        0% {
-          transform: scale(1);
-          opacity: 1;
-        }
-        50% {
-          transform: scale(1.1);
-          opacity: 0.8;
-        }
-        100% {
-          transform: scale(1);
-          opacity: 1;
-        }
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
       }
     </style>
 
-    <!-- Supabase + Main Script -->
+    <!-- Supabase Client -->
     <script type="module">
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -71,6 +59,7 @@
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       async function loadActiveTarget() {
+        console.log("📡 Loading active target from Supabase...");
         const { data, error } = await supabase
           .from("targets")
           .select("*")
@@ -78,10 +67,13 @@
           .single();
 
         if (error || !data) {
+          console.error("❌ No active target found:", error);
           document.body.innerHTML =
-            "<h2 style='text-align:center;color:red;'>❌ No active target found.</h2>";
+            "<h2 style='text-align:center; color:red;'>❌ No active target found in database.</h2>";
           return null;
         }
+
+        console.log("✅ Active target loaded:", data);
         return data;
       }
 
@@ -96,7 +88,6 @@
         const aframeVideoAsset = document.querySelector("#card");
         const planeEl = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
-        const startScreen = document.getElementById("start-screen");
 
         scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
 
@@ -107,19 +98,7 @@
         aframeVideoAsset.playsInline = true;
         aframeVideoAsset.preload = "auto";
 
-        // --- Wait for user tap ---
-        startScreen.addEventListener("click", async () => {
-          startScreen.classList.add("hidden");
-          aframeVideoAsset.muted = false;
-          try {
-            await aframeVideoAsset.play();
-            console.log("🔊 Video started with sound!");
-          } catch (err) {
-            console.warn("Play blocked:", err);
-          }
-        });
-
-        // --- Setup plane texture ---
+        // Wait until mesh is ready
         function whenPlaneMeshReady(cb) {
           const mesh = planeEl.getObject3D && planeEl.getObject3D("mesh");
           if (mesh) return cb(mesh);
@@ -130,11 +109,18 @@
             if (m) {
               clearInterval(iv);
               cb(m);
-            } else if (++tries > 20) clearInterval(iv);
+            } else if (++tries > 20) {
+              clearInterval(iv);
+              console.warn("Could not find plane mesh.");
+            }
           }, 100);
         }
 
+        // Draw video into square canvas texture
         whenPlaneMeshReady((mesh) => {
+          planeEl.setAttribute("width", 1);
+          planeEl.setAttribute("height", 1);
+
           const CANVAS_SIZE = 1024;
           const canvas = document.createElement("canvas");
           canvas.width = CANVAS_SIZE;
@@ -156,10 +142,13 @@
             mesh.material.needsUpdate = true;
           }
 
-          const drawLoop = () => {
+          function startDrawLoop() {
             const vw = aframeVideoAsset.videoWidth;
             const vh = aframeVideoAsset.videoHeight;
-            if (!vw || !vh) return requestAnimationFrame(drawLoop);
+            if (!vw || !vh) {
+              requestAnimationFrame(startDrawLoop);
+              return;
+            }
 
             const videoAspect = vw / vh;
             const canvasSize = CANVAS_SIZE;
@@ -169,55 +158,59 @@
               drawW = canvasSize;
               drawH = canvasSize / videoAspect;
               offsetX = 0;
-              offsetY = (canvasSize - drawH) / 2;
+              offsetY = Math.round((canvasSize - drawH) / 2);
             } else {
               drawH = canvasSize;
-              drawW = canvasSize * videoAspect;
-              offsetX = (canvasSize - drawW) / 2;
+              drawW = Math.round(canvasSize * videoAspect);
+              offsetX = Math.round((canvasSize - drawW) / 2);
               offsetY = 0;
             }
 
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, canvasSize, canvasSize);
-            ctx.drawImage(aframeVideoAsset, offsetX, offsetY, drawW, drawH);
-            texture.needsUpdate = true;
-            requestAnimationFrame(drawLoop);
-          };
+            (function drawFrame() {
+              ctx.fillStyle = "black";
+              ctx.fillRect(0, 0, canvasSize, canvasSize);
+              try {
+                ctx.drawImage(aframeVideoAsset, offsetX, offsetY, drawW, drawH);
+              } catch (e) {}
+              texture.needsUpdate = true;
+              requestAnimationFrame(drawFrame);
+            })();
+          }
 
-          aframeVideoAsset.addEventListener("loadedmetadata", drawLoop, { once: true });
+          if (aframeVideoAsset.readyState >= 1) startDrawLoop();
+          else aframeVideoAsset.addEventListener("loadedmetadata", startDrawLoop, { once: true });
         });
 
-        // --- Stabilization ---
+        // 🔊 Modified: trigger unmute + play via overlay
+        const startScreen = document.getElementById("start-screen");
+        startScreen.addEventListener("click", () => {
+          startScreen.classList.add("hidden");
+          aframeVideoAsset.muted = false;
+          aframeVideoAsset.play().catch((err) => console.warn("play blocked:", err));
+        }, { once: true });
+
+        // Stabilizer - smooth movement/rotation
         const SMOOTHING_FACTOR = 0.05;
-        const POSITION_WINDOW = 5;
-        let positionBuffer = [];
+        let lastPosition = new THREE.Vector3();
         let lastRotation = new THREE.Euler();
 
         scene.addEventListener("renderstart", () => {
           const obj = target.object3D;
           const tick = () => {
-            positionBuffer.push(obj.position.clone());
-            if (positionBuffer.length > POSITION_WINDOW) positionBuffer.shift();
-
-            const avgPos = new THREE.Vector3();
-            positionBuffer.forEach((p) => avgPos.add(p));
-            avgPos.divideScalar(positionBuffer.length);
-            obj.position.lerp(avgPos, SMOOTHING_FACTOR);
-
+            lastPosition.lerp(obj.position, SMOOTHING_FACTOR);
+            obj.position.copy(lastPosition);
             lastRotation.x += (obj.rotation.x - lastRotation.x) * SMOOTHING_FACTOR;
             lastRotation.y += (obj.rotation.y - lastRotation.y) * SMOOTHING_FACTOR;
             lastRotation.z += (obj.rotation.z - lastRotation.z) * SMOOTHING_FACTOR;
             obj.rotation.copy(lastRotation);
-
             requestAnimationFrame(tick);
           };
           tick();
         });
 
-        // --- Play/Pause on marker events ---
         target.addEventListener("targetFound", () => {
           console.log("🎯 Target found — play video");
-          aframeVideoAsset.play().catch(() => {});
+          aframeVideoAsset.play().catch((e) => console.warn("play error:", e));
         });
 
         target.addEventListener("targetLost", () => {
@@ -229,10 +222,10 @@
   </head>
 
   <body>
-    <!-- Tap to Start Screen -->
+    <!-- 👇 Added: Tap-to-Start overlay -->
     <div id="start-screen">
-      <h1 class="pulse">👆 Tap to Get Started</h1>
-      <p>Allow your device to play sound and start AR experience</p>
+      <h1>👆 Tap to Get Started</h1>
+      <p>Enable audio and begin your AR experience</p>
     </div>
 
     <a-scene
