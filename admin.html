@@ -3,17 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>INRL AR Admin Dashboard + Compiler</title>
+    <title>INRL AR Admin Dashboard</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- MindAR Compiler -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
   </head>
-
   <body class="bg-gray-100 text-gray-800 font-sans">
     <div class="flex min-h-screen">
       <!-- Sidebar -->
@@ -28,31 +24,34 @@
         </footer>
       </aside>
 
-      <!-- Main Content -->
+      <!-- Main content -->
       <main class="flex-1 p-8">
         <p id="status" class="mb-4 text-sm text-gray-600"></p>
 
         <!-- Upload Section -->
         <section id="uploadSection">
-          <h2 class="text-xl font-semibold mb-4">Upload or Compile New AR Target</h2>
+          <h2 class="text-xl font-semibold mb-4">Upload a New AR Target</h2>
           <div class="bg-white shadow rounded-lg p-6 space-y-4">
-
             <div>
               <label class="block text-sm font-medium mb-1">Target Name</label>
               <input id="name" type="text" placeholder="Target name"
                 class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
 
-            <!-- Compile .mind -->
-            <div class="border-t pt-4">
-              <label class="block text-sm font-medium mb-2">Upload Marker Image (.jpg/.png)</label>
-              <input id="markerImage" type="file" accept="image/*" class="w-full mb-2" />
-              <button id="compileMind" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Generate .mind File</button>
-              <p id="compileStatus" class="text-sm text-gray-500 mt-2"></p>
+            <div>
+              <label class="block text-sm font-medium mb-1">Company</label>
+              <input type="text" placeholder="Company"
+                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
 
             <div>
-              <label class="block text-sm font-medium mb-1">.mind File (or generated one)</label>
+              <label class="block text-sm font-medium mb-1">Brand</label>
+              <input type="text" placeholder="Brand"
+                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-1">.mind File</label>
               <input id="mindFile" type="file" accept=".mind" class="w-full" />
             </div>
 
@@ -93,8 +92,6 @@
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       const uploadBtn = document.getElementById("upload");
-      const compileBtn = document.getElementById("compileMind");
-      const compileStatus = document.getElementById("compileStatus");
       const statusEl = document.getElementById("status");
       const uploadSection = document.getElementById("uploadSection");
       const listSection = document.getElementById("listSection");
@@ -107,6 +104,7 @@
         listSection.classList.add("hidden");
         uploadTab.classList.add("bg-blue-600");
         listTab.classList.remove("bg-blue-600");
+        loadTargets();
       });
 
       listTab.addEventListener("click", () => {
@@ -117,41 +115,9 @@
         loadTargets();
       });
 
-
-  compileBtn.addEventListener("click", async () => {
-    const fileInput = document.getElementById("markerImage");
-    const file = fileInput.files[0];
-    if (!file) return alert("Please upload an image first!");
-
-    compileStatus.textContent = "🧩 Compiling marker...";
-    try {
-      // Load file data
-      const buffer = await file.arrayBuffer();
-
-      // ✅ Properly initialize compiler
-      const compiler = new window.MINDAR.IMAGE.Compiler();
-      const result = await compiler.compileImageTargets([new Uint8Array(buffer)]);
-
-      // Create a downloadable blob
-      const mindBlob = new Blob([result], { type: "application/octet-stream" });
-      const fileName = file.name.replace(/\.[^/.]+$/, "") + ".mind";
-
-      const mindFile = new File([mindBlob], fileName, { type: "application/octet-stream" });
-      document.getElementById("mindFile").mindGenerated = mindFile;
-
-      compileStatus.innerHTML = "✅ Compilation successful! .mind file ready for upload.";
-    } catch (err) {
-      console.error(err);
-      compileStatus.innerHTML = "❌ Compilation failed: " + err.message;
-    }
-  });
-
-
-
-      // 📤 Upload to Supabase
       uploadBtn.addEventListener("click", async () => {
         const name = document.getElementById("name").value.trim();
-        const mind = document.getElementById("mindFile").files[0] || document.getElementById("mindFile").mindGenerated;
+        const mind = document.getElementById("mindFile").files[0];
         const video = document.getElementById("videoFile").files[0];
 
         if (!name || !mind || !video) {
@@ -182,13 +148,11 @@
 
         statusEl.textContent = "✅ Upload complete!";
         document.getElementById("name").value = "";
-        document.getElementById("markerImage").value = "";
         document.getElementById("mindFile").value = "";
         document.getElementById("videoFile").value = "";
         loadTargets();
       });
 
-      // 📋 Load targets list
       async function loadTargets() {
         const { data, error } = await supabase
           .from("targets")
@@ -220,7 +184,7 @@
         });
       }
 
-      window.setActive = async function (targetId) {
+      async function setActive(targetId) {
         statusEl.textContent = "⏳ Updating active target...";
         const reset = await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
         const update = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
@@ -229,9 +193,9 @@
           statusEl.textContent = "✅ Active target updated!";
           loadTargets();
         }
-      };
+      }
 
-      window.editVideo = async function (id, name) {
+      async function editVideo(id, name) {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = "video/mp4";
@@ -256,9 +220,9 @@
             loadTargets();
           }
         };
-      };
+      }
 
-      window.deleteTarget = async function (id, name, mindUrl, videoUrl) {
+      async function deleteTarget(id, name, mindUrl, videoUrl) {
         const confirm1 = confirm(`⚠️ Are you sure you want to delete "${name}"?`);
         if (!confirm1) return;
 
@@ -270,20 +234,22 @@
 
         statusEl.textContent = "⏳ Deleting target...";
 
+        // delete database row
         const { error: delErr } = await supabase.from("targets").delete().eq("id", id);
         if (delErr) {
           statusEl.textContent = "❌ Failed to delete from database: " + delErr.message;
           return;
         }
 
-        const mindPath = mindUrl.split("/").slice(-2).join("/");
+        // try deleting files from storage
+        const mindPath = mindUrl.split("/").slice(-2).join("/"); // crude extraction
         const videoPath = videoUrl.split("/").slice(-2).join("/");
         await supabase.storage.from("assets").remove([mindPath]);
         await supabase.storage.from("assets").remove([videoPath]);
 
         statusEl.textContent = "✅ Target deleted successfully!";
         loadTargets();
-      };
+      }
 
       loadTargets();
     </script>
