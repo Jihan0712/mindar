@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- MindAR Compiler -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-compiler.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
   </head>
 
   <body class="bg-gray-100 text-gray-800 font-sans">
@@ -117,31 +117,36 @@
         loadTargets();
       });
 
-      // 🧠 Compile image -> .mind
-      compileBtn.addEventListener("click", async () => {
-        const fileInput = document.getElementById("markerImage");
-        const file = fileInput.files[0];
-        if (!file) return alert("Please upload an image first!");
 
-        compileStatus.textContent = "🧩 Compiling marker...";
-        try {
-          const buffer = await file.arrayBuffer();
-          const compiler = new window.MINDAR.IMAGE.Compiler();
-          const result = await compiler.compileImageTargets([new Uint8Array(buffer)]);
+  compileBtn.addEventListener("click", async () => {
+    const fileInput = document.getElementById("markerImage");
+    const file = fileInput.files[0];
+    if (!file) return alert("Please upload an image first!");
 
-          const mindBlob = new Blob([result], { type: "application/octet-stream" });
-          const fileName = file.name.replace(/\.[^/.]+$/, "") + ".mind";
+    compileStatus.textContent = "🧩 Compiling marker...";
+    try {
+      // Load file data
+      const buffer = await file.arrayBuffer();
 
-          // Create a File-like object for upload
-          const mindFile = new File([mindBlob], fileName, { type: "application/octet-stream" });
-          document.getElementById("mindFile").mindGenerated = mindFile;
+      // ✅ Properly initialize compiler
+      const compiler = new window.MINDAR.IMAGE.Compiler();
+      const result = await compiler.compileImageTargets([new Uint8Array(buffer)]);
 
-          compileStatus.textContent = "✅ Compilation successful! .mind file ready for upload.";
-        } catch (err) {
-          console.error(err);
-          compileStatus.textContent = "❌ Compilation failed: " + err.message;
-        }
-      });
+      // Create a downloadable blob
+      const mindBlob = new Blob([result], { type: "application/octet-stream" });
+      const fileName = file.name.replace(/\.[^/.]+$/, "") + ".mind";
+
+      const mindFile = new File([mindBlob], fileName, { type: "application/octet-stream" });
+      document.getElementById("mindFile").mindGenerated = mindFile;
+
+      compileStatus.innerHTML = "✅ Compilation successful! .mind file ready for upload.";
+    } catch (err) {
+      console.error(err);
+      compileStatus.innerHTML = "❌ Compilation failed: " + err.message;
+    }
+  });
+
+
 
       // 📤 Upload to Supabase
       uploadBtn.addEventListener("click", async () => {
