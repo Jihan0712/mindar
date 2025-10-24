@@ -333,8 +333,24 @@
 
             const videoUrlLocal = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
 
-            // insert DB record
-            const { error: dbErr } = await supabase.from('targets').insert([{ name, mindUrl: mindUrlLocal, videoUrl: videoUrlLocal, is_active: false }]);
+            // upload original marker image so we can display it later
+            let imageUrlLocal = null;
+            try {
+              const markerPathLocal = `markers/${timestamp}-${markerImage.name}`;
+              const { error: markerErr } = await supabase.storage.from('assets').upload(markerPathLocal, markerImage);
+              if (!markerErr) {
+                imageUrlLocal = supabase.storage.from('assets').getPublicUrl(markerPathLocal).data.publicUrl;
+              } else {
+                console.warn('Marker image upload failed:', markerErr.message || markerErr);
+              }
+            } catch (e) {
+              console.warn('Marker upload threw', e);
+            }
+
+            // insert DB record (include imageUrl if available)
+            const insertObj = { name, mindUrl: mindUrlLocal, videoUrl: videoUrlLocal, is_active: false };
+            if (imageUrlLocal) insertObj.imageUrl = imageUrlLocal;
+            const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
             if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
 
             statusEl.textContent = '✅ Upload complete (client-side compile)!';
@@ -359,7 +375,23 @@
 
           const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
 
-          const { error: dbErr } = await supabase.from('targets').insert([{ name, mindUrl: uploadedMindUrl, videoUrl, is_active: false }]);
+          // if a marker image file was selected, upload it as well and save imageUrl
+          let imageUrlNew = null;
+          if (markerImage) {
+            try {
+              const markerPath = `markers/${timestamp}-${markerImage.name}`;
+              const { error: mErr } = await supabase.storage.from('assets').upload(markerPath, markerImage);
+              if (!mErr) imageUrlNew = supabase.storage.from('assets').getPublicUrl(markerPath).data.publicUrl;
+              else console.warn('Marker upload failed:', mErr.message || mErr);
+            } catch (e) {
+              console.warn('Marker upload threw', e);
+            }
+          }
+
+          const insertObj = { name, mindUrl: uploadedMindUrl, videoUrl, is_active: false };
+          if (imageUrlNew) insertObj.imageUrl = imageUrlNew;
+
+          const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
           if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
 
           statusEl.textContent = "✅ Upload complete!";
@@ -378,6 +410,8 @@
           .order("created_at", { ascending: false });
         if (error) return console.error("Error loading targets:", error);
 
+        const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
+
         targetsTable.innerHTML = "";
         data.forEach((t) => {
           const isActive = t.is_active ? "✅" : "❌";
@@ -385,7 +419,7 @@
 
           // iamge display
           const candidates = [];
-          if (t.markerUrl) candidates.push(t.markerUrl);
+          if (t.imageUrl) candidates.push(t.imageUrl);
           if (t.mindUrl) {
             try {
               candidates.push(t.mindUrl.replace(/\.mind$/, '.jpg'));
@@ -399,10 +433,14 @@
           const uniq = Array.from(new Set(candidates.filter(Boolean)));
           const candidateJson = encodeURIComponent(JSON.stringify(uniq));
 
+          // choose initial src: first candidate or placeholder (avoid empty src which shows broken icon)
+          const initialSrc = uniq.length ? uniq[0] : placeholder;
+          const onerrorAttr = uniq.length ? 'onerror="tryNextImage(this)"' : '';
+
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
-                <img src="${uniq[0] || ''}" data-candidates="${candidateJson}" data-idx="0" alt="${t.name}" class="w-24 h-24 object-contain rounded border border-gray-200" onerror="tryNextImage(this)" />
+                <img src="${initialSrc}" data-candidates="${candidateJson}" data-idx="0" alt="${t.name}" class="w-24 h-24 object-contain rounded border border-gray-200" ${onerrorAttr} />
               </td>
               <td class="p-3">${t.name}</td>
               <td class="p-3 text-gray-500">${new Date(t.created_at).toLocaleString()}</td>
