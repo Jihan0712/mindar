@@ -39,21 +39,20 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium mb-1">Company</label>
-              <input type="text" placeholder="Company"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label class="block text-sm font-medium mb-1">Marker Image (.jpg/.png)</label>
+              <div class="flex gap-2">
+                <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" class="flex-1 border p-2 rounded-md" />
+                <div class="flex gap-2">
+                  <button id="serverCompile" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">
+                    Compile on Server
+                  </button>
+                </div>
+              </div>
+              <p id="compileStatus" class="text-sm text-gray-500 mt-1"></p>
+              <p class="text-xs text-gray-400">Tip: large images will be resized to 1024px max to speed up compilation.</p>
             </div>
 
-            <div>
-              <label class="block text-sm font-medium mb-1">Brand</label>
-              <input type="text" placeholder="Brand"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1">.mind File</label>
-              <input id="mindFile" type="file" accept=".mind" class="w-full" />
-            </div>
+            <!-- .mind file upload removed: compilation is handled client-side and uploaded directly to storage -->
 
             <div>
               <label class="block text-sm font-medium mb-1">.mp4 Video</label>
@@ -86,10 +85,94 @@
       </main>
     </div>
 
-    <script>
+    <!-- MindAR Compiler Integration -->
+    <script type="module">
+      // load TFJS (with fallbacks) and the Compiler (mind-ar) so the page has multiple fallback
+      let Compiler = null;
+
+      function loadScript(url) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = url;
+          s.onload = () => resolve();
+          s.onerror = (e) => reject(new Error('Failed to load ' + url));
+          document.head.appendChild(s);
+        });
+      }
+
+      async function loadTfWithFallback() {
+        const versions = [
+          '4.16.0',
+          '4.8.0',
+          '4.20.0'
+        ];
+        let lastErr = null;
+        for (const v of versions) {
+          const url = `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@${v}/dist/tf.min.js`;
+          try {
+            await loadScript(url);
+            // quick sanity check kaya pa ba?
+            if (typeof tf !== 'undefined' && tf?.version?.tfjs) {
+              console.log('Loaded tfjs', tf.version.tfjs);
+              return;
+            }
+            throw new Error('tf not available after loading ' + url);
+          } catch (err) {
+            console.warn('Failed to load tfjs', url, err.message);
+            lastErr = err;
+            // try next
+          }
+        }
+        throw lastErr || new Error('Failed to load any tfjs version');
+      }
+
+      // initialize TF and Compiler, other functions should await readyPromise
+      const readyPromise = (async () => {
+        await loadTfWithFallback();
+        try {
+          const mod = await import('https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js');
+          Compiler = mod.Compiler;
+          console.log('Loaded Compiler from mind-ar');
+        } catch (err) {
+          console.error('Failed to import mind-ar Compiler', err);
+          throw err;
+        }
+      })();
+
+      // Resize image to reduce memory client side server compile
+      async function resizeImage(file, maxDim = 1024) {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        await img.decode();
+        let { width, height } = img;
+        if (width <= maxDim && height <= maxDim) {
+          // no resize needed
+          return file;
+        }
+        const aspect = width / height;
+        if (width > height) {
+          width = maxDim;
+          height = Math.round(maxDim / aspect);
+        } else {
+          height = maxDim;
+          width = Math.round(maxDim * aspect);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        return await new Promise((resolve) => canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.9));
+      }
+
       const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Holds the URL of a .mind file that was compiled & uploaded (via the "Compile on Server" button)
+  let uploadedMindUrl = null;
 
       const uploadBtn = document.getElementById("upload");
       const statusEl = document.getElementById("status");
@@ -98,13 +181,15 @@
       const uploadTab = document.getElementById("uploadTab");
       const listTab = document.getElementById("listTab");
       const targetsTable = document.getElementById("targetsTable");
+      const compileStatus = document.getElementById("compileStatus");
+  // timer used to clear transient status messages (so they disappear after a few seconds)
+  let statusClearTimer = null;
 
       uploadTab.addEventListener("click", () => {
         uploadSection.classList.remove("hidden");
         listSection.classList.add("hidden");
         uploadTab.classList.add("bg-blue-600");
         listTab.classList.remove("bg-blue-600");
-        loadTargets();
       });
 
       listTab.addEventListener("click", () => {
@@ -115,42 +200,152 @@
         loadTargets();
       });
 
+      // helper:: compile a marker image file in-browser and return an ArrayBuffer
+      async function compileImageClient(markerFile, progressCallback) {
+        // wait for TF and Compiler to be ready
+        await readyPromise;
+        // resize image to avoid memory blowups
+        const fileToUse = await resizeImage(markerFile, 1024);
+        const img = new Image();
+        img.src = URL.createObjectURL(fileToUse);
+        await img.decode();
+
+        if (typeof tf === 'undefined') throw new Error('TensorFlow.js (tf) is not loaded.');
+
+        if (!Compiler) throw new Error('Compiler not loaded');
+
+        const compiler = new Compiler();
+        // compileImageTargets accepts a progress callback one at a time only (probably)
+        try {
+          console.log('tf.version:', tf?.version?.tfjs || 'unknown');
+          if (progressCallback) {
+            await compiler.compileImageTargets([img], progressCallback);
+          } else {
+            await compiler.compileImageTargets([img]);
+          }
+        } catch (err) {
+          console.error('compileImageTargets threw', err);
+          if (typeof tf === 'undefined') console.error('tf is undefined at catch time');
+          throw err;
+        }
+        const buffer = compiler.exportData ? compiler.exportData() : null;
+        if (!buffer) throw new Error('Failed to export compiled data');
+        return buffer;
+      }
+
+      // Server Compile button
+      document.getElementById('serverCompile').addEventListener('click', async () => {
+        const markerFile = document.getElementById('markerFile').files[0];
+        if (!markerFile) {
+          compileStatus.textContent = '⚠️ Please select an image file first.';
+          return;
+        }
+
+        try {
+          statusEl.textContent = '⏳ Compiling marker image in the browser (via "Server Compile" button)...';
+          const buffer = await compileImageClient(markerFile, (p) => {
+            compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
+          });
+
+          compileStatus.textContent = '⬆️ Uploading compiled .mind to Supabase storage...';
+          const filename = markerFile.name.replace(/\.[^/.]+$/, '') + '.mind';
+          const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
+          const timestamp = Date.now();
+          const mindPath = `minds/${timestamp}-${filename}`;
+          const { error: mindErr } = await supabase.storage.from('assets').upload(mindPath, fileForUpload);
+          if (mindErr) throw mindErr;
+
+          const mindUrl = supabase.storage.from('assets').getPublicUrl(mindPath).data.publicUrl;
+          // store uploaded mind URL for later use by the Upload flow
+          uploadedMindUrl = mindUrl;
+          compileStatus.textContent = '✅ Compiled and uploaded to storage! Ready to Upload.';
+          statusEl.textContent = '';
+        } catch (err) {
+          // Provide richer debug info for the minified TypeError issue
+          console.error('Compile (serverCompile) failed', err);
+          const tfver = (typeof tf !== 'undefined' && tf?.version?.tfjs) ? tf.version.tfjs : 'tf not loaded';
+          compileStatus.textContent = `❌ Compile failed: ${err.message || err}. (tfjs: ${tfver})`;
+          // debugging
+          console.error('UserAgent:', navigator.userAgent);
+        }
+      });
+
+      // upload button action
       uploadBtn.addEventListener("click", async () => {
         const name = document.getElementById("name").value.trim();
-        const mind = document.getElementById("mindFile").files[0];
         const video = document.getElementById("videoFile").files[0];
+        const markerImage = document.getElementById("markerFile").files[0];
 
-        if (!name || !mind || !video) {
+        // req checker
+        if (!name || (!uploadedMindUrl && !markerImage) || !video) {
           alert("⚠️ Please fill all fields and upload required files.");
           return;
         }
 
         statusEl.textContent = "⏳ Uploading files...";
         const timestamp = Date.now();
-
-        const mindPath = `minds/${timestamp}-${mind.name}`;
         const videoPath = `videos/${timestamp}-${video.name}`;
 
-        const { error: mindErr } = await supabase.storage.from("assets").upload(mindPath, mind);
-        if (mindErr) return (statusEl.textContent = "❌ Mind upload failed: " + mindErr.message);
+        // If user provided a marker image and we dont already have an uploaded .mind, compile+upload now
+        if (!uploadedMindUrl && markerImage) {
+          try {
+            statusEl.textContent = "⏳ Compiling marker image in the browser...";
+            const buffer = await compileImageClient(markerImage, (p) => {
+              compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
+            });
 
-        const { error: vidErr } = await supabase.storage.from("assets").upload(videoPath, video);
-        if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
+            compileStatus.textContent = 'Uploading compiled .mind to Supabase storage...';
+            const filename = markerImage.name.replace(/\.[^/.]+$/, '') + '.mind';
+            const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
+            const mindPathLocal = `minds/${timestamp}-${filename}`;
+            const { error: mindErr } = await supabase.storage.from('assets').upload(mindPathLocal, fileForUpload);
+            if (mindErr) throw mindErr;
 
-        const mindUrl = supabase.storage.from("assets").getPublicUrl(mindPath).data.publicUrl;
-        const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
+            const mindUrlLocal = supabase.storage.from('assets').getPublicUrl(mindPathLocal).data.publicUrl;
 
-        const { error: dbErr } = await supabase
-          .from("targets")
-          .insert([{ name, mindUrl, videoUrl, is_active: false }]);
+            // upload video
+            const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
+            if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
 
-        if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
+            const videoUrlLocal = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
 
-        statusEl.textContent = "✅ Upload complete!";
-        document.getElementById("name").value = "";
-        document.getElementById("mindFile").value = "";
-        document.getElementById("videoFile").value = "";
-        loadTargets();
+            // insert DB record
+            const { error: dbErr } = await supabase.from('targets').insert([{ name, mindUrl: mindUrlLocal, videoUrl: videoUrlLocal, is_active: false }]);
+            if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
+
+            statusEl.textContent = '✅ Upload complete (client-side compile)!';
+            document.getElementById("name").value = "";
+            document.getElementById("videoFile").value = "";
+            document.getElementById('markerFile').value = "";
+            compileStatus.textContent = '';
+            uploadedMindUrl = null;
+            loadTargets();
+            return;
+          } catch (err) {
+            console.error(err);
+            statusEl.textContent = '❌ Client compile/upload failed: ' + (err.message || JSON.stringify(err));
+            return;
+          }
+        }
+
+        // .mind upload
+        if (uploadedMindUrl) {
+          // upload video
+          const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
+          if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
+
+          const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+
+          const { error: dbErr } = await supabase.from('targets').insert([{ name, mindUrl: uploadedMindUrl, videoUrl, is_active: false }]);
+          if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
+
+          statusEl.textContent = "✅ Upload complete!";
+          document.getElementById("name").value = "";
+          document.getElementById("videoFile").value = "";
+          uploadedMindUrl = null;
+          loadTargets();
+          return;
+        }
       });
 
       async function loadTargets() {
@@ -158,17 +353,12 @@
           .from("targets")
           .select("*")
           .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error loading targets:", error);
-          return;
-        }
+        if (error) return console.error("Error loading targets:", error);
 
         targetsTable.innerHTML = "";
         data.forEach((t) => {
           const isActive = t.is_active ? "✅" : "❌";
           const activeClass = t.is_active ? "bg-green-50 border-l-4 border-green-500" : "";
-
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">${t.name}</td>
@@ -184,18 +374,32 @@
         });
       }
 
-      async function setActive(targetId) {
-        statusEl.textContent = "⏳ Updating active target...";
-        const reset = await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
-        const update = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
-        if (update.error) statusEl.textContent = "❌ Error: " + update.error.message;
-        else {
-          statusEl.textContent = "✅ Active target updated!";
-          loadTargets();
+      window.setActive = async (targetId) => {
+        // Timer notice
+        if (statusClearTimer) {
+          clearTimeout(statusClearTimer);
+          statusClearTimer = null;
         }
-      }
 
-      async function editVideo(id, name) {
+        statusEl.textContent = "⏳ Updating active target...";
+        await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
+        const { error } = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
+
+        if (error) {
+          statusEl.textContent = "❌ Error: " + error.message;
+        } else {
+          statusEl.textContent = "✅ Active target updated!";
+          // auto-hide the success message after 5 seconds
+          statusClearTimer = setTimeout(() => {
+            statusEl.textContent = "";
+            statusClearTimer = null;
+          }, 5000);
+        }
+
+        loadTargets();
+      };
+
+      window.editVideo = async (id, name) => {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = "video/mp4";
@@ -213,43 +417,27 @@
 
           const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
           const { error: updateErr } = await supabase.from("targets").update({ videoUrl }).eq("id", id);
-
-          if (updateErr) statusEl.textContent = "❌ Update failed: " + updateErr.message;
-          else {
-            statusEl.textContent = "✅ Video updated successfully!";
-            loadTargets();
-          }
+          statusEl.textContent = updateErr ? "❌ Update failed: " + updateErr.message : "✅ Video updated!";
+          loadTargets();
         };
-      }
+      };
 
-      async function deleteTarget(id, name, mindUrl, videoUrl) {
+      window.deleteTarget = async (id, name, mindUrl, videoUrl) => {
         const confirm1 = confirm(`⚠️ Are you sure you want to delete "${name}"?`);
         if (!confirm1) return;
-
         const confirm2 = prompt('Type "delete" to confirm this action:');
-        if (confirm2?.toLowerCase() !== "delete") {
-          alert("❌ Deletion cancelled — confirmation failed.");
-          return;
-        }
+        if (confirm2?.toLowerCase() !== "delete") return alert("❌ Deletion cancelled.");
 
         statusEl.textContent = "⏳ Deleting target...";
-
-        // delete database row
         const { error: delErr } = await supabase.from("targets").delete().eq("id", id);
-        if (delErr) {
-          statusEl.textContent = "❌ Failed to delete from database: " + delErr.message;
-          return;
-        }
+        if (delErr) return (statusEl.textContent = "❌ Failed: " + delErr.message);
 
-        // try deleting files from storage
-        const mindPath = mindUrl.split("/").slice(-2).join("/"); // crude extraction
+        const mindPath = mindUrl.split("/").slice(-2).join("/");
         const videoPath = videoUrl.split("/").slice(-2).join("/");
-        await supabase.storage.from("assets").remove([mindPath]);
-        await supabase.storage.from("assets").remove([videoPath]);
-
+        await supabase.storage.from("assets").remove([mindPath, videoPath]);
         statusEl.textContent = "✅ Target deleted successfully!";
         loadTargets();
-      }
+      };
 
       loadTargets();
     </script>
