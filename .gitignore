@@ -1,0 +1,13 @@
+# Ignore environment files and backups that may contain secrets
+*.env
+*.env.*
+*.env.bak
+*.bak
+webar-backend.env.bak
+
+# Node modules (if present)
+node_modules/
+
+# Optional OS files
+.DS_Store
+Thumbs.db
