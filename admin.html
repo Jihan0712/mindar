@@ -266,12 +266,12 @@
         }
 
         try {
-          statusEl.textContent = '⏳ Compiling marker image in the browser (via "Server Compile" button)...';
+          statusEl.textContent = 'Compiling marker image in the browser (via "Server Compile" button)...';
           const buffer = await compileImageClient(markerFile, (p) => {
             compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
           });
 
-          compileStatus.textContent = '⬆️ Uploading compiled .mind to Supabase storage...';
+          compileStatus.textContent = 'Uploading compiled .mind to Supabase storage...';
           const filename = markerFile.name.replace(/\.[^/.]+$/, '') + '.mind';
           const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
           const timestamp = Date.now();
@@ -306,14 +306,14 @@
           return;
         }
 
-        statusEl.textContent = "⏳ Uploading files...";
+        statusEl.textContent = "Uploading files...";
         const timestamp = Date.now();
         const videoPath = `videos/${timestamp}-${video.name}`;
 
         // If user provided a marker image and we dont already have an uploaded .mind, compile+upload now
         if (!uploadedMindUrl && markerImage) {
           try {
-            statusEl.textContent = "⏳ Compiling marker image in the browser...";
+            statusEl.textContent = "Compiling marker image in the browser...";
             const buffer = await compileImageClient(markerImage, (p) => {
               compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
             });
@@ -354,7 +354,6 @@
 
         // .mind upload
         if (uploadedMindUrl) {
-          // upload video
           const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
           if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
 
@@ -384,22 +383,19 @@
           const isActive = t.is_active ? "✅" : "❌";
           const activeClass = t.is_active ? "bg-green-50 border-l-4 border-green-500" : "";
 
-          // Build a list of candidate image URLs (prefer explicit markerUrl if present)
+          // iamge display
           const candidates = [];
           if (t.markerUrl) candidates.push(t.markerUrl);
           if (t.mindUrl) {
             try {
-              // try replacing extension
               candidates.push(t.mindUrl.replace(/\.mind$/, '.jpg'));
               candidates.push(t.mindUrl.replace(/\.mind$/, '.png'));
-              // try switching the folder from 'minds' -> 'markers' (common convention)
               candidates.push(t.mindUrl.replace(/\/minds\//, '/markers/').replace(/\.mind$/, '.jpg'));
             } catch (e) {
-              // ignore
             }
           }
 
-          // Deduplicate and keep only non-empty strings
+          // array
           const uniq = Array.from(new Set(candidates.filter(Boolean)));
           const candidateJson = encodeURIComponent(JSON.stringify(uniq));
 
@@ -455,7 +451,7 @@
         input.onchange = async () => {
           const file = input.files[0];
           if (!file) return;
-          statusEl.textContent = "⏳ Uploading new video...";
+          statusEl.textContent = "Uploading new video...";
           const timestamp = Date.now();
           const videoPath = `videos/${timestamp}-${file.name}`;
 
@@ -470,12 +466,12 @@
       };
 
       window.deleteTarget = async (id, name, mindUrl, videoUrl) => {
-        const confirm1 = confirm(`⚠️ Are you sure you want to delete "${name}"?`);
+        const confirm1 = confirm(`Are you sure you want to delete "${name}"?`);
         if (!confirm1) return;
         const confirm2 = prompt('Type "delete" to confirm this action:');
         if (confirm2?.toLowerCase() !== "delete") return alert("❌ Deletion cancelled.");
 
-        statusEl.textContent = "⏳ Deleting target...";
+        statusEl.textContent = "Deleting target...";
         const { error: delErr } = await supabase.from("targets").delete().eq("id", id);
         if (delErr) return (statusEl.textContent = "❌ Failed: " + delErr.message);
 
