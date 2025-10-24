@@ -333,7 +333,7 @@
 
             const videoUrlLocal = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
 
-            // upload original marker image so we can display it later
+            // upload original image marker
             let imageUrlLocal = null;
             try {
               const markerPathLocal = `markers/${timestamp}-${markerImage.name}`;
@@ -341,10 +341,10 @@
               if (!markerErr) {
                 imageUrlLocal = supabase.storage.from('assets').getPublicUrl(markerPathLocal).data.publicUrl;
               } else {
-                console.warn('Marker image upload failed:', markerErr.message || markerErr);
+                console.warn('Image upload failed:', markerErr.message || markerErr);
               }
             } catch (e) {
-              console.warn('Marker upload threw', e);
+              console.warn('Image upload threw', e);
             }
 
             // insert DB record (include imageUrl if available)
