@@ -72,6 +72,7 @@
             <table class="w-full text-left border-collapse">
               <thead class="bg-gray-200">
                 <tr>
+                  <th class="p-3">Target Image</th>
                   <th class="p-3">Name</th>
                   <th class="p-3">Created</th>
                   <th class="p-3">Active</th>
@@ -359,8 +360,15 @@
         data.forEach((t) => {
           const isActive = t.is_active ? "✅" : "❌";
           const activeClass = t.is_active ? "bg-green-50 border-l-4 border-green-500" : "";
+          // Extract the image URL from the mindUrl (replace .mind with .jpg or original extension)
+          const imageUrl = t.mindUrl.replace(/\/minds\/([^/]+)\.mind$/, '/markers/$1.jpg');
+          
           const row = `
             <tr class="${activeClass}">
+              <td class="p-3">
+                <img src="${imageUrl}" alt="${t.name}" class="w-24 h-24 object-contain rounded border border-gray-200" 
+                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22><path d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E'" />
+              </td>
               <td class="p-3">${t.name}</td>
               <td class="p-3 text-gray-500">${new Date(t.created_at).toLocaleString()}</td>
               <td class="p-3">${isActive}</td>
