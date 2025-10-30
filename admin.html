@@ -68,6 +68,34 @@
         <!-- List Section -->
         <section id="listSection" class="hidden">
           <h2 class="text-xl font-semibold mb-4">Existing Targets</h2>
+          <!-- Admin-only Filters -->
+          <div id="filtersBar" class="mb-4 hidden">
+            <div class="flex flex-wrap gap-3 items-end">
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Brand</label>
+                <select id="filterBrand" class="border rounded p-2 min-w-[12rem]">
+                  <option value="">All brands</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Client ID (user_id)</label>
+                <input id="filterClientId" type="text" placeholder="uuid" class="border rounded p-2 min-w-[18rem]" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Uploads</label>
+                <select id="filterUploaderType" class="border rounded p-2">
+                  <option value="all">All uploads</option>
+                  <option value="brand">Brand uploads only</option>
+                  <option value="admin">Admin uploads only</option>
+                  <option value="client">Client uploads only</option>
+                </select>
+              </div>
+              <div class="flex gap-2">
+                <button id="applyFilters" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Apply</button>
+                <button id="clearFilters" class="bg-gray-200 text-gray-800 px-3 py-2 rounded hover:bg-gray-300">Clear</button>
+              </div>
+            </div>
+          </div>
           <div id="targetsList" class="bg-white shadow rounded-lg overflow-hidden">
             <table class="w-full text-left border-collapse">
               <thead class="bg-gray-200">
@@ -198,6 +226,21 @@
   // Holds the URL of a .mind file that was compiled & uploaded (via the "Compile on Server" button)
   let uploadedMindUrl = null;
 
+      // auth/admin + filters state
+  let currentUser = null;
+  let isAdmin = false;
+  let currentUserBrand = null;
+      const adminIds = new Set();
+      const filters = { brand: "", clientId: "", uploader: "all" };
+      const filterEls = {
+        bar: document.getElementById('filtersBar'),
+        brand: document.getElementById('filterBrand'),
+        clientId: document.getElementById('filterClientId'),
+        uploaderType: document.getElementById('filterUploaderType'),
+        apply: document.getElementById('applyFilters'),
+        clear: document.getElementById('clearFilters')
+      };
+
       const uploadBtn = document.getElementById("upload");
       const statusEl = document.getElementById("status");
       const uploadSection = document.getElementById("uploadSection");
@@ -223,6 +266,65 @@
         uploadTab.classList.remove("bg-blue-600");
         loadTargets();
       });
+
+      // Initialize auth + admin and load brand options
+      async function initAdminContext() {
+        const { data: sessionData } = await supabase.auth.getSession();
+        currentUser = sessionData?.session?.user || null;
+        try {
+          const { data: adminsData } = await supabase.from('admins').select('user_id');
+          (adminsData || []).forEach(r => adminIds.add(r.user_id));
+          if (currentUser?.id && adminIds.has(currentUser.id)) {
+            isAdmin = true;
+            filterEls.bar.classList.remove('hidden');
+          }
+        } catch (e) {
+          // ignore if no access; filters will remain hidden
+        }
+
+        // Determine user's brand (if any) from profiles
+        if (currentUser?.id) {
+          try {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('brand')
+              .eq('user_id', currentUser.id)
+              .not('brand','is', null)
+              .limit(1)
+              .maybeSingle();
+            currentUserBrand = (prof && typeof prof.brand === 'string' && prof.brand.trim()) ? prof.brand.trim() : null;
+          } catch (e) {
+            currentUserBrand = null; // silently ignore if no access or table missing
+          }
+        }
+
+        // Load brand list for filter (dedup client-side)
+        try {
+          const { data: brandRows } = await supabase.from('targets').select('brand');
+          const brands = Array.from(new Set((brandRows || []).map(r => r.brand).filter(Boolean))).sort();
+          filterEls.brand.innerHTML = '<option value="">All brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+        } catch (e) {
+          // ignore errors loading brands
+        }
+
+        // hook up events
+        filterEls.apply?.addEventListener('click', () => {
+          filters.brand = filterEls.brand?.value || '';
+          filters.clientId = (filterEls.clientId?.value || '').trim();
+          filters.uploader = filterEls.uploaderType?.value || 'all';
+          loadTargets();
+        });
+
+        filterEls.clear?.addEventListener('click', () => {
+          filters.brand = '';
+          filters.clientId = '';
+          filters.uploader = 'all';
+          if (filterEls.brand) filterEls.brand.value = '';
+          if (filterEls.clientId) filterEls.clientId.value = '';
+          if (filterEls.uploaderType) filterEls.uploaderType.value = 'all';
+          loadTargets();
+        });
+      }
 
       // helper:: compile a marker image file in-browser and return an ArrayBuffer
       async function compileImageClient(markerFile, progressCallback) {
@@ -347,9 +449,13 @@
               console.warn('Image upload threw', e);
             }
 
-            // insert DB record (include imageUrl if available)
-            const insertObj = { name, mindUrl: mindUrlLocal, videoUrl: videoUrlLocal, is_active: false };
-            if (imageUrlLocal) insertObj.imageUrl = imageUrlLocal;
+            // insert DB record (include imageurl if available)
+            const { data: userData } = await supabase.auth.getUser();
+            const insertObj = { name, mindurl: mindUrlLocal, videourl: videoUrlLocal, is_active: false };
+            if (userData?.user?.id) insertObj.user_id = userData.user.id;
+            // tag brand uploads only for non-admin users that have a brand
+            if (!isAdmin && currentUserBrand) insertObj.brand = currentUserBrand;
+            if (imageUrlLocal) insertObj.imageurl = imageUrlLocal;
             const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
             if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
 
@@ -388,8 +494,11 @@
             }
           }
 
-          const insertObj = { name, mindUrl: uploadedMindUrl, videoUrl, is_active: false };
-          if (imageUrlNew) insertObj.imageUrl = imageUrlNew;
+          const { data: userData } = await supabase.auth.getUser();
+          const insertObj = { name, mindurl: uploadedMindUrl, videourl: videoUrl, is_active: false };
+          if (userData?.user?.id) insertObj.user_id = userData.user.id;
+          if (!isAdmin && currentUserBrand) insertObj.brand = currentUserBrand;
+          if (imageUrlNew) insertObj.imageurl = imageUrlNew;
 
           const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
           if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
@@ -404,27 +513,49 @@
       });
 
       async function loadTargets() {
-        const { data, error } = await supabase
+        let query = supabase
           .from("targets")
           .select("*")
           .order("created_at", { ascending: false });
+
+        if (filters.brand) {
+          query = query.eq('brand', filters.brand);
+        }
+        if (filters.clientId) {
+          query = query.eq('user_id', filters.clientId);
+        }
+
+        const { data, error } = await query;
         if (error) return console.error("Error loading targets:", error);
+
+        // Optional uploader-type filtering (client-side) for admins
+        let rows = Array.isArray(data) ? data : [];
+        if (isAdmin && filters.uploader && filters.uploader !== 'all') {
+          if (filters.uploader === 'admin') {
+            rows = rows.filter(r => adminIds.has(r.user_id));
+          } else if (filters.uploader === 'client') {
+            rows = rows.filter(r => !adminIds.has(r.user_id));
+          } else if (filters.uploader === 'brand') {
+            // brand uploads == entries where brand column is not null/empty
+            rows = rows.filter(r => (r.brand ?? '').trim() !== '');
+          }
+        }
 
         const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
 
         targetsTable.innerHTML = "";
-        data.forEach((t) => {
+        rows.forEach((t) => {
           const isActive = t.is_active ? "✅" : "❌";
           const activeClass = t.is_active ? "bg-green-50 border-l-4 border-green-500" : "";
 
           // iamge display
           const candidates = [];
-          if (t.imageUrl) candidates.push(t.imageUrl);
-          if (t.mindUrl) {
+          if (t.imageurl) candidates.push(t.imageurl);
+          if (t.mindurl) {
             try {
-              candidates.push(t.mindUrl.replace(/\.mind$/, '.jpg'));
-              candidates.push(t.mindUrl.replace(/\.mind$/, '.png'));
-              candidates.push(t.mindUrl.replace(/\/minds\//, '/markers/').replace(/\.mind$/, '.jpg'));
+              candidates.push(t.mindurl.replace(/\.mind$/, '.jpg'));
+              candidates.push(t.mindurl.replace(/\.mind$/, '.png'));
+              candidates.push(t.mindurl.replace(/\/minds\//, '/markers/').replace(/\.mind$/, '.jpg'));
             } catch (e) {
             }
           }
@@ -448,7 +579,7 @@
               <td class="p-3 text-center space-x-2">
                 <button onclick="setActive('${t.id}')" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">Set Active</button>
                 <button onclick="editVideo('${t.id}', '${t.name}')" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">Edit</button>
-                <button onclick="deleteTarget('${t.id}', '${t.name}', '${t.mindUrl}', '${t.videoUrl}')" class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">Delete</button>
+                <button onclick="deleteTarget('${t.id}', '${t.name}', '${t.mindurl}', '${t.videourl}')" class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">Delete</button>
               </td>
             </tr>`;
           targetsTable.innerHTML += row;
@@ -497,7 +628,7 @@
           if (vidErr) return (statusEl.textContent = "❌ Upload failed: " + vidErr.message);
 
           const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
-          const { error: updateErr } = await supabase.from("targets").update({ videoUrl }).eq("id", id);
+          const { error: updateErr } = await supabase.from("targets").update({ videourl: videoUrl }).eq("id", id);
           statusEl.textContent = updateErr ? "❌ Update failed: " + updateErr.message : "✅ Video updated!";
           loadTargets();
         };
@@ -520,6 +651,7 @@
         loadTargets();
       };
 
+      await initAdminContext();
       loadTargets();
     </script>
   </body>

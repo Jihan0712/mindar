@@ -80,8 +80,8 @@
         const activeTarget = await loadActiveTarget();
         if (!activeTarget) return;
 
-        const mindUrl = activeTarget.mindUrl;
-        const videoUrl = activeTarget.videoUrl;
+        const mindUrl = activeTarget.mindurl;
+        const videoUrl = activeTarget.videourl;
 
         const scene = document.querySelector("a-scene");
         const aframeVideoAsset = document.querySelector("#card");
@@ -250,7 +250,6 @@
     </div>
 
     <a-scene
-      mindar-image="imageTargetSrc: ./placeholder.mind;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>INRL AR — Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body class="min-h-screen bg-gray-100 flex items-center justify-center">
+    <div class="w-full max-w-md bg-white rounded shadow p-6">
+  <h1 class="text-2xl font-bold mb-4">INRL AR — Sign in</h1>
+
+      <div id="message" class="text-sm text-red-600 mb-2"></div>
+
+      <label class="block text-sm">Email</label>
+      <input id="email" type="email" class="w-full border rounded p-2 mb-3" />
+
+      <label class="block text-sm">Password</label>
+      <input id="password" type="password" class="w-full border rounded p-2 mb-4" />
+
+      <div class="flex gap-2">
+        <button id="signin" class="flex-1 bg-blue-600 text-white rounded p-2">Sign in</button>
+        <button id="signup" class="flex-1 bg-gray-200 rounded p-2">Sign up</button>
+      </div>
+
+      <p class="text-xs text-gray-400 mt-4">After signing in you'll be redirected to the dashboard (admins and brand users share the same login).</p>
+    </div>
+
+    <script>
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const emailEl = document.getElementById('email');
+      const passEl = document.getElementById('password');
+      const signInBtn = document.getElementById('signin');
+      const signUpBtn = document.getElementById('signup');
+  // magic link removed from this page — registration and invite flows live on register pages
+      const msg = document.getElementById('message');
+
+      async function showError(e) {
+        console.error('Auth error:', e);
+        // supabase-js error objects sometimes have .message and sometimes nested info
+        const text = e?.message || (e?.error_description) || JSON.stringify(e);
+        msg.textContent = text;
+        setTimeout(() => msg.textContent = '', 8000);
+      }
+
+      // If already signed in, redirect to the shared dashboard
+      (async () => {
+        try {
+          const { data } = await supabase.auth.getSession();
+          const session = data?.session || null;
+          if (session) {
+            // already signed in -> go to dashboard (admin.html will scope based on profile/role)
+            window.location.href = '/admin.html';
+          }
+        } catch (e) {
+          console.warn('Session check failed', e);
+        }
+      })();
+
+      signInBtn.addEventListener('click', async () => {
+        try {
+          const email = emailEl.value.trim();
+          const password = passEl.value;
+          if (!email || !password) return showError('Enter email and password');
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) return showError(error);
+          // signed in
+          window.location.href = '/admin.html';
+        } catch (e) { showError(e); }
+      });
+
+      signUpBtn.addEventListener('click', () => {
+        // Redirect to brand/client registration page; registration flow lives in register.html
+        window.location.href = '/register.html';
+      });
+
+      // no magic link button on this page; use /register.html or admin invite flows instead
+    </script>
+  </body>
+</html>

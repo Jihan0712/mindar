@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>INRL AR — Register (Client)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body class="min-h-screen bg-gray-100 flex items-center justify-center">
+    <div class="w-full max-w-lg bg-white rounded shadow p-6">
+      <h1 class="text-2xl font-bold mb-4">INRL AR — Register (Client)</h1>
+
+      <div id="alert" class="text-sm text-red-600 mb-3"></div>
+
+      <div class="mb-4 text-sm text-gray-700">
+        Register as a regular client to use the viewer. Brand users and administrators must use an invite link.
+      </div>
+
+      <label class="block text-sm">Email</label>
+      <input id="email" type="email" class="w-full border rounded p-2 mb-3" placeholder="you@company.com" />
+
+      <label class="block text-sm">Password</label>
+      <input id="password" type="password" class="w-full border rounded p-2 mb-3" placeholder="Create a password" />
+
+      <label class="block text-sm">Display name</label>
+      <input id="displayName" type="text" class="w-full border rounded p-2 mb-3" placeholder="Your full name" />
+
+      <div class="flex gap-2 mb-2">
+        <button id="registerBtn" class="flex-1 bg-blue-600 text-white rounded p-2">Register</button>
+        <a href="/login.html" class="flex-1 inline-flex items-center justify-center bg-gray-200 rounded p-2">Back to Login</a>
+      </div>
+
+      <p class="text-xs text-gray-500">
+        This form is for regular client registration only. Brand users and administrators need an invitation link from an existing admin.
+      </p>
+    </div>
+
+    <script>
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const emailEl = document.getElementById('email');
+      const passwordEl = document.getElementById('password');
+      const displayNameEl = document.getElementById('displayName');
+      const registerBtn = document.getElementById('registerBtn');
+      const alertEl = document.getElementById('alert');
+
+      function showAlert(msg, isError = true) {
+        alertEl.textContent = msg;
+        alertEl.style.color = isError ? 'crimson' : 'green';
+        if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
+      }
+
+      registerBtn.addEventListener('click', async () => {
+        const email = (emailEl.value || '').trim().toLowerCase();
+        const password = (passwordEl.value || '').trim();
+        const displayName = (displayNameEl.value || '').trim() || null;
+        if (!email || !password) return showAlert('Please provide email and password to register.');
+        try {
+          // Regular client signup - no admin/brand flows
+          const { data, error } = await supabase.auth.signUp({ email, password });
+          if (error) return showAlert(error.message);
+          
+          const user = data?.user;
+          if (user) {
+            // Create regular client profile
+            try {
+              await supabase.from('profiles').insert([{ user_id: user.id, name: displayName }]);
+            } catch (e) { console.warn('profile insert failed', e); }
+            showAlert('Registration successful. You can now log in with your email and password.', false);
+            if (passwordEl) passwordEl.value = '';
+          } else {
+            showAlert('Registration request sent — check your email for confirmation.', false);
+          }
+        } catch (e) {
+          console.error(e);
+          showAlert(e?.message || String(e));
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>INRL AR — Admin Registration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body class="min-h-screen bg-gray-100 flex items-center justify-center">
+    <div class="w-full max-w-lg bg-white rounded shadow p-6">
+      <h1 class="text-2xl font-bold mb-4">INRL AR — Admin Registration</h1>
+      <div id="alert" class="text-sm text-red-600 mb-3"></div>
+
+      <div class="mb-4 text-sm text-gray-700">
+        This page is only for admin registration via invite token. You must have a token from an existing admin to register here.
+        <br><br>
+        If you're a brand user, use the invite link sent by your admin. If you want to register as a regular client, use the
+        <a href="/register.html" class="text-blue-600 hover:underline">client registration</a> page.
+      </div>
+
+      <label class="block text-sm">Email</label>
+      <input id="email" type="email" class="w-full border rounded p-2 mb-3" />
+
+      <label class="block text-sm">Password</label>
+      <input id="password" type="password" class="w-full border rounded p-2 mb-3" />
+
+      <label class="block text-sm">Display name</label>
+      <input id="displayName" type="text" class="w-full border rounded p-2 mb-3" />
+
+      <div class="flex gap-2 mb-2">
+        <button id="registerBtn" class="flex-1 bg-blue-600 text-white rounded p-2">Register as Admin</button>
+        <a href="/login.html" class="flex-1 inline-flex items-center justify-center bg-gray-200 rounded p-2">Back to Login</a>
+      </div>
+    </div>
+
+    <script>
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+
+      const alertEl = document.getElementById('alert');
+      const emailEl = document.getElementById('email');
+      const passwordEl = document.getElementById('password');
+      const displayNameEl = document.getElementById('displayName');
+      const registerBtn = document.getElementById('registerBtn');
+
+      function showAlert(msg, isError = true) {
+        alertEl.textContent = msg;
+        alertEl.style.color = isError ? 'crimson' : 'green';
+        if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
+      }
+
+      if (!token) {
+        showAlert('No admin token provided. You must use an invite link from an existing admin.');
+        registerBtn.disabled = true;
+      }
+
+      registerBtn.addEventListener('click', async () => {
+        if (!token) return showAlert('No admin token provided.');
+        const email = (emailEl.value || '').trim().toLowerCase();
+        const password = (passwordEl.value || '').trim();
+        const displayName = (displayNameEl.value || '').trim() || null;
+        if (!email || !password) return showAlert('Please provide email and password.');
+
+        try {
+          // First try to consume the admin token (validates it's a real unused token)
+          const { data: validToken, error: tokenError } = await supabase.rpc('consume_admin_token', { p_token: token });
+          if (tokenError) {
+            console.error('Token validation failed:', tokenError);
+            return showAlert('Invalid or expired admin token. Please request a new invite link.');
+          }
+
+          // Token is valid, proceed with signup
+          const { data, error } = await supabase.auth.signUp({ email, password });
+          if (error) return showAlert(error.message);
+
+          const user = data?.user;
+          if (user) {
+            try {
+              // Create profile
+              await supabase.from('profiles').insert([{ user_id: user.id, name: displayName }]);
+              // Add to admins table
+              await supabase.from('admins').insert([{ user_id: user.id }]);
+              showAlert('Admin registration successful. You can now sign in.', false);
+              if (passwordEl) passwordEl.value = '';
+            } catch (e) {
+              console.warn('Failed to create profile/admin:', e);
+              showAlert('Account created but admin role setup failed. Please contact support.');
+            }
+          } else {
+            showAlert('Registration request sent — check your email to confirm your account.', false);
+          }
+        } catch (e) {
+          console.error(e);
+          showAlert(e?.message || String(e));
+        }
+      });
+    </script>
+  </body>
+</html>

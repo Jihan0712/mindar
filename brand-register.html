@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>INRL AR — Brand Registration (Invite)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body class="min-h-screen bg-gray-100 flex items-center justify-center">
+    <div class="w-full max-w-lg bg-white rounded shadow p-6">
+      <h1 class="text-2xl font-bold mb-4">Brand Registration (Invite)</h1>
+
+      <div id="alert" class="text-sm text-red-600 mb-3"></div>
+
+      <div id="inviteInfo" class="mb-4 text-sm text-gray-700">Loading invitation...</div>
+
+      <label class="block text-sm">Email</label>
+      <input id="email" type="email" class="w-full border rounded p-2 mb-3" />
+
+      <label class="block text-sm">Password</label>
+      <input id="password" type="password" class="w-full border rounded p-2 mb-3" />
+
+      <label class="block text-sm">Full name</label>
+      <input id="fullName" type="text" class="w-full border rounded p-2 mb-3" />
+
+      <label class="block text-sm">Brand</label>
+      <input id="brand" type="text" class="w-full border rounded p-2 mb-3" />
+
+      <div class="flex gap-2 mb-2">
+        <button id="registerBtn" class="flex-1 bg-blue-600 text-white rounded p-2">Register as Brand</button>
+        <a href="/register.html" class="flex-1 inline-flex items-center justify-center bg-gray-200 rounded p-2">Back to client register</a>
+      </div>
+    </div>
+
+    <script>
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const params = new URLSearchParams(window.location.search);
+      const inviteId = params.get('invite_id') || params.get('invite');
+
+      const inviteInfoEl = document.getElementById('inviteInfo');
+      const emailEl = document.getElementById('email');
+      const passwordEl = document.getElementById('password');
+      const fullNameEl = document.getElementById('fullName');
+      const brandEl = document.getElementById('brand');
+      const registerBtn = document.getElementById('registerBtn');
+      const alertEl = document.getElementById('alert');
+
+      function showAlert(msg, isError = true) {
+        alertEl.textContent = msg;
+        alertEl.style.color = isError ? 'crimson' : 'green';
+        if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
+      }
+
+      // Load invite via a SECURITY DEFINER RPC to avoid RLS blocking anonymous reads.
+      // Run the SQL below in Supabase SQL editor to create the function if it's missing:
+      //
+      // CREATE OR REPLACE FUNCTION public.get_invitation_by_id(p_id uuid)
+      // RETURNS TABLE (id uuid, email text, name text, brand text, phone text, created_at timestamptz)
+      // LANGUAGE sql SECURITY DEFINER AS $$
+      //   SELECT id, email, name, brand, phone, created_at FROM public.invitations WHERE id = p_id;
+      // $$;
+      // GRANT EXECUTE ON FUNCTION public.get_invitation_by_id(uuid) TO public;
+      //
+      // This RPC returns the invitation even when RLS prevents anonymous direct selects.
+      async function loadInvite(id) {
+        if (!id) {
+          inviteInfoEl.textContent = 'No invite specified. You must use the invite link sent by an admin.';
+          return;
+        }
+        try {
+          const { data, error } = await supabase.rpc('get_invitation_by_id', { p_id: id });
+          if (error) {
+            console.error('invite rpc error', error);
+            inviteInfoEl.textContent = 'Unable to load invitation.';
+            return;
+          }
+          // RPC returns an array for set-returning functions; take first element if present
+          const row = Array.isArray(data) ? data[0] : data;
+          if (!row) {
+            inviteInfoEl.textContent = 'Invitation not found or expired. Contact an admin.';
+            return;
+          }
+          inviteInfoEl.textContent = `Invited for brand: ${row.brand || '(not set)'} — please register with this email.`;
+          emailEl.value = row.email || '';
+          fullNameEl.value = row.name || '';
+          brandEl.value = row.brand || '';
+        } catch (e) {
+          console.error(e);
+          inviteInfoEl.textContent = 'Unable to load invitation.';
+        }
+      }
+
+      registerBtn.addEventListener('click', async () => {
+        const email = (emailEl.value || '').trim().toLowerCase();
+        const password = (passwordEl.value || '').trim();
+        const name = (fullNameEl.value || '').trim() || null;
+        const brand = (brandEl.value || '').trim() || null;
+        if (!inviteId) return showAlert('No invite specified.');
+        if (!email || !password) return showAlert('Provide email and password.');
+        try {
+          // diagnostic logging: print exact payload and character codes (helps detect invisible/invalid characters)
+          console.log('brand signUp payload (pre):', { email, passwordLen: password.length });
+          console.log('brand email chars (pre):', [...email].map(c => c.charCodeAt(0)));
+          const res = await supabase.auth.signUp({ email, password });
+          console.log('brand signUp:', res);
+          if (res.error) return showAlert(res.error.message || JSON.stringify(res.error));
+          const user = res.data?.user;
+          if (user) {
+            // create profile
+            try {
+              await supabase.from('profiles').insert([{ user_id: user.id, name, brand }]);
+            } catch (e) { console.warn('profile insert failed', e); }
+            // attempt to remove invitation (best-effort)
+            try {
+              await supabase.from('invitations').delete().eq('id', inviteId);
+            } catch (e) { console.warn('delete invitation failed', e); }
+            showAlert('Brand registration complete. You can now sign in.', false);
+          } else {
+            showAlert('Registration request sent — check your email for confirmation or sign-in link.', false);
+          }
+        } catch (e) {
+          console.error(e);
+          showAlert(e?.message || String(e));
+        }
+      });
+
+      loadInvite(inviteId);
+    </script>
+  </body>
+</html>
