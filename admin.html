@@ -568,6 +568,10 @@
           const initialSrc = uniq.length ? uniq[0] : placeholder;
           const onerrorAttr = uniq.length ? 'onerror="tryNextImage(this)"' : '';
 
+          const mindArg = encodeURIComponent(t.mindurl || '');
+          const videoArg = encodeURIComponent(t.videourl || '');
+          const imageArg = encodeURIComponent(t.imageurl || '');
+
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
@@ -579,7 +583,7 @@
               <td class="p-3 text-center space-x-2">
                 <button onclick="setActive('${t.id}')" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">Set Active</button>
                 <button onclick="editVideo('${t.id}', '${t.name}')" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">Edit</button>
-                <button onclick="deleteTarget('${t.id}', '${t.name}', '${t.mindurl}', '${t.videourl}')" class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">Delete</button>
+                <button onclick="deleteTarget('${t.id}', '${t.name}', decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))" class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">Delete</button>
               </td>
             </tr>`;
           targetsTable.innerHTML += row;
@@ -634,7 +638,27 @@
         };
       };
 
-      window.deleteTarget = async (id, name, mindUrl, videoUrl) => {
+      // derive storage path from Supabase public URL
+      function storagePathFromPublicUrl(u) {
+        if (!u) return null;
+        try {
+          const noQuery = u.split('?')[0];
+          const marker1 = '/object/public/assets/';
+          const i1 = noQuery.indexOf(marker1);
+          if (i1 !== -1) return noQuery.substring(i1 + marker1.length);
+          const marker2 = '/object/sign/assets/';
+          const i2 = noQuery.indexOf(marker2);
+          if (i2 !== -1) return noQuery.substring(i2 + marker2.length);
+          // fallback: last two segments (e.g., minds/file.mind)
+          const parts = noQuery.split('/');
+          if (parts.length >= 2) return parts.slice(-2).join('/');
+        } catch (e) {
+          console.warn('storagePathFromPublicUrl failed', e);
+        }
+        return null;
+      }
+
+      window.deleteTarget = async (id, name, mindUrl, videoUrl, imageUrl) => {
         const confirm1 = confirm(`Are you sure you want to delete "${name}"?`);
         if (!confirm1) return;
         const confirm2 = prompt('Type "delete" to confirm this action:');
@@ -644,10 +668,30 @@
         const { error: delErr } = await supabase.from("targets").delete().eq("id", id);
         if (delErr) return (statusEl.textContent = "❌ Failed: " + delErr.message);
 
-        const mindPath = mindUrl.split("/").slice(-2).join("/");
-        const videoPath = videoUrl.split("/").slice(-2).join("/");
-        await supabase.storage.from("assets").remove([mindPath, videoPath]);
-        statusEl.textContent = "✅ Target deleted successfully!";
+        // compute storage object paths
+        const mindPath = storagePathFromPublicUrl(mindUrl);
+        const videoPath = storagePathFromPublicUrl(videoUrl);
+        const imagePath = storagePathFromPublicUrl(imageUrl);
+        const toRemove = [mindPath, videoPath, imagePath].filter(Boolean);
+
+        // Remove storage objects and check for per-file errors (Supabase doesn't throw on error)
+        let removed = 0;
+        const failed = [];
+        for (const p of toRemove) {
+          const { error } = await supabase.storage.from("assets").remove([p]);
+          if (error) {
+            failed.push({ path: p, error: error.message || String(error) });
+          } else {
+            removed += 1;
+          }
+        }
+
+        if (failed.length > 0) {
+          console.warn('Some storage files failed to delete:', failed);
+          statusEl.textContent = `⚠️ Target deleted in DB. Removed ${removed}/${toRemove.length} storage file(s); ${failed.length} failed. Check console.`;
+        } else {
+          statusEl.textContent = "✅ Target deleted and files removed!";
+        }
         loadTargets();
       };
 
