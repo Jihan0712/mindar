@@ -153,6 +153,10 @@
                   <label class="block text-xs text-gray-600 mb-1">Brand name (optional)</label>
                   <input id="regBrandInput" type="text" placeholder="Brand name" class="border rounded p-2 w-full" />
                 </div>
+                <div>
+                  <label class="block text-xs text-gray-600 mb-1">Invite email (required)</label>
+                  <input id="regEmailInput" type="email" placeholder="email@example.com" class="border rounded p-2 w-full" />
+                </div>
                 <div class="space-y-3">
                   <div>
                     <label class="block text-xs text-gray-600 mb-1">Brand registration link</label>
@@ -319,6 +323,7 @@
   const adminSection = document.getElementById('adminSection');
   const accountsTable = document.getElementById('accountsTable');
   const regBrandInput = document.getElementById('regBrandInput');
+  const regEmailInput = document.getElementById('regEmailInput');
   const brandRegLinkEl = document.getElementById('brandRegLink');
   const adminRegLinkEl = document.getElementById('adminRegLink');
   const copyBrandLinkBtn = document.getElementById('copyBrandLink');
@@ -451,9 +456,14 @@
         const url = new URL(window.location.href);
         const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
         const brandVal = (regBrandInput?.value || '').trim() || null;
+        const emailVal = (regEmailInput?.value || '').trim();
+        if (!emailVal) {
+          statusEl.textContent = '⚠️ Please provide an invite email to generate a brand registration link.';
+          return null;
+        }
         try {
           // Prefer RPC which bypasses RLS safely
-          const { data, error } = await supabase.rpc('create_brand_invite', { p_brand: brandVal });
+          const { data, error } = await supabase.rpc('create_brand_invite', { p_brand: brandVal, p_email: emailVal });
           if (error) throw error;
           const inviteId = (typeof data === 'string' || typeof data === 'number') ? data : (data?.id || data?.invite_id);
           if (!inviteId) throw new Error('No invite id returned');
