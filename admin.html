@@ -362,16 +362,33 @@
         // show current user email if available
         if (userEmailEl) userEmailEl.textContent = currentUser?.email ? currentUser.email : '';
         try {
-          const { data: adminsData } = await supabase.from('admins').select('user_id');
-          (adminsData || []).forEach(r => adminIds.add(r.user_id));
-          if (currentUser?.id && adminIds.has(currentUser.id)) {
-            isAdmin = true;
+          // First, try to fetch only the current user's admin row (more likely allowed by RLS)
+          if (currentUser?.id) {
+            const { data: selfAdmin, error: selfErr } = await supabase
+              .from('admins')
+              .select('user_id')
+              .eq('user_id', currentUser.id)
+              .maybeSingle();
+            if (!selfErr && selfAdmin?.user_id) {
+              isAdmin = true;
+            }
+          }
+
+          // Then try to fetch all admin IDs (best-effort; may fail under RLS)
+          const { data: adminsData, error: listErr } = await supabase.from('admins').select('user_id');
+          if (!listErr) {
+            (adminsData || []).forEach(r => adminIds.add(r.user_id));
+            if (currentUser?.id && adminIds.has(currentUser.id)) {
+              isAdmin = true;
+            }
+          }
+
+          if (isAdmin) {
             filterEls.bar.classList.remove('hidden');
-            // show Admin tab
             adminTab?.classList.remove('hidden');
           }
         } catch (e) {
-          // ignore if no access; filters will remain hidden
+          console.warn('Admin detection failed:', e);
         }
 
         // Determine user's brand (if any) from profiles
@@ -429,16 +446,69 @@
         window.location.href = 'login.html';
       });
 
-      // Build registration links from current origin
-      function generateLinks() {
+      // Create a brand invitation row and return the invite URL
+      async function createBrandInvite() {
         const url = new URL(window.location.href);
         const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
-        const brand = encodeURIComponent((regBrandInput?.value || '').trim());
-        const ts = Date.now();
-        const brandLink = brand ? `${base}brand-register.html?brand=${brand}&ts=${ts}` : `${base}brand-register.html?ts=${ts}`;
-        const adminLink = `${base}admin-register.html?ts=${ts}`;
-        if (brandRegLinkEl) brandRegLinkEl.value = brandLink;
-        if (adminRegLinkEl) adminRegLinkEl.value = adminLink;
+        const brandVal = (regBrandInput?.value || '').trim() || null;
+        try {
+          const { data, error } = await supabase
+            .from('invitations')
+            .insert([{ brand: brandVal }])
+            .select('id')
+            .single();
+          if (error) throw error;
+          const inviteId = data?.id;
+          if (!inviteId) throw new Error('No invite id returned');
+          return `${base}brand-register.html?invite_id=${inviteId}`;
+        } catch (e) {
+          console.warn('Failed to create brand invite:', e);
+          statusEl.textContent = `⚠️ Unable to create brand invite: ${e.message || e}`;
+          return null;
+        }
+      }
+
+      // Create an admin token via RPC or fallback table
+      async function createAdminToken() {
+        const url = new URL(window.location.href);
+        const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
+        // Try RPCs first
+        try {
+          let token = null;
+          try {
+            const { data, error } = await supabase.rpc('create_admin_token');
+            if (!error) token = data?.token || data; // support {token} or raw string
+          } catch (_) {}
+          if (!token) {
+            const { data, error } = await supabase.rpc('generate_admin_token');
+            if (!error) token = data?.token || data;
+          }
+          if (!token) {
+            // Fallback: insert into admin_tokens table if available
+            const rand = [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, '0')).join('');
+            const { data, error } = await supabase
+              .from('admin_tokens')
+              .insert([{ token: rand, used: false }])
+              .select('token')
+              .single();
+            if (error) throw error;
+            token = data?.token || rand;
+          }
+          return `${base}admin-register.html?token=${encodeURIComponent(token)}`;
+        } catch (e) {
+          console.warn('Failed to create admin token:', e);
+          statusEl.textContent = `⚠️ Unable to create admin token: ${e.message || e}`;
+          return null;
+        }
+      }
+
+      async function generateLinks() {
+        const [brandLink, adminLink] = await Promise.all([
+          createBrandInvite(),
+          createAdminToken()
+        ]);
+        if (brandRegLinkEl && brandLink) brandRegLinkEl.value = brandLink;
+        if (adminRegLinkEl && adminLink) adminRegLinkEl.value = adminLink;
       }
 
       copyBrandLinkBtn?.addEventListener('click', async () => {
