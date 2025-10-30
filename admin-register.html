@@ -68,9 +68,32 @@
 
         try {
           // First try to consume the admin token (validates it's a real unused token)
-          const { data: validToken, error: tokenError } = await supabase.rpc('consume_admin_token', { p_token: token });
-          if (tokenError) {
-            console.error('Token validation failed:', tokenError);
+          let consumedOk = false;
+          try {
+            const res = await supabase.rpc('consume_admin_token', { p_token: token });
+            if (!res.error) consumedOk = !!(res.data === true || res.data?.consumed === true || res.data === null);
+          } catch (_) {}
+
+          // Fallback: directly mark token as consumed in admin_tokens when RPC is not available
+          if (!consumedOk) {
+            try {
+              const { data: row, error: selErr } = await supabase
+                .from('admin_tokens')
+                .select('token, consumed_at')
+                .eq('token', token)
+                .maybeSingle();
+              if (selErr || !row || row.consumed_at) throw selErr || new Error('Token missing or already used');
+              const { error: updErr } = await supabase
+                .from('admin_tokens')
+                .update({ consumed_at: new Date().toISOString() })
+                .eq('token', token);
+              if (!updErr) consumedOk = true;
+            } catch (e2) {
+              console.warn('Token fallback consume failed:', e2);
+            }
+          }
+
+          if (!consumedOk) {
             return showAlert('Invalid or expired admin token. Please request a new invite link.');
           }
 

@@ -484,15 +484,17 @@
             if (!error) token = data?.token || data;
           }
           if (!token) {
-            // Fallback: insert into admin_tokens table if available
-            const rand = [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, '0')).join('');
+            // Fallback: insert into admin_tokens table using default uuid primary key
+            // Table columns expected: token (uuid pk default gen_random_uuid()), email (text), created_by_id (uuid), consumed_at (timestamptz)
+            const payload = {};
+            if (currentUser?.id) payload.created_by_id = currentUser.id;
             const { data, error } = await supabase
               .from('admin_tokens')
-              .insert([{ token: rand, used: false }])
+              .insert([payload])
               .select('token')
               .single();
             if (error) throw error;
-            token = data?.token || rand;
+            token = data?.token;
           }
           return `${base}admin-register.html?token=${encodeURIComponent(token)}`;
         } catch (e) {
