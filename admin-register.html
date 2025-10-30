@@ -39,8 +39,11 @@
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('token');
+  const params = new URLSearchParams(window.location.search);
+  // Normalize token from URL: trim and strip accidental wrapping quotes
+  const rawToken = params.get('token');
+  const token = rawToken ? rawToken.trim().replace(/^['"]|['"]$/g, '') : null;
+  console.log('[admin-register] token param:', token);
 
       const alertEl = document.getElementById('alert');
       const emailEl = document.getElementById('email');
@@ -71,8 +74,11 @@
           let consumedOk = false;
           try {
             const res = await supabase.rpc('consume_admin_token', { p_token: token });
-            if (!res.error) consumedOk = !!(res.data === true || res.data?.consumed === true || res.data === null);
-          } catch (_) {}
+            console.log('[admin-register] consume_admin_token result:', res);
+            if (!res.error) consumedOk = res.data === true;
+          } catch (e) {
+            console.warn('[admin-register] RPC consume_admin_token threw:', e);
+          }
 
           // Fallback: directly mark token as consumed in admin_tokens when RPC is not available
           if (!consumedOk) {
