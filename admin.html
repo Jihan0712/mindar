@@ -357,7 +357,8 @@
         uploadTab.classList.remove('bg-blue-600');
         listTab.classList.remove('bg-blue-600');
         loadAccounts();
-        generateLinks();
+        // Do NOT auto-generate links here to avoid bloating the database.
+        // Links will be generated only when the "Generate Links" button is clicked.
       });
 
       // Initialize auth + admin and load brand options
