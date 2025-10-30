@@ -446,23 +446,20 @@
         window.location.href = 'login.html';
       });
 
-      // Create a brand invitation row and return the invite URL
+      // Create a brand invitation via SECURITY DEFINER RPC (Option A)
       async function createBrandInvite() {
         const url = new URL(window.location.href);
         const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
         const brandVal = (regBrandInput?.value || '').trim() || null;
         try {
-          const { data, error } = await supabase
-            .from('invitations')
-            .insert([{ brand: brandVal }])
-            .select('id')
-            .single();
+          // Prefer RPC which bypasses RLS safely
+          const { data, error } = await supabase.rpc('create_brand_invite', { p_brand: brandVal });
           if (error) throw error;
-          const inviteId = data?.id;
+          const inviteId = (typeof data === 'string' || typeof data === 'number') ? data : (data?.id || data?.invite_id);
           if (!inviteId) throw new Error('No invite id returned');
           return `${base}brand-register.html?invite_id=${inviteId}`;
         } catch (e) {
-          console.warn('Failed to create brand invite:', e);
+          console.warn('Failed to create brand invite via RPC:', e);
           statusEl.textContent = `⚠️ Unable to create brand invite: ${e.message || e}`;
           return null;
         }
