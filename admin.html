@@ -18,6 +18,7 @@
         <nav class="flex flex-col space-y-3">
           <button id="uploadTab" class="py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 text-left">Upload Target</button>
           <button id="listTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left">Existing Targets</button>
+          <button id="adminTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left hidden">Admin</button>
         </nav>
         <footer class="mt-auto text-xs text-gray-400 pt-4 border-t border-gray-700">
           &copy; 2025 INRL
@@ -26,6 +27,11 @@
 
       <!-- Main content -->
       <main class="flex-1 p-8">
+        <!-- Top-right user toolbar -->
+        <div class="flex items-center justify-end mb-4 gap-3">
+          <span id="userEmail" class="text-sm text-gray-500"></span>
+          <button id="logoutBtn" class="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-800">Logout</button>
+        </div>
         <p id="status" class="mb-4 text-sm text-gray-600"></p>
 
         <!-- Upload Section -->
@@ -109,6 +115,63 @@
               </thead>
               <tbody id="targetsTable"></tbody>
             </table>
+          </div>
+        </section>
+
+        <!-- Admin Section (visible to admins only) -->
+        <section id="adminSection" class="hidden">
+          <h2 class="text-xl font-semibold mb-4">Admin Tools</h2>
+          <div class="grid gap-6 md:grid-cols-2">
+            <!-- Accounts monitor -->
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+              <div class="p-4 border-b">
+                <h3 class="font-medium">Accounts</h3>
+                <p class="text-xs text-gray-500">List of users from profiles and admin status.</p>
+              </div>
+              <div class="p-4 overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                  <thead class="bg-gray-100">
+                    <tr>
+                      <th class="p-2">User ID</th>
+                      <th class="p-2">Brand</th>
+                      <th class="p-2">Admin</th>
+                    </tr>
+                  </thead>
+                  <tbody id="accountsTable"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Registration links -->
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+              <div class="p-4 border-b">
+                <h3 class="font-medium">Registration Links</h3>
+                <p class="text-xs text-gray-500">Generate and copy special links for brand or admin registration.</p>
+              </div>
+              <div class="p-4 space-y-4">
+                <div>
+                  <label class="block text-xs text-gray-600 mb-1">Brand name (optional)</label>
+                  <input id="regBrandInput" type="text" placeholder="Brand name" class="border rounded p-2 w-full" />
+                </div>
+                <div class="space-y-3">
+                  <div>
+                    <label class="block text-xs text-gray-600 mb-1">Brand registration link</label>
+                    <div class="flex gap-2">
+                      <input id="brandRegLink" class="flex-1 border rounded p-2 text-xs" readonly />
+                      <button id="copyBrandLink" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Copy</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-600 mb-1">Admin registration link</label>
+                    <div class="flex gap-2">
+                      <input id="adminRegLink" class="flex-1 border rounded p-2 text-xs" readonly />
+                      <button id="copyAdminLink" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Copy</button>
+                    </div>
+                  </div>
+                  <button id="generateLinks" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Generate Links</button>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -243,12 +306,24 @@
 
       const uploadBtn = document.getElementById("upload");
       const statusEl = document.getElementById("status");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const userEmailEl = document.getElementById("userEmail");
       const uploadSection = document.getElementById("uploadSection");
       const listSection = document.getElementById("listSection");
       const uploadTab = document.getElementById("uploadTab");
       const listTab = document.getElementById("listTab");
       const targetsTable = document.getElementById("targetsTable");
       const compileStatus = document.getElementById("compileStatus");
+  // Admin section els
+  const adminTab = document.getElementById('adminTab');
+  const adminSection = document.getElementById('adminSection');
+  const accountsTable = document.getElementById('accountsTable');
+  const regBrandInput = document.getElementById('regBrandInput');
+  const brandRegLinkEl = document.getElementById('brandRegLink');
+  const adminRegLinkEl = document.getElementById('adminRegLink');
+  const copyBrandLinkBtn = document.getElementById('copyBrandLink');
+  const copyAdminLinkBtn = document.getElementById('copyAdminLink');
+  const generateLinksBtn = document.getElementById('generateLinks');
   // timer used to clear transient status messages (so they disappear after a few seconds)
   let statusClearTimer = null;
 
@@ -262,21 +337,38 @@
       listTab.addEventListener("click", () => {
         listSection.classList.remove("hidden");
         uploadSection.classList.add("hidden");
+        adminSection.classList.add("hidden");
         listTab.classList.add("bg-blue-600");
         uploadTab.classList.remove("bg-blue-600");
+        adminTab?.classList.remove("bg-blue-600");
         loadTargets();
+      });
+
+      adminTab?.addEventListener('click', () => {
+        adminSection.classList.remove('hidden');
+        uploadSection.classList.add('hidden');
+        listSection.classList.add('hidden');
+        adminTab.classList.add('bg-blue-600');
+        uploadTab.classList.remove('bg-blue-600');
+        listTab.classList.remove('bg-blue-600');
+        loadAccounts();
+        generateLinks();
       });
 
       // Initialize auth + admin and load brand options
       async function initAdminContext() {
         const { data: sessionData } = await supabase.auth.getSession();
         currentUser = sessionData?.session?.user || null;
+        // show current user email if available
+        if (userEmailEl) userEmailEl.textContent = currentUser?.email ? currentUser.email : '';
         try {
           const { data: adminsData } = await supabase.from('admins').select('user_id');
           (adminsData || []).forEach(r => adminIds.add(r.user_id));
           if (currentUser?.id && adminIds.has(currentUser.id)) {
             isAdmin = true;
             filterEls.bar.classList.remove('hidden');
+            // show Admin tab
+            adminTab?.classList.remove('hidden');
           }
         } catch (e) {
           // ignore if no access; filters will remain hidden
@@ -324,6 +416,64 @@
           if (filterEls.uploaderType) filterEls.uploaderType.value = 'all';
           loadTargets();
         });
+      }
+
+      // Logout handler
+      logoutBtn?.addEventListener('click', async () => {
+        try {
+          await supabase.auth.signOut();
+        } catch (e) {
+          console.warn('Sign out issue:', e);
+        }
+        // Redirect to login page
+        window.location.href = 'login.html';
+      });
+
+      // Build registration links from current origin
+      function generateLinks() {
+        const url = new URL(window.location.href);
+        const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
+        const brand = encodeURIComponent((regBrandInput?.value || '').trim());
+        const ts = Date.now();
+        const brandLink = brand ? `${base}brand-register.html?brand=${brand}&ts=${ts}` : `${base}brand-register.html?ts=${ts}`;
+        const adminLink = `${base}admin-register.html?ts=${ts}`;
+        if (brandRegLinkEl) brandRegLinkEl.value = brandLink;
+        if (adminRegLinkEl) adminRegLinkEl.value = adminLink;
+      }
+
+      copyBrandLinkBtn?.addEventListener('click', async () => {
+        if (brandRegLinkEl?.value) {
+          await navigator.clipboard.writeText(brandRegLinkEl.value);
+          statusEl.textContent = '✅ Brand registration link copied to clipboard';
+        }
+      });
+      copyAdminLinkBtn?.addEventListener('click', async () => {
+        if (adminRegLinkEl?.value) {
+          await navigator.clipboard.writeText(adminRegLinkEl.value);
+          statusEl.textContent = '✅ Admin registration link copied to clipboard';
+        }
+      });
+      generateLinksBtn?.addEventListener('click', () => generateLinks());
+
+      async function loadAccounts() {
+        accountsTable.innerHTML = '';
+        try {
+          const { data: profiles, error } = await supabase.from('profiles').select('user_id, brand');
+          if (error) throw error;
+          const rows = Array.isArray(profiles) ? profiles : [];
+          rows.forEach((r) => {
+            const isAdm = adminIds.has(r.user_id) ? 'Yes' : 'No';
+            accountsTable.innerHTML += `
+              <tr>
+                <td class="p-2 font-mono text-xs">${r.user_id || ''}</td>
+                <td class="p-2">${r.brand || ''}</td>
+                <td class="p-2">${isAdm}</td>
+              </tr>`;
+          });
+        } catch (e) {
+          console.warn('Failed to load accounts', e);
+          accountsTable.innerHTML = `<tr><td class="p-2 text-red-600" colspan="3">Failed to load accounts: ${e.message || e}</td></tr>`;
+        }
       }
 
       // helper:: compile a marker image file in-browser and return an ArrayBuffer
