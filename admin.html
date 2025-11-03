@@ -122,6 +122,34 @@
         <section id="adminSection" class="hidden">
           <h2 class="text-xl font-semibold mb-4">Admin Tools</h2>
           <div class="grid gap-6 md:grid-cols-2">
+            <!-- Overview stats -->
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+              <div class="p-4 border-b">
+                <h3 class="font-medium">Overview</h3>
+                <p class="text-xs text-gray-500">Quick stats and pending invites/tokens.</p>
+              </div>
+              <div class="p-4">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                  <div class="p-3 rounded bg-gray-50">
+                    <div class="text-gray-500">Brand accounts</div>
+                    <div id="brandCount" class="text-xl font-semibold">—</div>
+                  </div>
+                  <div class="p-3 rounded bg-gray-50">
+                    <div class="text-gray-500">Admin accounts</div>
+                    <div id="adminCount" class="text-xl font-semibold">—</div>
+                  </div>
+                  <div class="p-3 rounded bg-gray-50">
+                    <div class="text-gray-500">Pending brand invites</div>
+                    <div id="pendingInvitesCount" class="text-xl font-semibold">—</div>
+                  </div>
+                  <div class="p-3 rounded bg-gray-50">
+                    <div class="text-gray-500">Pending admin tokens</div>
+                    <div id="pendingAdminTokensCount" class="text-xl font-semibold">—</div>
+                  </div>
+                </div>
+                <button id="refreshStats" class="mt-4 px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">Refresh</button>
+              </div>
+            </div>
             <!-- Accounts monitor -->
             <div class="bg-white shadow rounded-lg overflow-hidden">
               <div class="p-4 border-b">
@@ -322,6 +350,11 @@
   const adminTab = document.getElementById('adminTab');
   const adminSection = document.getElementById('adminSection');
   const accountsTable = document.getElementById('accountsTable');
+  const brandCountEl = document.getElementById('brandCount');
+  const adminCountEl = document.getElementById('adminCount');
+  const pendingInvitesEl = document.getElementById('pendingInvitesCount');
+  const pendingAdminTokensEl = document.getElementById('pendingAdminTokensCount');
+  const refreshStatsBtn = document.getElementById('refreshStats');
   const regBrandInput = document.getElementById('regBrandInput');
   const regEmailInput = document.getElementById('regEmailInput');
   const brandRegLinkEl = document.getElementById('brandRegLink');
@@ -357,6 +390,7 @@
         uploadTab.classList.remove('bg-blue-600');
         listTab.classList.remove('bg-blue-600');
         loadAccounts();
+        loadAdminStats();
         // Do NOT auto-generate links here to avoid bloating the database.
         // Links will be generated only when the "Generate Links" button is clicked.
       });
@@ -534,6 +568,57 @@
         }
       });
       generateLinksBtn?.addEventListener('click', () => generateLinks());
+      refreshStatsBtn?.addEventListener('click', () => loadAdminStats());
+
+      // Load high-level stats (counts)
+      async function loadAdminStats() {
+        // Defaults
+        if (brandCountEl) brandCountEl.textContent = '—';
+        if (adminCountEl) adminCountEl.textContent = '—';
+        if (pendingInvitesEl) pendingInvitesEl.textContent = '—';
+        if (pendingAdminTokensEl) pendingAdminTokensEl.textContent = '—';
+
+        // Brand accounts (profiles with a non-null brand)
+        try {
+          const { count, error } = await supabase
+            .from('profiles')
+            .select('brand', { count: 'exact', head: true })
+            .not('brand', 'is', null);
+          if (!error && typeof count === 'number' && brandCountEl) brandCountEl.textContent = String(count);
+          else if (error) console.warn('Brand count failed:', error);
+        } catch (e) { console.warn('Brand count threw:', e); }
+
+        // Admin accounts (count rows in admins)
+        try {
+          let admCount = null;
+          const { count, error } = await supabase
+            .from('admins')
+            .select('user_id', { count: 'exact', head: true });
+          if (!error && typeof count === 'number') admCount = count;
+          if (admCount == null) admCount = adminIds.size; // fallback to what we loaded
+          if (adminCountEl) adminCountEl.textContent = String(admCount);
+          if (error) console.warn('Admin count failed (using fallback if any):', error);
+        } catch (e) { console.warn('Admin count threw:', e); if (adminCountEl) adminCountEl.textContent = String(adminIds.size); }
+
+        // Pending brand invites (existing rows in invitations)
+        try {
+          const { count, error } = await supabase
+            .from('invitations')
+            .select('id', { count: 'exact', head: true });
+          if (!error && typeof count === 'number' && pendingInvitesEl) pendingInvitesEl.textContent = String(count);
+          else if (error) console.warn('Invites count failed:', error);
+        } catch (e) { console.warn('Invites count threw:', e); }
+
+        // Pending admin tokens (consumed_at is null)
+        try {
+          const { count, error } = await supabase
+            .from('admin_tokens')
+            .select('token', { count: 'exact', head: true })
+            .is('consumed_at', null);
+          if (!error && typeof count === 'number' && pendingAdminTokensEl) pendingAdminTokensEl.textContent = String(count);
+          else if (error) console.warn('Admin tokens count failed:', error);
+        } catch (e) { console.warn('Admin tokens count threw:', e); }
+      }
 
       async function loadAccounts() {
         accountsTable.innerHTML = '';
