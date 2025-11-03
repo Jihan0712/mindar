@@ -160,9 +160,9 @@
                 <table class="w-full text-left border-collapse text-sm">
                   <thead class="bg-gray-100">
                     <tr>
-                      <th class="p-2">User ID</th>
-                      <th class="p-2">Brand</th>
-                      <th class="p-2">Admin</th>
+                        <th class="p-2">User (email)</th>
+                        <th class="p-2">Brand</th>
+                        <th class="p-2">Admin</th>
                     </tr>
                   </thead>
                   <tbody id="accountsTable"></tbody>
@@ -633,9 +633,10 @@
           }
           rows.forEach((r) => {
             const isAdm = r.is_admin ? 'Yes' : 'No';
+            const email = r.email || r.user_id || '';
             accountsTable.innerHTML += `
               <tr>
-                <td class="p-2 font-mono text-xs">${r.user_id || ''}</td>
+                <td class="p-2 font-mono text-xs">${email}</td>
                 <td class="p-2">${r.brand || ''}</td>
                 <td class="p-2">${isAdm}</td>
               </tr>`;
