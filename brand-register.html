@@ -110,10 +110,10 @@
           if (res.error) return showAlert(res.error.message || JSON.stringify(res.error));
           const user = res.data?.user;
           if (user) {
-            // create profile
+            // create or update profile (use upsert so trigger-created rows are updated)
             try {
-              await supabase.from('profiles').insert([{ user_id: user.id, name, brand }]);
-            } catch (e) { console.warn('profile insert failed', e); }
+              await supabase.from('profiles').upsert([{ user_id: user.id, name, brand }], { onConflict: 'user_id' });
+            } catch (e) { console.warn('profile upsert failed', e); }
             // attempt to remove invitation (best-effort)
             try {
               await supabase.from('invitations').delete().eq('id', inviteId);

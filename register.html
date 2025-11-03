@@ -65,10 +65,10 @@
           
           const user = data?.user;
           if (user) {
-            // Create regular client profile
+            // Create or update regular client profile (use upsert to be idempotent)
             try {
-              await supabase.from('profiles').insert([{ user_id: user.id, name: displayName }]);
-            } catch (e) { console.warn('profile insert failed', e); }
+              await supabase.from('profiles').upsert([{ user_id: user.id, name: displayName }], { onConflict: 'user_id' });
+            } catch (e) { console.warn('profile upsert failed', e); }
             showAlert('Registration successful. You can now log in with your email and password.', false);
             if (passwordEl) passwordEl.value = '';
           } else {
