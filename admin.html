@@ -622,10 +622,38 @@
 
       async function loadAccounts() {
         accountsTable.innerHTML = '';
+        // Prefer RPC (SECURITY DEFINER) so admins can see all accounts despite RLS
+        try {
+          const { data, error } = await supabase.rpc('get_accounts');
+          if (error) throw error;
+          const rows = Array.isArray(data) ? data : [];
+          if (rows.length === 0) {
+            accountsTable.innerHTML = `<tr><td class="p-2 text-gray-500" colspan="3">No accounts found.</td></tr>`;
+            return;
+          }
+          rows.forEach((r) => {
+            const isAdm = r.is_admin ? 'Yes' : 'No';
+            accountsTable.innerHTML += `
+              <tr>
+                <td class="p-2 font-mono text-xs">${r.user_id || ''}</td>
+                <td class="p-2">${r.brand || ''}</td>
+                <td class="p-2">${isAdm}</td>
+              </tr>`;
+          });
+          return;
+        } catch (rpcErr) {
+          console.warn('get_accounts RPC unavailable, falling back to direct select:', rpcErr);
+        }
+
+        // Fallback: direct select (may be blocked by RLS)
         try {
           const { data: profiles, error } = await supabase.from('profiles').select('user_id, brand');
           if (error) throw error;
           const rows = Array.isArray(profiles) ? profiles : [];
+          if (rows.length === 0) {
+            accountsTable.innerHTML = `<tr><td class="p-2 text-gray-500" colspan="3">No accounts found.</td></tr>`;
+            return;
+          }
           rows.forEach((r) => {
             const isAdm = adminIds.has(r.user_id) ? 'Yes' : 'No';
             accountsTable.innerHTML += `
