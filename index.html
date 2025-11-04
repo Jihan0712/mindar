@@ -63,12 +63,22 @@
         const brand = params.get('brand');
         const product = params.get('product');
 
-        // Build query scoped to brand+product if provided. Treat missing/empty as NULL bucket.
+        // Build query: be permissive when only product is provided (match any brand),
+        // but when no params are provided default to the global bucket (brand IS NULL and product IS NULL).
         let q = supabase.from('targets').select('*').eq('is_active', true);
-        if (brand) q = q.eq('brand', brand);
-        else q = q.is('brand', null);
-        if (product) q = q.eq('product', product);
-        else q = q.is('product', null);
+        const noParams = !brand && !product;
+
+        if (brand) {
+          q = q.eq('brand', brand);
+        }
+        if (product) {
+          q = q.eq('product', product);
+        }
+
+        if (noParams) {
+          // Original behavior: load the global active target when no params are provided
+          q = q.is('brand', null).is('product', null);
+        }
 
         // We expect at most one active target per (brand,product)
         const { data, error } = await q.maybeSingle();
