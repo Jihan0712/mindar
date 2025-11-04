@@ -163,6 +163,7 @@
                         <th class="p-2">User (email)</th>
                         <th class="p-2">Brand</th>
                         <th class="p-2">Admin</th>
+                        <th class="p-2">View</th>
                     </tr>
                   </thead>
                   <tbody id="accountsTable"></tbody>
@@ -775,11 +776,13 @@
           rows.forEach((r) => {
             const isAdm = r.is_admin ? 'Yes' : 'No';
             const email = r.email || r.user_id || '';
-            accountsTable.innerHTML += `
+              const brandSafe = r.brand || '';
+              accountsTable.innerHTML += `
               <tr>
                 <td class="p-2 font-mono text-xs">${email}</td>
-                <td class="p-2">${r.brand || ''}</td>
+                <td class="p-2">${brandSafe}</td>
                 <td class="p-2">${isAdm}</td>
+                <td class="p-2"><button class="px-2 py-1 bg-blue-600 text-white rounded text-xs" onclick="copyBrandView('${encodeURIComponent(brandSafe)}')">Copy View</button></td>
               </tr>`;
           });
           return;
@@ -798,11 +801,13 @@
           }
           rows.forEach((r) => {
             const isAdm = adminIds.has(r.user_id) ? 'Yes' : 'No';
+            const brandSafe = r.brand || '';
             accountsTable.innerHTML += `
               <tr>
                 <td class="p-2 font-mono text-xs">${r.user_id || ''}</td>
-                <td class="p-2">${r.brand || ''}</td>
+                <td class="p-2">${brandSafe}</td>
                 <td class="p-2">${isAdm}</td>
+                <td class="p-2"><button class="px-2 py-1 bg-blue-600 text-white rounded text-xs" onclick="copyBrandView('${encodeURIComponent(brandSafe)}')">Copy View</button></td>
               </tr>`;
           });
         } catch (e) {
@@ -1083,21 +1088,52 @@
         }
 
         statusEl.textContent = "⏳ Updating active target...";
-        await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
-        const { error } = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
 
-        if (error) {
-          statusEl.textContent = "❌ Error: " + error.message;
-        } else {
+        // Prefer a server-side RPC which can perform an atomic switch and is suitable
+        // when RLS prevents the client from updating other rows. If the RPC is not
+        // available, fall back to the existing client updates (best-effort).
+        try {
+          try {
+            const { error: rpcErr } = await supabase.rpc('set_active_target', { p_target_id: targetId });
+            if (rpcErr) throw rpcErr;
+          } catch (rpcEx) {
+            // If RPC fails (not installed or permission issue), fallback to client updates
+            console.warn('set_active_target RPC failed, falling back to client updates:', rpcEx);
+            await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
+            const { error } = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
+            if (error) throw error;
+          }
+
           statusEl.textContent = "✅ Active target updated!";
           // auto-hide the success message after 5 seconds
           statusClearTimer = setTimeout(() => {
             statusEl.textContent = "";
             statusClearTimer = null;
           }, 5000);
+        } catch (e) {
+          console.error('Failed to set active target:', e);
+          statusEl.textContent = "❌ Error: " + (e.message || String(e));
         }
 
         loadTargets();
+      };
+
+      // Copy brand-specific viewer URL to clipboard
+      window.copyBrandView = async (encodedBrand) => {
+        try {
+          const brand = decodeURIComponent(encodedBrand || '');
+          const url = new URL(window.location.href);
+          const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
+          // Default to query-parameter style so you can host a single viewer that reads ?brand=
+          // If you prefer per-brand index files (index-<brand>.html), change this format.
+          const viewerUrl = brand ? `${base}index.html?brand=${encodeURIComponent(brand)}` : `${base}index.html`;
+          await navigator.clipboard.writeText(viewerUrl);
+          statusEl.textContent = `✅ Viewer URL copied for brand: ${brand || '<global>'}`;
+          setTimeout(() => { if (statusEl && statusEl.textContent) statusEl.textContent = ''; }, 4000);
+        } catch (e) {
+          console.error('Failed to copy brand viewer URL', e);
+          statusEl.textContent = '❌ Failed to copy viewer URL';
+        }
       };
 
       window.editVideo = async (id, name) => {
