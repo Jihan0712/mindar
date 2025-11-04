@@ -59,16 +59,24 @@
 
       async function loadActiveTarget() {
         console.log("📡 Loading active target from Supabase...");
-        const { data, error } = await supabase
-          .from("targets")
-          .select("*")
-          .eq("is_active", true)
-          .single();
+        const params = new URLSearchParams(window.location.search);
+        const brand = params.get('brand');
+        const product = params.get('product');
+
+        // Build query scoped to brand+product if provided. Treat missing/empty as NULL bucket.
+        let q = supabase.from('targets').select('*').eq('is_active', true);
+        if (brand) q = q.eq('brand', brand);
+        else q = q.is('brand', null);
+        if (product) q = q.eq('product', product);
+        else q = q.is('product', null);
+
+        // We expect at most one active target per (brand,product)
+        const { data, error } = await q.maybeSingle();
 
         if (error || !data) {
           console.error("❌ No active target found:", error);
           document.body.innerHTML =
-            "<h2 style='text-align:center; color:red;'>❌ No active target found in database.</h2>";
+            "<h2 style='text-align:center; color:red;'>❌ No active target found for this brand/product.</h2>";
           return null;
         }
 

@@ -8,6 +8,7 @@ This README summarizes how the code works, how the pieces fit together, and how 
 
 - `admin.html` — Admin dashboard UI. Upload targets, compile markers, list targets, set active target, manage invites & admin tokens, and generate brand/admin registration links.
 - `index.html` — Public viewer page. Loads the active target (optionally for a brand) and shows the AR viewer. It expects one active target per brand.
+- `index.html` — Public viewer page. Loads the active target (optionally for a brand and product) and shows the AR viewer. It expects one active target per (brand,product).
 - `register.html`, `brand-register.html`, `admin-register.html` — Registration pages for generic users, brand invite flows, and admin token flows.
 - `sql/001_enforce_single_active_target.sql` — Migration SQL to enforce one active target per brand and add an RPC (`set_active_target`) that atomically switches the active target scoped to the brand.
 - `sql/README.md` — Short guidance for running the migration and normalizing duplicate active rows.
@@ -59,7 +60,7 @@ If you enable Row Level Security in Supabase, create these RPCs using SECURITY D
 
 `index.html` expects to load the active target for the current brand. There are two common hosting approaches:
 
-1. Single viewer with query param: `index.html?brand=<brand>` — the viewer reads the `brand` parameter and loads `targets` where `is_active = true` and `brand = <brand>` (or `brand IS NULL` for global). This is the simplest.
+1. Single viewer with query params: `index.html?brand=<brand>&product=<product>` — the viewer reads the `brand` and optional `product` parameters and loads `targets` where `is_active = true` and `brand = <brand>` and `product = <product>` (or `brand/product IS NULL` for global). This is the simplest and supports multiple active markers per-brand scoped to product.
 2. Per-brand static page: `index-<brand>.html` — if you prefer a separate page per brand (e.g., for SEO or simple hosting), you can create static files and the admin UI can copy links for those files.
 
 The provided admin UI produces `index.html?brand=` links by default (see `copyBrandView()`), which works with approach (1).

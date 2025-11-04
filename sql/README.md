@@ -5,28 +5,29 @@ This folder contains migrations and guidance for the database changes required b
 ## Migration: `001_enforce_single_active_target.sql`
 
 Purpose:
-- Enforce at-most-one `is_active = true` target per brand.
-- Provide a SECURITY DEFINER RPC `set_active_target(p_target_id uuid)` that atomically switches the active target within the brand.
+- Enforce at-most-one `is_active = true` target per (brand, product).
+- Provide a SECURITY DEFINER RPC `set_active_target(p_target_id uuid)` that atomically switches the active target within the same brand+product.
 
 How to apply:
 1. Open your Supabase project → SQL editor.
 2. Paste the contents of `001_enforce_single_active_target.sql` and execute.
 
-Possible error: `ERROR: 23505: could not create unique index "only_one_active_per_brand" DETAIL: Key (COALESCE(brand, '__GLOBAL__'::text))=(__GLOBAL__) is duplicated.`
+Possible error: `ERROR: 23505: could not create unique index "only_one_active_per_brand_product" DETAIL: Key (COALESCE(...)) is duplicated.`
 
-This means some brand bucket currently has multiple rows with `is_active = true`. You must normalize before creating the unique index.
+This means some brand+product bucket currently has multiple rows with `is_active = true`. You must normalize before creating the unique index.
 
-### Normalization (keep newest active per brand)
-Run this in the SQL editor to keep the newest active entry per brand and clear other active flags:
+### Normalization (keep newest active per brand+product)
+Run this in the SQL editor to keep the newest active entry per brand+product and clear other active flags:
 
 ```sql
 WITH ranked AS (
   SELECT
     id,
     COALESCE(NULLIF(TRIM(brand), ''), '__GLOBAL__') AS brand_key,
+    COALESCE(NULLIF(TRIM(product), ''), '__DEFAULT__') AS product_key,
     created_at,
     ROW_NUMBER() OVER (
-      PARTITION BY COALESCE(NULLIF(TRIM(brand), ''), '__GLOBAL__')
+      PARTITION BY COALESCE(NULLIF(TRIM(brand), ''), '__GLOBAL__'), COALESCE(NULLIF(TRIM(product), ''), '__DEFAULT__')
       ORDER BY created_at DESC
     ) AS rn
   FROM public.targets
