@@ -95,7 +95,9 @@
       }
 
       document.addEventListener("DOMContentLoaded", async () => {
+        const tOverallStart = performance.now();
         const activeTarget = await loadActiveTarget();
+        console.log(`timing: fetched active target in ${Math.round(performance.now()-tOverallStart)}ms`);
         if (!activeTarget) return;
 
         const mindUrl = activeTarget.mindurl;
@@ -106,9 +108,23 @@
         const planeEl = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
 
+        // Prefetch the .mind file to warm the browser cache - MindAR will still
+        // request it, but this can reduce latency on initial load.
+        (async () => {
+          try {
+            const t = performance.now();
+            await fetch(mindUrl, { method: 'GET', mode: 'cors', cache: 'force-cache' });
+            console.log(`timing: prefetched .mind in ${Math.round(performance.now()-t)}ms`);
+          } catch (e) {
+            console.warn('Could not prefetch .mind (non-fatal):', e);
+          }
+        })();
+
         scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
 
-        aframeVideoAsset.crossOrigin = "anonymous";
+        // Set video attributes early so the browser can begin fetching metadata as soon
+        // as possible. We still wait for loadedmetadata before starting the draw loop.
+        try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
         aframeVideoAsset.src = videoUrl;
         aframeVideoAsset.loop = true;
         aframeVideoAsset.muted = true;
@@ -138,7 +154,9 @@
           planeEl.setAttribute("width", 1);
           planeEl.setAttribute("height", 1);
 
-          const CANVAS_SIZE = 1024;
+          // Reduce canvas texture size to lower CPU/GPU cost. 512 is a good tradeoff
+          // between quality and performance on mobile devices.
+          const CANVAS_SIZE = 512;
           const canvas = document.createElement("canvas");
           canvas.width = CANVAS_SIZE;
           canvas.height = CANVAS_SIZE;
@@ -193,6 +211,14 @@
               requestAnimationFrame(drawFrame);
             })();
           }
+
+          // Ensure video attributes are set early to speed up metadata loading.
+          try {
+            aframeVideoAsset.setAttribute('preload', 'auto');
+            aframeVideoAsset.setAttribute('playsinline', '');
+            aframeVideoAsset.setAttribute('webkit-playsinline', '');
+            aframeVideoAsset.setAttribute('crossorigin', 'anonymous');
+          } catch (e) {}
 
           if (aframeVideoAsset.readyState >= 1) startDrawLoop();
           else aframeVideoAsset.addEventListener("loadedmetadata", startDrawLoop, { once: true });
