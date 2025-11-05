@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>INRL — Client Viewer Links</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-50 text-gray-800">
+    <div class="max-w-4xl mx-auto py-10 px-4">
+      <h1 class="text-2xl font-semibold mb-4">INRL — Viewer Links</h1>
+      <p class="text-sm text-gray-600 mb-6">Enter a brand name to list active viewer links (or open the viewer).</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <input id="brandInput" class="col-span-2 border rounded p-2" placeholder="Brand (e.g. Acme)" />
+        <button id="fetchBtn" class="bg-blue-600 text-white px-4 py-2 rounded">Fetch</button>
+      </div>
+
+      <div id="status" class="text-sm text-gray-600 mb-4"></div>
+
+      <div id="linksList" class="bg-white shadow rounded p-4">
+        <div id="empty" class="text-gray-500">No brand selected — enter a brand and click Fetch.</div>
+        <table id="linksTable" class="hidden w-full text-left border-collapse">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="p-2">Product</th>
+              <th class="p-2">Active</th>
+              <th class="p-2">Viewer</th>
+            </tr>
+          </thead>
+          <tbody id="linksTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const brandInput = document.getElementById('brandInput');
+      const fetchBtn = document.getElementById('fetchBtn');
+      const statusEl = document.getElementById('status');
+      const linksTable = document.getElementById('linksTable');
+      const linksTbody = document.getElementById('linksTbody');
+      const empty = document.getElementById('empty');
+
+      fetchBtn.addEventListener('click', () => { loadActiveByBrand((brandInput.value || '').trim()); });
+
+      async function loadActiveByBrand(brand) {
+        if (!brand) { statusEl.textContent = 'Please enter a brand'; return; }
+        statusEl.textContent = 'Fetching active targets...';
+        empty.classList.add('hidden'); linksTable.classList.add('hidden'); linksTbody.innerHTML = '';
+        try {
+          const { data, error } = await supabase.from('targets').select('*').eq('is_active', true).eq('brand', brand).order('product', { ascending: true });
+          if (error) throw error;
+          const rows = Array.isArray(data) ? data : [];
+          if (rows.length === 0) { statusEl.textContent = 'No active targets for this brand.'; empty.classList.remove('hidden'); return; }
+          linksTable.classList.remove('hidden'); statusEl.textContent = '';
+          rows.forEach((r) => {
+            const prod = r.product || '(no product)';
+            const viewerUrl = `${location.origin}${location.pathname.replace(/\/client\.html$/, '/')}index.html?brand=${encodeURIComponent(brand)}${r.product ? `&product=${encodeURIComponent(r.product)}` : ''}`;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td class="p-2">${prod}</td><td class="p-2">${r.is_active ? '✅' : '❌'}</td><td class="p-2"><a class="text-blue-600 underline" href="${viewerUrl}" target="_blank">Open</a> <button class="ml-2 px-2 py-1 bg-gray-100 rounded" data-url="${viewerUrl}">Copy</button></td>`;
+            linksTbody.appendChild(tr);
+          });
+          // add copy handlers
+          linksTbody.querySelectorAll('button[data-url]').forEach((btn) => btn.addEventListener('click', async (ev) => {
+            const url = ev.currentTarget.getAttribute('data-url'); await navigator.clipboard.writeText(url); statusEl.textContent = 'Viewer URL copied to clipboard'; setTimeout(() => statusEl.textContent = '', 2500);
+          }));
+        } catch (e) { console.error(e); statusEl.textContent = 'Failed to fetch: ' + (e.message || e); }
+      }
+
+      // If client.html is opened with ?brand=... prefill and load
+      (function initFromQuery() { const params = new URLSearchParams(window.location.search); const b = params.get('brand'); if (b) { brandInput.value = b; loadActiveByBrand(b); } })();
+    </script>
+  </body>
+</html>

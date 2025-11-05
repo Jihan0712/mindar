@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>INRL AR — Brand Dashboard</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-800 font-sans">
+    <div class="flex min-h-screen">
+      <!-- Sidebar -->
+      <aside class="w-64 bg-gray-900 text-white flex flex-col p-6">
+        <h1 class="text-2xl font-bold mb-8 text-center">INRL Brand</h1>
+        <nav class="flex flex-col space-y-3">
+          <button id="uploadTab" class="py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 text-left">Upload Target</button>
+          <button id="listTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left">Existing Targets</button>
+        </nav>
+        <footer class="mt-auto text-xs text-gray-400 pt-4 border-t border-gray-700">
+          &copy; 2025 INRL
+        </footer>
+      </aside>
+
+      <!-- Main content -->
+      <main class="flex-1 p-8">
+        <!-- Top-right user toolbar -->
+        <div class="flex items-center justify-end mb-4 gap-3">
+          <span id="userEmail" class="text-sm text-gray-500"></span>
+          <button id="logoutBtn" class="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-800">Logout</button>
+        </div>
+        <p id="status" class="mb-4 text-sm text-gray-600"></p>
+
+        <!-- Upload Section -->
+        <section id="uploadSection">
+          <h2 class="text-xl font-semibold mb-4">Upload a New AR Target</h2>
+          <div class="bg-white shadow rounded-lg p-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Target Name</label>
+              <input id="name" type="text" placeholder="Target name"
+                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Product (optional)</label>
+              <input id="productInput" type="text" placeholder="Product identifier (e.g. SKU or slug)"
+                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-1">Marker Image (.jpg/.png)</label>
+              <div class="flex gap-2">
+                <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" class="flex-1 border p-2 rounded-md" />
+                <div class="flex gap-2">
+                  <button id="serverCompile" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">
+                    Compile in Browser
+                  </button>
+                </div>
+              </div>
+              <p id="compileStatus" class="text-sm text-gray-500 mt-1"></p>
+              <p class="text-xs text-gray-400">Tip: large images will be resized to 1024px max to speed up compilation.</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-1">.mp4 Video</label>
+              <input id="videoFile" type="file" accept="video/mp4" class="w-full" />
+            </div>
+
+            <button id="upload" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">
+              Upload
+            </button>
+          </div>
+        </section>
+
+        <!-- List Section -->
+        <section id="listSection" class="hidden">
+          <h2 class="text-xl font-semibold mb-4">Your Targets</h2>
+          <div id="targetsList" class="bg-white shadow rounded-lg overflow-hidden">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-gray-200">
+                <tr>
+                  <th class="p-3">Target Image</th>
+                  <th class="p-3">Name</th>
+                  <th class="p-3">Product</th>
+                  <th class="p-3">Created</th>
+                  <th class="p-3">Active</th>
+                  <th class="p-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="targetsTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Minimal JS: reuses many helpers from admin, but admin-only tools removed -->
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+      const SUPABASE_URL = "https://vleqrpqfjkcazeowczjy.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      // small helper functions copied/adapted from admin.html
+      async function resizeImage(file, maxDim = 1024) {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        await img.decode();
+        let { width, height } = img;
+        if (width <= maxDim && height <= maxDim) return file;
+        const aspect = width / height;
+        if (width > height) { width = maxDim; height = Math.round(maxDim / aspect); }
+        else { height = maxDim; width = Math.round(maxDim * aspect); }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        return await new Promise((resolve) => canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.9));
+      }
+
+      // compile using mind-ar compiler in the browser (dynamic import)
+      async function compileImageClient(markerFile, progressCallback) {
+        // dynamic import of tfjs + Compiler
+        async function loadScript(url) {
+          return new Promise((resolve, reject) => {
+            const s = document.createElement('script'); s.src = url; s.onload = () => resolve(); s.onerror = () => reject(new Error('Failed to load ' + url)); document.head.appendChild(s);
+          });
+        }
+        // try a few tfjs versions
+        const versions = ['4.16.0','4.8.0','4.20.0'];
+        for (const v of versions) {
+          try { await loadScript(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@${v}/dist/tf.min.js`); if (typeof tf !== 'undefined') break; } catch (e) {}
+        }
+        const mod = await import('https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js');
+        const Compiler = mod.Compiler;
+        const fileToUse = await resizeImage(markerFile, 1024);
+        const img = new Image(); img.src = URL.createObjectURL(fileToUse); await img.decode();
+        const compiler = new Compiler();
+        await compiler.compileImageTargets([img], progressCallback);
+        const buffer = compiler.exportData ? compiler.exportData() : null;
+        if (!buffer) throw new Error('Failed to export compiled data');
+        return buffer;
+      }
+
+      // UI elements
+      const uploadBtn = document.getElementById('upload');
+      const statusEl = document.getElementById('status');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const userEmailEl = document.getElementById('userEmail');
+      const uploadSection = document.getElementById('uploadSection');
+      const listSection = document.getElementById('listSection');
+      const uploadTab = document.getElementById('uploadTab');
+      const listTab = document.getElementById('listTab');
+      const targetsTable = document.getElementById('targetsTable');
+
+      uploadTab.addEventListener('click', () => { uploadSection.classList.remove('hidden'); listSection.classList.add('hidden'); uploadTab.classList.add('bg-blue-600'); listTab.classList.remove('bg-blue-600'); });
+      listTab.addEventListener('click', () => { listSection.classList.remove('hidden'); uploadSection.classList.add('hidden'); listTab.classList.add('bg-blue-600'); uploadTab.classList.remove('bg-blue-600'); loadTargets(); });
+
+      // determine current user + their brand (if any)
+      let currentUser = null;
+      let currentUserBrand = null;
+
+      async function initBrandContext() {
+        const { data: sessionData } = await supabase.auth.getSession();
+        currentUser = sessionData?.session?.user || null;
+        if (userEmailEl) userEmailEl.textContent = currentUser?.email || '';
+        if (currentUser?.id) {
+          try {
+            const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', currentUser.id).maybeSingle();
+            currentUserBrand = (prof && typeof prof.brand === 'string' && prof.brand.trim()) ? prof.brand.trim() : null;
+          } catch (e) { currentUserBrand = null; }
+        }
+      }
+
+      // upload flow: similar to admin but always tags brand if currentUserBrand is set
+      document.getElementById('serverCompile').addEventListener('click', async () => {
+        const markerFile = document.getElementById('markerFile').files[0];
+        if (!markerFile) { document.getElementById('compileStatus').textContent = '⚠️ Please select an image first.'; return; }
+        try {
+          statusEl.textContent = 'Compiling marker image in the browser...';
+          const buffer = await compileImageClient(markerFile, (p) => { document.getElementById('compileStatus').textContent = `Progress: ${p.toFixed(1)}%`; });
+          document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to Supabase storage...';
+          const filename = markerFile.name.replace(/\.[^/.]+$/, '') + '.mind';
+          const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
+          const timestamp = Date.now();
+          const mindPath = `minds/${timestamp}-${filename}`;
+          const { error: mindErr } = await supabase.storage.from('assets').upload(mindPath, fileForUpload);
+          if (mindErr) throw mindErr;
+          const mindUrl = supabase.storage.from('assets').getPublicUrl(mindPath).data.publicUrl;
+          // stash on window for the upload flow
+          window.uploadedMindUrl = mindUrl;
+          document.getElementById('compileStatus').textContent = '✅ Compiled and uploaded to storage! Ready to Upload.';
+          statusEl.textContent = '';
+        } catch (err) { console.error(err); document.getElementById('compileStatus').textContent = `❌ Compile failed: ${err.message || err}`; }
+      });
+
+      uploadBtn.addEventListener('click', async () => {
+        const name = document.getElementById('name').value.trim();
+        const video = document.getElementById('videoFile').files[0];
+        const markerImage = document.getElementById('markerFile').files[0];
+        if (!name || (!window.uploadedMindUrl && !markerImage) || !video) { alert('⚠️ Please fill all fields and upload required files.'); return; }
+        statusEl.textContent = 'Uploading files...';
+        const timestamp = Date.now();
+        const videoPath = `videos/${timestamp}-${video.name}`;
+
+        if (!window.uploadedMindUrl && markerImage) {
+          try {
+            statusEl.textContent = 'Compiling marker image in the browser...';
+            const buffer = await compileImageClient(markerImage, (p) => { document.getElementById('compileStatus').textContent = `Progress: ${p.toFixed(1)}%`; });
+            document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to Supabase storage...';
+            const filename = markerImage.name.replace(/\.[^/.]+$/, '') + '.mind';
+            const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
+            const mindPathLocal = `minds/${timestamp}-${filename}`;
+            const { error: mindErr } = await supabase.storage.from('assets').upload(mindPathLocal, fileForUpload);
+            if (mindErr) throw mindErr;
+            const mindUrlLocal = supabase.storage.from('assets').getPublicUrl(mindPathLocal).data.publicUrl;
+            // upload video
+            const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
+            if (vidErr) return (statusEl.textContent = '❌ Video upload failed: ' + vidErr.message);
+            const videoUrlLocal = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+            // upload original image marker
+            let imageUrlLocal = null;
+            try {
+              const markerPathLocal = `markers/${timestamp}-${markerImage.name}`;
+              const { error: markerErr } = await supabase.storage.from('assets').upload(markerPathLocal, markerImage);
+              if (!markerErr) imageUrlLocal = supabase.storage.from('assets').getPublicUrl(markerPathLocal).data.publicUrl;
+            } catch (e) { console.warn('Image upload threw', e); }
+
+            const { data: userData } = await supabase.auth.getUser();
+            const insertObj = { name, mindurl: mindUrlLocal, videourl: videoUrlLocal, is_active: false };
+            if (userData?.user?.id) insertObj.user_id = userData.user.id;
+            if (currentUserBrand) insertObj.brand = currentUserBrand;
+            const prodVal = (document.getElementById('productInput')?.value || '').trim(); if (prodVal) insertObj.product = prodVal;
+            if (imageUrlLocal) insertObj.imageurl = imageUrlLocal;
+            const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
+            if (dbErr) return (statusEl.textContent = '❌ Database insert failed: ' + dbErr.message);
+            statusEl.textContent = '✅ Upload complete (client-side compile)!';
+            document.getElementById('name').value = ''; document.getElementById('videoFile').value = ''; document.getElementById('markerFile').value = ''; document.getElementById('compileStatus').textContent = ''; window.uploadedMindUrl = null; loadTargets(); return;
+          } catch (err) { console.error(err); statusEl.textContent = '❌ Client compile/upload failed: ' + (err.message || JSON.stringify(err)); return; }
+        }
+
+        // .mind upload (when compiled earlier)
+        if (window.uploadedMindUrl) {
+          const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
+          if (vidErr) return (statusEl.textContent = '❌ Video upload failed: ' + vidErr.message);
+          const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+          let imageUrlNew = null;
+          if (markerImage) {
+            try {
+              const markerPath = `markers/${timestamp}-${markerImage.name}`;
+              const { error: mErr } = await supabase.storage.from('assets').upload(markerPath, markerImage);
+              if (!mErr) imageUrlNew = supabase.storage.from('assets').getPublicUrl(markerPath).data.publicUrl;
+            } catch (e) { console.warn('Marker upload threw', e); }
+          }
+          const { data: userData } = await supabase.auth.getUser();
+          const insertObj = { name, mindurl: window.uploadedMindUrl, videourl: videoUrl, is_active: false };
+          if (userData?.user?.id) insertObj.user_id = userData.user.id;
+          if (currentUserBrand) insertObj.brand = currentUserBrand;
+          const prodValNew = (document.getElementById('productInput')?.value || '').trim(); if (prodValNew) insertObj.product = prodValNew;
+          if (imageUrlNew) insertObj.imageurl = imageUrlNew;
+          const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
+          if (dbErr) return (statusEl.textContent = '❌ Database insert failed: ' + dbErr.message);
+          statusEl.textContent = '✅ Upload complete!'; document.getElementById('name').value = ''; document.getElementById('videoFile').value = ''; window.uploadedMindUrl = null; loadTargets(); return;
+        }
+      });
+
+      async function loadTargets() {
+        let query = supabase.from('targets').select('*').order('created_at', { ascending: false });
+        // restrict to brand owner if brand known
+        if (currentUserBrand) query = query.eq('brand', currentUserBrand);
+        const { data, error } = await query;
+        if (error) return console.error('Error loading targets:', error);
+        const rows = Array.isArray(data) ? data : [];
+        targetsTable.innerHTML = '';
+        const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
+        rows.forEach((t) => {
+          const isActive = t.is_active ? '✅' : '❌';
+          const candidates = [];
+          if (t.imageurl) candidates.push(t.imageurl);
+          if (t.mindurl) {
+            try { candidates.push(t.mindurl.replace(/\.mind$/, '.jpg')); candidates.push(t.mindurl.replace(/\.mind$/, '.png')); } catch (e) {}
+          }
+          const uniq = Array.from(new Set(candidates.filter(Boolean)));
+          const candidateJson = encodeURIComponent(JSON.stringify(uniq));
+          const initialSrc = uniq.length ? uniq[0] : placeholder;
+          const onerrorAttr = uniq.length ? 'onerror="tryNextImage(this)"' : '';
+          const mindArg = encodeURIComponent(t.mindurl || '');
+          const videoArg = encodeURIComponent(t.videourl || '');
+          const imageArg = encodeURIComponent(t.imageurl || '');
+          const brandArg = encodeURIComponent(t.brand || '');
+          const productArg = encodeURIComponent(t.product || '');
+          const row = `
+            <tr>
+              <td class="p-3"><img src="${initialSrc}" data-candidates="${candidateJson}" data-idx="0" alt="${t.name}" class="w-24 h-24 object-contain rounded border border-gray-200" ${onerrorAttr} /></td>
+              <td class="p-3">${t.name}</td>
+              <td class="p-3">${t.product || ''}</td>
+              <td class="p-3 text-gray-500">${new Date(t.created_at).toLocaleString()}</td>
+              <td class="p-3">${isActive}</td>
+              <td class="p-3 text-center space-x-2">
+                <button onclick="setActive('${t.id}')" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">Set Active</button>
+                <button onclick="deleteTarget('${t.id}', '${t.name}', decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))" class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">Delete</button>
+                <button onclick="copyViewer('${brandArg}','${productArg}')" class="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700">Copy Link</button>
+              </td>
+            </tr>`;
+          targetsTable.innerHTML += row;
+        });
+      }
+
+      // reuse tryNextImage helper
+      function tryNextImage(img) {
+        const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
+        try {
+          const raw = img.getAttribute('data-candidates'); if (!raw) { img.onerror = null; img.src = placeholder; return; }
+          const candidates = JSON.parse(decodeURIComponent(raw)); let idx = parseInt(img.getAttribute('data-idx') || '0', 10); idx = (idx || 0) + 1;
+          if (idx >= candidates.length) { img.onerror = null; img.src = placeholder; img.setAttribute('data-idx', idx); }
+          else { img.setAttribute('data-idx', idx); img.src = candidates[idx]; }
+        } catch (e) { img.onerror = null; img.src = placeholder; }
+      }
+
+      // set active via RPC with fallback (same as admin)
+      window.setActive = async (targetId) => {
+        statusEl.textContent = '⏳ Updating active target...';
+        try {
+          try {
+            const { error: rpcErr } = await supabase.rpc('set_active_target', { p_target_id: targetId });
+            if (rpcErr) throw rpcErr;
+          } catch (rpcEx) {
+            console.warn('set_active_target RPC failed, falling back to client updates:', rpcEx);
+            await supabase.from('targets').update({ is_active: false }).neq('id', targetId);
+            const { error } = await supabase.from('targets').update({ is_active: true }).eq('id', targetId);
+            if (error) throw error;
+          }
+          statusEl.textContent = '✅ Active target updated!';
+        } catch (e) { console.error('Failed to set active target:', e); statusEl.textContent = '❌ Error: ' + (e.message || String(e)); }
+        loadTargets();
+      };
+
+      // copy viewer link
+      window.copyViewer = async (encodedBrand, encodedProduct) => {
+        try {
+          const brand = decodeURIComponent(encodedBrand || '');
+          const product = decodeURIComponent(encodedProduct || '');
+          const url = new URL(window.location.href);
+          const base = url.origin + url.pathname.replace(/\/brand\.html$/, '/');
+          const qs = [];
+          if (brand) qs.push(`brand=${encodeURIComponent(brand)}`);
+          if (product) qs.push(`product=${encodeURIComponent(product)}`);
+          const viewerUrl = `${base}index.html${qs.length ? '?' + qs.join('&') : ''}`;
+          await navigator.clipboard.writeText(viewerUrl);
+          statusEl.textContent = `✅ Viewer URL copied`;
+          setTimeout(() => { if (statusEl && statusEl.textContent) statusEl.textContent = ''; }, 4000);
+        } catch (e) { console.error('Failed to copy viewer URL', e); statusEl.textContent = '❌ Failed to copy viewer URL'; }
+      };
+
+      // delete target helper (copied from admin, simplified)
+      function storagePathFromPublicUrl(u) {
+        if (!u) return null; try {
+          const noQuery = u.split('?')[0]; const marker1 = '/object/public/assets/'; const i1 = noQuery.indexOf(marker1);
+          if (i1 !== -1) return noQuery.substring(i1 + marker1.length);
+          const parts = noQuery.split('/'); if (parts.length >= 2) return parts.slice(-2).join('/');
+        } catch (e) { console.warn('storagePathFromPublicUrl failed', e); }
+        return null;
+      }
+
+      window.deleteTarget = async (id, name, mindUrl, videoUrl, imageUrl) => {
+        if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+        const confirm2 = prompt('Type "delete" to confirm this action:'); if (confirm2?.toLowerCase() !== 'delete') return alert('❌ Deletion cancelled.');
+        statusEl.textContent = 'Deleting target...';
+        const { error: delErr } = await supabase.from('targets').delete().eq('id', id);
+        if (delErr) return (statusEl.textContent = '❌ Failed: ' + delErr.message);
+        const mindPath = storagePathFromPublicUrl(mindUrl); const videoPath = storagePathFromPublicUrl(videoUrl); const imagePath = storagePathFromPublicUrl(imageUrl);
+        const toRemove = [mindPath, videoPath, imagePath].filter(Boolean);
+        let removed = 0; const failed = [];
+        for (const p of toRemove) {
+          const { error } = await supabase.storage.from('assets').remove([p]); if (error) failed.push({ path: p, error: error.message || String(error) }); else removed += 1;
+        }
+        if (failed.length > 0) statusEl.textContent = `⚠️ Target deleted in DB. Removed ${removed}/${toRemove.length} storage file(s); ${failed.length} failed.`; else statusEl.textContent = '✅ Target deleted and files removed!';
+        loadTargets();
+      };
+
+      // init
+      (async () => { await initBrandContext(); loadTargets(); })();
+    </script>
+  </body>
+</html>
