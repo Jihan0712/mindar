@@ -29,22 +29,24 @@ This front-end expects a Supabase project with the following tables and (optiona
   - Columns used: `user_id`
   - Marks admin users.
 
-- `public.invitations`
-  - Columns used: `id`, `email`, `brand`, `created_at`
-  - Brand invite rows. Admin UI lists and deletes invites.
+ - `public.brand_invitations`
+  - Columns used: `id`, `email`, `brand`, `name`, `created_by`, `created_at`
+  - Brand invite rows. Admins create brand invitations; `brand-register.html` uses a SECURITY DEFINER RPC to load invites and allow brand users to register.
 
-- `public.admin_tokens`
+ - `public.admin_tokens`
   - Columns used: `token`, `created_by_id`, `created_at`, `consumed_at`
-  - Admin registration tokens; registration consumes a token.
+  - Admin registration tokens; creation of tokens is restricted to existing admins (RPC), and `admin-register.html` consumes tokens during admin signup.
 
 ## Key RPCs (recommended)
 
 For RLS-protected setups we recommend these SECURITY DEFINER RPCs (the front-end prefers them):
 
-- `public.get_accounts()` — return a list of users, join `auth.users` + `profiles` + `admins` so admin UI can display emails and brands.
-- `public.create_brand_invite(p_brand text, p_email text)` — creates an invite record and returns the invite id.
-- `public.set_active_target(p_target_id uuid)` — atomically clears the active flag for the target's brand and sets the requested target active. (Provided in `sql/001_enforce_single_active_target.sql`.)
-- `public.get_invitation_by_id(p_id uuid)` — returns invite details for brand-register prefill.
+ - `public.create_brand_invite(p_brand text, p_email text)` — creates a brand invite; the migration enforces that only admins can call this RPC.
+ - `public.get_brand_invitation_by_id(p_id uuid)` — returns invite details for brand-register prefill (SECURITY DEFINER).
+ - `public.create_admin_token()` — creates an admin token (RPC) — only callable by admins.
+ - `public.consume_admin_token(p_token uuid)` — atomically marks an admin token consumed (used by `admin-register.html`).
+ - `public.set_active_target(p_target_id uuid)` — atomically clears the active flag for the target's brand+product and sets the requested target active. (Provided in `sql/001_enforce_single_active_target.sql`.)
+ - `public.get_accounts()` — return a list of users, join `auth.users` + `profiles` + `admins` so admin UI can display emails and brands.
 
 If you enable Row Level Security in Supabase, create these RPCs using SECURITY DEFINER so authenticated web clients can call them while RLS prevents direct selects/updates on tables.
 
