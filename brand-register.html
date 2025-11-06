@@ -55,7 +55,7 @@
         if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
       }
 
-      // Load invite via a SECURITY DEFINER RPC to avoid RLS blocking anonymous reads.
+  // Load invite via a SECURITY DEFINER RPC to avoid RLS blocking anonymous reads.
       // Run the SQL below in Supabase SQL editor to create the function if it's missing:
       //
       // CREATE OR REPLACE FUNCTION public.get_invitation_by_id(p_id uuid)
@@ -72,7 +72,7 @@
           return;
         }
         try {
-          const { data, error } = await supabase.rpc('get_invitation_by_id', { p_id: id });
+          const { data, error } = await supabase.rpc('get_brand_invitation_by_id', { p_id: id });
           if (error) {
             console.error('invite rpc error', error);
             inviteInfoEl.textContent = 'Unable to load invitation.';
@@ -116,7 +116,7 @@
             } catch (e) { console.warn('profile upsert failed', e); }
             // attempt to remove invitation (best-effort)
             try {
-              await supabase.from('invitations').delete().eq('id', inviteId);
+              await supabase.from('brand_invitations').delete().eq('id', inviteId);
             } catch (e) { console.warn('delete invitation failed', e); }
             showAlert('Brand registration complete. You can now sign in.', false);
           } else {

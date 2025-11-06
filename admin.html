@@ -299,7 +299,7 @@
           // Fetch invites
           try {
             const { data: invites, error: invErr } = await supabase
-              .from('invitations')
+              .from('brand_invitations')
               .select('id, email, brand, created_at')
               .order('created_at', { ascending: false })
               .limit(limit);
@@ -330,7 +330,7 @@
                 delBtn.addEventListener('click', async () => {
                   if (!confirm('Delete this invite? This cannot be undone.')) return;
                   statusEl.textContent = 'Deleting invite...';
-                  const { error } = await supabase.from('invitations').delete().eq('id', id);
+                  const { error } = await supabase.from('brand_invitations').delete().eq('id', id);
                   if (error) statusEl.textContent = '❌ Delete failed: ' + (error.message || error);
                   else { statusEl.textContent = '✅ Invite deleted'; loadPendingLists(); loadAdminStats(); }
                 });
@@ -798,10 +798,10 @@
           if (error) console.warn('Admin count failed (using fallback if any):', error);
         } catch (e) { console.warn('Admin count threw:', e); if (adminCountEl) adminCountEl.textContent = String(adminIds.size); }
 
-        // Pending brand invites (existing rows in invitations)
+        // Pending brand invites (existing rows in brand_invitations)
         try {
           const { count, error } = await supabase
-            .from('invitations')
+            .from('brand_invitations')
             .select('id', { count: 'exact', head: true });
           if (!error && typeof count === 'number' && pendingInvitesEl) pendingInvitesEl.textContent = String(count);
           else if (error) console.warn('Invites count failed:', error);
