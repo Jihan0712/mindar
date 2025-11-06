@@ -469,6 +469,38 @@
       const SUPABASE_ANON_KEY = "sb_publishable_yB6MBOTVLquZgR4X6yqhTQ_0wBFkhrZ";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+      // Guard: ensure only admins may access admin.html. Non-admins are redirected
+      (async () => {
+        try {
+          const { data } = await supabase.auth.getSession();
+          const session = data?.session || null;
+          if (!session) { window.location.href = '/login.html'; return; }
+          const user = session.user;
+          // check admin table
+          try {
+            const { data: adminRow, error: adminErr } = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
+            if (!adminErr && adminRow && adminRow.user_id) {
+              // allowed to stay
+              return;
+            }
+          } catch (e) {
+            console.warn('Admin check failed:', e);
+          }
+
+          // not an admin -> redirect depending on profile
+          try {
+            const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
+            if (prof && prof.brand) { window.location.href = '/brand.html'; return; }
+          } catch (e) { console.warn('Profile check failed:', e); }
+
+          // default to client view
+          window.location.href = '/client.html';
+        } catch (e) {
+          console.warn('Access guard failed:', e);
+          window.location.href = '/login.html';
+        }
+      })();
+
   // Holds the URL of a .mind file that was compiled & uploaded (via the "Compile on Server" button)
   let uploadedMindUrl = null;
 

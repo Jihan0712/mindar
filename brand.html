@@ -382,8 +382,38 @@
         loadTargets();
       };
 
-      // init
-      (async () => { await initBrandContext(); loadTargets(); })();
+      // Guard + init: only brand users may access brand.html. Admins/clients are redirected.
+      (async () => {
+        try {
+          const { data } = await supabase.auth.getSession();
+          const session = data?.session || null;
+          if (!session) { window.location.href = '/login.html'; return; }
+          const user = session.user;
+
+          // If user is an admin, redirect to admin dashboard (no cross-access)
+          try {
+            const { data: adminRow } = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
+            if (adminRow && adminRow.user_id) { window.location.href = '/admin.html'; return; }
+          } catch (e) {
+            console.warn('Admin check failed:', e);
+          }
+
+          // Ensure user has a brand in profiles; otherwise send to client view
+          try {
+            const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
+            if (!prof || !prof.brand) { window.location.href = '/client.html'; return; }
+            // ok: brand owner
+            await initBrandContext();
+            loadTargets();
+          } catch (e) {
+            console.warn('Profile check failed:', e);
+            window.location.href = '/client.html';
+          }
+        } catch (e) {
+          console.warn('Access guard failed:', e);
+          window.location.href = '/login.html';
+        }
+      })();
     </script>
   </body>
 </html>

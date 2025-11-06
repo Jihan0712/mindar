@@ -47,15 +47,39 @@
         setTimeout(() => msg.textContent = '', 8000);
       }
 
-      // If already signed in, redirect to the shared dashboard
+      // If already signed in, check role and redirect to appropriate dashboard
       (async () => {
         try {
           const { data } = await supabase.auth.getSession();
           const session = data?.session || null;
-          if (session) {
-            // already signed in -> go to dashboard (admin.html will scope based on profile/role)
-            window.location.href = '/admin.html';
+          if (!session) return; // not signed in
+          const user = session.user;
+
+          // Prefer RPCs if you have them; fallback to table selects (may be blocked under RLS)
+          try {
+            // check admin first
+            const { data: adminRow, error: adminErr } = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
+            if (!adminErr && adminRow && adminRow.user_id) {
+              window.location.href = '/admin.html';
+              return;
+            }
+          } catch (e) {
+            console.warn('Admin check failed:', e);
           }
+
+          // check profile.brand
+          try {
+            const { data: prof, error: profErr } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
+            if (!profErr && prof && prof.brand) {
+              window.location.href = '/brand.html';
+              return;
+            }
+          } catch (e) {
+            console.warn('Profile check failed:', e);
+          }
+
+          // default to client view
+          window.location.href = '/client.html';
         } catch (e) {
           console.warn('Session check failed', e);
         }
@@ -68,8 +92,19 @@
           if (!email || !password) return showError('Enter email and password');
           const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) return showError(error);
-          // signed in
-          window.location.href = '/admin.html';
+          // signed in -> route by role
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const user = sessionData?.data?.session?.user || sessionData?.session?.user || null;
+            if (!user) { window.location.href = '/client.html'; return; }
+            const { data: adminRow } = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
+            if (adminRow && adminRow.user_id) { window.location.href = '/admin.html'; return; }
+            const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
+            if (prof && prof.brand) { window.location.href = '/brand.html'; return; }
+          } catch (e) {
+            console.warn('Post-login routing failed, falling back to client.html', e);
+          }
+          window.location.href = '/client.html';
         } catch (e) { showError(e); }
       });
 

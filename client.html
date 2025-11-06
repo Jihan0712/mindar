@@ -73,8 +73,35 @@
         } catch (e) { console.error(e); statusEl.textContent = 'Failed to fetch: ' + (e.message || e); }
       }
 
-      // If client.html is opened with ?brand=... prefill and load
-      (function initFromQuery() { const params = new URLSearchParams(window.location.search); const b = params.get('brand'); if (b) { brandInput.value = b; loadActiveByBrand(b); } })();
+      // Guard: if a logged-in admin or brand user visits client.html, redirect them to their dashboard
+      (async function initFromQuery() {
+        try {
+          const { data } = await supabase.auth.getSession();
+          const session = data?.session || null;
+          if (!session) {
+            // not signed in — keep client view
+            const params = new URLSearchParams(window.location.search); const b = params.get('brand'); if (b) { brandInput.value = b; loadActiveByBrand(b); };
+            return;
+          }
+          const user = session.user;
+          // admin check
+          try {
+            const { data: adminRow } = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
+            if (adminRow && adminRow.user_id) { window.location.href = '/admin.html'; return; }
+          } catch (e) { console.warn('Admin check failed:', e); }
+          // brand check
+          try {
+            const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
+            if (prof && prof.brand) { window.location.href = '/brand.html'; return; }
+          } catch (e) { console.warn('Profile check failed:', e); }
+
+          // otherwise remain on client view — prefill brand param if present
+          const params = new URLSearchParams(window.location.search); const b = params.get('brand'); if (b) { brandInput.value = b; loadActiveByBrand(b); };
+        } catch (e) {
+          console.warn('Client init failed:', e);
+          const params = new URLSearchParams(window.location.search); const b = params.get('brand'); if (b) { brandInput.value = b; loadActiveByBrand(b); };
+        }
+      })();
     </script>
   </body>
 </html>
