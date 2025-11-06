@@ -55,8 +55,8 @@ If you enable Row Level Security in Supabase, create these RPCs using SECURITY D
 - Admin authentication is done via Supabase Auth (the admin UI reads session info via `supabase.auth.getSession()` and checks `admins` table to enable Admin tab).
 - Upload flow (`admin.html` Upload tab): admin or brand user compiles/upload `.mind` target and video and inserts a row in `targets` with `is_active` defaulting to false.
 - View/Set Active: Admins click "Set Active" on a target. The UI attempts to call `supabase.rpc('set_active_target', { p_target_id })`. If the RPC doesn't exist, the UI falls back to a two-step client update (clear others, set the selected id) — note: the fallback may fail under RLS.
-- Pending invites & tokens: Admin UI lists recent `invitations` and `admin_tokens` (filtering `consumed_at IS NULL`) and offers copy/delete actions.
-- Registration pages: `brand-register.html` reads `invite_id` query param, calls `get_invitation_by_id` to prefill brand/email, registers via `supabase.auth.signUp()`, and upserts `profiles` (idempotent). `admin-register.html` registers admins and consumes admin token when the user clicks Register.
+ - Pending invites & tokens: Admin UI lists recent `brand_invitations` (pending brand invites) and `admin_tokens` (filtering `consumed_at IS NULL`) and offers copy/delete actions. Brand invites are created via the `create_brand_invite` RPC; admin tokens via `create_admin_token` RPC.
+ - Registration pages: `brand-register.html` reads `invite_id` query param, calls `get_brand_invitation_by_id` to prefill brand/email, registers via `supabase.auth.signUp()`, upserts `profiles` (idempotent), and deletes the `brand_invitations` row on success. `admin-register.html` registers admins and consumes an admin token via `consume_admin_token` during signup.
 
 ## Viewer (index.html) expectations
 

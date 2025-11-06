@@ -56,16 +56,6 @@
       }
 
   // Load invite via a SECURITY DEFINER RPC to avoid RLS blocking anonymous reads.
-      // Run the SQL below in Supabase SQL editor to create the function if it's missing:
-      //
-      // CREATE OR REPLACE FUNCTION public.get_invitation_by_id(p_id uuid)
-      // RETURNS TABLE (id uuid, email text, name text, brand text, phone text, created_at timestamptz)
-      // LANGUAGE sql SECURITY DEFINER AS $$
-      //   SELECT id, email, name, brand, phone, created_at FROM public.invitations WHERE id = p_id;
-      // $$;
-      // GRANT EXECUTE ON FUNCTION public.get_invitation_by_id(uuid) TO public;
-      //
-      // This RPC returns the invitation even when RLS prevents anonymous direct selects.
       async function loadInvite(id) {
         if (!id) {
           inviteInfoEl.textContent = 'No invite specified. You must use the invite link sent by an admin.';
@@ -110,11 +100,11 @@
           if (res.error) return showAlert(res.error.message || JSON.stringify(res.error));
           const user = res.data?.user;
           if (user) {
-            // create or update profile (use upsert so trigger-created rows are updated)
+            // create or update profile (use upsert so trigger created rows are updated)
             try {
               await supabase.from('profiles').upsert([{ user_id: user.id, name, brand }], { onConflict: 'user_id' });
             } catch (e) { console.warn('profile upsert failed', e); }
-            // attempt to remove invitation (best-effort)
+            // attempt to remove invitation (best effort lol)
             try {
               await supabase.from('brand_invitations').delete().eq('id', inviteId);
             } catch (e) { console.warn('delete invitation failed', e); }
