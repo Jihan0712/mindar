@@ -138,7 +138,7 @@
             <div class="bg-white shadow rounded-lg overflow-hidden">
               <div class="p-4 border-b">
                 <h3 class="font-medium">Overview</h3>
-                <p class="text-xs text-gray-500">Quick stats and pending invites/tokens.</p>
+                <p class="text-xs text-gray-500">Quick stats for accounts plus pending brand invites and admin tokens.</p>
               </div>
               <div class="p-4">
                 <div class="grid grid-cols-2 gap-4 text-sm">
@@ -826,7 +826,7 @@
           if (error) throw error;
           const rows = Array.isArray(data) ? data : [];
           if (rows.length === 0) {
-            accountsTable.innerHTML = `<tr><td class="p-2 text-gray-500" colspan="3">No accounts found.</td></tr>`;
+            accountsTable.innerHTML = `<tr><td class="p-2 text-gray-500" colspan="4">No accounts found.</td></tr>`;
             return;
           }
           rows.forEach((r) => {
@@ -852,7 +852,7 @@
           if (error) throw error;
           const rows = Array.isArray(profiles) ? profiles : [];
           if (rows.length === 0) {
-            accountsTable.innerHTML = `<tr><td class="p-2 text-gray-500" colspan="3">No accounts found.</td></tr>`;
+            accountsTable.innerHTML = `<tr><td class="p-2 text-gray-500" colspan="4">No accounts found.</td></tr>`;
             return;
           }
           rows.forEach((r) => {
@@ -868,7 +868,7 @@
           });
         } catch (e) {
           console.warn('Failed to load accounts', e);
-          accountsTable.innerHTML = `<tr><td class="p-2 text-red-600" colspan="3">Failed to load accounts: ${e.message || e}</td></tr>`;
+          accountsTable.innerHTML = `<tr><td class="p-2 text-red-600" colspan="4">Failed to load accounts: ${e.message || e}</td></tr>`;
         }
       }
 
