@@ -213,7 +213,10 @@
                       <button id="copyAdminLink" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Copy</button>
                     </div>
                   </div>
-                  <button id="generateLinks" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Generate Links</button>
+                    <div class="flex gap-2">
+                      <button id="generateBrandLink" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Generate Brand Link</button>
+                      <button id="generateAdminLink" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Generate Admin Link</button>
+                    </div>
                 </div>
               </div>
             </div>
@@ -544,7 +547,8 @@
   const adminRegLinkEl = document.getElementById('adminRegLink');
   const copyBrandLinkBtn = document.getElementById('copyBrandLink');
   const copyAdminLinkBtn = document.getElementById('copyAdminLink');
-  const generateLinksBtn = document.getElementById('generateLinks');
+  const generateBrandBtn = document.getElementById('generateBrandLink');
+  const generateAdminBtn = document.getElementById('generateAdminLink');
   const refreshPendingBtn = document.getElementById('refreshPending');
   // timer used to clear transient status messages (so they disappear after a few seconds)
   let statusClearTimer = null;
@@ -711,33 +715,14 @@
       async function createAdminToken() {
         const url = new URL(window.location.href);
         const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
-        // Try RPCs first
         try {
-          let token = null;
-          try {
-            const { data, error } = await supabase.rpc('create_admin_token');
-            if (!error) token = data?.token || data; // support {token} or raw string
-          } catch (_) {}
-          if (!token) {
-            const { data, error } = await supabase.rpc('generate_admin_token');
-            if (!error) token = data?.token || data;
-          }
-          if (!token) {
-            // Fallback: insert into admin_tokens table using default uuid primary key
-            // Table columns expected: token (uuid pk default gen_random_uuid()), email (text), created_by_id (uuid), consumed_at (timestamptz)
-            const payload = {};
-            if (currentUser?.id) payload.created_by_id = currentUser.id;
-            const { data, error } = await supabase
-              .from('admin_tokens')
-              .insert([payload])
-              .select('token')
-              .single();
-            if (error) throw error;
-            token = data?.token;
-          }
+          const { data, error } = await supabase.rpc('create_admin_token');
+          if (error) throw error;
+          const token = data?.token || data;
+          if (!token) throw new Error('No token returned from RPC');
           return `${base}admin-register.html?token=${encodeURIComponent(token)}`;
         } catch (e) {
-          console.warn('Failed to create admin token:', e);
+          console.warn('Failed to create admin token via RPC:', e);
           statusEl.textContent = `⚠️ Unable to create admin token: ${e.message || e}`;
           return null;
         }
@@ -764,7 +749,16 @@
           statusEl.textContent = '✅ Admin registration link copied to clipboard';
         }
       });
-      generateLinksBtn?.addEventListener('click', () => generateLinks());
+      generateBrandBtn?.addEventListener('click', async () => {
+        statusEl.textContent = 'Generating brand invite...';
+        const link = await createBrandInvite();
+        if (link) { if (brandRegLinkEl) brandRegLinkEl.value = link; statusEl.textContent = '✅ Brand invite created'; }
+      });
+      generateAdminBtn?.addEventListener('click', async () => {
+        statusEl.textContent = 'Generating admin token...';
+        const link = await createAdminToken();
+        if (link) { if (adminRegLinkEl) adminRegLinkEl.value = link; statusEl.textContent = '✅ Admin token created'; }
+      });
       refreshStatsBtn?.addEventListener('click', () => loadAdminStats());
   refreshPendingBtn?.addEventListener('click', () => loadPendingLists());
 
