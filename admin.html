@@ -676,15 +676,26 @@
         });
       }
 
-      // Logout handler
+      // Logout handler (confirm, disable button while signing out, clear UI state)
       logoutBtn?.addEventListener('click', async () => {
         try {
+          if (!confirm('Sign out now?')) return;
+          // provide immediate feedback
+          logoutBtn.disabled = true;
+          const prevText = logoutBtn.textContent;
+          logoutBtn.textContent = 'Signing out...';
           await supabase.auth.signOut();
         } catch (e) {
           console.warn('Sign out issue:', e);
+        } finally {
+          // clear UI state client-side
+          try { if (userEmailEl) userEmailEl.textContent = ''; } catch(e){}
+          isAdmin = false;
+          adminIds.clear();
+          if (statusEl) statusEl.textContent = '';
+          // redirect to login page with a small flag
+          window.location.href = 'login.html?loggedout=1';
         }
-        // Redirect to login page
-        window.location.href = 'login.html';
       });
 
       // Create a brand invitation via SECURITY DEFINER RPC (Option A)
