@@ -8,7 +8,12 @@
   </head>
   <body class="bg-gray-50 text-gray-800">
     <div class="max-w-4xl mx-auto py-10 px-4">
-      <h1 class="text-2xl font-semibold mb-4">INRL — Viewer Links</h1>
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">INRL — Viewer Links</h1>
+        <div>
+          <button id="logoutBtnClient" class="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm">Logout</button>
+        </div>
+      </div>
       <p class="text-sm text-gray-600 mb-6">Enter a brand name to list active viewer links (or open the viewer).</p>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
@@ -40,12 +45,13 @@
   const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      const brandInput = document.getElementById('brandInput');
+  const brandInput = document.getElementById('brandInput');
       const fetchBtn = document.getElementById('fetchBtn');
       const statusEl = document.getElementById('status');
       const linksTable = document.getElementById('linksTable');
       const linksTbody = document.getElementById('linksTbody');
       const empty = document.getElementById('empty');
+  const logoutBtnClient = document.getElementById('logoutBtnClient');
 
       fetchBtn.addEventListener('click', () => { loadActiveByBrand((brandInput.value || '').trim()); });
 
@@ -102,6 +108,20 @@
           const params = new URLSearchParams(window.location.search); const b = params.get('brand'); if (b) { brandInput.value = b; loadActiveByBrand(b); };
         }
       })();
+
+      // Logout helper for client page
+      logoutBtnClient?.addEventListener('click', async () => {
+        try {
+          if (!confirm('Sign out now?')) return;
+          logoutBtnClient.disabled = true;
+          logoutBtnClient.textContent = 'Signing out...';
+          await supabase.auth.signOut();
+        } catch (e) {
+          console.warn('Sign out issue:', e);
+        } finally {
+          window.location.href = 'login.html?loggedout=1';
+        }
+      });
     </script>
   </body>
 </html>
