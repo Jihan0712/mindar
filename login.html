@@ -57,7 +57,14 @@
 
           // Prefer RPCs if you have them; fallback to table selects (may be blocked under RLS)
           try {
-            // check admin first
+            // Prefer RPC is_admin() if available (safer under RLS). Fallback to table select.
+            try {
+              const { data: isAdm, error: rpcErr } = await supabase.rpc('is_admin');
+              if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
+            } catch (e) {
+              // ignore rpc errors and fallback
+            }
+
             const { data: adminRow, error: adminErr } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
             if (!adminErr && adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) {
               window.location.href = '/admin.html';
@@ -97,6 +104,10 @@
             const { data: sessionData } = await supabase.auth.getSession();
             const user = sessionData?.data?.session?.user || sessionData?.session?.user || null;
             if (!user) { window.location.href = '/client.html'; return; }
+            try {
+              const { data: isAdm, error: rpcErr } = await supabase.rpc('is_admin');
+              if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
+            } catch (e) {}
             const { data: adminRow } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
             if (adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) { window.location.href = '/admin.html'; return; }
             const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
