@@ -475,12 +475,13 @@
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       // Guard: ensure only admins may access admin.html. Non-admins are redirected
+      // Use getUser() to confirm the user is currently authenticated (avoids stale sessions)
       (async () => {
         try {
-          const { data } = await supabase.auth.getSession();
-          const session = data?.session || null;
-          if (!session) { window.location.href = '/login.html'; return; }
-          const user = session.user;
+          const { data: userData } = await supabase.auth.getUser();
+          const user = userData?.user || null;
+          // If there is no authenticated user, always redirect to login
+          if (!user || !user.id) { window.location.href = '/login.html'; return; }
           // check admin table
           try {
             const { data: adminRow, error: adminErr } = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
@@ -498,10 +499,11 @@
             if (prof && prof.brand) { window.location.href = '/brand.html'; return; }
           } catch (e) { console.warn('Profile check failed:', e); }
 
-          // default to client view
+          // default to client view for authenticated non-admins
           window.location.href = '/client.html';
         } catch (e) {
           console.warn('Access guard failed:', e);
+          // If anything goes wrong checking auth, redirect to login to be safe
           window.location.href = '/login.html';
         }
       })();
