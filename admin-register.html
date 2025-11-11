@@ -70,58 +70,56 @@
         if (!email || !password) return showAlert('Please provide email and password.');
 
         try {
-          // First try to consume the admin token (validates it's a real unused token)
-          let consumedOk = false;
-          try {
-            const res = await supabase.rpc('consume_admin_token', { p_token: token });
-            console.log('[admin-register] consume_admin_token result:', res);
-            if (!res.error) consumedOk = res.data === true;
-          } catch (e) {
-            console.warn('[admin-register] RPC consume_admin_token threw:', e);
-          }
-
-          // Fallback: directly mark token as consumed in admin_tokens when RPC is not available
-          if (!consumedOk) {
-            try {
-              const { data: row, error: selErr } = await supabase
-                .from('admin_tokens')
-                .select('token, consumed_at')
-                .eq('token', token)
-                .maybeSingle();
-              if (selErr || !row || row.consumed_at) throw selErr || new Error('Token missing or already used');
-              const { error: updErr } = await supabase
-                .from('admin_tokens')
-                .update({ consumed_at: new Date().toISOString() })
-                .eq('token', token);
-              if (!updErr) consumedOk = true;
-            } catch (e2) {
-              console.warn('Token fallback consume failed:', e2);
-            }
-          }
-
-          if (!consumedOk) {
-            return showAlert('Invalid or expired admin token. Please request a new invite link.');
-          }
-
-          // Token is valid, proceed with signup
+          // Proceed with signup first. After we have a user id we'll call
+          // a SECURITY DEFINER RPC that atomically consumes the token and promotes the user.
           const { data, error } = await supabase.auth.signUp({ email, password });
           if (error) return showAlert(error.message);
 
           const user = data?.user;
-          if (user) {
+          if (!user) {
+            // Email confirmation flows may require the user to confirm first
+            return showAlert('Registration request sent — check your email to confirm your account.', false);
+          }
+
+          // Create profile entry (best-effort)
+          try {
+            await supabase.from('profiles').insert([{ user_id: user.id, name: displayName }]);
+          } catch (e) {
+            console.warn('Failed to insert profile (non-fatal):', e);
+          }
+
+          // Try RPC that consumes token and promotes the user in one atomic step
+          let promoted = false;
+          try {
+            const { data: rpcData, error: rpcErr } = await supabase.rpc('consume_admin_token_and_promote', { p_token: token, p_user_id: user.id });
+            if (!rpcErr) promoted = rpcData === true || rpcData === 't';
+            console.log('[admin-register] consume_admin_token_and_promote:', rpcData, rpcErr);
+          } catch (e) {
+            console.warn('[admin-register] RPC consume_admin_token_and_promote threw:', e);
+          }
+
+          // Fallback if RPC not available: attempt to mark token consumed and insert into admins.
+          if (!promoted) {
             try {
-              // Create profile
-              await supabase.from('profiles').insert([{ user_id: user.id, name: displayName }]);
-              // Add to admins table
-              await supabase.from('admins').insert([{ user_id: user.id }]);
-              showAlert('Admin registration successful. You can now sign in.', false);
-              if (passwordEl) passwordEl.value = '';
+              // Try to mark token consumed via table update (may be blocked by RLS)
+              const { error: updErr } = await supabase.from('admin_tokens').update({ consumed_at: new Date().toISOString() }).eq('token', token);
+              if (updErr) throw updErr;
+
+              // Try to insert admin row (may be blocked by RLS)
+              const { error: admErr } = await supabase.from('admins').insert([{ user_id: user.id }]);
+              if (admErr) throw admErr;
+
+              promoted = true;
             } catch (e) {
-              console.warn('Failed to create profile/admin:', e);
-              showAlert('Account created but admin role setup failed. Please contact support.');
+              console.warn('Fallback promote failed (RLS or other):', e);
             }
+          }
+
+          if (promoted) {
+            showAlert('Admin registration successful. You can now sign in.', false);
+            if (passwordEl) passwordEl.value = '';
           } else {
-            showAlert('Registration request sent — check your email to confirm your account.', false);
+            showAlert('Account created but could not be promoted to admin automatically. Contact an existing admin.', true);
           }
         } catch (e) {
           console.error(e);
