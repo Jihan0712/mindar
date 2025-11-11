@@ -19,6 +19,8 @@
           <button id="uploadTab" class="py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 text-left">Upload Target</button>
           <button id="listTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left">Existing Targets</button>
           <button id="adminTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left hidden">Admin</button>
+          <!-- Sidebar logout for always-available sign out -->
+          <button id="logoutBtnSidebar" class="mt-6 py-2 px-3 rounded bg-red-600 hover:bg-red-700 text-left">Logout</button>
         </nav>
         <footer class="mt-auto text-xs text-gray-400 pt-4 border-t border-gray-700">
           &copy; 2025 INRL
@@ -676,14 +678,15 @@
         });
       }
 
-      // Logout handler (confirm, disable button while signing out, clear UI state)
-      logoutBtn?.addEventListener('click', async () => {
+      // Logout helper used by any logout control
+      async function doSignOut(buttonEl) {
         try {
           if (!confirm('Sign out now?')) return;
-          // provide immediate feedback
-          logoutBtn.disabled = true;
-          const prevText = logoutBtn.textContent;
-          logoutBtn.textContent = 'Signing out...';
+          if (buttonEl) {
+            buttonEl.disabled = true;
+            buttonEl.dataset.prevText = buttonEl.textContent;
+            buttonEl.textContent = 'Signing out...';
+          }
           await supabase.auth.signOut();
         } catch (e) {
           console.warn('Sign out issue:', e);
@@ -696,7 +699,12 @@
           // redirect to login page with a small flag
           window.location.href = 'login.html?loggedout=1';
         }
-      });
+      }
+
+      // Attach sign-out behavior to both top-right and sidebar logout buttons (if present)
+      logoutBtn?.addEventListener('click', () => doSignOut(logoutBtn));
+      const logoutSidebarBtn = document.getElementById('logoutBtnSidebar');
+      logoutSidebarBtn?.addEventListener('click', () => doSignOut(logoutSidebarBtn));
 
       // Create a brand invitation via SECURITY DEFINER RPC (Option A)
       async function createBrandInvite() {
