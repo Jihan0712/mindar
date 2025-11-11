@@ -392,8 +392,8 @@
 
           // If user is an admin, redirect to admin dashboard (no cross-access)
           try {
-            const { data: adminRow } = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
-            if (adminRow && adminRow.user_id) { window.location.href = '/admin.html'; return; }
+            const { data: adminRow } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
+            if (adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) { window.location.href = '/admin.html'; return; }
           } catch (e) {
             console.warn('Admin check failed:', e);
           }

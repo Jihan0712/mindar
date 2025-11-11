@@ -484,8 +484,8 @@
           if (!user || !user.id) { window.location.href = '/login.html'; return; }
           // check admin table
           try {
-            const { data: adminRow, error: adminErr } = await supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle();
-            if (!adminErr && adminRow && adminRow.user_id) {
+            const { data: adminRow, error: adminErr } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
+            if (!adminErr && adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) {
               // allowed to stay
               return;
             }
@@ -608,9 +608,9 @@
           }
 
           // Then try to fetch all admin IDs (best-effort; may fail under RLS)
-          const { data: adminsData, error: listErr } = await supabase.from('admins').select('user_id');
+          const { data: adminsData, error: listErr } = await supabase.from('admins').select('user_id,id');
           if (!listErr) {
-            (adminsData || []).forEach(r => adminIds.add(r.user_id));
+            (adminsData || []).forEach(r => adminIds.add(r.user_id || r.id));
             if (currentUser?.id && adminIds.has(currentUser.id)) {
               isAdmin = true;
             }
