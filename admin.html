@@ -1154,10 +1154,17 @@
           const brandArg = encodeURIComponent(t.brand || '');
           const productArg = encodeURIComponent(t.product || '');
 
+          // If we have a real image, wrap it in a link to view in a new tab and offer a download button
+          const hasRealImage = uniq.length > 0;
+          const imageAnchorStart = hasRealImage ? `<a href="${initialSrc}" target="_blank" rel="noopener noreferrer">` : '';
+          const imageAnchorEnd = hasRealImage ? `</a>` : '';
+          const downloadBtn = hasRealImage ? `<div class="mt-2"><a href="${initialSrc}" download class="px-2 py-1 bg-gray-100 rounded text-xs">Download</a></div>` : '';
+
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
-                <img src="${initialSrc}" data-candidates="${candidateJson}" data-idx="0" alt="${t.name}" class="w-24 h-24 object-contain rounded border border-gray-200" ${onerrorAttr} />
+                ${imageAnchorStart}<img src="${initialSrc}" data-candidates="${candidateJson}" data-idx="0" alt="${t.name}" class="w-24 h-24 object-contain rounded border border-gray-200" ${onerrorAttr} />${imageAnchorEnd}
+                ${downloadBtn}
               </td>
               <td class="p-3">${t.name}</td>
               <td class="p-3">${t.product || ''}</td>
