@@ -304,14 +304,26 @@
           if (invitesEl) invitesEl.innerHTML = '<div class="text-gray-500">Loading...</div>';
           if (tokensEl) tokensEl.innerHTML = '<div class="text-gray-500">Loading...</div>';
 
-          // Fetch invites
+          // Fetch invites (prefer RPC)
           try {
-            const { data: invites, error: invErr } = await supabase
-              .from('brand_invitations')
-              .select('id, email, brand, created_at')
-              .order('created_at', { ascending: false })
-              .limit(limit);
-            if (invErr) throw invErr;
+            let invites = null;
+            try {
+              const { data, error } = await supabase.rpc('get_pending_brand_invites', { p_limit: limit });
+              if (!error && Array.isArray(data)) invites = data;
+            } catch (rpcErr) {
+              console.warn('get_pending_brand_invites RPC failed, falling back:', rpcErr);
+            }
+
+            if (!invites) {
+              const { data: invitesRows, error: invErr } = await supabase
+                .from('brand_invitations')
+                .select('id, email, brand, created_at')
+                .order('created_at', { ascending: false })
+                .limit(limit);
+              if (invErr) throw invErr;
+              invites = invitesRows;
+            }
+
             if (!invites || invites.length === 0) {
               if (invitesEl) invitesEl.innerHTML = '<div class="text-gray-500">No pending invites.</div>';
             } else {
@@ -354,17 +366,27 @@
             if (invitesEl) invitesEl.innerHTML = `<div class="text-red-600">Failed to load invites: ${e.message || e}</div>`;
           }
 
-          // Fetch admin tokens
+          // Fetch admin tokens (prefer RPC)
           try {
-            // Some DBs may not have a `created_by_id` column on admin_tokens.
-            // Select only stable columns to avoid SQL errors; show creator as 'system' when missing.
-            const { data: tokens, error: tokErr } = await supabase
-              .from('admin_tokens')
-              .select('token, created_at')
-              .is('consumed_at', null)
-              .order('created_at', { ascending: false })
-              .limit(limit);
-            if (tokErr) throw tokErr;
+            let tokens = null;
+            try {
+              const { data, error } = await supabase.rpc('get_pending_admin_tokens', { p_limit: limit });
+              if (!error && Array.isArray(data)) tokens = data;
+            } catch (rpcErr) {
+              console.warn('get_pending_admin_tokens RPC failed, falling back:', rpcErr);
+            }
+
+            if (!tokens) {
+              const { data: tokensRows, error: tokErr } = await supabase
+                .from('admin_tokens')
+                .select('token, created_at, created_by_id')
+                .is('consumed_at', null)
+                .order('created_at', { ascending: false })
+                .limit(limit);
+              if (tokErr) throw tokErr;
+              tokens = tokensRows;
+            }
+
             if (!tokens || tokens.length === 0) {
               if (tokensEl) tokensEl.innerHTML = '<div class="text-gray-500">No pending tokens.</div>';
             } else {
@@ -388,7 +410,7 @@
                   statusEl.textContent = '✅ Token copied to clipboard';
                 });
                 const delBtn = document.createElement('button');
-                delBtn.className = 'px-2 py-1 bg-red-500 text-white rounded text-xs';
+                delBtn.className = 'px-3 py-1 bg-red-500 text-white rounded text-xs';
                 delBtn.textContent = 'Delete';
                 delBtn.addEventListener('click', async () => {
                   if (!confirm('Delete this admin token?')) return;
