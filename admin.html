@@ -1177,7 +1177,7 @@
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
-                <img src="${initialSrc2}" data-src="${initialSrc2}" data-name="${encodeURIComponent(t.name)}" alt="${t.name}" class="target-thumb w-24 h-24 object-contain rounded border border-gray-200 cursor-zoom-in" />
+                <img src="${initialSrc2}" data-src="${initialSrc2}" data-candidates="${encodeURIComponent(JSON.stringify(uniq))}" data-name="${encodeURIComponent(t.name)}" alt="${t.name}" class="target-thumb w-24 h-24 object-contain rounded border border-gray-200 cursor-zoom-in" />
               </td>
               <td class="p-3">${t.name}</td>
               <td class="p-3">${t.product || ''}</td>
