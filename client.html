@@ -90,10 +90,18 @@
             return;
           }
           const user = session.user;
-          // admin check
+          // admin check: prefer RPC is_admin(); fallback to direct select by user_id
           try {
-            const { data: adminRow } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
-            if (adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) { window.location.href = '/admin.html'; return; }
+            try {
+              const { data: isAdm, error: rpcErr } = await supabase.rpc('is_admin');
+              if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
+            } catch (e) {}
+            const { data: adminRow } = await supabase
+              .from('admins')
+              .select('user_id')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (adminRow && adminRow.user_id === user.id) { window.location.href = '/admin.html'; return; }
           } catch (e) { console.warn('Admin check failed:', e); }
           // brand check
           try {

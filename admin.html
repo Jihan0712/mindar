@@ -484,11 +484,18 @@
           if (!user || !user.id) { window.location.href = '/login.html'; return; }
           // check admin table
           try {
-            const { data: adminRow, error: adminErr } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
-            if (!adminErr && adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) {
-              // allowed to stay
-              return;
-            }
+            // Prefer RPC is_admin() (works best under RLS). Fallback to direct select by user_id.
+            try {
+              const { data: isAdm, error: rpcErr } = await supabase.rpc('is_admin');
+              if (!rpcErr && isAdm === true) { return; }
+            } catch (e) { /* ignore and fallback */ }
+
+            const { data: adminRow, error: adminErr } = await supabase
+              .from('admins')
+              .select('user_id')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (!adminErr && adminRow && adminRow.user_id === user.id) { return; }
           } catch (e) {
             console.warn('Admin check failed:', e);
           }
@@ -608,9 +615,9 @@
           }
 
           // Then try to fetch all admin IDs (best-effort; may fail under RLS)
-          const { data: adminsData, error: listErr } = await supabase.from('admins').select('user_id,id');
+          const { data: adminsData, error: listErr } = await supabase.from('admins').select('user_id');
           if (!listErr) {
-            (adminsData || []).forEach(r => adminIds.add(r.user_id || r.id));
+            (adminsData || []).forEach(r => adminIds.add(r.user_id));
             if (currentUser?.id && adminIds.has(currentUser.id)) {
               isAdmin = true;
             }
