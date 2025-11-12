@@ -51,7 +51,6 @@
             </div>
             <div id="imageModalFooter" class="px-4 py-2 text-xs text-gray-500 border-t flex items-center justify-between">
               <span id="imageModalMeta" class="truncate"></span>
-              <div class="flex gap-1" id="imageModalThumbs"></div>
             </div>
           </div>
         </div>
@@ -290,31 +289,7 @@
         });
       }
 
-      // Attempt to cycle through candidate image URLs when an <img> fails to load
-      function tryNextImage(img) {
-        const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
-        try {
-          const raw = img.getAttribute('data-candidates');
-          if (!raw) { img.onerror = null; img.src = placeholder; return; }
-          const candidates = JSON.parse(decodeURIComponent(raw));
-          let idx = parseInt(img.getAttribute('data-idx') || '0', 10);
-          idx = (idx || 0) + 1;
-          if (idx >= candidates.length) {
-            img.onerror = null;
-            img.src = placeholder;
-            img.setAttribute('data-idx', idx);
-          } else {
-            img.setAttribute('data-idx', idx);
-            img.src = candidates[idx];
-          }
-        } catch (e) {
-          img.onerror = null;
-          img.src = placeholder;
-        }
-      }
-
-  // tryNextImage remains a local function; inline onerror attributes call it because
-  // the script is not run as a strict module in all environments. (no global exposure)
+      // No image cycling fallbacks: thumbnails will show a single primary image only.
 
         // Load latest pending invites and admin tokens (for admin UI)
         async function loadPendingLists() {
@@ -1187,11 +1162,9 @@
 
           // array
           const uniq = Array.from(new Set(candidates.filter(Boolean)));
-          const candidateJson = encodeURIComponent(JSON.stringify(uniq));
 
           // choose initial src: first candidate or placeholder (avoid empty src which shows broken icon)
           const initialSrc = uniq.length ? uniq[0] : placeholder;
-          const onerrorAttr = uniq.length ? 'onerror="tryNextImage(this)"' : '';
 
           const mindArg = encodeURIComponent(t.mindurl || '');
           const videoArg = encodeURIComponent(t.videourl || '');
@@ -1204,7 +1177,7 @@
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
-                <img src="${initialSrc2}" data-candidates="${candidateJson}" data-name="${encodeURIComponent(t.name)}" data-idx="0" alt="${t.name}" class="target-thumb w-24 h-24 object-contain rounded border border-gray-200 cursor-zoom-in" ${onerrorAttr} />
+                <img src="${initialSrc2}" data-src="${initialSrc2}" data-name="${encodeURIComponent(t.name)}" alt="${t.name}" class="target-thumb w-24 h-24 object-contain rounded border border-gray-200 cursor-zoom-in" />
               </td>
               <td class="p-3">${t.name}</td>
               <td class="p-3">${t.product || ''}</td>
@@ -1382,7 +1355,7 @@
       const imageModalImg = document.getElementById('imageModalImg');
       const imageModalTitle = document.getElementById('imageModalTitle');
       const imageModalMeta = document.getElementById('imageModalMeta');
-      const imageModalThumbs = document.getElementById('imageModalThumbs');
+  // no thumbnails for modal - single primary image only
       const downloadImageBtn = document.getElementById('downloadImageBtn');
       const closeImageModalBtn = document.getElementById('closeImageModal');
       let currentImageCandidates = [];
@@ -1407,22 +1380,7 @@
         const src = currentImageCandidates[currentImageIndex] || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
         imageModalImg.src = src;
         imageModalTitle.textContent = currentImageName;
-        imageModalMeta.textContent = `${currentImageIndex + 1} / ${currentImageCandidates.length || 1}`;
-        // Render thumbnails/navigation
-        imageModalThumbs.innerHTML = '';
-        currentImageCandidates.forEach((u, idx) => {
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'w-8 h-8 border rounded overflow-hidden ' + (idx === currentImageIndex ? 'ring-2 ring-indigo-500' : 'opacity-70 hover:opacity-100');
-          b.title = 'Show image ' + (idx + 1);
-          const ti = document.createElement('img');
-          ti.src = u;
-          ti.alt = 'thumb';
-          ti.className = 'w-full h-full object-cover';
-          b.appendChild(ti);
-          b.addEventListener('click', () => { currentImageIndex = idx; updateImageModalDisplay(); });
-          imageModalThumbs.appendChild(b);
-        });
+        imageModalMeta.textContent = `${currentImageCandidates.length || 1} image(s)`;
       }
 
       // Download logic (fetch blob for cross-origin safety & allow custom filename)
