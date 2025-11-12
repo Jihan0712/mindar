@@ -65,8 +65,13 @@
               // ignore rpc errors and fallback
             }
 
-            const { data: adminRow, error: adminErr } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
-            if (!adminErr && adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) {
+            // Fallback: query admins table directly (schema uses only user_id)
+            const { data: adminRow, error: adminErr } = await supabase
+              .from('admins')
+              .select('user_id')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (!adminErr && adminRow && adminRow.user_id === user.id) {
               window.location.href = '/admin.html';
               return;
             }
@@ -108,8 +113,12 @@
               const { data: isAdm, error: rpcErr } = await supabase.rpc('is_admin');
               if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
             } catch (e) {}
-            const { data: adminRow } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
-            if (adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) { window.location.href = '/admin.html'; return; }
+            const { data: adminRow } = await supabase
+              .from('admins')
+              .select('user_id')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (adminRow && adminRow.user_id === user.id) { window.location.href = '/admin.html'; return; }
             const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
             if (prof && prof.brand) { window.location.href = '/brand.html'; return; }
           } catch (e) {

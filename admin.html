@@ -353,9 +353,11 @@
 
           // Fetch admin tokens
           try {
+            // Some DBs may not have a `created_by_id` column on admin_tokens.
+            // Select only stable columns to avoid SQL errors; show creator as 'system' when missing.
             const { data: tokens, error: tokErr } = await supabase
               .from('admin_tokens')
-              .select('token, created_by_id, created_at')
+              .select('token, created_at')
               .is('consumed_at', null)
               .order('created_at', { ascending: false })
               .limit(limit);
@@ -370,7 +372,9 @@
                 ln.className = 'flex items-center justify-between gap-2 p-2 border rounded';
                 const left = document.createElement('div');
                 left.className = 'flex-1';
-                left.innerHTML = `<div class="font-mono text-xs truncate">${tokenVal}</div><div class="text-xs text-gray-600">Created by: ${t.created_by_id || 'system'} <span class="text-[11px] text-gray-400">${new Date(t.created_at).toLocaleString()}</span></div>`;
+                // If `created_by_id` exists in the row it will be shown; otherwise fallback to 'system'
+                const createdBy = (t.created_by_id !== undefined) ? t.created_by_id : 'system';
+                left.innerHTML = `<div class="font-mono text-xs truncate">${tokenVal}</div><div class="text-xs text-gray-600">Created by: ${createdBy} <span class="text-[11px] text-gray-400">${new Date(t.created_at).toLocaleString()}</span></div>`;
                 const actions = document.createElement('div');
                 actions.className = 'flex gap-2';
                 const copyBtn = document.createElement('button');
@@ -1021,8 +1025,8 @@
             const { data: userData } = await supabase.auth.getUser();
             const insertObj = { name, mindurl: mindUrlLocal, videourl: videoUrlLocal, is_active: false };
             if (userData?.user?.id) insertObj.user_id = userData.user.id;
-            // tag brand uploads only for non-admin users that have a brand
-            if (!isAdmin && currentUserBrand) insertObj.brand = currentUserBrand;
+            // Ensure `brand` is always set (DB enforces NOT NULL). Use user's brand when available, otherwise default to empty string.
+            insertObj.brand = currentUserBrand ? currentUserBrand : '';
             const prodVal = (document.getElementById('productInput')?.value || '').trim();
             if (prodVal) insertObj.product = prodVal;
             if (imageUrlLocal) insertObj.imageurl = imageUrlLocal;
@@ -1067,7 +1071,8 @@
           const { data: userData } = await supabase.auth.getUser();
           const insertObj = { name, mindurl: uploadedMindUrl, videourl: videoUrl, is_active: false };
           if (userData?.user?.id) insertObj.user_id = userData.user.id;
-          if (!isAdmin && currentUserBrand) insertObj.brand = currentUserBrand;
+          // Ensure `brand` is always set to satisfy NOT NULL constraint on targets.brand
+          insertObj.brand = currentUserBrand ? currentUserBrand : '';
           const prodValNew = (document.getElementById('productInput')?.value || '').trim();
           if (prodValNew) insertObj.product = prodValNew;
           if (imageUrlNew) insertObj.imageurl = imageUrlNew;
