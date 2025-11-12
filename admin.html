@@ -293,9 +293,8 @@
         }
       }
 
-  // Expose tryNextImage to global scope so inline onerror attributes can call it
-  // (the script runs as a module so functions are not global by default)
-  window.tryNextImage = tryNextImage;
+  // tryNextImage remains a local function; inline onerror attributes call it because
+  // the script is not run as a strict module in all environments. (no global exposure)
 
         // Load latest pending invites and admin tokens (for admin UI)
         async function loadPendingLists() {
@@ -1128,7 +1127,7 @@
         const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
 
   targetsTable.innerHTML = "";
-  for (const t of rows) {
+  rows.forEach((t) => {
           const isActive = t.is_active ? "✅" : "❌";
           const activeClass = t.is_active ? "bg-green-50 border-l-4 border-green-500" : "";
 
@@ -1158,31 +1157,12 @@
           const brandArg = encodeURIComponent(t.brand || '');
           const productArg = encodeURIComponent(t.product || '');
 
-          // If we have a real image, wrap it in a link to view in a new tab and offer a download button.
-          // Also try to convert Supabase public URLs to signed URLs when the bucket is private.
-          const hasRealImage = uniq.length > 0;
-          let displaySrc = initialSrc;
-          if (hasRealImage && displaySrc.includes('/object/')) {
-            // It's a Supabase public/object URL; try to produce a signed URL for reliable access
-            try {
-              const pathParts = displaySrc.split('/').slice(-2).join('/'); // e.g. minds/123-file.mind
-              // createSignedUrl requires an absolute path inside the bucket
-              const signed = await supabase.storage.from('assets').createSignedUrl(pathParts, 60);
-              if (signed?.data?.signedUrl) displaySrc = signed.data.signedUrl;
-            } catch (e) {
-              // ignore failures and fall back to original URL
-              console.warn('Signed URL creation failed', e);
-            }
-          }
-          const imageAnchorStart = hasRealImage ? `<a href="${displaySrc}" target="_blank" rel="noopener noreferrer">` : '';
-          const imageAnchorEnd = hasRealImage ? `</a>` : '';
-          const downloadBtn = hasRealImage ? `<div class="mt-2"><a href="${displaySrc}" download class="px-2 py-1 bg-gray-100 rounded text-xs">Download</a></div>` : '';
-
+          // choose initial src: first candidate or placeholder (avoid empty src which shows broken icon)
+          const initialSrc2 = initialSrc;
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
-                ${imageAnchorStart}<img src="${initialSrc}" data-candidates="${candidateJson}" data-idx="0" alt="${t.name}" class="w-24 h-24 object-contain rounded border border-gray-200" ${onerrorAttr} />${imageAnchorEnd}
-                ${downloadBtn}
+                <img src="${initialSrc2}" data-candidates="${candidateJson}" data-idx="0" alt="${t.name}" class="w-24 h-24 object-contain rounded border border-gray-200" ${onerrorAttr} />
               </td>
               <td class="p-3">${t.name}</td>
               <td class="p-3">${t.product || ''}</td>
@@ -1196,8 +1176,7 @@
               </td>
             </tr>`;
           targetsTable.innerHTML += row;
-        }
-      }
+        });
 
       window.setActive = async (targetId) => {
         // Timer notice
