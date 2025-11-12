@@ -1177,6 +1177,7 @@
             </tr>`;
           targetsTable.innerHTML += row;
         });
+      }
 
       window.setActive = async (targetId) => {
         // Timer notice
@@ -1329,8 +1330,10 @@
         loadTargets();
       };
 
-      await initAdminContext();
-      loadTargets();
+      (async () => {
+        await initAdminContext();
+        loadTargets();
+      })();
     </script>
   </body>
 </html>
