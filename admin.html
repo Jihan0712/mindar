@@ -1302,13 +1302,28 @@
       window.adminDeleteAccount = async (userId) => {
         try {
           if (!userId) return;
-          if (!confirm('Delete this account and related data?')) return;
-          if (prompt('Type DELETE to confirm:') !== 'DELETE') return;
-          statusEl.textContent = 'Deleting account...';
-          const { error } = await supabase.rpc('admin_delete_account', { p_user_id: userId });
+          if (!confirm('Delete this account and all related data (targets, profiles, admins)?')) return;
+          const typed = prompt('Type DELETE to confirm permanent removal:');
+          if (typed !== 'DELETE') { statusEl.textContent = '⚠️ Deletion cancelled.'; setTimeout(()=>{statusEl.textContent='';},3000); return; }
+          statusEl.textContent = '⏳ Deleting account...';
+          const { data, error } = await supabase.rpc('admin_delete_account', { p_user_id: userId });
           if (error) throw error;
-          statusEl.textContent = '✅ Account deleted';
-          setTimeout(() => { statusEl.textContent = ''; }, 4000);
+          const st = data?.status;
+          if (st === 'deleted_via_internal') {
+            statusEl.textContent = '✅ Account fully deleted (auth + domain).';
+          } else if (st === 'http_delete_attempted') {
+            const code = data?.response?.status_code;
+            if (code >= 200 && code < 300) {
+              statusEl.textContent = `✅ Account deleted via Admin API (HTTP ${code}).`;
+            } else {
+              statusEl.textContent = `⚠️ Domain rows removed; Admin API delete may have failed (HTTP ${code ?? 'unknown'}).`;
+            }
+          } else if (st === 'domain_only') {
+            statusEl.textContent = '⚠️ Domain rows removed. Auth user NOT deleted (no internal function / no service key).';
+          } else {
+            statusEl.textContent = '✅ Account processed.';
+          }
+          setTimeout(()=>{ if(statusEl.textContent.startsWith('✅')) statusEl.textContent=''; },6000);
           loadAccounts();
           loadTargets();
         } catch (e) {
