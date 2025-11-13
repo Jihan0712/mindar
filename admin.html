@@ -54,8 +54,61 @@
             </div>
           </div>
         </div>
+        <!-- Upload Section -->
+        <section id="uploadSection">
+          <h2 class="text-xl font-semibold mb-4">Upload a New AR Target</h2>
+          <div class="bg-white shadow rounded-lg p-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Target Name</label>
+              <input id="name" type="text" placeholder="Target name"
+                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Product (optional)</label>
+              <input id="productInput" type="text" placeholder="Product identifier (e.g. SKU or slug)"
+                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
 
-        input.click();
+            <div>
+              <label class="block text-sm font-medium mb-1">Marker Image (.jpg/.png)</label>
+              <div class="flex gap-2">
+                <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" class="flex-1 border p-2 rounded-md" />
+                <div class="flex gap-2">
+                  <button id="serverCompile" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">
+                    Compile on Server
+                  </button>
+                </div>
+              </div>
+              <p id="compileStatus" class="text-sm text-gray-500 mt-1"></p>
+              <p class="text-xs text-gray-400">Tip: large images will be resized to 1024px max to speed up compilation.</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-1">.mp4 Video</label>
+              <input id="videoFile" type="file" accept="video/mp4" class="w-full" />
+            </div>
+
+            <button id="upload" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">
+              Upload
+            </button>
+          </div>
+        </section>
+
+        <!-- List Section -->
+        <section id="listSection" class="hidden">
+          <h2 class="text-xl font-semibold mb-4">Existing Targets</h2>
+          <!-- Admin-only Filters -->
+          <div id="filtersBar" class="mb-4 hidden">
+            <div class="flex flex-wrap gap-3 items-end">
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Brand</label>
+                <select id="filterBrand" class="border rounded p-2 min-w-[12rem]">
+                  <option value="">All brands</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Product</label>
+                <select id="filterProduct" class="border rounded p-2 min-w-[12rem]">
                   <option value="">All products</option>
                 </select>
               </div>
