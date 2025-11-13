@@ -134,9 +134,10 @@
           <div id="targetsList" class="bg-white shadow rounded-lg overflow-hidden">
             <table class="w-full text-left border-collapse">
               <thead class="bg-gray-200">
-                <tr>
+                <tr id="targetsHeadRow">
                   <th class="p-3">Target Image</th>
                   <th class="p-3">Name</th>
+                  <!-- Brand column inserted at runtime for admins -->
                   <th class="p-3">Product</th>
                   <th class="p-3">Created</th>
                   <th class="p-3">Active</th>
@@ -194,6 +195,7 @@
                         <th class="p-2">Brand</th>
                         <th class="p-2">Admin</th>
                         <th class="p-2">View</th>
+                        <th class="p-2">Delete</th>
                     </tr>
                   </thead>
                   <tbody id="accountsTable"></tbody>
@@ -607,6 +609,7 @@
   const generateBrandBtn = document.getElementById('generateBrandLink');
   const generateAdminBtn = document.getElementById('generateAdminLink');
   const refreshPendingBtn = document.getElementById('refreshPending');
+  const targetsHeadRow = document.getElementById('targetsHeadRow');
   // timer used to clear transient status messages (so they disappear after a few seconds)
   let statusClearTimer = null;
 
@@ -624,6 +627,20 @@
         listTab.classList.add("bg-blue-600");
         uploadTab.classList.remove("bg-blue-600");
         adminTab?.classList.remove("bg-blue-600");
+        // Ensure header reflects admin state when switching to list
+        try {
+          if (isAdmin && targetsHeadRow) {
+            targetsHeadRow.innerHTML = `
+              <th class="p-3">Target Image</th>
+              <th class="p-3">Name</th>
+              <th class="p-3">Brand</th>
+              <th class="p-3">Product</th>
+              <th class="p-3">Created</th>
+              <th class="p-3">Active</th>
+              <th class="p-3 text-center">Actions</th>
+            `;
+          }
+        } catch {}
         loadTargets();
       });
 
@@ -673,6 +690,20 @@
           if (isAdmin) {
             filterEls.bar.classList.remove('hidden');
             adminTab?.classList.remove('hidden');
+            // Show Brand column in list header for admins
+            try {
+              if (targetsHeadRow) {
+                targetsHeadRow.innerHTML = `
+                  <th class="p-3">Target Image</th>
+                  <th class="p-3">Name</th>
+                  <th class="p-3">Brand</th>
+                  <th class="p-3">Product</th>
+                  <th class="p-3">Created</th>
+                  <th class="p-3">Active</th>
+                  <th class="p-3 text-center">Actions</th>
+                `;
+              }
+            } catch {}
           }
         } catch (e) {
           console.warn('Admin detection failed:', e);
@@ -902,13 +933,15 @@
           rows.forEach((r) => {
             const isAdm = r.is_admin ? 'Yes' : 'No';
             const email = r.email || r.user_id || '';
-              const brandSafe = r.brand || '';
-              accountsTable.innerHTML += `
+            const brandSafe = r.brand || '';
+            const uid = r.user_id || '';
+            accountsTable.innerHTML += `
               <tr>
                 <td class="p-2 font-mono text-xs">${email}</td>
                 <td class="p-2">${brandSafe}</td>
                 <td class="p-2">${isAdm}</td>
                 <td class="p-2"><button class="px-2 py-1 bg-blue-600 text-white rounded text-xs" onclick="copyBrandView('${encodeURIComponent(brandSafe)}')">Copy View</button></td>
+                <td class="p-2"><button class="px-2 py-1 bg-red-600 text-white rounded text-xs" onclick="adminDeleteAccount('${uid}')">Delete</button></td>
               </tr>`;
           });
           return;
@@ -928,12 +961,14 @@
           rows.forEach((r) => {
             const isAdm = adminIds.has(r.user_id) ? 'Yes' : 'No';
             const brandSafe = r.brand || '';
+            const uid = r.user_id || '';
             accountsTable.innerHTML += `
               <tr>
-                <td class="p-2 font-mono text-xs">${r.user_id || ''}</td>
+                <td class="p-2 font-mono text-xs">${uid}</td>
                 <td class="p-2">${brandSafe}</td>
                 <td class="p-2">${isAdm}</td>
                 <td class="p-2"><button class="px-2 py-1 bg-blue-600 text-white rounded text-xs" onclick="copyBrandView('${encodeURIComponent(brandSafe)}')">Copy View</button></td>
+                <td class="p-2"><button class="px-2 py-1 bg-red-600 text-white rounded text-xs" onclick="adminDeleteAccount('${uid}')">Delete</button></td>
               </tr>`;
           });
         } catch (e) {
@@ -1199,12 +1234,14 @@
           // choose initial src: first candidate or placeholder (avoid empty src which shows broken icon)
           const initialSrc2 = initialSrc;
           const deactivateBtn = t.is_active ? `<button onclick="setInactive('${t.id}')" class="px-3 py-1 rounded bg-gray-500 text-white hover:bg-gray-600">Deactivate</button>` : '';
+          const brandCell = isAdmin ? `<td class="p-3">${t.brand || ''}</td>` : '';
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
                 <img src="${initialSrc2}" data-src="${initialSrc2}" data-candidates="${encodeURIComponent(JSON.stringify(uniq))}" data-name="${encodeURIComponent(t.name)}" alt="${t.name}" class="target-thumb w-24 h-24 object-contain rounded border border-gray-200 cursor-zoom-in" />
               </td>
               <td class="p-3">${t.name}</td>
+              ${brandCell}
               <td class="p-3">${t.product || ''}</td>
               <td class="p-3 text-gray-500">${new Date(t.created_at).toLocaleString()}</td>
               <td class="p-3">${isActive}</td>
@@ -1259,6 +1296,25 @@
         }
 
         loadTargets();
+      };
+
+      // Admin: delete account (auth user + domain rows)
+      window.adminDeleteAccount = async (userId) => {
+        try {
+          if (!userId) return;
+          if (!confirm('Delete this account and related data?')) return;
+          if (prompt('Type DELETE to confirm:') !== 'DELETE') return;
+          statusEl.textContent = 'Deleting account...';
+          const { error } = await supabase.rpc('admin_delete_account', { p_user_id: userId });
+          if (error) throw error;
+          statusEl.textContent = '✅ Account deleted';
+          setTimeout(() => { statusEl.textContent = ''; }, 4000);
+          loadAccounts();
+          loadTargets();
+        } catch (e) {
+          console.error('Failed to delete account', e);
+          statusEl.textContent = '❌ Failed to delete account: ' + (e.message || e);
+        }
       };
 
       // Deactivate a target
