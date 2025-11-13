@@ -55,63 +55,7 @@
           </div>
         </div>
 
-        <!-- Upload Section -->
-        <section id="uploadSection">
-          <h2 class="text-xl font-semibold mb-4">Upload a New AR Target</h2>
-          <div class="bg-white shadow rounded-lg p-6 space-y-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">Target Name</label>
-              <input id="name" type="text" placeholder="Target name"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Product (optional)</label>
-              <input id="productInput" type="text" placeholder="Product identifier (e.g. SKU or slug)"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1">Marker Image (.jpg/.png)</label>
-              <div class="flex gap-2">
-                <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" class="flex-1 border p-2 rounded-md" />
-                <div class="flex gap-2">
-                  <button id="serverCompile" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">
-                    Compile on Server
-                  </button>
-                </div>
-              </div>
-              <p id="compileStatus" class="text-sm text-gray-500 mt-1"></p>
-              <p class="text-xs text-gray-400">Tip: large images will be resized to 1024px max to speed up compilation.</p>
-            </div>
-
-            <!-- .mind file upload removed: compilation is handled client-side and uploaded directly to storage -->
-
-            <div>
-              <label class="block text-sm font-medium mb-1">.mp4 Video</label>
-              <input id="videoFile" type="file" accept="video/mp4" class="w-full" />
-            </div>
-
-            <button id="upload" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">
-              Upload
-            </button>
-          </div>
-        </section>
-
-        <!-- List Section -->
-        <section id="listSection" class="hidden">
-          <h2 class="text-xl font-semibold mb-4">Existing Targets</h2>
-          <!-- Admin-only Filters -->
-          <div id="filtersBar" class="mb-4 hidden">
-            <div class="flex flex-wrap gap-3 items-end">
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Brand</label>
-                <select id="filterBrand" class="border rounded p-2 min-w-[12rem]">
-                  <option value="">All brands</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Product</label>
-                <select id="filterProduct" class="border rounded p-2 min-w-[12rem]">
+        input.click();
                   <option value="">All products</option>
                 </select>
               </div>
@@ -240,6 +184,29 @@
                     </div>
                 </div>
               </div>
+            </div>
+          </div>
+          <!-- Brand limits management -->
+          <div class="bg-white shadow rounded-lg overflow-hidden md:col-span-2">
+            <div class="p-4 border-b flex items-center gap-3">
+              <div>
+                <h3 class="font-medium">Brand Limits</h3>
+                <p class="text-xs text-gray-500">Limit how many targets can be active per brand (default 3). Only admins can change this.</p>
+              </div>
+              <button id="refreshBrandLimits" class="ml-auto px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">Refresh</button>
+            </div>
+            <div class="p-4 overflow-x-auto">
+              <table class="w-full text-left border-collapse text-sm">
+                <thead class="bg-gray-100">
+                  <tr>
+                    <th class="p-2">Brand</th>
+                    <th class="p-2">Active now</th>
+                    <th class="p-2">Max allowed</th>
+                    <th class="p-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="brandLimitsTable"></tbody>
+              </table>
             </div>
           </div>
           <!-- Pending invites & tokens -->
@@ -576,6 +543,8 @@
   const pendingInvitesEl = document.getElementById('pendingInvitesCount');
   const pendingAdminTokensEl = document.getElementById('pendingAdminTokensCount');
   const refreshStatsBtn = document.getElementById('refreshStats');
+  const brandLimitsTable = document.getElementById('brandLimitsTable');
+  const refreshBrandLimitsBtn = document.getElementById('refreshBrandLimits');
   const regBrandInput = document.getElementById('regBrandInput');
   const regEmailInput = document.getElementById('regEmailInput');
   const brandRegLinkEl = document.getElementById('brandRegLink');
@@ -615,6 +584,7 @@
         loadAccounts();
         loadAdminStats();
         loadPendingLists();
+        loadBrandLimits();
         // Do NOT auto-generate links here to avoid bloating the database.
         // Links will be generated only when the "Generate Links" button is clicked.
       });
@@ -813,6 +783,7 @@
       });
       refreshStatsBtn?.addEventListener('click', () => loadAdminStats());
   refreshPendingBtn?.addEventListener('click', () => loadPendingLists());
+  refreshBrandLimitsBtn?.addEventListener('click', () => loadBrandLimits());
 
       // Load high-level stats (counts)
       async function loadAdminStats() {
@@ -1174,6 +1145,7 @@
 
           // choose initial src: first candidate or placeholder (avoid empty src which shows broken icon)
           const initialSrc2 = initialSrc;
+          const deactivateBtn = t.is_active ? `<button onclick="setInactive('${t.id}')" class="px-3 py-1 rounded bg-gray-500 text-white hover:bg-gray-600">Deactivate</button>` : '';
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
@@ -1185,6 +1157,7 @@
               <td class="p-3">${isActive}</td>
               <td class="p-3 text-center space-x-2">
                 <button onclick="setActive('${t.id}')" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">Set Active</button>
+                ${deactivateBtn}
                 <button onclick="editVideo('${t.id}', '${t.name}')" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">Edit</button>
                 <button onclick="deleteTarget('${t.id}', '${t.name}', decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))" class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">Delete</button>
                 <button onclick="copyViewer('${brandArg}','${productArg}')" class="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700">Copy Link</button>
@@ -1203,17 +1176,15 @@
 
         statusEl.textContent = "⏳ Updating active target...";
 
-        // Prefer a server-side RPC which can perform an atomic switch and is suitable
-        // when RLS prevents the client from updating other rows. If the RPC is not
-        // available, fall back to the existing client updates (best-effort).
+        // Prefer a server-side RPC which simply sets this target active (no global deactivation).
+        // The database trigger will enforce per-brand maximums.
         try {
           try {
             const { error: rpcErr } = await supabase.rpc('set_active_target', { p_target_id: targetId });
             if (rpcErr) throw rpcErr;
           } catch (rpcEx) {
-            // If RPC fails (not installed or permission issue), fallback to client updates
-            console.warn('set_active_target RPC failed, falling back to client updates:', rpcEx);
-            await supabase.from("targets").update({ is_active: false }).neq("id", targetId);
+            // If RPC fails (not installed or permission issue), fallback to simple update on this row only
+            console.warn('set_active_target RPC failed, falling back to single-row update:', rpcEx);
             const { error } = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
             if (error) throw error;
           }
@@ -1226,10 +1197,29 @@
           }, 5000);
         } catch (e) {
           console.error('Failed to set active target:', e);
-          statusEl.textContent = "❌ Error: " + (e.message || String(e));
+          const msg = String(e?.message || e || 'Unknown error');
+          if (/Max active targets for brand/i.test(msg)) {
+            statusEl.textContent = '❌ Cannot activate: brand has reached its maximum active targets. Adjust the limit in Admin → Brand Limits or deactivate another target.';
+          } else {
+            statusEl.textContent = "❌ Error: " + msg;
+          }
         }
 
         loadTargets();
+      };
+
+      // Deactivate a target
+      window.setInactive = async (targetId) => {
+        try {
+          const { error } = await supabase.from('targets').update({ is_active: false }).eq('id', targetId);
+          if (error) throw error;
+          statusEl.textContent = '✅ Target deactivated';
+          setTimeout(() => { statusEl.textContent = ''; }, 3000);
+          loadTargets();
+        } catch (e) {
+          console.error('Failed to deactivate target', e);
+          statusEl.textContent = '❌ Failed to deactivate target';
+        }
       };
 
       // Copy brand-specific viewer URL to clipboard
@@ -1271,6 +1261,7 @@
         input.accept = "video/mp4";
         input.click();
 
+ 
         input.onchange = async () => {
           const file = input.files[0];
           if (!file) return;
@@ -1343,6 +1334,61 @@
           statusEl.textContent = "✅ Target deleted and files removed!";
         }
         loadTargets();
+      };
+
+      // ---- Brand Limits UI ----
+      async function loadBrandLimits() {
+        if (!brandLimitsTable) return;
+        brandLimitsTable.innerHTML = '<tr><td class="p-2 text-gray-500" colspan="4">Loading...</td></tr>';
+        try {
+          const { data, error } = await supabase.rpc('get_brand_limits');
+          if (error) throw error;
+          const rows = Array.isArray(data) ? data : [];
+          if (rows.length === 0) {
+            brandLimitsTable.innerHTML = '<tr><td class="p-2 text-gray-500" colspan="4">No brands yet.</td></tr>';
+            return;
+          }
+          brandLimitsTable.innerHTML = '';
+          rows.forEach(r => {
+            const brand = r.brand || '';
+            const active = r.active_count ?? 0;
+            const limit = r.max_active ?? 3;
+            const warnClass = (active > limit) ? 'text-red-600 font-medium' : '';
+            brandLimitsTable.innerHTML += `
+              <tr>
+                <td class="p-2">${brand || '<span class=\'text-gray-400\'>(no brand)</span>'}</td>
+                <td class="p-2 ${warnClass}">${active}</td>
+                <td class="p-2">
+                  <input type="number" min="0" step="1" value="${limit}" class="w-24 border rounded p-1 text-right" id="limit-${encodeURIComponent(brand)}" />
+                </td>
+                <td class="p-2">
+                  <button class="px-2 py-1 bg-blue-600 text-white rounded text-xs" onclick="saveBrandLimit('${encodeURIComponent(brand)}')">Save</button>
+                </td>
+              </tr>`;
+          });
+        } catch (e) {
+          console.error('Failed to load brand limits', e);
+          brandLimitsTable.innerHTML = `<tr><td class="p-2 text-red-600" colspan="4">Failed to load limits: ${e.message || e}</td></tr>`;
+        }
+      }
+
+      window.saveBrandLimit = async (encodedBrand) => {
+        try {
+          const brand = decodeURIComponent(encodedBrand || '');
+          const input = document.getElementById(`limit-${encodedBrand}`);
+          if (!input) return;
+          const val = parseInt(input.value, 10);
+          if (!(val >= 0)) { alert('Limit must be a non-negative integer'); return; }
+          statusEl.textContent = 'Updating brand limit...';
+          const { error } = await supabase.rpc('set_brand_max_active', { p_brand: brand, p_limit: val });
+          if (error) throw error;
+          statusEl.textContent = '✅ Brand limit updated';
+          setTimeout(() => { statusEl.textContent = ''; }, 3000);
+          loadBrandLimits();
+        } catch (e) {
+          console.error('Failed to update brand limit', e);
+          statusEl.textContent = '❌ Failed to update brand limit: ' + (e.message || e);
+        }
       };
 
       (async () => {
