@@ -518,6 +518,10 @@
 
   const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
+  // External admin backend base URL (Option 2).
+  // Set this to your deployed backend (e.g., https://your-backend.example.com).
+  // The backend must expose POST /admin-delete-user as documented in README.
+  const BACKEND_API_URL = ""; // TODO: set to your backend origin
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       // Guard: ensure only admins may access admin.html. Non-admins are redirected
@@ -1298,7 +1302,7 @@
         loadTargets();
       };
 
-      // Admin: delete account (auth user + domain rows)
+      // Admin: delete account using external backend first; fallback to RPC if needed
       window.adminDeleteAccount = async (userId) => {
         try {
           if (!userId) return;
@@ -1306,23 +1310,51 @@
           const typed = prompt('Type DELETE to confirm permanent removal:');
           if (typed !== 'DELETE') { statusEl.textContent = '⚠️ Deletion cancelled.'; setTimeout(()=>{statusEl.textContent='';},3000); return; }
           statusEl.textContent = '⏳ Deleting account...';
-          const { data, error } = await supabase.rpc('admin_delete_account', { p_user_id: userId });
-          if (error) throw error;
-          const st = data?.status;
-          if (st === 'deleted_via_internal') {
-            statusEl.textContent = '✅ Account fully deleted (auth + domain).';
-          } else if (st === 'http_delete_attempted') {
-            const code = data?.response?.status_code;
-            if (code >= 200 && code < 300) {
-              statusEl.textContent = `✅ Account deleted via Admin API (HTTP ${code}).`;
-            } else {
-              statusEl.textContent = `⚠️ Domain rows removed; Admin API delete may have failed (HTTP ${code ?? 'unknown'}).`;
+
+          // Try external backend (Option 2)
+          let ok = false; let message = '';
+          if (BACKEND_API_URL) {
+            try {
+              const { data: sessionData } = await supabase.auth.getSession();
+              const accessToken = sessionData?.session?.access_token;
+              if (accessToken) {
+                const res = await fetch(`${BACKEND_API_URL.replace(/\/$/, '')}/admin-delete-user`, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ user_id: userId })
+                });
+                const json = await res.json().catch(() => ({}));
+                if (res.ok && !json?.error) {
+                  ok = true;
+                  message = json?.status === 'deleted' ? '✅ Account fully deleted (auth + domain).' : '⚠️ Domain only deletion completed.';
+                } else {
+                  message = json?.error || `Backend failed: HTTP ${res.status}`;
+                }
+              }
+            } catch (beErr) {
+              console.warn('Backend delete failed, falling back to RPC:', beErr);
             }
-          } else if (st === 'domain_only') {
-            statusEl.textContent = '⚠️ Domain rows removed. Auth user NOT deleted (no internal function / no service key).';
-          } else {
-            statusEl.textContent = '✅ Account processed.';
           }
+
+          if (!ok) {
+            // Fallback: RPC (may only do domain cleanup depending on DB capabilities)
+            const { data, error } = await supabase.rpc('admin_delete_account', { p_user_id: userId });
+            if (error) throw error;
+            const st = data?.status;
+            if (st === 'deleted_via_internal') {
+              message = '✅ Account fully deleted (auth + domain).';
+            } else if (st === 'http_delete_attempted') {
+              const code = data?.response?.status_code;
+              if (code >= 200 && code < 300) message = `✅ Account deleted via Admin API (HTTP ${code}).`;
+              else message = `⚠️ Domain rows removed; Admin API delete may have failed (HTTP ${code ?? 'unknown'}).`;
+            } else if (st === 'domain_only') {
+              message = '⚠️ Domain rows removed. Auth user NOT deleted.';
+            } else {
+              message = '✅ Account processed.';
+            }
+          }
+
+          statusEl.textContent = message;
           setTimeout(()=>{ if(statusEl.textContent.startsWith('✅')) statusEl.textContent=''; },6000);
           loadAccounts();
           loadTargets();

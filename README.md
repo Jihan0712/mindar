@@ -7,6 +7,7 @@ This README summarizes how the code works, how the pieces fit together, and how 
 ## Project structure (important files)
 
 - `admin.html` — Admin dashboard UI. Upload targets, compile markers, list targets, set active target, manage invites & admin tokens, and generate brand/admin registration links.
+- `supabase/functions/admin-delete-user/index.ts` — Edge Function that validates admin privileges, deletes domain rows, and removes the Auth user. Deploy in production for reliable deletions.
 - `index.html` — Public viewer page. Loads the active target (optionally for a brand) and shows the AR viewer. It expects one active target per brand.
 - `index.html` — Public viewer page. Loads the active target (optionally for a brand and product) and shows the AR viewer. It expects one active target per (brand,product).
 - `register.html`, `brand-register.html`, `admin-register.html` — Registration pages for generic users, brand invite flows, and admin token flows.
@@ -88,6 +89,38 @@ python -m http.server 8000
 2. Open `http://localhost:8000/admin.html` and `http://localhost:8000/index.html` in your browser.
 
 3. Ensure `admin.html` contains the correct Supabase URL & anon key (these are currently hard-coded for convenience in this repo; in production use env variables or a build step).
+
+## Production: Full account deletion via external backend (Option 2)
+
+If you don’t want to use Supabase Edge Functions, run a tiny secure backend (Node/Express or similar) and point the Admin UI to it. The backend keeps the Service Role key server‑side and performs the privileged deletion.
+
+Expected endpoint
+
+- Method: POST
+- URL: `${BACKEND_API_URL}/admin-delete-user`
+- Headers: `Authorization: Bearer <access_token>`, `Content-Type: application/json`
+- Body: `{ "user_id": "<uuid>" }`
+- Response (examples): `{ "status": "deleted" }` or `{ "status": "domain_only", "warning": "..." }`
+
+Server outline (Express)
+
+1) Create a small Express app with a route `/admin-delete-user` that:
+- Validates the caller using the passed JWT (via `supabase.auth.getUser()` with Service Role client + Authorization header)
+- Confirms the requester is an admin (row exists in `public.admins`)
+- Deletes domain rows in `targets`, `admins`, `profiles` for `user_id`
+- Calls `auth.admin.deleteUser(user_id)`
+
+2) Configure env vars on your host:
+- `SUPABASE_URL=https://YOUR-PROJECT.supabase.co`
+- `SUPABASE_SERVICE_ROLE_KEY=...` (keep secret)
+- CORS allowlist for your admin site
+
+3) In `admin.html`, set `BACKEND_API_URL` to your deployed backend origin.
+
+Security notes
+
+- Never put the Service Role key in the browser or inside SQL GUCs meant for clients.
+- Use TLS, strict CORS, and (optionally) rate limiting/WAF in front of your backend.
 
 ## Backups & safety
 
