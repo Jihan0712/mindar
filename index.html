@@ -60,38 +60,46 @@
       async function loadActiveTarget() {
         console.log("📡 Loading active target from Supabase...");
         const params = new URLSearchParams(window.location.search);
-        const brand = params.get('brand');
-        const product = params.get('product');
+        const brand = (params.get('brand') || '').trim();
+        const product = (params.get('product') || '').trim();
 
         // Build query: be permissive when only product is provided (match any brand),
         // but when no params are provided default to the global bucket (brand IS NULL and product IS NULL).
-        let q = supabase.from('targets').select('*').eq('is_active', true);
+        let q = supabase
+          .from('targets')
+          .select('*')
+          .eq('is_active', true);
+
         const noParams = !brand && !product;
 
-        if (brand) {
-          q = q.eq('brand', brand);
-        }
-        if (product) {
-          q = q.eq('product', product);
-        }
+        // Case-insensitive matches to be forgiving on mobile keyboards/URLs
+        if (brand) q = q.ilike('brand', brand);
+        if (product) q = q.ilike('product', product);
 
         if (noParams) {
           // Original behavior: load the global active target when no params are provided
           q = q.is('brand', null).is('product', null);
         }
 
-        // We expect at most one active target per (brand,product)
-        const { data, error } = await q.maybeSingle();
+        // Be resilient if multiple rows match (e.g., duplicates). Take most recent.
+        q = q.order('updated_at', { ascending: false }).limit(1);
 
-        if (error || !data) {
-          console.error("❌ No active target found:", error);
+        const { data, error } = await q;
+
+        if (error || !Array.isArray(data) || data.length === 0) {
+          console.error("❌ No active target found or query failed:", error);
+          const message = error?.message || 'No active target found for this brand/product.';
           document.body.innerHTML =
-            "<h2 style='text-align:center; color:red;'>❌ No active target found for this brand/product.</h2>";
+            `<div style="padding:16px;text-align:center;color:#b91c1c;">
+               <h2 style='margin-bottom:8px;'>❌ ${message}</h2>
+               <div style="font-size:12px;color:#6b7280;">Tip: Ensure the target is marked active and that public SELECT is allowed by RLS for active targets.</div>
+             </div>`;
           return null;
         }
 
-        console.log("✅ Active target loaded:", data);
-        return data;
+        const row = data[0];
+        console.log("✅ Active target loaded:", row);
+        return row;
       }
 
       document.addEventListener("DOMContentLoaded", async () => {
@@ -102,38 +110,6 @@
 
         const mindUrl = activeTarget.mindurl;
         const videoUrl = activeTarget.videourl;
-
-        // Try to infer the target image's aspect ratio (width/height)
-        // from optional columns (e.g., imageurl/markerurl). If unavailable, default to 1 (square).
-        async function getTargetAspect(active) {
-          const candidates = [
-            active.imageurl,
-            active.markerurl,
-            active.image_url,
-            active.marker_url,
-            active.image,
-            active.marker
-          ].filter(Boolean);
-          for (const url of candidates) {
-            try {
-              const img = new Image();
-              img.crossOrigin = 'anonymous';
-              const p = new Promise((resolve, reject) => {
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-              });
-              img.src = url;
-              const loaded = await p;
-              if (loaded && loaded.naturalWidth && loaded.naturalHeight) {
-                const aspect = loaded.naturalWidth / loaded.naturalHeight;
-                if (Number.isFinite(aspect) && aspect > 0) return aspect;
-              }
-            } catch (e) {
-              console.warn('Could not load target image to infer aspect:', e);
-            }
-          }
-          return 1; // fallback to square if unknown
-        }
 
         const scene = document.querySelector("a-scene");
         const aframeVideoAsset = document.querySelector("#card");
@@ -182,21 +158,16 @@
         }
 
         // 1:1 ratio video
-        const targetAspect = await getTargetAspect(activeTarget); // width / height
-
         whenPlaneMeshReady((mesh) => {
-          // Fit the plane to the tracked image: width=1 unit maps to the target's width in MindAR
-          // Height follows the target's aspect ratio.
           planeEl.setAttribute("width", 1);
-          planeEl.setAttribute("height", (1 / targetAspect) || 1);
+          planeEl.setAttribute("height", 1);
 
           // Reduce canvas texture size to lower CPU/GPU cost. 512 is a good tradeoff
           // between quality and performance on mobile devices.
-          // Create a canvas matching the plane's aspect ratio to avoid stretching.
-          const CANVAS_BASE = 768; // a bit higher than 512 for better clarity on non-square planes
+          const CANVAS_SIZE = 512;
           const canvas = document.createElement("canvas");
-          canvas.width = CANVAS_BASE;
-          canvas.height = Math.max(2, Math.round(CANVAS_BASE / (targetAspect || 1))); // ensure >=2px
+          canvas.width = CANVAS_SIZE;
+          canvas.height = CANVAS_SIZE;
           const ctx = canvas.getContext("2d");
 
           const texture = new THREE.CanvasTexture(canvas);
@@ -222,20 +193,27 @@
               return;
             }
 
-            // Draw the video to COVER the canvas (which has target aspect). This avoids stretching and
-            // fills the plane completely, cropping the excess if needed.
+            const videoAspect = vw / vh;
+            const canvasSize = CANVAS_SIZE;
+            let drawW, drawH, offsetX, offsetY;
+
+            if (videoAspect > 1) {
+              drawW = canvasSize;
+              drawH = canvasSize / videoAspect;
+              offsetX = 0;
+              offsetY = Math.round((canvasSize - drawH) / 2);
+            } else {
+              drawH = canvasSize;
+              drawW = Math.round(canvasSize * videoAspect);
+              offsetX = Math.round((canvasSize - drawW) / 2);
+              offsetY = 0;
+            }
+
             (function drawFrame() {
-              const cw = canvas.width;
-              const ch = canvas.height;
-              // Scale to cover
-              const scale = Math.max(cw / vw, ch / vh);
-              const dw = Math.ceil(vw * scale);
-              const dh = Math.ceil(vh * scale);
-              const dx = Math.round((cw - dw) / 2);
-              const dy = Math.round((ch - dh) / 2);
+              ctx.fillStyle = "black";
+              ctx.fillRect(0, 0, canvasSize, canvasSize);
               try {
-                ctx.clearRect(0, 0, cw, ch);
-                ctx.drawImage(aframeVideoAsset, dx, dy, dw, dh);
+                ctx.drawImage(aframeVideoAsset, offsetX, offsetY, drawW, drawH);
               } catch (e) {}
               texture.needsUpdate = true;
               requestAnimationFrame(drawFrame);
