@@ -219,6 +219,30 @@
             mesh.material.needsUpdate = true;
           }
 
+          // Pre-create fallback border + inner video planes (hidden). These will be shown
+          // if canvas drawing fails (CORS) so the video is still visible without canvas.
+          let existingBorder = target.querySelector('#video-border-plane');
+          let existingInner = target.querySelector('#video-inner-plane');
+          if (!existingBorder) {
+            existingBorder = document.createElement('a-plane');
+            existingBorder.setAttribute('id', 'video-border-plane');
+            existingBorder.setAttribute('position', '0 0 0');
+            existingBorder.setAttribute('rotation', '0 0 0');
+            existingBorder.setAttribute('material', 'shader: flat; color: #000;');
+            existingBorder.setAttribute('visible', 'false');
+            target.appendChild(existingBorder);
+          }
+          if (!existingInner) {
+            existingInner = document.createElement('a-plane');
+            existingInner.setAttribute('id', 'video-inner-plane');
+            existingInner.setAttribute('src', '#card');
+            existingInner.setAttribute('position', '0 0 0.001');
+            existingInner.setAttribute('rotation', '0 0 0');
+            existingInner.setAttribute('material', 'shader: flat; transparent: false; color: #fff;');
+            existingInner.setAttribute('visible', 'false');
+            target.appendChild(existingInner);
+          }
+
           function startDrawLoop() {
             const vw = aframeVideoAsset.videoWidth;
             const vh = aframeVideoAsset.videoHeight;
@@ -259,7 +283,9 @@
               }
               try {
                 if (!canvasTainted) {
-                  planeEl.setAttribute('visible', 'true');
+                  // ensure canvas-backed plane visible and fallback inner hidden
+                  try { planeEl.setAttribute('visible', 'true'); } catch (e) {}
+                  try { existingInner.setAttribute('visible', 'false'); existingBorder.setAttribute('visible', 'false'); } catch (e) {}
                   ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
                 }
               } catch (e) {
@@ -284,36 +310,16 @@
                     }
 
                     // create border plane behind (black)
-                    if (!existingBorder) {
-                      const border = document.createElement('a-plane');
-                      border.setAttribute('id', 'video-border-plane');
-                      border.setAttribute('position', '0 0 0');
-                      border.setAttribute('rotation', '0 0 0');
-                      border.setAttribute('material', 'shader: flat; color: #000;');
-                      border.setAttribute('width', markerW);
-                      border.setAttribute('height', markerH);
-                      target.appendChild(border);
-                    } else {
-                      existingBorder.setAttribute('width', markerW);
-                      existingBorder.setAttribute('height', markerH);
-                    }
+                    // update fallback planes and show them
+                    existingBorder.setAttribute('width', markerW);
+                    existingBorder.setAttribute('height', markerH);
+                    existingBorder.setAttribute('visible', 'true');
 
-                    // create/update inner video plane in front
-                    if (!existingInner) {
-                      const inner = document.createElement('a-plane');
-                      inner.setAttribute('id', 'video-inner-plane');
-                      inner.setAttribute('src', '#card');
-                      inner.setAttribute('position', '0 0 0.001');
-                      inner.setAttribute('rotation', '0 0 0');
-                      inner.setAttribute('material', 'shader: flat; transparent: false;');
-                      inner.setAttribute('width', videoUnitW);
-                      inner.setAttribute('height', videoUnitH);
-                      target.appendChild(inner);
-                    } else {
-                      existingInner.setAttribute('src', '#card');
-                      existingInner.setAttribute('width', videoUnitW);
-                      existingInner.setAttribute('height', videoUnitH);
-                    }
+                    existingInner.setAttribute('src', '#card');
+                    existingInner.setAttribute('width', videoUnitW);
+                    existingInner.setAttribute('height', videoUnitH);
+                    existingInner.setAttribute('visible', 'true');
+
                     // hide the canvas-backed plane so border+inner are visible
                     try { planeEl.setAttribute('visible', 'false'); } catch (e3) {}
                   } catch (e2) {
