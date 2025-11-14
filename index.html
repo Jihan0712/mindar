@@ -258,6 +258,7 @@
               offsetY = 0;
             }
 
+            let canvasTainted = false;
             (function drawFrame() {
               if (!decision.same) {
                 ctx.fillStyle = "black";
@@ -266,8 +267,25 @@
                 ctx.clearRect(0, 0, canvasSize, canvasSize);
               }
               try {
-                ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
-              } catch (e) {}
+                if (!canvasTainted) ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
+              } catch (e) {
+                if (!canvasTainted) {
+                  console.error('Canvas drawImage failed (likely CORS). Falling back to direct video texture. Error:', e);
+                  canvasTainted = true;
+                  try {
+                    // Fallback: use the video element directly as the plane's src so frames are visible.
+                    planeEl.setAttribute('src', '#card');
+                    if (Array.isArray(mesh.material)) {
+                      mesh.material.forEach((m) => { m.map = null; m.needsUpdate = true; });
+                    } else {
+                      mesh.material.map = null;
+                      mesh.material.needsUpdate = true;
+                    }
+                  } catch (e2) {
+                    console.error('Fallback to video src failed:', e2);
+                  }
+                }
+              }
               texture.needsUpdate = true;
               requestAnimationFrame(drawFrame);
             })();
@@ -374,7 +392,7 @@
           width="1"
           height="1"
           rotation="0 0 0"
-          material="shader: flat; transparent: false; color: #000;">
+          material="shader: flat; transparent: false; color: #fff;">
         </a-plane>
       </a-entity>
     </a-scene>
