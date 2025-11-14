@@ -230,154 +230,52 @@
         const planeHeightUnits = 1 / targetAspect;
 
         whenPlaneMeshReady((mesh) => {
+          // Make the main plane act as the black border (fills the marker)
           planeEl.setAttribute("width", planeWidthUnits);
           planeEl.setAttribute("height", planeHeightUnits);
+          try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch(e) {}
 
-          // Create a canvas that matches the marker aspect so the video fits without being forced into a square.
-          const CANVAS_BASE = 1024; // base width in pixels
-          const canvas = document.createElement("canvas");
-          canvas.width = CANVAS_BASE;
-          canvas.height = Math.max(2, Math.round(CANVAS_BASE / targetAspect));
-          const ctx = canvas.getContext("2d");
-
-          const texture = new THREE.CanvasTexture(canvas);
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.format = THREE.RGBAFormat;
-
-          if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((m) => {
-              m.map = texture;
-              m.needsUpdate = true;
-            });
-          } else {
-            mesh.material.map = texture;
-            mesh.material.needsUpdate = true;
+          // Create (or reuse) an inner video plane that will display the <video> element directly.
+          // This avoids drawing the video into a canvas (and thus avoids any canvas CORS/taint issues).
+          let inner = target.querySelector('#video-inner-plane');
+          if (!inner) {
+            inner = document.createElement('a-plane');
+            inner.setAttribute('id', 'video-inner-plane');
+            inner.setAttribute('src', '#card');
+            inner.setAttribute('position', '0 0 0.001');
+            inner.setAttribute('rotation', '0 0 0');
+            inner.setAttribute('material', 'shader: flat; transparent: false; color: #fff;');
+            inner.setAttribute('visible', 'false');
+            target.appendChild(inner);
           }
 
-          // Pre-create fallback border + inner video planes (hidden). These will be shown
-          // if canvas drawing fails (CORS) so the video is still visible without canvas.
-          let existingBorder = target.querySelector('#video-border-plane');
-          let existingInner = target.querySelector('#video-inner-plane');
-          if (!existingBorder) {
-            existingBorder = document.createElement('a-plane');
-            existingBorder.setAttribute('id', 'video-border-plane');
-            existingBorder.setAttribute('position', '0 0 0');
-            existingBorder.setAttribute('rotation', '0 0 0');
-            existingBorder.setAttribute('material', 'shader: flat; color: #000;');
-            existingBorder.setAttribute('visible', 'false');
-            target.appendChild(existingBorder);
-          }
-          if (!existingInner) {
-            existingInner = document.createElement('a-plane');
-            existingInner.setAttribute('id', 'video-inner-plane');
-            existingInner.setAttribute('src', '#card');
-            existingInner.setAttribute('position', '0 0 0.001');
-            existingInner.setAttribute('rotation', '0 0 0');
-            existingInner.setAttribute('material', 'shader: flat; transparent: false; color: #fff;');
-            existingInner.setAttribute('visible', 'false');
-            target.appendChild(existingInner);
-          }
-
-          function startDrawLoop() {
+          // Size the inner plane to preserve the video's aspect ratio and fit inside the marker.
+          function sizeInnerPlane() {
             const vw = aframeVideoAsset.videoWidth;
             const vh = aframeVideoAsset.videoHeight;
-            if (!vw || !vh) {
-              requestAnimationFrame(startDrawLoop);
-              return;
-            }
+            if (!vw || !vh) return;
+            const videoAspect = vw / vh;
 
-            const videoAspect = vw / vh; // width/height
-            const canvasW = canvas.width;
-            const canvasH = canvas.height;
-
-            const decision = decideBorder(targetAspect, videoAspect, 0.02);
-            let drawW, drawH, offsetX, offsetY;
-
-            if (decision.same) {
-              // Fill entire canvas (no border)
-              drawW = canvasW;
-              drawH = canvasH;
-              offsetX = 0;
-              offsetY = 0;
+            const markerW = planeWidthUnits;
+            const markerH = planeHeightUnits;
+            let videoUnitW, videoUnitH;
+            if (videoAspect > (markerW / markerH)) {
+              videoUnitW = markerW;
+              videoUnitH = markerW / videoAspect;
             } else {
-              // Contain: scale video so both dimensions fit inside canvas
-              const scale = Math.min(canvasW / vw, canvasH / vh);
-              drawW = Math.round(vw * scale);
-              drawH = Math.round(vh * scale);
-              offsetX = Math.round((canvasW - drawW) / 2);
-              offsetY = Math.round((canvasH - drawH) / 2);
+              videoUnitH = markerH;
+              videoUnitW = markerH * videoAspect;
             }
 
-            let canvasTainted = false;
-            (function drawFrame() {
-              if (!decision.same) {
-                ctx.fillStyle = "black";
-                ctx.fillRect(0, 0, canvasSize, canvasSize);
-              } else {
-                ctx.clearRect(0, 0, canvasSize, canvasSize);
-              }
-              try {
-                if (!canvasTainted) {
-                  // ensure canvas-backed plane visible and fallback inner hidden
-                  try { planeEl.setAttribute('visible', 'true'); } catch (e) {}
-                  try { existingInner.setAttribute('visible', 'false'); existingBorder.setAttribute('visible', 'false'); } catch (e) {}
-                  ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
-                }
-              } catch (e) {
-                if (!canvasTainted) {
-                  console.error('Canvas drawImage failed (likely CORS). Falling back to direct video texture. Error:', e);
-                  canvasTainted = true;
-                  try {
-                    // Fallback: create an inner video plane sized to fit inside the marker and a black border plane behind it.
-                    const existingInner = target.querySelector('#video-inner-plane');
-                    const existingBorder = target.querySelector('#video-border-plane');
-
-                    const markerW = planeWidthUnits;
-                    const markerH = planeHeightUnits;
-                    // compute video plane size in world units so it fits inside marker while preserving aspect
-                    let videoUnitW, videoUnitH;
-                    if (videoAspect > (markerW / markerH)) {
-                      videoUnitW = markerW;
-                      videoUnitH = markerW / videoAspect;
-                    } else {
-                      videoUnitH = markerH;
-                      videoUnitW = markerH * videoAspect;
-                    }
-
-                    // create border plane behind (black)
-                    // update fallback planes and show them
-                    existingBorder.setAttribute('width', markerW);
-                    existingBorder.setAttribute('height', markerH);
-                    existingBorder.setAttribute('visible', 'true');
-
-                    existingInner.setAttribute('src', '#card');
-                    existingInner.setAttribute('width', videoUnitW);
-                    existingInner.setAttribute('height', videoUnitH);
-                    existingInner.setAttribute('visible', 'true');
-
-                    // hide the canvas-backed plane so border+inner are visible
-                    try { planeEl.setAttribute('visible', 'false'); } catch (e3) {}
-                  } catch (e2) {
-                    console.error('Fallback to video src failed:', e2);
-                  }
-                }
-              }
-              texture.needsUpdate = true;
-              requestAnimationFrame(drawFrame);
-            })();
+            inner.setAttribute('width', videoUnitW);
+            inner.setAttribute('height', videoUnitH);
+            inner.setAttribute('visible', 'true');
+            try { planeEl.setAttribute('visible', 'true'); } catch(e) {}
           }
 
-          // Ensure video attributes are set early to speed up metadata loading.
-          try {
-            aframeVideoAsset.setAttribute('preload', 'auto');
-            aframeVideoAsset.setAttribute('playsinline', '');
-            aframeVideoAsset.setAttribute('webkit-playsinline', '');
-            aframeVideoAsset.setAttribute('crossorigin', 'anonymous');
-          } catch (e) {}
-
-          if (aframeVideoAsset.readyState >= 1) startDrawLoop();
-          else aframeVideoAsset.addEventListener("loadedmetadata", startDrawLoop, { once: true });
+          // Wait for video metadata so we can read natural dimensions.
+          if (aframeVideoAsset.readyState >= 1) sizeInnerPlane();
+          else aframeVideoAsset.addEventListener('loadedmetadata', sizeInnerPlane, { once: true });
         });
 
         // start when found 
