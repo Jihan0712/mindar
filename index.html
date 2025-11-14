@@ -179,13 +179,13 @@
           }, 100);
         }
 
-        // 1:1 ratio video — size the square to the marker's shortest side
-        // Target width is normalized to 1 unit; target height ~ 1/aspect. So square side = min(1, 1/aspect).
+        // Determine target aspect (w/h). We size a square plane to fully COVER the marker so the marker is hidden.
+        // Marker width is normalized to 1; height is 1/aspect. To cover entirely, square side = max(width, height) = max(1, 1/aspect).
         const targetAspect = await getTargetAspectFromImage(activeTarget); // null if unknown
         const squareSide = (() => {
           if (!targetAspect || !Number.isFinite(targetAspect) || targetAspect <= 0) return 1;
-          const targetHeight = 1 / targetAspect;
-          return Math.min(1, targetHeight);
+            const targetHeight = 1 / targetAspect;
+            return Math.max(1, targetHeight);
         })();
 
         whenPlaneMeshReady((mesh) => {
@@ -223,21 +223,22 @@
               return;
             }
 
-            const videoAspect = vw / vh;
-            const canvasSize = CANVAS_SIZE;
+            const videoAspect = vw / vh; // width/height
+            const canvasSize = CANVAS_SIZE; // square
 
-            // Always letterbox with bars above/below by fitting to canvas width.
-            const drawW = canvasSize;
-            const drawH = Math.round(canvasSize / videoAspect);
-            const offsetX = 0;
+            // Contain strategy (no cropping): scale video so both dimensions fit inside square.
+            const scale = Math.min(canvasSize / vw, canvasSize / vh);
+            const drawW = Math.round(vw * scale);
+            const drawH = Math.round(vh * scale);
+            const offsetX = Math.round((canvasSize - drawW) / 2);
             const offsetY = Math.round((canvasSize - drawH) / 2);
 
             (function drawFrame() {
-              // Black bars background for the square frame
+              // Black border background for square appearance
               ctx.fillStyle = "black";
               ctx.fillRect(0, 0, canvasSize, canvasSize);
               try {
-                ctx.drawImage(aframeVideoAsset, offsetX, offsetY, drawW, drawH);
+                ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
               } catch (e) {}
               texture.needsUpdate = true;
               requestAnimationFrame(drawFrame);
@@ -345,7 +346,7 @@
           width="1"
           height="1"
           rotation="0 0 0"
-          material="shader: flat; transparent: true;">
+          material="shader: flat; transparent: false; color: #000;">
         </a-plane>
       </a-entity>
     </a-scene>
