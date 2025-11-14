@@ -225,21 +225,15 @@
 
             const videoAspect = vw / vh;
             const canvasSize = CANVAS_SIZE;
-            let drawW, drawH, offsetX, offsetY;
 
-            if (videoAspect > 1) {
-              drawW = canvasSize;
-              drawH = canvasSize / videoAspect;
-              offsetX = 0;
-              offsetY = Math.round((canvasSize - drawH) / 2);
-            } else {
-              drawH = canvasSize;
-              drawW = Math.round(canvasSize * videoAspect);
-              offsetX = Math.round((canvasSize - drawW) / 2);
-              offsetY = 0;
-            }
+            // Always letterbox with bars above/below by fitting to canvas width.
+            const drawW = canvasSize;
+            const drawH = Math.round(canvasSize / videoAspect);
+            const offsetX = 0;
+            const offsetY = Math.round((canvasSize - drawH) / 2);
 
             (function drawFrame() {
+              // Black bars background for the square frame
               ctx.fillStyle = "black";
               ctx.fillRect(0, 0, canvasSize, canvasSize);
               try {
