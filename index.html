@@ -116,6 +116,28 @@
         const planeEl = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
 
+        // Helper: infer target aspect ratio from stored marker image URL if available
+        async function getTargetAspectFromImage(active) {
+          const url = active?.imageurl;
+          if (!url) return null;
+          try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            const p = new Promise((resolve, reject) => {
+              img.onload = () => resolve(img);
+              img.onerror = reject;
+            });
+            img.src = url;
+            const loaded = await p;
+            const w = loaded.naturalWidth || 0;
+            const h = loaded.naturalHeight || 0;
+            if (w > 0 && h > 0) return w / h; // width/height
+          } catch (e) {
+            console.warn('Could not infer target aspect from imageurl:', e);
+          }
+          return null;
+        }
+
         // Prefetch the .mind file to warm the browser cache - MindAR will still
         // request it, but this can reduce latency on initial load.
         (async () => {
@@ -157,10 +179,18 @@
           }, 100);
         }
 
-        // 1:1 ratio video
+        // 1:1 ratio video — size the square to the marker's shortest side
+        // Target width is normalized to 1 unit; target height ~ 1/aspect. So square side = min(1, 1/aspect).
+        const targetAspect = await getTargetAspectFromImage(activeTarget); // null if unknown
+        const squareSide = (() => {
+          if (!targetAspect || !Number.isFinite(targetAspect) || targetAspect <= 0) return 1;
+          const targetHeight = 1 / targetAspect;
+          return Math.min(1, targetHeight);
+        })();
+
         whenPlaneMeshReady((mesh) => {
-          planeEl.setAttribute("width", 1);
-          planeEl.setAttribute("height", 1);
+          planeEl.setAttribute("width", squareSide);
+          planeEl.setAttribute("height", squareSide);
 
           // Reduce canvas texture size to lower CPU/GPU cost. 512 is a good tradeoff
           // between quality and performance on mobile devices.
