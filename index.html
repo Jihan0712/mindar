@@ -116,28 +116,6 @@
         const planeEl = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
 
-        // Helper: infer target aspect ratio from stored marker image URL if available
-        async function getTargetAspectFromImage(active) {
-          const url = active?.imageurl;
-          if (!url) return null;
-          try {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            const p = new Promise((resolve, reject) => {
-              img.onload = () => resolve(img);
-              img.onerror = reject;
-            });
-            img.src = url;
-            const loaded = await p;
-            const w = loaded.naturalWidth || 0;
-            const h = loaded.naturalHeight || 0;
-            if (w > 0 && h > 0) return w / h; // width/height
-          } catch (e) {
-            console.warn('Could not infer target aspect from imageurl:', e);
-          }
-          return null;
-        }
-
         // Prefetch the .mind file to warm the browser cache - MindAR will still
         // request it, but this can reduce latency on initial load.
         (async () => {
@@ -179,18 +157,10 @@
           }, 100);
         }
 
-        // Determine target aspect (w/h). We size a square plane to fully COVER the marker so the marker is hidden.
-        // Marker width is normalized to 1; height is 1/aspect. To cover entirely, square side = max(width, height) = max(1, 1/aspect).
-        const targetAspect = await getTargetAspectFromImage(activeTarget); // null if unknown
-        const squareSide = (() => {
-          if (!targetAspect || !Number.isFinite(targetAspect) || targetAspect <= 0) return 1;
-            const targetHeight = 1 / targetAspect;
-            return Math.max(1, targetHeight);
-        })();
-
+        // 1:1 ratio video
         whenPlaneMeshReady((mesh) => {
-          planeEl.setAttribute("width", squareSide);
-          planeEl.setAttribute("height", squareSide);
+          planeEl.setAttribute("width", 1);
+          planeEl.setAttribute("height", 1);
 
           // Reduce canvas texture size to lower CPU/GPU cost. 512 is a good tradeoff
           // between quality and performance on mobile devices.
@@ -223,38 +193,27 @@
               return;
             }
 
-            const videoAspect = vw / vh; // width/height
-            const canvasSize = CANVAS_SIZE; // square
-
-            // Decide if we need borders: only when video aspect differs from target aspect
-            const sameAspect = (targetAspect && Math.abs(videoAspect - targetAspect) < 0.01) || (!targetAspect && Math.abs(videoAspect - 1) < 0.01);
-
+            const videoAspect = vw / vh;
+            const canvasSize = CANVAS_SIZE;
             let drawW, drawH, offsetX, offsetY;
-            if (sameAspect) {
-              // Fill entire canvas (no black border)
+
+            if (videoAspect > 1) {
               drawW = canvasSize;
-              drawH = canvasSize;
+              drawH = canvasSize / videoAspect;
               offsetX = 0;
-              offsetY = 0;
-            } else {
-              // Contain strategy (no cropping) with centered video + black bars
-              const scale = Math.min(canvasSize / vw, canvasSize / vh);
-              drawW = Math.round(vw * scale);
-              drawH = Math.round(vh * scale);
-              offsetX = Math.round((canvasSize - drawW) / 2);
               offsetY = Math.round((canvasSize - drawH) / 2);
+            } else {
+              drawH = canvasSize;
+              drawW = Math.round(canvasSize * videoAspect);
+              offsetX = Math.round((canvasSize - drawW) / 2);
+              offsetY = 0;
             }
 
             (function drawFrame() {
-              if (!sameAspect) {
-                ctx.fillStyle = "black";
-                ctx.fillRect(0, 0, canvasSize, canvasSize);
-              } else {
-                // Clear only when dimensions differ (optional optimization); here we overwrite all anyway.
-                ctx.clearRect(0, 0, canvasSize, canvasSize);
-              }
+              ctx.fillStyle = "black";
+              ctx.fillRect(0, 0, canvasSize, canvasSize);
               try {
-                ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
+                ctx.drawImage(aframeVideoAsset, offsetX, offsetY, drawW, drawH);
               } catch (e) {}
               texture.needsUpdate = true;
               requestAnimationFrame(drawFrame);
@@ -362,7 +321,7 @@
           width="1"
           height="1"
           rotation="0 0 0"
-          material="shader: flat; transparent: false; color: #000;">
+          material="shader: flat; transparent: true;">
         </a-plane>
       </a-entity>
     </a-scene>
