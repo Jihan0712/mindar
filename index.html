@@ -139,22 +139,58 @@
         aframeVideoAsset.playsInline = true;
         aframeVideoAsset.preload = "auto";
 
-        // Wait until mesh is ready
+        // Wait until mesh is ready. More robust: listen for both 'loaded' (A-Frame primitive)
+        // and 'model-loaded' events, and poll for a longer window before giving up.
         function whenPlaneMeshReady(cb) {
-          const mesh = planeEl.getObject3D && planeEl.getObject3D("mesh");
-          if (mesh) return cb(mesh);
-          planeEl.addEventListener("model-loaded", () => cb(planeEl.getObject3D("mesh")));
-          let tries = 0;
-          const iv = setInterval(() => {
-            const m = planeEl.getObject3D && planeEl.getObject3D("mesh");
-            if (m) {
-              clearInterval(iv);
-              cb(m);
-            } else if (++tries > 20) {
-              clearInterval(iv);
-              console.warn("Could not find plane mesh.");
+          try {
+            const existingMesh = planeEl.getObject3D && planeEl.getObject3D("mesh");
+            if (existingMesh) {
+              console.log('whenPlaneMeshReady: mesh already present');
+              return cb(existingMesh);
             }
-          }, 100);
+
+            const onLoaded = () => {
+              const m = planeEl.getObject3D && planeEl.getObject3D('mesh');
+              if (m) {
+                cleanup();
+                return cb(m);
+              }
+            };
+
+            const onModelLoaded = () => {
+              const m = planeEl.getObject3D && planeEl.getObject3D('mesh');
+              if (m) {
+                cleanup();
+                return cb(m);
+              }
+            };
+
+            planeEl.addEventListener('loaded', onLoaded);
+            planeEl.addEventListener('model-loaded', onModelLoaded);
+
+            let tries = 0;
+            const iv = setInterval(() => {
+              const m = planeEl.getObject3D && planeEl.getObject3D('mesh');
+              if (m) {
+                cleanup();
+                console.log('whenPlaneMeshReady: mesh found via polling');
+                return cb(m);
+              }
+              tries++;
+              if (tries > 100) { // ~10s
+                console.warn('whenPlaneMeshReady: Could not find plane mesh after polling');
+                cleanup();
+              }
+            }, 100);
+
+            function cleanup() {
+              planeEl.removeEventListener('loaded', onLoaded);
+              planeEl.removeEventListener('model-loaded', onModelLoaded);
+              clearInterval(iv);
+            }
+          } catch (err) {
+            console.error('whenPlaneMeshReady error:', err);
+          }
         }
 
         // Helper: infer target aspect ratio from stored marker image URL if available
