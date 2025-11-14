@@ -226,17 +226,33 @@
             const videoAspect = vw / vh; // width/height
             const canvasSize = CANVAS_SIZE; // square
 
-            // Contain strategy (no cropping): scale video so both dimensions fit inside square.
-            const scale = Math.min(canvasSize / vw, canvasSize / vh);
-            const drawW = Math.round(vw * scale);
-            const drawH = Math.round(vh * scale);
-            const offsetX = Math.round((canvasSize - drawW) / 2);
-            const offsetY = Math.round((canvasSize - drawH) / 2);
+            // Decide if we need borders: only when video aspect differs from target aspect
+            const sameAspect = (targetAspect && Math.abs(videoAspect - targetAspect) < 0.01) || (!targetAspect && Math.abs(videoAspect - 1) < 0.01);
+
+            let drawW, drawH, offsetX, offsetY;
+            if (sameAspect) {
+              // Fill entire canvas (no black border)
+              drawW = canvasSize;
+              drawH = canvasSize;
+              offsetX = 0;
+              offsetY = 0;
+            } else {
+              // Contain strategy (no cropping) with centered video + black bars
+              const scale = Math.min(canvasSize / vw, canvasSize / vh);
+              drawW = Math.round(vw * scale);
+              drawH = Math.round(vh * scale);
+              offsetX = Math.round((canvasSize - drawW) / 2);
+              offsetY = Math.round((canvasSize - drawH) / 2);
+            }
 
             (function drawFrame() {
-              // Black border background for square appearance
-              ctx.fillStyle = "black";
-              ctx.fillRect(0, 0, canvasSize, canvasSize);
+              if (!sameAspect) {
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, canvasSize, canvasSize);
+              } else {
+                // Clear only when dimensions differ (optional optimization); here we overwrite all anyway.
+                ctx.clearRect(0, 0, canvasSize, canvasSize);
+              }
               try {
                 ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
               } catch (e) {}
