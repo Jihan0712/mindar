@@ -188,25 +188,20 @@
           return { same: false, mode: 'pillarbox' };
         }
 
-        // Size the plane to cover the marker when desired and draw the video into a square canvas
-        const targetAspect = await getTargetAspectFromImage(activeTarget);
-        // When covering marker, set squareSide to max(width, height) so plane covers marker fully
-        const squareSide = (() => {
-          if (!targetAspect || !Number.isFinite(targetAspect) || targetAspect <= 0) return 1;
-          const targetHeight = 1 / targetAspect;
-          return Math.max(1, targetHeight);
-        })();
+        // Size the plane to match the marker's real aspect (width=1 unit, height=1/targetAspect)
+        const targetAspect = await getTargetAspectFromImage(activeTarget) || 1;
+        const planeWidthUnits = 1;
+        const planeHeightUnits = 1 / targetAspect;
 
         whenPlaneMeshReady((mesh) => {
-          planeEl.setAttribute("width", squareSide);
-          planeEl.setAttribute("height", squareSide);
+          planeEl.setAttribute("width", planeWidthUnits);
+          planeEl.setAttribute("height", planeHeightUnits);
 
-          // Reduce canvas texture size to lower CPU/GPU cost. 512 is a good tradeoff
-          // between quality and performance on mobile devices.
-          const CANVAS_SIZE = 512;
+          // Create a canvas that matches the marker aspect so the video fits without being forced into a square.
+          const CANVAS_BASE = 1024; // base width in pixels
           const canvas = document.createElement("canvas");
-          canvas.width = CANVAS_SIZE;
-          canvas.height = CANVAS_SIZE;
+          canvas.width = CANVAS_BASE;
+          canvas.height = Math.max(2, Math.round(CANVAS_BASE / targetAspect));
           const ctx = canvas.getContext("2d");
 
           const texture = new THREE.CanvasTexture(canvas);
@@ -233,29 +228,25 @@
             }
 
             const videoAspect = vw / vh; // width/height
-            const canvasSize = CANVAS_SIZE; // square
+            const canvasW = canvas.width;
+            const canvasH = canvas.height;
 
             const decision = decideBorder(targetAspect, videoAspect, 0.02);
             let drawW, drawH, offsetX, offsetY;
 
             if (decision.same) {
               // Fill entire canvas (no border)
-              drawW = canvasSize;
-              drawH = canvasSize;
+              drawW = canvasW;
+              drawH = canvasH;
               offsetX = 0;
               offsetY = 0;
-            } else if (decision.mode === 'letterbox') {
-              // Fit by width, produce top/bottom bars
-              drawW = canvasSize;
-              drawH = Math.round(canvasSize / videoAspect);
-              offsetX = 0;
-              offsetY = Math.round((canvasSize - drawH) / 2);
             } else {
-              // pillarbox: fit by height, produce left/right bars
-              drawH = canvasSize;
-              drawW = Math.round(canvasSize * videoAspect);
-              offsetX = Math.round((canvasSize - drawW) / 2);
-              offsetY = 0;
+              // Contain: scale video so both dimensions fit inside canvas
+              const scale = Math.min(canvasW / vw, canvasH / vh);
+              drawW = Math.round(vw * scale);
+              drawH = Math.round(vh * scale);
+              offsetX = Math.round((canvasW - drawW) / 2);
+              offsetY = Math.round((canvasH - drawH) / 2);
             }
 
             let canvasTainted = false;
@@ -267,20 +258,64 @@
                 ctx.clearRect(0, 0, canvasSize, canvasSize);
               }
               try {
-                if (!canvasTainted) ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
+                if (!canvasTainted) {
+                  planeEl.setAttribute('visible', 'true');
+                  ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
+                }
               } catch (e) {
                 if (!canvasTainted) {
                   console.error('Canvas drawImage failed (likely CORS). Falling back to direct video texture. Error:', e);
                   canvasTainted = true;
                   try {
-                    // Fallback: use the video element directly as the plane's src so frames are visible.
-                    planeEl.setAttribute('src', '#card');
-                    if (Array.isArray(mesh.material)) {
-                      mesh.material.forEach((m) => { m.map = null; m.needsUpdate = true; });
+                    // Fallback: create an inner video plane sized to fit inside the marker and a black border plane behind it.
+                    const existingInner = target.querySelector('#video-inner-plane');
+                    const existingBorder = target.querySelector('#video-border-plane');
+
+                    const markerW = planeWidthUnits;
+                    const markerH = planeHeightUnits;
+                    // compute video plane size in world units so it fits inside marker while preserving aspect
+                    let videoUnitW, videoUnitH;
+                    if (videoAspect > (markerW / markerH)) {
+                      videoUnitW = markerW;
+                      videoUnitH = markerW / videoAspect;
                     } else {
-                      mesh.material.map = null;
-                      mesh.material.needsUpdate = true;
+                      videoUnitH = markerH;
+                      videoUnitW = markerH * videoAspect;
                     }
+
+                    // create border plane behind (black)
+                    if (!existingBorder) {
+                      const border = document.createElement('a-plane');
+                      border.setAttribute('id', 'video-border-plane');
+                      border.setAttribute('position', '0 0 0');
+                      border.setAttribute('rotation', '0 0 0');
+                      border.setAttribute('material', 'shader: flat; color: #000;');
+                      border.setAttribute('width', markerW);
+                      border.setAttribute('height', markerH);
+                      target.appendChild(border);
+                    } else {
+                      existingBorder.setAttribute('width', markerW);
+                      existingBorder.setAttribute('height', markerH);
+                    }
+
+                    // create/update inner video plane in front
+                    if (!existingInner) {
+                      const inner = document.createElement('a-plane');
+                      inner.setAttribute('id', 'video-inner-plane');
+                      inner.setAttribute('src', '#card');
+                      inner.setAttribute('position', '0 0 0.001');
+                      inner.setAttribute('rotation', '0 0 0');
+                      inner.setAttribute('material', 'shader: flat; transparent: false;');
+                      inner.setAttribute('width', videoUnitW);
+                      inner.setAttribute('height', videoUnitH);
+                      target.appendChild(inner);
+                    } else {
+                      existingInner.setAttribute('src', '#card');
+                      existingInner.setAttribute('width', videoUnitW);
+                      existingInner.setAttribute('height', videoUnitH);
+                    }
+                    // hide the canvas-backed plane so border+inner are visible
+                    try { planeEl.setAttribute('visible', 'false'); } catch (e3) {}
                   } catch (e2) {
                     console.error('Fallback to video src failed:', e2);
                   }
