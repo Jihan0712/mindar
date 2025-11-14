@@ -157,10 +157,49 @@
           }, 100);
         }
 
-        // 1:1 ratio video
+        // Helper: infer target aspect ratio from stored marker image URL if available
+        async function getTargetAspectFromImage(active) {
+          const url = active?.imageurl;
+          if (!url) return null;
+          try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            const p = new Promise((resolve, reject) => {
+              img.onload = () => resolve(img);
+              img.onerror = reject;
+            });
+            img.src = url;
+            const loaded = await p;
+            const w = loaded.naturalWidth || 0;
+            const h = loaded.naturalHeight || 0;
+            if (w > 0 && h > 0) return w / h; // width/height
+          } catch (e) {
+            console.warn('Could not infer target aspect from imageurl:', e);
+          }
+          return null;
+        }
+
+        // Decide whether borders are needed and which type (letterbox = top/bottom, pillarbox = left/right)
+        function decideBorder(targetAspect, videoAspect, tol = 0.02) {
+          const tAspect = targetAspect && Number.isFinite(targetAspect) && targetAspect > 0 ? targetAspect : 1;
+          const vAspect = Number.isFinite(videoAspect) && videoAspect > 0 ? videoAspect : 1;
+          if (Math.abs(tAspect - vAspect) <= tol) return { same: true, mode: 'none' };
+          if (vAspect > tAspect) return { same: false, mode: 'letterbox' };
+          return { same: false, mode: 'pillarbox' };
+        }
+
+        // Size the plane to cover the marker when desired and draw the video into a square canvas
+        const targetAspect = await getTargetAspectFromImage(activeTarget);
+        // When covering marker, set squareSide to max(width, height) so plane covers marker fully
+        const squareSide = (() => {
+          if (!targetAspect || !Number.isFinite(targetAspect) || targetAspect <= 0) return 1;
+          const targetHeight = 1 / targetAspect;
+          return Math.max(1, targetHeight);
+        })();
+
         whenPlaneMeshReady((mesh) => {
-          planeEl.setAttribute("width", 1);
-          planeEl.setAttribute("height", 1);
+          planeEl.setAttribute("width", squareSide);
+          planeEl.setAttribute("height", squareSide);
 
           // Reduce canvas texture size to lower CPU/GPU cost. 512 is a good tradeoff
           // between quality and performance on mobile devices.
@@ -193,16 +232,26 @@
               return;
             }
 
-            const videoAspect = vw / vh;
-            const canvasSize = CANVAS_SIZE;
+            const videoAspect = vw / vh; // width/height
+            const canvasSize = CANVAS_SIZE; // square
+
+            const decision = decideBorder(targetAspect, videoAspect, 0.02);
             let drawW, drawH, offsetX, offsetY;
 
-            if (videoAspect > 1) {
+            if (decision.same) {
+              // Fill entire canvas (no border)
               drawW = canvasSize;
-              drawH = canvasSize / videoAspect;
+              drawH = canvasSize;
+              offsetX = 0;
+              offsetY = 0;
+            } else if (decision.mode === 'letterbox') {
+              // Fit by width, produce top/bottom bars
+              drawW = canvasSize;
+              drawH = Math.round(canvasSize / videoAspect);
               offsetX = 0;
               offsetY = Math.round((canvasSize - drawH) / 2);
             } else {
+              // pillarbox: fit by height, produce left/right bars
               drawH = canvasSize;
               drawW = Math.round(canvasSize * videoAspect);
               offsetX = Math.round((canvasSize - drawW) / 2);
@@ -210,10 +259,14 @@
             }
 
             (function drawFrame() {
-              ctx.fillStyle = "black";
-              ctx.fillRect(0, 0, canvasSize, canvasSize);
+              if (!decision.same) {
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, canvasSize, canvasSize);
+              } else {
+                ctx.clearRect(0, 0, canvasSize, canvasSize);
+              }
               try {
-                ctx.drawImage(aframeVideoAsset, offsetX, offsetY, drawW, drawH);
+                ctx.drawImage(aframeVideoAsset, 0, 0, vw, vh, offsetX, offsetY, drawW, drawH);
               } catch (e) {}
               texture.needsUpdate = true;
               requestAnimationFrame(drawFrame);
@@ -321,7 +374,7 @@
           width="1"
           height="1"
           rotation="0 0 0"
-          material="shader: flat; transparent: true;">
+          material="shader: flat; transparent: false; color: #000;">
         </a-plane>
       </a-entity>
     </a-scene>
