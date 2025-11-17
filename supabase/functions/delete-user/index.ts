@@ -9,6 +9,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ADMIN_KEY = Deno.env.get("ADMIN_DELETE_KEY");
 const CLEANUP_TABLES = (Deno.env.get("CLEANUP_TABLES") || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
 
 if (!SUPABASE_URL || !SERVICE_ROLE) {
   console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
@@ -17,22 +18,34 @@ if (!SUPABASE_URL || !SERVICE_ROLE) {
 const supabaseAdmin = createClient(SUPABASE_URL ?? "", SERVICE_ROLE ?? "");
 
 serve(async (req: Request) => {
-  if (req.method !== "POST") return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+  // CORS preflight handling
+  const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, x-admin-key',
+  };
+
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: corsHeaders });
 
   const provided = req.headers.get('x-admin-key');
   if (!ADMIN_KEY || provided !== ADMIN_KEY) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
   }
 
   let body: any = {};
   try {
     body = await req.json();
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: corsHeaders });
   }
 
   const userId = body.userId || body.user_id || body.id;
-  if (!userId) return new Response(JSON.stringify({ error: 'Missing userId in body' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!userId) return new Response(JSON.stringify({ error: 'Missing userId in body' }), { status: 400, headers: corsHeaders });
 
   try {
     // Optional: clean up rows in configured tables (CLEANUP_TABLES env var comma-separated)
@@ -49,12 +62,12 @@ serve(async (req: Request) => {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (error) {
       console.error('deleteUser error:', error);
-      return new Response(JSON.stringify({ error: error.message || error }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: error.message || error }), { status: 500, headers: corsHeaders });
     }
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: corsHeaders });
   } catch (err: any) {
     console.error('Unexpected error in delete-user:', err);
-    return new Response(JSON.stringify({ error: err.message || String(err) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: err.message || String(err) }), { status: 500, headers: corsHeaders });
   }
 });
