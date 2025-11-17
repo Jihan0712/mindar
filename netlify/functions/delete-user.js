@@ -1,5 +1,4 @@
-const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
-
+// Use global fetch (Node 18+) available in Netlify Functions runtime.
 exports.handler = async function(event) {
   const corsHeaders = {
     'Content-Type': 'application/json',
