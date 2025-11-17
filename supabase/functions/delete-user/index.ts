@@ -1,10 +1,14 @@
+// @ts-ignore: remote Deno std lib (resolved at runtime)
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// @ts-ignore: import supabase client from remote ESM (resolved at runtime)
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+declare const Deno: any;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ADMIN_KEY = Deno.env.get("ADMIN_DELETE_KEY");
-const CLEANUP_TABLES = (Deno.env.get("CLEANUP_TABLES") || "").split(",").map(s=>s.trim()).filter(Boolean);
+const CLEANUP_TABLES = (Deno.env.get("CLEANUP_TABLES") || "").split(",").map((s: string) => s.trim()).filter(Boolean);
 
 if (!SUPABASE_URL || !SERVICE_ROLE) {
   console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
@@ -12,7 +16,7 @@ if (!SUPABASE_URL || !SERVICE_ROLE) {
 
 const supabaseAdmin = createClient(SUPABASE_URL ?? "", SERVICE_ROLE ?? "");
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method !== "POST") return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
 
   const provided = req.headers.get('x-admin-key');
@@ -23,7 +27,7 @@ serve(async (req) => {
   let body: any = {};
   try {
     body = await req.json();
-  } catch (e) {
+  } catch (e: any) {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
@@ -36,7 +40,7 @@ serve(async (req) => {
       try {
         const { error: delErr } = await supabaseAdmin.from(table).delete().eq('id', userId);
         if (delErr) console.warn(`cleanup ${table} error:`, delErr.message || delErr);
-      } catch (e) {
+      } catch (e: any) {
         console.warn(`cleanup ${table} exception:`, e);
       }
     }
@@ -49,7 +53,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Unexpected error in delete-user:', err);
     return new Response(JSON.stringify({ error: err.message || String(err) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
