@@ -23,7 +23,7 @@ serve(async (req: Request) => {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-admin-key',
+    'Access-Control-Allow-Headers': 'Content-Type, x-admin-key, Authorization',
   };
 
   if (req.method === 'OPTIONS') {
@@ -32,7 +32,15 @@ serve(async (req: Request) => {
 
   if (req.method !== "POST") return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: corsHeaders });
 
-  const provided = req.headers.get('x-admin-key');
+  // Accept either the x-admin-key header or an Authorization: Bearer <token> header
+  let provided = req.headers.get('x-admin-key');
+  if (!provided) {
+    const auth = req.headers.get('authorization') || req.headers.get('Authorization');
+    if (auth && auth.toLowerCase().startsWith('bearer ')) {
+      provided = auth.slice(7).trim();
+    }
+  }
+
   if (!ADMIN_KEY || provided !== ADMIN_KEY) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
   }

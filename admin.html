@@ -57,7 +57,8 @@
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-admin-key': adminKey
+              'x-admin-key': adminKey,
+              'Authorization': 'Bearer ' + adminKey
             },
             body: JSON.stringify({ userId })
           });
