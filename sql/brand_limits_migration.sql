@@ -15,16 +15,43 @@ RETURNS TABLE(brand text, active_count integer, max_active integer)
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
-  -- Count active targets for each brand, but exclude uploads by admin accounts
-  SELECT
-    COALESCE(t.brand, '') AS brand,
-    COUNT(*) FILTER (WHERE t.is_active AND a.user_id IS NULL) AS active_count,
-    COALESCE(bs.max_active, 3) AS max_active
-  FROM targets t
-  LEFT JOIN brand_settings bs ON bs.brand = t.brand
-  LEFT JOIN admins a ON a.user_id = t.user_id
-  GROUP BY t.brand, bs.max_active
-  ORDER BY brand;
+  /*
+    Produce one row per known brand from any source:
+    - targets.brand
+    - profiles.brand
+    - brand_invitations.brand
+    - brand_settings.brand
+    Then compute active_count from targets (excluding admin uploads)
+    and max_active from brand_settings with default 3.
+  */
+  with all_brands as (
+    select distinct b from (
+      select nullif(t.brand, '') as b from public.targets t
+      union
+      select nullif(p.brand, '') as b from public.profiles p
+      union
+      select nullif(bi.brand, '') as b from public.brand_invitations bi
+      union
+      select nullif(bs.brand, '') as b from public.brand_settings bs
+    ) s where b is not null
+  ),
+  counts as (
+    select ab.b as brand,
+           (
+             select count(*)
+             from public.targets t
+             left join public.admins a on a.user_id = t.user_id
+             where t.brand = ab.b and t.is_active and a.user_id is null
+           ) as active_count
+    from all_brands ab
+  )
+  select ab.b as brand,
+         coalesce(c.active_count, 0) as active_count,
+         coalesce(bs.max_active, 3) as max_active
+  from all_brands ab
+  left join counts c on c.brand = ab.b
+  left join public.brand_settings bs on bs.brand = ab.b
+  order by ab.b;
 $$;
 
 -- RPC: set_brand_max_active(p_brand text, p_limit integer)
@@ -42,6 +69,10 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- Grants for typical app role
+GRANT EXECUTE ON FUNCTION public.get_brand_limits() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_brand_max_active(text, integer) TO authenticated;
 
 -- RPC: set_active_target(p_target_id uuid)
 -- Activate a target while enforcing limits:

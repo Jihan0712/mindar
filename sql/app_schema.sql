@@ -157,18 +157,29 @@ end; $$;
 
  -- Accounts view for admin dashboard (show all auth.users, even if profiles missing)
  drop function if exists public.get_accounts();
- create or replace function public.get_accounts()
- returns table(user_id uuid, email text, brand text, is_admin boolean)
- language sql security definer set search_path=public, extensions as $$
-   select 
-     u.id as user_id,
-     coalesce(u.email, '') as email,
-     coalesce(p.brand, '') as brand,
-     exists(select 1 from public.admins a where a.user_id = u.id) as is_admin
-   from auth.users u
-   left join public.profiles p on p.user_id = u.id
-   order by u.created_at desc nulls last
- $$;
+create or replace function public.get_accounts()
+returns table(user_id uuid, email text, brand text, is_admin boolean)
+language sql security definer set search_path=public, extensions as $$
+  select 
+    u.id as user_id,
+    coalesce(u.email, '') as email,
+    coalesce(
+      p.brand,
+      (
+        select bi.brand
+        from public.brand_invitations bi
+        where lower(bi.email) = lower(u.email)
+          and bi.consumed_at is null
+        order by bi.created_at desc
+        limit 1
+      ),
+      ''
+    ) as brand,
+    exists(select 1 from public.admins a where a.user_id = u.id) as is_admin
+  from auth.users u
+  left join public.profiles p on p.user_id = u.id
+  order by u.created_at desc nulls last
+$$;
  grant execute on function public.get_accounts() to authenticated;
 
 commit;

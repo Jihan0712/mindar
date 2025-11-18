@@ -886,14 +886,27 @@
         if (pendingInvitesEl) pendingInvitesEl.textContent = '—';
         if (pendingAdminTokensEl) pendingAdminTokensEl.textContent = '—';
 
-        // Brand accounts (profiles with a non-null brand)
+        // Brand accounts: count users from get_accounts() where brand != '' and not admin
         try {
-          const { count, error } = await supabase
-            .from('profiles')
-            .select('brand', { count: 'exact', head: true })
-            .not('brand', 'is', null);
-          if (!error && typeof count === 'number' && brandCountEl) brandCountEl.textContent = String(count);
-          else if (error) console.warn('Brand count failed:', error);
+          let brandCount = null;
+          try {
+            const { data, error } = await supabase.rpc('get_accounts');
+            if (!error && Array.isArray(data)) {
+              brandCount = data.filter(r => (r.brand ?? '').trim() !== '' && !r.is_admin).length;
+            }
+          } catch (rpcErr) {
+            console.warn('get_accounts RPC failed for brand count, fallback:', rpcErr);
+          }
+          if (brandCount == null) {
+            const { data: profRows, error } = await supabase
+              .from('profiles')
+              .select('brand, role')
+              .not('brand', 'is', null);
+            if (!error && Array.isArray(profRows)) {
+              brandCount = profRows.filter(r => (r.brand ?? '').trim() !== '' && (r.role === 'brand')).length;
+            }
+          }
+          if (typeof brandCount === 'number' && brandCountEl) brandCountEl.textContent = String(brandCount);
         } catch (e) { console.warn('Brand count threw:', e); }
 
         // Admin accounts (count rows in admins)
@@ -1533,7 +1546,9 @@
         try {
           const { data, error } = await supabase.rpc('get_brand_limits');
           if (error) throw error;
-          const rows = Array.isArray(data) ? data : [];
+          let rows = Array.isArray(data) ? data : [];
+          // Show only named brands (skip blank placeholder row)
+          rows = rows.filter(r => (r.brand ?? '').trim() !== '');
           if (rows.length === 0) {
             brandLimitsTable.innerHTML = '<tr><td class="p-2 text-gray-500" colspan="4">No brands yet.</td></tr>';
             return;
