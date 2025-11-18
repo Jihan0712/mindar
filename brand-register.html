@@ -3,20 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>INRL AR — Brand Registration (Invite)</title>
+    <title>INRL AR — Brand Registration</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body class="min-h-screen bg-gray-100 flex items-center justify-center">
     <div class="w-full max-w-lg bg-white rounded shadow p-6">
-      <h1 class="text-2xl font-bold mb-4">Brand Registration (Invite)</h1>
+      <h1 class="text-2xl font-bold mb-4">Brand Registration</h1>
 
       <div id="alert" class="text-sm text-red-600 mb-3"></div>
 
       <div id="inviteInfo" class="mb-4 text-sm text-gray-700">Loading invitation...</div>
-      <div id="loadMethod" class="text-xs text-gray-500 mb-3"></div>
 
-      <label class="block text-sm">Email (set by invite)</label>
+      <label class="block text-sm">Email (from invite)</label>
       <input id="email" type="email" class="w-full border rounded p-2 mb-3 bg-gray-100" readonly />
 
       <label class="block text-sm">Password</label>
@@ -25,25 +24,24 @@
       <label class="block text-sm">Full name</label>
       <input id="fullName" type="text" class="w-full border rounded p-2 mb-3" />
 
-      <label class="block text-sm">Brand (set by invite)</label>
+      <label class="block text-sm">Brand (from invite)</label>
       <input id="brand" type="text" class="w-full border rounded p-2 mb-3 bg-gray-100" readonly />
 
       <div class="flex gap-2 mb-2">
         <button id="registerBtn" class="flex-1 bg-blue-600 text-white rounded p-2">Register as Brand</button>
-        <a href="/register.html" class="flex-1 inline-flex items-center justify-center bg-gray-200 rounded p-2">Back to client register</a>
+        <a href="/login.html" class="flex-1 inline-flex items-center justify-center bg-gray-200 rounded p-2">Already have an account?</a>
       </div>
     </div>
 
     <script>
-  const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
+      const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       const params = new URLSearchParams(window.location.search);
       const inviteId = params.get('invite_id') || params.get('invite');
 
       const inviteInfoEl = document.getElementById('inviteInfo');
-      const loadMethodEl = document.getElementById('loadMethod');
       const emailEl = document.getElementById('email');
       const passwordEl = document.getElementById('password');
       const fullNameEl = document.getElementById('fullName');
@@ -57,116 +55,86 @@
         if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
       }
 
-      // Load invite via a SECURITY DEFINER RPC to avoid RLS blocking anonymous reads.
-      // Returns the invite row (or null) so callers can act on it (e.g., claim after login).
-      let currentInviteRow = null;
-      async function loadInvite(id) {
-        if (!id) {
-          inviteInfoEl.textContent = 'No invite specified. You must use the invite link sent by an admin.';
+      async function prefillInvite() {
+        if (!inviteId) {
+          inviteInfoEl.textContent = 'No invite specified. Use the link from your admin.';
+          registerBtn.disabled = true;
           return;
         }
         try {
-          let row = null;
-          // First try the SECURITY DEFINER RPC which works under RLS
-          try {
-            const { data, error } = await supabase.rpc('get_brand_invitation_by_id', { p_id: id });
-            if (!error) {
-              row = Array.isArray(data) ? data[0] : data;
-              if (row) loadMethodEl.textContent = 'Loaded invite via RPC';
-            } else {
-              console.warn('invite rpc error', error);
-            }
-          } catch (rpcErr) {
-            console.warn('invite rpc threw, falling back to direct select', rpcErr);
-          }
-
-          // Fallback: try direct select from brand_invitations (may be blocked by RLS, but worth attempting)
+          const { data, error } = await supabase.rpc('get_brand_invite', { p_id: inviteId });
+          if (error) throw error;
+          const row = Array.isArray(data) ? data[0] : data;
           if (!row) {
-            try {
-              const { data: sel, error: selErr } = await supabase.from('brand_invitations').select('id,email,brand,name,created_at').eq('id', id).maybeSingle();
-              if (!selErr && sel) row = sel;
-              else if (selErr) console.warn('brand_invitations select failed', selErr);
-            } catch (selEx) {
-              console.warn('brand_invitations select threw', selEx);
-            }
-          }
-
-          if (!row) {
-            inviteInfoEl.textContent = 'Unable to load invitation.';
-            loadMethodEl.textContent = 'Invite load failed';
-            // Provide a clearer UI hint for admins/deployers and users
-            showAlert('Unable to load invitation. This may be a server permission (RLS) issue. Ask an admin to GRANT EXECUTE on the RPC `get_brand_invitation_by_id(uuid)` to the `authenticated` role.', true);
+            inviteInfoEl.textContent = 'Invitation not found or already used.';
+            registerBtn.disabled = true;
             return;
-          } else if (!loadMethodEl.textContent) {
-            // If RPC didn't report loaded, but we have a row from direct select
-            loadMethodEl.textContent = 'Loaded invite via direct table select (fallback)';
           }
-          currentInviteRow = row; 
-          // RPC or fallback returned row
-          inviteInfoEl.textContent = `Invited for brand: ${row.brand || '(not set)'} — please register with this email.`;
+          if (row.consumed_at) {
+            inviteInfoEl.textContent = 'This invitation has already been used.';
+            registerBtn.disabled = true;
+            return;
+          }
           emailEl.value = row.email || '';
-          fullNameEl.value = row.name || '';
           brandEl.value = row.brand || '';
-          // If the user is already authenticated (they confirmed email and are signed in),
-          // automatically claim the invite by creating/updating their profile.
-          try {
-            const { data: sessionData } = await supabase.auth.getSession();
-            const user = sessionData?.session?.user || null;
-            if (user && user.id) {
-              // Upsert profile with brand using authenticated session (should have rights)
-              await supabase.from('profiles').upsert([{ user_id: user.id, name: row.name || null, brand: row.brand || null }], { onConflict: 'user_id' });
-              // remove invitation (best-effort)
-              try { await supabase.from('brand_invitations').delete().eq('id', inviteId); } catch(e){console.warn('failed to remove invite after claim', e);}
-              inviteInfoEl.textContent = 'Invite claimed — your account is now a Brand account. You can continue to the app.';
-            }
-          } catch (e) {
-            console.warn('Auto-claim after session check failed', e);
-          }
+          inviteInfoEl.textContent = `You are invited to register for brand: ${row.brand}`;
         } catch (e) {
-          console.error(e);
-          inviteInfoEl.textContent = 'test link working';
+          console.error('prefillInvite failed', e);
+          inviteInfoEl.textContent = 'Unable to load invitation. Please contact your admin.';
+          registerBtn.disabled = true;
+        }
+      }
+
+      async function claimIfSignedIn() {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const session = sessionData?.session;
+          if (!session || !session.user) return;
+          if (!inviteId) return;
+          const { error } = await supabase.rpc('claim_brand_invite', { p_id: inviteId });
+          if (error) throw error;
+          showAlert('✅ Invite claimed. You are now a brand account.', false);
+          setTimeout(() => { window.location.href = '/brand.html'; }, 1200);
+        } catch (e) {
+          // Do not block page; just show message if mismatch
+          console.warn('claimIfSignedIn:', e?.message || e);
         }
       }
 
       registerBtn.addEventListener('click', async () => {
-        // Only allow registering with the invited email/brand. These fields are readonly.
         const email = (emailEl.value || '').trim().toLowerCase();
         const password = (passwordEl.value || '').trim();
-        const name = (fullNameEl.value || '').trim() || null;
-        const brand = (brandEl.value || '').trim() || null;
+        const name = (fullNameEl.value || '').trim();
         if (!inviteId) return showAlert('No invite specified.');
-        if (!email) return showAlert('Invitation not loaded. Please use the invite link or contact an admin.');
-        if (!password) return showAlert('Please provide a password.');
+        if (!email) return showAlert('Invitation not loaded.');
         if (!name) return showAlert('Please provide your full name.');
+        if (password.length < 8) return showAlert('Password must be at least 8 characters.');
         try {
-          // diagnostic logging: print exact payload and character codes (helps detect invisible/invalid characters)
-          console.log('brand signUp payload (pre):', { email, passwordLen: password.length });
-          console.log('brand email chars (pre):', [...email].map(c => c.charCodeAt(0)));
-          // Request signUp and set the email redirect so after email confirmation user returns to this invite URL
           const redirectUrl = window.location.origin + window.location.pathname + '?invite_id=' + encodeURIComponent(inviteId);
-          const res = await supabase.auth.signUp({ email, password }, { emailRedirectTo: redirectUrl });
-          console.log('brand signUp:', res);
-          if (res.error) return showAlert(res.error.message || JSON.stringify(res.error));
-          const user = res.data?.user;
-          if (user) {
-            // create or update profile (use upsert so trigger created rows are updated)
-            try {
-              await supabase.from('profiles').upsert([{ user_id: user.id, name, brand }], { onConflict: 'user_id' });
-            } catch (e) { console.warn('profile upsert failed', e); }
-            // attempt to remove invitation (best effort)
-            try { await supabase.from('brand_invitations').delete().eq('id', inviteId); } catch (e) { console.warn('delete invitation failed', e); }
-            showAlert('Brand registration complete. You can now sign in.', false);
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: name }, emailRedirectTo: redirectUrl }
+          });
+          if (error) throw error;
+          if (data?.user) {
+            // If immediate session is created, claim now; otherwise wait for redirect after confirmation
+            await claimIfSignedIn();
+            showAlert('Registration complete. You can now sign in.', false);
           } else {
-            // No immediate user (email confirmation required). Inform the user and instruct how to claim invite after confirming.
-            showAlert('Registration request sent — check your email for confirmation. After confirming you will be redirected back to this invite page to claim your Brand account.', false);
+            showAlert('Check your email to confirm your account. You will return here to complete setup.', false);
           }
         } catch (e) {
-          console.error(e);
+          console.error('register failed', e);
           showAlert(e?.message || String(e));
         }
       });
 
-      loadInvite(inviteId);
+      // On load: show invite details and, if already signed in (after email confirm), claim automatically
+      (async () => {
+        await prefillInvite();
+        await claimIfSignedIn();
+      })();
     </script>
   </body>
 </html>
