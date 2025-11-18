@@ -4,7 +4,7 @@ exports.handler = async function(event) {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-admin-key',
+    'Access-Control-Allow-Headers': 'Content-Type, x-admin-key, Authorization',
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -21,7 +21,52 @@ exports.handler = async function(event) {
     }
 
     const provided = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
-    if (!provided || provided !== adminKey) {
+    // Allow either the server ADMIN_DELETE_KEY or an authenticated admin session token.
+    let authorized = false;
+    if (provided && provided === adminKey) {
+      authorized = true;
+    } else {
+      // Try Authorization: Bearer <access_token>
+      const authHeader = event.headers['authorization'] || event.headers['Authorization'];
+      if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+        const accessToken = authHeader.split(' ')[1];
+        try {
+          // Validate the token and fetch the user id
+          const userResp = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              apikey: serviceRole,
+            },
+          });
+          if (userResp.ok) {
+            const userData = await userResp.json();
+            const userId = userData?.id;
+            if (userId) {
+              // Check admins table via REST API using service_role to ensure the token belongs to an admin
+              const adminsUrl = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/admins?select=user_id&user_id=eq.${encodeURIComponent(userId)}`;
+              const admResp = await fetch(adminsUrl, {
+                method: 'GET',
+                headers: {
+                  Authorization: `Bearer ${serviceRole}`,
+                  apikey: serviceRole,
+                },
+              });
+              if (admResp.ok) {
+                const admRows = await admResp.json();
+                if (Array.isArray(admRows) && admRows.length > 0) {
+                  authorized = true;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Auth token validation failed', e);
+        }
+      }
+    }
+
+    if (!authorized) {
       return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Unauthorized' }) };
     }
 
