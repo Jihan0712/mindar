@@ -180,7 +180,11 @@
                     <div id="pendingAdminTokensCount" class="text-xl font-semibold">—</div>
                   </div>
                 </div>
-                <button id="refreshStats" class="mt-4 px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">Refresh</button>
+                  <div class="flex items-center gap-3 mt-4">
+                    <button id="refreshStats" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">Refresh</button>
+                    <button id="backfillProfilesBtn" class="px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Backfill Profiles</button>
+                    <span id="backfillResult" class="text-sm text-gray-600"></span>
+                  </div>
               </div>
             </div>
             <!-- Accounts monitor -->
@@ -877,6 +881,27 @@
       refreshStatsBtn?.addEventListener('click', () => loadAdminStats());
   refreshPendingBtn?.addEventListener('click', () => loadPendingLists());
   refreshBrandLimitsBtn?.addEventListener('click', () => loadBrandLimits());
+      const backfillBtn = document.getElementById('backfillProfilesBtn');
+      const backfillResultEl = document.getElementById('backfillResult');
+      backfillBtn?.addEventListener('click', async () => {
+        if (!confirm('Create missing `profiles` rows for existing auth.users?')) return;
+        try {
+          backfillBtn.disabled = true;
+          backfillResultEl.textContent = 'Running backfill...';
+          const { data, error } = await supabase.rpc('backfill_profiles_from_auth');
+          if (error) throw error;
+          const inserted = (typeof data === 'number') ? data : (Array.isArray(data) ? data.length : null);
+          backfillResultEl.textContent = inserted !== null ? `Inserted ${inserted} profile(s)` : 'Backfill completed';
+          // refresh UI
+          loadAccounts(); loadAdminStats(); loadBrandLimits();
+        } catch (e) {
+          console.error('Backfill failed', e);
+          backfillResultEl.textContent = 'Backfill failed: ' + (e?.message || JSON.stringify(e));
+        } finally {
+          backfillBtn.disabled = false;
+          setTimeout(() => { backfillResultEl.textContent = ''; }, 6000);
+        }
+      });
 
       // Load high-level stats (counts)
       async function loadAdminStats() {
@@ -891,14 +916,20 @@
           let brandCount = null;
           // Prefer distinct brand count RPC (SECURITY DEFINER)
           try {
-            const { data, error } = await supabase.rpc('get_distinct_brand_count');
-            if (!error && typeof data === 'number') brandCount = data;
-          } catch (rpcErr) { console.warn('get_distinct_brand_count RPC failed, fallback to account-based count:', rpcErr); }
+            const res1 = await supabase.rpc('get_distinct_brand_count');
+            console.log('RPC get_distinct_brand_count ->', res1);
+            const { data: d1, error: e1 } = res1 || {};
+            if (!e1 && typeof d1 === 'number') brandCount = d1;
+            if (e1) console.warn('get_distinct_brand_count error', e1);
+          } catch (rpcErr) { console.warn('get_distinct_brand_count RPC threw', rpcErr); }
           // Fallback: count brand accounts (also SECURITY DEFINER)
           try {
-            const { data, error } = await supabase.rpc('get_brand_accounts_count');
-            if (!error && typeof data === 'number') brandCount = data;
-          } catch (rpcErr) { console.warn('get_brand_accounts_count RPC failed, fallback:', rpcErr); }
+            const res2 = await supabase.rpc('get_brand_accounts_count');
+            console.log('RPC get_brand_accounts_count ->', res2);
+            const { data: d2, error: e2 } = res2 || {};
+            if (!e2 && typeof d2 === 'number') brandCount = d2;
+            if (e2) console.warn('get_brand_accounts_count error', e2);
+          } catch (rpcErr) { console.warn('get_brand_accounts_count RPC threw', rpcErr); }
           // Fallback: direct query (may be blocked by RLS)
           if (brandCount == null) {
             const { data: profRows, error } = await supabase

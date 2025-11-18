@@ -212,4 +212,25 @@ language sql security definer set search_path=public, extensions as $$
 $$;
 grant execute on function public.get_distinct_brand_count() to authenticated;
 
+-- Backfill missing profiles from auth.users (admin-run migration helper)
+drop function if exists public.backfill_profiles_from_auth();
+create or replace function public.backfill_profiles_from_auth()
+returns integer
+language plpgsql security definer set search_path=public, extensions as $$
+declare
+  v_count integer := 0;
+begin
+  -- Insert a profile row for every auth.user that does not already have one.
+  insert into public.profiles (user_id, email, name, brand, role, created_at, updated_at)
+  select u.id, u.email, null, null, case when exists (select 1 from public.admins a where a.user_id = u.id) then 'admin' else 'client' end, now(), now()
+  from auth.users u
+  where not exists (select 1 from public.profiles p where p.user_id = u.id)
+  returning 1 into v_count;
+
+  -- The above INTO gets only the first returning row; instead compute count of new rows
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  return v_count;
+end; $$;
+grant execute on function public.backfill_profiles_from_auth() to authenticated;
+
 commit;
