@@ -886,24 +886,21 @@
         if (pendingInvitesEl) pendingInvitesEl.textContent = '—';
         if (pendingAdminTokensEl) pendingAdminTokensEl.textContent = '—';
 
-        // Brand accounts: count users from get_accounts() where brand != '' and not admin
+        // Brand accounts: only users with actual brand accounts (profiles.role='brand' and brand set)
         try {
           let brandCount = null;
+          // Prefer Security Definer RPC (works under RLS)
           try {
-            const { data, error } = await supabase.rpc('get_accounts');
-            if (!error && Array.isArray(data)) {
-              brandCount = data.filter(r => (r.brand ?? '').trim() !== '' && !r.is_admin).length;
-            }
-          } catch (rpcErr) {
-            console.warn('get_accounts RPC failed for brand count, fallback:', rpcErr);
-          }
+            const { data, error } = await supabase.rpc('get_brand_accounts_count');
+            if (!error && typeof data === 'number') brandCount = data;
+          } catch (rpcErr) { console.warn('get_brand_accounts_count RPC failed, fallback:', rpcErr); }
+          // Fallback: direct query (may be blocked by RLS)
           if (brandCount == null) {
             const { data: profRows, error } = await supabase
               .from('profiles')
-              .select('brand, role')
-              .not('brand', 'is', null);
+              .select('brand, role');
             if (!error && Array.isArray(profRows)) {
-              brandCount = profRows.filter(r => (r.brand ?? '').trim() !== '' && (r.role === 'brand')).length;
+              brandCount = profRows.filter(r => (r.brand ?? '').trim() !== '' && String(r.role).toLowerCase() === 'brand').length;
             }
           }
           if (typeof brandCount === 'number' && brandCountEl) brandCountEl.textContent = String(brandCount);

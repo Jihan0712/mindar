@@ -182,4 +182,16 @@ language sql security definer set search_path=public, extensions as $$
 $$;
  grant execute on function public.get_accounts() to authenticated;
 
+-- Brand accounts count (only users with role='brand' and non-empty brand)
+drop function if exists public.get_brand_accounts_count();
+create or replace function public.get_brand_accounts_count()
+returns integer
+language sql security definer set search_path=public, extensions as $$
+  select count(*)::int
+  from public.profiles p
+  where lower(coalesce(p.role, '')) = 'brand'
+    and coalesce(trim(p.brand), '') <> ''
+$$;
+grant execute on function public.get_brand_accounts_count() to authenticated;
+
 commit;

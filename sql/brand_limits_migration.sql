@@ -16,24 +16,16 @@ LANGUAGE sql
 SECURITY DEFINER
 AS $$
   /*
-    Produce one row per known brand from any source:
-    - targets.brand
-    - profiles.brand
-    - brand_invitations.brand
-    - brand_settings.brand
-    Then compute active_count from targets (excluding admin uploads)
-    and max_active from brand_settings with default 3.
+    Per brand limits for brands that actually have accounts only:
+    - Source brands from profiles where role='brand' and brand is non-empty.
+    - active_count counts active targets for that brand excluding admin uploads.
+    - max_active from brand_settings (default 3 when missing).
   */
   with all_brands as (
-    select distinct b from (
-      select nullif(t.brand, '') as b from public.targets t
-      union
-      select nullif(p.brand, '') as b from public.profiles p
-      union
-      select nullif(bi.brand, '') as b from public.brand_invitations bi
-      union
-      select nullif(bs.brand, '') as b from public.brand_settings bs
-    ) s where b is not null
+    select distinct nullif(p.brand, '') as b
+    from public.profiles p
+    where coalesce(trim(p.brand), '') <> ''
+      and lower(coalesce(p.role, '')) = 'brand'
   ),
   counts as (
     select ab.b as brand,
