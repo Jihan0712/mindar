@@ -190,13 +190,7 @@
                 <p class="text-xs text-gray-500">List of users from profiles and admin status.</p>
               </div>
               <!-- Inline delete-user controls (previously a separate mini-page) -->
-              <div class="p-4 border-t mb-4 bg-gray-50 rounded">
-                <div class="md:max-w-lg">
-                  <label class="block text-xs text-gray-600 mb-1">Admin Key (x-admin-key)</label>
-                  <input id="adminKey" type="password" placeholder="ADMIN_DELETE_KEY for /.netlify/functions/delete-user" class="border rounded p-2 w-full text-sm" />
-                  <p class="text-xs text-gray-500 mt-2">Provide only the admin key to delete accounts via the built-in Edge Function at <code>/.netlify/functions/delete-user</code>.</p>
-                </div>
-              </div>
+              <!-- Edge function key removed: deletions call the Netlify function using the admin's session token -->
               <div class="p-4 overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
                   <thead class="bg-gray-100">
@@ -1321,17 +1315,18 @@
           const typed = prompt('Type DELETE to confirm permanent removal:');
           if (typed !== 'DELETE') { statusEl.textContent = '⚠️ Deletion cancelled.'; setTimeout(()=>{statusEl.textContent='';},3000); return; }
           statusEl.textContent = '⏳ Deleting account...';
-          // Try the fixed Netlify Edge Function at /.netlify/functions/delete-user using only the admin key
+          // Call the fixed Netlify Edge Function at /.netlify/functions/delete-user
+          // Use the current Supabase session access token as Authorization Bearer.
           let ok = false; let message = '';
           try {
-            const adminKeyEl = document.getElementById('adminKey');
-            const adminKeyVal = adminKeyEl?.value?.trim();
             const fixedFn = '/.netlify/functions/delete-user';
-            if (adminKeyVal) {
-              try {
+            try {
+              const { data: sessionData } = await supabase.auth.getSession();
+              const accessToken = sessionData?.session?.access_token;
+              if (accessToken) {
                 const res = await fetch(fixedFn, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKeyVal },
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
                   body: JSON.stringify({ userId })
                 });
                 const json = await res.json().catch(() => ({}));
@@ -1341,9 +1336,11 @@
                 } else {
                   message = json?.error || `Edge function failed: HTTP ${res.status}`;
                 }
-              } catch (fe) {
-                console.warn('Fixed edge function call failed, will fall back:', fe);
+              } else {
+                console.warn('No access token available for edge function call');
               }
+            } catch (fe) {
+              console.warn('Fixed edge function call failed, will fall back:', fe);
             }
           } catch (e) {
             console.warn('Edge function deletion check failed:', e);
