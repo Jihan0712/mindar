@@ -236,7 +236,6 @@
           try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch(e) {}
 
           // Create (or reuse) an inner video plane that will display the <video> element directly.
-          // This avoids drawing the video into a canvas (and thus avoids any canvas CORS/taint issues).
           let inner = target.querySelector('#video-inner-plane');
           if (!inner) {
             inner = document.createElement('a-plane');

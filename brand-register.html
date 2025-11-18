@@ -55,7 +55,9 @@
         if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
       }
 
-  // Load invite via a SECURITY DEFINER RPC to avoid RLS blocking anonymous reads.
+      // Load invite via a SECURITY DEFINER RPC to avoid RLS blocking anonymous reads.
+      // Returns the invite row (or null) so callers can act on it (e.g., claim after login).
+      let currentInviteRow = null;
       async function loadInvite(id) {
         if (!id) {
           inviteInfoEl.textContent = 'No invite specified. You must use the invite link sent by an admin.';
@@ -70,6 +72,7 @@
           }
           // RPC returns an array for set-returning functions; take first element if present
           const row = Array.isArray(data) ? data[0] : data;
+          currentInviteRow = row || null;
           if (!row) {
             inviteInfoEl.textContent = 'Invitation not found or expired. Contact an admin.';
             return;
@@ -78,9 +81,24 @@
           emailEl.value = row.email || '';
           fullNameEl.value = row.name || '';
           brandEl.value = row.brand || '';
+          // If the user is already authenticated (they confirmed email and are signed in),
+          // automatically claim the invite by creating/updating their profile.
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const user = sessionData?.session?.user || null;
+            if (user && user.id) {
+              // Upsert profile with brand using authenticated session (should have rights)
+              await supabase.from('profiles').upsert([{ user_id: user.id, name: row.name || null, brand: row.brand || null }], { onConflict: 'user_id' });
+              // remove invitation (best-effort)
+              try { await supabase.from('brand_invitations').delete().eq('id', inviteId); } catch(e){console.warn('failed to remove invite after claim', e);}
+              inviteInfoEl.textContent = 'Invite claimed — your account is now a Brand account. You can continue to the app.';
+            }
+          } catch (e) {
+            console.warn('Auto-claim after session check failed', e);
+          }
         } catch (e) {
           console.error(e);
-          inviteInfoEl.textContent = 'Unable to load invitation.';
+          inviteInfoEl.textContent = 'test link working';
         }
       }
 
@@ -104,13 +122,12 @@
             try {
               await supabase.from('profiles').upsert([{ user_id: user.id, name, brand }], { onConflict: 'user_id' });
             } catch (e) { console.warn('profile upsert failed', e); }
-            // attempt to remove invitation (best effort lol)
-            try {
-              await supabase.from('brand_invitations').delete().eq('id', inviteId);
-            } catch (e) { console.warn('delete invitation failed', e); }
+            // attempt to remove invitation (best effort)
+            try { await supabase.from('brand_invitations').delete().eq('id', inviteId); } catch (e) { console.warn('delete invitation failed', e); }
             showAlert('Brand registration complete. You can now sign in.', false);
           } else {
-            showAlert('Registration request sent — check your email for confirmation or sign-in link.', false);
+            // No immediate user (email confirmation required). Inform the user and instruct how to claim invite after confirming.
+            showAlert('Registration request sent — check your email for confirmation. After confirming, sign in and revisit this invite link to claim your Brand account.', false);
           }
         } catch (e) {
           console.error(e);
