@@ -1,8 +1,14 @@
 -- Brand invitation flow (clean, minimal)
 -- Requires: public.admins(user_id uuid primary key) to identify admins
--- Assumes: public.profiles(id uuid PK, email text, name text, brand text, role text)
+-- Assumes: public.profiles(user_id uuid primary key, email text, name text, brand text, role text)
 
 begin;
+
+-- Idempotent cleanup (allows re-running script safely)
+drop function if exists public.create_brand_invite(text, text);
+drop function if exists public.get_brand_invite(uuid);
+drop function if exists public.claim_brand_invite(uuid);
+drop function if exists public.current_auth_email();
 
 -- 1) Table
 create table if not exists public.brand_invitations (
@@ -13,6 +19,11 @@ create table if not exists public.brand_invitations (
   consumed_at timestamptz null,
   created_by uuid null
 );
+
+-- Ensure newer columns exist even if an older version of the table was already present
+alter table public.brand_invitations
+  add column if not exists consumed_at timestamptz null,
+  add column if not exists created_by uuid null;
 
 -- Normalize email to lowercase on insert/update
 create or replace function public._normalize_email()
@@ -33,23 +44,28 @@ for each row execute function public._normalize_email();
 -- Enable RLS
 alter table public.brand_invitations enable row level security;
 
--- RLS policies: only admins can manage invites directly
-create policy if not exists brand_invites_select_admin
+-- Drop existing policies if present (PostgreSQL does not support IF NOT EXISTS in CREATE POLICY)
+drop policy if exists brand_invites_select_admin on public.brand_invitations;
+drop policy if exists brand_invites_insert_admin on public.brand_invitations;
+drop policy if exists brand_invites_update_admin on public.brand_invitations;
+drop policy if exists brand_invites_delete_admin on public.brand_invitations;
+
+create policy brand_invites_select_admin
 on public.brand_invitations for select
-using (exists(select 1 from public.admins a where a.user_id = auth.uid()));
+using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
 
-create policy if not exists brand_invites_insert_admin
+create policy brand_invites_insert_admin
 on public.brand_invitations for insert
-with check (exists(select 1 from public.admins a where a.user_id = auth.uid()));
+with check (exists (select 1 from public.admins a where a.user_id = auth.uid()));
 
-create policy if not exists brand_invites_update_admin
+create policy brand_invites_update_admin
 on public.brand_invitations for update
-using (exists(select 1 from public.admins a where a.user_id = auth.uid()))
-with check (exists(select 1 from public.admins a where a.user_id = auth.uid()));
+using (exists (select 1 from public.admins a where a.user_id = auth.uid()))
+with check (exists (select 1 from public.admins a where a.user_id = auth.uid()));
 
-create policy if not exists brand_invites_delete_admin
+create policy brand_invites_delete_admin
 on public.brand_invitations for delete
-using (exists(select 1 from public.admins a where a.user_id = auth.uid()));
+using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
 
 -- 2) Helper to get current auth email from JWT
 create or replace function public.current_auth_email()

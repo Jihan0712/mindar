@@ -110,20 +110,26 @@
         if (!name) return showAlert('Please provide your full name.');
         if (password.length < 8) return showAlert('Password must be at least 8 characters.');
         try {
-          const redirectUrl = window.location.origin + window.location.pathname + '?invite_id=' + encodeURIComponent(inviteId);
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { full_name: name }, emailRedirectTo: redirectUrl }
-          });
+          // Mirror admin-register flow: simple signUp (no redirect URL) then profile + claim
+          const { data, error } = await supabase.auth.signUp({ email, password });
           if (error) throw error;
-          if (data?.user) {
-            // If immediate session is created, claim now; otherwise wait for redirect after confirmation
-            await claimIfSignedIn();
-            showAlert('Registration complete. You can now sign in.', false);
-          } else {
-            showAlert('Check your email to confirm your account. You will return here to complete setup.', false);
+          const user = data?.user;
+          if (!user) {
+            showAlert('Registration request sent — check your email to confirm your account.', false);
+            return;
           }
+          // Best-effort profile insert (role set later by claim)
+          try {
+            await supabase.from('profiles').upsert([
+              { user_id: user.id, name, email, brand: brandEl.value || null }
+            ], { onConflict: 'user_id' });
+          } catch (e) { console.warn('Profile upsert failed (non-fatal):', e); }
+          // Attempt to claim invite immediately (will also set role/brand definitively)
+          try {
+            const { error: claimErr } = await supabase.rpc('claim_brand_invite', { p_id: inviteId });
+            if (claimErr) console.warn('Immediate claim failed (maybe needs email confirm):', claimErr);
+          } catch (e) { console.warn('Immediate claim threw:', e); }
+          showAlert('Brand registration successful. You can now sign in.', false);
         } catch (e) {
           console.error('register failed', e);
           showAlert(e?.message || String(e));
