@@ -14,6 +14,7 @@
       <div id="alert" class="text-sm text-red-600 mb-3"></div>
 
       <div id="inviteInfo" class="mb-4 text-sm text-gray-700">Loading invitation...</div>
+      <div id="loadMethod" class="text-xs text-gray-500 mb-3"></div>
 
       <label class="block text-sm">Email (set by invite)</label>
       <input id="email" type="email" class="w-full border rounded p-2 mb-3 bg-gray-100" readonly />
@@ -42,6 +43,7 @@
       const inviteId = params.get('invite_id') || params.get('invite');
 
       const inviteInfoEl = document.getElementById('inviteInfo');
+      const loadMethodEl = document.getElementById('loadMethod');
       const emailEl = document.getElementById('email');
       const passwordEl = document.getElementById('password');
       const fullNameEl = document.getElementById('fullName');
@@ -70,6 +72,7 @@
             const { data, error } = await supabase.rpc('get_brand_invitation_by_id', { p_id: id });
             if (!error) {
               row = Array.isArray(data) ? data[0] : data;
+              if (row) loadMethodEl.textContent = 'Loaded invite via RPC';
             } else {
               console.warn('invite rpc error', error);
             }
@@ -90,9 +93,13 @@
 
           if (!row) {
             inviteInfoEl.textContent = 'Unable to load invitation.';
+            loadMethodEl.textContent = 'Invite load failed';
             // Provide a clearer UI hint for admins/deployers and users
             showAlert('Unable to load invitation. This may be a server permission (RLS) issue. Ask an admin to GRANT EXECUTE on the RPC `get_brand_invitation_by_id(uuid)` to the `authenticated` role.', true);
             return;
+          } else if (!loadMethodEl.textContent) {
+            // If RPC didn't report loaded, but we have a row from direct select
+            loadMethodEl.textContent = 'Loaded invite via direct table select (fallback)';
           }
           currentInviteRow = row;
           // RPC or fallback returned row
