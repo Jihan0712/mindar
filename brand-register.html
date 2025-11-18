@@ -15,8 +15,8 @@
 
       <div id="inviteInfo" class="mb-4 text-sm text-gray-700">Loading invitation...</div>
 
-      <label class="block text-sm">Email</label>
-      <input id="email" type="email" class="w-full border rounded p-2 mb-3" />
+      <label class="block text-sm">Email (set by invite)</label>
+      <input id="email" type="email" class="w-full border rounded p-2 mb-3 bg-gray-100" readonly />
 
       <label class="block text-sm">Password</label>
       <input id="password" type="password" class="w-full border rounded p-2 mb-3" />
@@ -24,8 +24,8 @@
       <label class="block text-sm">Full name</label>
       <input id="fullName" type="text" class="w-full border rounded p-2 mb-3" />
 
-      <label class="block text-sm">Brand</label>
-      <input id="brand" type="text" class="w-full border rounded p-2 mb-3" />
+      <label class="block text-sm">Brand (set by invite)</label>
+      <input id="brand" type="text" class="w-full border rounded p-2 mb-3 bg-gray-100" readonly />
 
       <div class="flex gap-2 mb-2">
         <button id="registerBtn" class="flex-1 bg-blue-600 text-white rounded p-2">Register as Brand</button>
@@ -103,17 +103,20 @@
       }
 
       registerBtn.addEventListener('click', async () => {
+        // Only allow registering with the invited email/brand. These fields are readonly.
         const email = (emailEl.value || '').trim().toLowerCase();
         const password = (passwordEl.value || '').trim();
         const name = (fullNameEl.value || '').trim() || null;
         const brand = (brandEl.value || '').trim() || null;
         if (!inviteId) return showAlert('No invite specified.');
-        if (!email || !password) return showAlert('Provide email and password.');
+        if (!email || !password) return showAlert('Provide name and password.');
         try {
           // diagnostic logging: print exact payload and character codes (helps detect invisible/invalid characters)
           console.log('brand signUp payload (pre):', { email, passwordLen: password.length });
           console.log('brand email chars (pre):', [...email].map(c => c.charCodeAt(0)));
-          const res = await supabase.auth.signUp({ email, password });
+          // Request signUp and set the email redirect so after email confirmation user returns to this invite URL
+          const redirectUrl = window.location.origin + window.location.pathname + '?invite_id=' + encodeURIComponent(inviteId);
+          const res = await supabase.auth.signUp({ email, password }, { emailRedirectTo: redirectUrl });
           console.log('brand signUp:', res);
           if (res.error) return showAlert(res.error.message || JSON.stringify(res.error));
           const user = res.data?.user;
@@ -127,7 +130,7 @@
             showAlert('Brand registration complete. You can now sign in.', false);
           } else {
             // No immediate user (email confirmation required). Inform the user and instruct how to claim invite after confirming.
-            showAlert('Registration request sent — check your email for confirmation. After confirming, sign in and revisit this invite link to claim your Brand account.', false);
+            showAlert('Registration request sent — check your email for confirmation. After confirming you will be redirected back to this invite page to claim your Brand account.', false);
           }
         } catch (e) {
           console.error(e);
