@@ -191,17 +191,11 @@
               </div>
               <!-- Inline delete-user controls (previously a separate mini-page) -->
               <div class="p-4 border-t mb-4 bg-gray-50 rounded">
-                <div class="grid gap-2 md:grid-cols-2 items-end">
-                  <div>
-                    <label class="block text-xs text-gray-600 mb-1">Edge Function URL (optional)</label>
-                    <input id="fnUrl" type="text" placeholder="https://<project>.functions.supabase.co/delete-user or /.netlify/functions/delete-user" class="border rounded p-2 w-full text-sm" />
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-600 mb-1">Admin Key (x-admin-key) — optional</label>
-                    <input id="adminKey" type="password" placeholder="ADMIN_DELETE_KEY (used for edge fn)" class="border rounded p-2 w-full text-sm" />
-                  </div>
+                <div class="md:max-w-lg">
+                  <label class="block text-xs text-gray-600 mb-1">Admin Key (x-admin-key)</label>
+                  <input id="adminKey" type="password" placeholder="ADMIN_DELETE_KEY for /.netlify/functions/delete-user" class="border rounded p-2 w-full text-sm" />
+                  <p class="text-xs text-gray-500 mt-2">Provide only the admin key to delete accounts via the built-in Edge Function at <code>/.netlify/functions/delete-user</code>.</p>
                 </div>
-                <p class="text-xs text-gray-500 mt-2">If provided, these credentials will be used when deleting a user via the external Edge Function. Otherwise the existing backend / RPC flows are used.</p>
               </div>
               <div class="p-4 overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
@@ -1327,16 +1321,15 @@
           const typed = prompt('Type DELETE to confirm permanent removal:');
           if (typed !== 'DELETE') { statusEl.textContent = '⚠️ Deletion cancelled.'; setTimeout(()=>{statusEl.textContent='';},3000); return; }
           statusEl.textContent = '⏳ Deleting account...';
-          // Try external edge function (if configured via the inline fields)
+          // Try the fixed Netlify Edge Function at /.netlify/functions/delete-user using only the admin key
           let ok = false; let message = '';
           try {
-            const fnUrlEl = document.getElementById('fnUrl');
             const adminKeyEl = document.getElementById('adminKey');
-            const fnUrlVal = fnUrlEl?.value?.trim();
             const adminKeyVal = adminKeyEl?.value?.trim();
-            if (fnUrlVal && adminKeyVal) {
+            const fixedFn = '/.netlify/functions/delete-user';
+            if (adminKeyVal) {
               try {
-                const res = await fetch(fnUrlVal, {
+                const res = await fetch(fixedFn, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKeyVal },
                   body: JSON.stringify({ userId })
@@ -1349,7 +1342,7 @@
                   message = json?.error || `Edge function failed: HTTP ${res.status}`;
                 }
               } catch (fe) {
-                console.warn('Edge function call failed, will fall back:', fe);
+                console.warn('Fixed edge function call failed, will fall back:', fe);
               }
             }
           } catch (e) {
