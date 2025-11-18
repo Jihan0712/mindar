@@ -101,7 +101,7 @@
             // If RPC didn't report loaded, but we have a row from direct select
             loadMethodEl.textContent = 'Loaded invite via direct table select (fallback)';
           }
-          currentInviteRow = row;
+          currentInviteRow = row; 
           // RPC or fallback returned row
           inviteInfoEl.textContent = `Invited for brand: ${row.brand || '(not set)'} — please register with this email.`;
           emailEl.value = row.email || '';
