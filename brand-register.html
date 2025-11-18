@@ -64,19 +64,36 @@
           return;
         }
         try {
-          const { data, error } = await supabase.rpc('get_brand_invitation_by_id', { p_id: id });
-          if (error) {
-            console.error('invite rpc error', error);
+          let row = null;
+          // First try the SECURITY DEFINER RPC which works under RLS
+          try {
+            const { data, error } = await supabase.rpc('get_brand_invitation_by_id', { p_id: id });
+            if (!error) {
+              row = Array.isArray(data) ? data[0] : data;
+            } else {
+              console.warn('invite rpc error', error);
+            }
+          } catch (rpcErr) {
+            console.warn('invite rpc threw, falling back to direct select', rpcErr);
+          }
+
+          // Fallback: try direct select from brand_invitations (may be blocked by RLS, but worth attempting)
+          if (!row) {
+            try {
+              const { data: sel, error: selErr } = await supabase.from('brand_invitations').select('id,email,brand,name,created_at').eq('id', id).maybeSingle();
+              if (!selErr && sel) row = sel;
+              else if (selErr) console.warn('brand_invitations select failed', selErr);
+            } catch (selEx) {
+              console.warn('brand_invitations select threw', selEx);
+            }
+          }
+
+          if (!row) {
             inviteInfoEl.textContent = 'Unable to load invitation.';
             return;
           }
-          // RPC returns an array for set-returning functions; take first element if present
-          const row = Array.isArray(data) ? data[0] : data;
-          currentInviteRow = row || null;
-          if (!row) {
-            inviteInfoEl.textContent = 'Invitation not found or expired. Contact an admin.';
-            return;
-          }
+          currentInviteRow = row;
+          // RPC or fallback returned row
           inviteInfoEl.textContent = `Invited for brand: ${row.brand || '(not set)'} — please register with this email.`;
           emailEl.value = row.email || '';
           fullNameEl.value = row.name || '';
