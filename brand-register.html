@@ -90,6 +90,8 @@
 
           if (!row) {
             inviteInfoEl.textContent = 'Unable to load invitation.';
+            // Provide a clearer UI hint for admins/deployers and users
+            showAlert('Unable to load invitation. This may be a server permission (RLS) issue. Ask an admin to GRANT EXECUTE on the RPC `get_brand_invitation_by_id(uuid)` to the `authenticated` role.', true);
             return;
           }
           currentInviteRow = row;
@@ -126,7 +128,9 @@
         const name = (fullNameEl.value || '').trim() || null;
         const brand = (brandEl.value || '').trim() || null;
         if (!inviteId) return showAlert('No invite specified.');
-        if (!email || !password) return showAlert('Provide name and password.');
+        if (!email) return showAlert('Invitation not loaded. Please use the invite link or contact an admin.');
+        if (!password) return showAlert('Please provide a password.');
+        if (!name) return showAlert('Please provide your full name.');
         try {
           // diagnostic logging: print exact payload and character codes (helps detect invisible/invalid characters)
           console.log('brand signUp payload (pre):', { email, passwordLen: password.length });
