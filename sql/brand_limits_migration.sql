@@ -17,15 +17,17 @@ SECURITY DEFINER
 AS $$
   /*
     Per brand limits for brands that actually have accounts only:
-    - Source brands from profiles where role='brand' and brand is non-empty.
+    - Source brands from get_accounts() where brand is non-empty and not admin.
     - active_count counts active targets for that brand excluding admin uploads.
     - max_active from brand_settings (default 3 when missing).
   */
-  with all_brands as (
-    select distinct nullif(p.brand, '') as b
-    from public.profiles p
-    where coalesce(trim(p.brand), '') <> ''
-      and lower(coalesce(p.role, '')) = 'brand'
+  with acc as (
+    select * from public.get_accounts()
+  ),
+  all_brands as (
+    select distinct nullif(a.brand, '') as b
+    from acc a
+    where coalesce(trim(a.brand), '') <> '' and not a.is_admin
   ),
   counts as (
     select ab.b as brand,

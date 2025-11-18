@@ -189,9 +189,27 @@ returns integer
 language sql security definer set search_path=public, extensions as $$
   select count(*)::int
   from public.profiles p
-  where lower(coalesce(p.role, '')) = 'brand'
-    and coalesce(trim(p.brand), '') <> ''
+  where coalesce(trim(p.brand), '') <> ''
+    and not exists (
+      select 1 from public.admins a where a.user_id = p.user_id
+    )
 $$;
 grant execute on function public.get_brand_accounts_count() to authenticated;
+
+-- Distinct brands count (number of unique brand names with at least one non-admin profile)
+drop function if exists public.get_distinct_brand_count();
+create or replace function public.get_distinct_brand_count()
+returns integer
+language sql security definer set search_path=public, extensions as $$
+  select count(*)::int from (
+    select distinct p.brand
+    from public.profiles p
+    where coalesce(trim(p.brand), '') <> ''
+      and not exists (
+        select 1 from public.admins a where a.user_id = p.user_id
+      )
+  ) s
+$$;
+grant execute on function public.get_distinct_brand_count() to authenticated;
 
 commit;

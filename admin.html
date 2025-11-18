@@ -886,10 +886,15 @@
         if (pendingInvitesEl) pendingInvitesEl.textContent = '—';
         if (pendingAdminTokensEl) pendingAdminTokensEl.textContent = '—';
 
-        // Brand accounts: only users with actual brand accounts (profiles.role='brand' and brand set)
+        // Brand accounts: number of distinct brands with at least one non-admin profile
         try {
           let brandCount = null;
-          // Prefer Security Definer RPC (works under RLS)
+          // Prefer distinct brand count RPC (SECURITY DEFINER)
+          try {
+            const { data, error } = await supabase.rpc('get_distinct_brand_count');
+            if (!error && typeof data === 'number') brandCount = data;
+          } catch (rpcErr) { console.warn('get_distinct_brand_count RPC failed, fallback to account-based count:', rpcErr); }
+          // Fallback: count brand accounts (also SECURITY DEFINER)
           try {
             const { data, error } = await supabase.rpc('get_brand_accounts_count');
             if (!error && typeof data === 'number') brandCount = data;
@@ -898,9 +903,16 @@
           if (brandCount == null) {
             const { data: profRows, error } = await supabase
               .from('profiles')
-              .select('brand, role');
+              .select('brand, user_id');
             if (!error && Array.isArray(profRows)) {
-              brandCount = profRows.filter(r => (r.brand ?? '').trim() !== '' && String(r.role).toLowerCase() === 'brand').length;
+              const adminSet = new Set();
+              try {
+                const { data: adminRows } = await supabase.from('admins').select('user_id');
+                (adminRows || []).forEach(r => adminSet.add(r.user_id));
+              } catch {}
+              const brands = new Set();
+              profRows.forEach(r => { if ((r.brand ?? '').trim() !== '' && !adminSet.has(r.user_id)) brands.add(r.brand.trim()); });
+              brandCount = brands.size;
             }
           }
           if (typeof brandCount === 'number' && brandCountEl) brandCountEl.textContent = String(brandCount);
