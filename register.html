@@ -66,8 +66,11 @@
           const user = data?.user;
           if (user) {
             // Create or update regular client profile (use upsert to be idempotent)
+            // Ensure role is 'client' and brand is null for plain signups.
             try {
-              await supabase.from('profiles').upsert([{ user_id: user.id, name: displayName }], { onConflict: 'user_id' });
+              await supabase.from('profiles').upsert([
+                { user_id: user.id, name: displayName, email, role: 'client', brand: null }
+              ], { onConflict: 'user_id' });
             } catch (e) { console.warn('profile upsert failed', e); }
             showAlert('Registration successful. You can now log in with your email and password.', false);
             if (passwordEl) passwordEl.value = '';

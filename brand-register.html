@@ -108,6 +108,7 @@
         if (!inviteId) return showAlert('No invite specified.');
         if (!email) return showAlert('Invitation not loaded.');
         if (!name) return showAlert('Please provide your full name.');
+        if (!(brandEl.value || '').trim()) return showAlert('Brand missing from invite. Ask admin to regenerate.');
         if (password.length < 8) return showAlert('Password must be at least 8 characters.');
         try {
           // Mirror admin-register flow: simple signUp (no redirect URL) then profile + claim
@@ -129,7 +130,15 @@
             const { error: claimErr } = await supabase.rpc('claim_brand_invite', { p_id: inviteId });
             if (claimErr) console.warn('Immediate claim failed (maybe needs email confirm):', claimErr);
           } catch (e) { console.warn('Immediate claim threw:', e); }
-          showAlert('Brand registration successful. You can now sign in.', false);
+          // Fallback ensure brand & role applied if claim not yet effective
+          try {
+            const { data: prof } = await supabase.from('profiles').select('brand, role').eq('user_id', user.id).maybeSingle();
+            if (!prof || !prof.brand) {
+              await supabase.from('profiles').update({ brand: brandEl.value, role: 'brand' }).eq('user_id', user.id);
+              console.log('[brand-register] Applied fallback brand/role update');
+            }
+          } catch (e) { console.warn('Fallback brand update failed:', e); }
+          showAlert('Brand registration successful. Check email for confirmation.', false);
         } catch (e) {
           console.error('register failed', e);
           showAlert(e?.message || String(e));

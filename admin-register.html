@@ -116,6 +116,11 @@
           }
 
           if (promoted) {
+            // Ensure profile reflects admin role and no brand
+            try {
+              await supabase.from('profiles')
+                .upsert([{ user_id: user.id, email, role: 'admin', brand: null }], { onConflict: 'user_id' });
+            } catch (e) { console.warn('Failed to set admin role in profile (non-fatal):', e); }
             showAlert('Admin registration successful. You can now sign in.', false);
             if (passwordEl) passwordEl.value = '';
           } else {
