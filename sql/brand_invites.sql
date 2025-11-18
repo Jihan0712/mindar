@@ -9,6 +9,7 @@ drop function if exists public.create_brand_invite(text, text);
 drop function if exists public.get_brand_invite(uuid);
 drop function if exists public.claim_brand_invite(uuid);
 drop function if exists public.current_auth_email();
+drop function if exists public.claim_brand_invite_for_self();
 
 -- 1) Table
 create table if not exists public.brand_invitations (
@@ -155,5 +156,45 @@ begin
 end; $$;
 
 grant execute on function public.claim_brand_invite(uuid) to authenticated;
+
+-- 6) RPC: claim invite for the signed-in user by email (no invite_id param)
+create or replace function public.claim_brand_invite_for_self()
+returns boolean
+language plpgsql
+security definer set search_path = public, extensions
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_email text := public.current_auth_email();
+  v_inv record;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+  -- Find most recent unconsumed invite for this email
+  select * into v_inv
+  from public.brand_invitations
+  where lower(email) = lower(v_email)
+    and consumed_at is null
+  order by created_at desc
+  limit 1;
+
+  if not found then
+    return false;
+  end if;
+
+  -- Upsert profile and mark as brand
+  insert into public.profiles(user_id, email, brand, role)
+  values (v_uid, v_inv.email, v_inv.brand, 'brand')
+  on conflict (user_id) do update
+    set email = excluded.email,
+        brand = excluded.brand,
+        role = 'brand';
+
+  update public.brand_invitations set consumed_at = now() where id = v_inv.id;
+  return true;
+end; $$;
+
+grant execute on function public.claim_brand_invite_for_self() to authenticated;
 
 commit;

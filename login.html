@@ -47,13 +47,16 @@
         setTimeout(() => msg.textContent = '', 8000);
       }
 
-      // If already signed in, check role and redirect to appropriate dashboard
+      // If already signed in, try to auto-claim any brand invite, then route
       (async () => {
         try {
           const { data } = await supabase.auth.getSession();
           const session = data?.session || null;
           if (!session) return; // not signed in
           const user = session.user;
+
+          // Try claim by email (non-fatal)
+          try { await supabase.rpc('claim_brand_invite_for_self'); } catch (e) { /* ignore */ }
 
           // Prefer RPCs if you have them; fallback to table selects (may be blocked under RLS)
           try {
@@ -109,6 +112,8 @@
             const { data: sessionData } = await supabase.auth.getSession();
             const user = sessionData?.data?.session?.user || sessionData?.session?.user || null;
             if (!user) { window.location.href = '/client.html'; return; }
+            // Try to claim automatically now that session exists
+            try { await supabase.rpc('claim_brand_invite_for_self'); } catch (e) {}
             try {
               const { data: isAdm, error: rpcErr } = await supabase.rpc('is_admin');
               if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
