@@ -114,6 +114,9 @@ BEGIN
     DECLARE
       v_replaced_ids uuid[] := NULL;
     BEGIN
+      -- Acquire a transaction-scoped advisory lock keyed by brand+product
+      -- to serialize activation attempts for the same brand+product pair.
+      PERFORM pg_advisory_xact_lock((hashtext(coalesce(v_brand,'') || '|' || coalesce(v_product,'')))::bigint);
       WITH deactivated AS (
         UPDATE targets t
         SET is_active = false
