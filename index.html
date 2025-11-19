@@ -90,10 +90,19 @@
         const tOverallStart = performance.now();
         const activeTarget = await loadActiveTarget();
         console.log(`timing: fetched active target in ${Math.round(performance.now()-tOverallStart)}ms`);
-        if (!activeTarget) return;
+        if (!activeTarget) {
+          console.warn('No active target found; continuing to show camera for scanning.');
+          // show a small non-blocking notice rather than replacing the page
+          const note = document.createElement('div');
+          note.id = 'no-target-note';
+          note.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:8px 12px;border-radius:8px;z-index:10003;font-size:13px;';
+          note.textContent = 'No active target configured — camera ready for scanning.';
+          document.body.appendChild(note);
+          setTimeout(() => { try { note.remove(); } catch(e){} }, 6000);
+        }
 
-        const mindUrl = activeTarget.mindurl;
-        const videoUrl = activeTarget.videourl;
+        const mindUrl = activeTarget ? activeTarget.mindurl : null;
+        const videoUrl = activeTarget ? activeTarget.videourl : null;
 
         const scene = document.querySelector("a-scene");
         const aframeVideoAsset = document.querySelector("#card");
@@ -175,16 +184,23 @@
           }
         })();
 
-        scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
+        if (mindUrl && videoUrl) {
+          scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
 
-        // Set video attributes early so the browser can begin fetching metadata as soon
-        // as possible. We still wait for loadedmetadata before starting the draw loop.
-        try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
-        aframeVideoAsset.src = videoUrl;
-        aframeVideoAsset.loop = true;
-        aframeVideoAsset.muted = true;
-        aframeVideoAsset.playsInline = true;
-        aframeVideoAsset.preload = "auto";
+          // Set video attributes early so the browser can begin fetching metadata as soon
+          // as possible. We still wait for loadedmetadata before starting the draw loop.
+          try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
+          aframeVideoAsset.src = videoUrl;
+          aframeVideoAsset.loop = true;
+          // default to muted unless user enabled sound
+          aframeVideoAsset.muted = !(localStorage.getItem('inrl_sound_enabled') === 'true');
+          aframeVideoAsset.playsInline = true;
+          aframeVideoAsset.preload = "auto";
+        } else {
+          // No active target: ensure video asset is blank and muted so it doesn't block
+          try { aframeVideoAsset.removeAttribute('src'); } catch(e){}
+          try { aframeVideoAsset.muted = true; } catch(e){}
+        }
 
         // Wait until mesh is ready. More robust: listen for both 'loaded' (A-Frame primitive)
         // and 'model-loaded' events, and poll for a longer window before giving up.
