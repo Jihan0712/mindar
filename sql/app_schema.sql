@@ -218,18 +218,49 @@ create or replace function public.backfill_profiles_from_auth()
 returns integer
 language plpgsql security definer set search_path=public, extensions as $$
 declare
+  v_insert integer := 0;
+  v_update integer := 0;
   v_count integer := 0;
 begin
   -- Insert a profile row for every auth.user that does not already have one.
+  with candidates as (
+    select u.id, u.email,
+      (select bi.brand from public.brand_invitations bi
+       where lower(bi.email) = lower(u.email) and bi.consumed_at is null
+       order by bi.created_at desc limit 1) as invite_brand,
+      exists(select 1 from public.admins a where a.user_id = u.id) as is_admin
+    from auth.users u
+    where not exists (select 1 from public.profiles p where p.user_id = u.id)
+  )
   insert into public.profiles (user_id, email, name, brand, role, created_at, updated_at)
-  select u.id, u.email, null, null, case when exists (select 1 from public.admins a where a.user_id = u.id) then 'admin' else 'client' end, now(), now()
-  from auth.users u
-  where not exists (select 1 from public.profiles p where p.user_id = u.id)
-  returning 1 into v_count;
+  select id, email, null,
+    invite_brand,
+    case when is_admin then 'admin' when invite_brand is not null then 'brand' else 'client' end,
+    now(), now()
+  from candidates;
 
-  -- The above INTO gets only the first returning row; instead compute count of new rows
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  return v_count;
+  GET DIAGNOSTICS v_insert = ROW_COUNT;
+
+  -- Update existing profiles that lack a brand using pending brand_invitations (if any)
+  with to_update as (
+    select p.user_id,
+      (select bi.brand from public.brand_invitations bi
+       where lower(bi.email) = lower(p.email) and bi.consumed_at is null
+       order by bi.created_at desc limit 1) as invite_brand
+    from public.profiles p
+    where coalesce(trim(p.brand), '') = ''
+  )
+  update public.profiles p
+  set brand = u.invite_brand,
+      role = case when exists (select 1 from public.admins a where a.user_id = p.user_id) then 'admin' else 'brand' end,
+      updated_at = now()
+  from to_update u
+  where p.user_id = u.user_id and u.invite_brand is not null;
+
+  GET DIAGNOSTICS v_update = ROW_COUNT;
+
+  v_count := coalesce(v_insert,0) + coalesce(v_update,0);
+  RETURN v_count;
 end; $$;
 grant execute on function public.backfill_profiles_from_auth() to authenticated;
 

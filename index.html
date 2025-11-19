@@ -10,43 +10,27 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
-      #start-screen {
+      /* start-screen removed in favor of minimal, non-blocking sound toggle */
+
+      /* Floating sound toggle (minimal, non-blocking) */
+      .sound-toggle {
         position: fixed;
-        inset: 0;
-        background: linear-gradient(135deg, #0f172a, #1e293b);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+        right: 14px;
+        bottom: 14px;
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        border: none;
+        background: rgba(255,255,255,0.92);
+        box-shadow: 0 6px 18px rgba(2,6,23,0.15);
+        display: inline-flex;
         align-items: center;
-        color: white;
-        font-family: "Poppins", sans-serif;
-        z-index: 9999;
+        justify-content: center;
+        font-size: 18px;
         cursor: pointer;
-        text-align: center;
-        transition: opacity 0.5s ease;
+        z-index: 10002;
       }
-
-      #start-screen.hidden {
-        opacity: 0;
-        pointer-events: none;
-      }
-
-      #start-screen h1 {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-        animation: pulse 1.5s infinite;
-      }
-
-      #start-screen p {
-        font-size: 1.1rem;
-        opacity: 0.8;
-      }
-
-      @keyframes pulse {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.1); opacity: 0.8; }
-        100% { transform: scale(1); opacity: 1; }
-      }
+      .sound-toggle.hidden { display: none; }
     </style>
 
     <!-- Supabase Client -->
@@ -115,6 +99,69 @@
         const aframeVideoAsset = document.querySelector("#card");
         const planeEl = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
+
+        // --- Sound toggle and AudioContext unlock helper ---
+        let audioCtx = null;
+        const soundToggle = document.getElementById('soundToggle');
+        let soundEnabled = localStorage.getItem('inrl_sound_enabled') === 'true';
+
+        function updateSoundUI() {
+          if (!soundToggle) return;
+          soundToggle.textContent = soundEnabled ? '🔊' : '🔈';
+          soundToggle.setAttribute('aria-pressed', String(!!soundEnabled));
+        }
+
+        async function initAudioContextIfNeeded() {
+          if (audioCtx) return audioCtx;
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          return audioCtx;
+        }
+
+        async function unlockAudio() {
+          try {
+            const ctx = await initAudioContextIfNeeded();
+            if (ctx.state === 'suspended') {
+              await ctx.resume();
+              // play silent buffer to ensure some browsers fully unlock
+              const buf = ctx.createBuffer(1, 1, 22050);
+              const src = ctx.createBufferSource();
+              src.buffer = buf;
+              src.connect(ctx.destination);
+              src.start(0);
+              src.stop(0);
+            }
+          } catch (err) {
+            console.warn('unlockAudio failed', err);
+          }
+        }
+
+        async function enableSound() {
+          soundEnabled = true;
+          localStorage.setItem('inrl_sound_enabled', 'true');
+          updateSoundUI();
+          await unlockAudio();
+          try { aframeVideoAsset.muted = false; } catch(e){}
+        }
+
+        function disableSound() {
+          soundEnabled = false;
+          localStorage.setItem('inrl_sound_enabled', 'false');
+          updateSoundUI();
+          try { aframeVideoAsset.muted = true; } catch(e){}
+        }
+
+        // Toggle button handler
+        soundToggle?.addEventListener('click', async (ev) => {
+          ev.stopPropagation();
+          if (!soundEnabled) await enableSound(); else disableSound();
+        });
+
+        // Initialize UI from stored preference
+        if (soundEnabled) {
+          // ensure audio unlocked when page loads if preference was enabled
+          unlockAudio().catch(()=>{});
+          try { aframeVideoAsset.muted = false; } catch(e){}
+        }
 
         // Prefetch the .mind file to warm the browser cache - MindAR will still
         // request it, but this can reduce latency on initial load.
@@ -277,16 +324,7 @@
           else aframeVideoAsset.addEventListener('loadedmetadata', sizeInnerPlane, { once: true });
         });
 
-        // start when found 
-        const startScreen = document.getElementById("start-screen");
-        let userInteracted = false;
-        startScreen.addEventListener("click", () => {
-          startScreen.classList.add("hidden");
-          // user tapping
-          userInteracted = true;
-          aframeVideoAsset.muted = false;
-          // do not call play
-        }, { once: true });
+        // start-screen removed; playback will attempt on targetFound and prompt if blocked
 
         // Stabilizer - smooth movement/rotation
         const SMOOTHING_FACTOR = 0.05;
@@ -309,26 +347,20 @@
 
         target.addEventListener("targetFound", () => {
           console.log("🎯 Target found — play video");
-          // User interaction check
-          if (userInteracted) {
-            aframeVideoAsset.play().catch((e) => console.warn("play error:", e));
-          } else {
-            // Try to play (checking if blocked)
-            aframeVideoAsset.play().catch((e) => {
-              console.warn("play blocked (no user gesture):", e);
-              const prompt = document.createElement('div');
-              prompt.id = 'play-prompt';
-              prompt.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 12px;border-radius:8px;z-index:10001;cursor:pointer;';
-              prompt.textContent = 'Tap to enable video playback';
-              document.body.appendChild(prompt);
-              prompt.addEventListener('click', () => {
-                userInteracted = true;
-                aframeVideoAsset.muted = false;
-                aframeVideoAsset.play().catch(() => {});
-                prompt.remove();
-              }, { once: true });
-            });
-          }
+          aframeVideoAsset.play().catch((e) => {
+            console.warn("play blocked (no user gesture):", e);
+            const prompt = document.createElement('div');
+            prompt.id = 'play-prompt';
+            prompt.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 12px;border-radius:8px;z-index:10001;cursor:pointer;';
+            prompt.textContent = 'Tap to enable video playback';
+            document.body.appendChild(prompt);
+            prompt.addEventListener('click', async () => {
+              await unlockAudio().catch(()=>{});
+              try { aframeVideoAsset.muted = false; } catch(e){}
+              aframeVideoAsset.play().catch(() => {});
+              prompt.remove();
+            }, { once: true });
+          });
         });
 
         target.addEventListener("targetLost", () => {
@@ -345,6 +377,9 @@
       <h1>Initializing INRL...</h1>
       <p>Enable audio and begin your AR experience</p>
     </div>
+
+      <!-- Minimal floating sound toggle -->
+      <button id="soundToggle" class="sound-toggle" aria-pressed="false" aria-label="Enable sound">🔈</button>
 
     <a-scene
       color-space="sRGB"
