@@ -106,38 +106,33 @@ BEGIN
     RETURN 'activated_admin';
   END IF;
 
-  -- If there's any existing active non-admin targets with the same brand+product,
-  -- deactivate them (all) so activating the requested target will not violate
-  -- the unique partial index on active brand+product. Collect deactivated ids
-  -- so we can return a helpful status message.
+  -- Deactivate any existing active targets with the same brand+product
+  -- (exclude the target we're activating). We do this for all uploaders
+  -- so the unique partial index cannot block the subsequent activation.
   IF coalesce(v_brand, '') IS NOT NULL THEN
     DECLARE
       v_replaced_ids uuid[] := NULL;
     BEGIN
-      -- Acquire a transaction-scoped advisory lock keyed by brand+product
-      -- to serialize activation attempts for the same brand+product pair.
+      -- Serialize activations for the same brand+product to avoid races.
       PERFORM pg_advisory_xact_lock((hashtext(coalesce(v_brand,'') || '|' || coalesce(v_product,'')))::bigint);
+
       WITH deactivated AS (
         UPDATE targets t
         SET is_active = false
         WHERE coalesce(t.brand,'') = coalesce(v_brand,'')
           AND coalesce(t.product,'') = coalesce(v_product,'')
           AND t.is_active = true
-          AND NOT EXISTS (SELECT 1 FROM admins a WHERE a.user_id = t.user_id)
           AND t.id <> p_target_id
         RETURNING id
       )
       SELECT array_agg(id) INTO v_replaced_ids FROM deactivated;
 
-      IF v_replaced_ids IS NOT NULL AND array_length(v_replaced_ids, 1) > 0 THEN
-        -- Activate the requested target
-        UPDATE targets SET is_active = true WHERE id = p_target_id;
-        RETURN format('replaced_active_targets:%s', array_to_string(v_replaced_ids, ','));
-      END IF;
+      -- Continue to checks/activation below. We record any replaced ids to include
+      -- in the final return message after activation.
     END;
   END IF;
 
-  -- Enforce per-user (client) active limit (excluding any same-product that would be replaced)
+  -- Enforce per-user (client) active limit (recompute after possible deactivation)
   SELECT COUNT(*) INTO v_user_active_count FROM targets WHERE user_id = v_user AND is_active;
   IF v_user_active_count >= v_client_limit THEN
     RAISE EXCEPTION 'Max active targets for user';
@@ -160,6 +155,11 @@ BEGIN
 
   -- All checks passed: activate the target
   UPDATE targets SET is_active = true WHERE id = p_target_id;
+
+  IF v_replaced_ids IS NOT NULL AND array_length(v_replaced_ids,1) > 0 THEN
+    RETURN format('replaced_active_targets:%s', array_to_string(v_replaced_ids, ','));
+  END IF;
+
   RETURN 'activated';
 END;
 $$;
