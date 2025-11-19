@@ -1350,19 +1350,26 @@
             console.warn('set_active_target RPC failed, falling back to client-side swap:', rpcEx);
             try {
               // Fetch the brand/product for this target
-              const { data: sel, error: selErr } = await supabase.from('targets').select('brand,product').eq('id', targetId).maybeSingle();
+              const { data: sel, error: selErr } = await supabase.from('targets').select('brand,product,brand_owner').eq('id', targetId).maybeSingle();
               if (selErr) throw selErr;
               const b = sel?.brand ?? '';
               const p = sel?.product ?? '';
+              const bowner = sel?.brand_owner ?? null;
 
-              // Deactivate other active rows with same brand+product
-              const { error: deactErr } = await supabase
+              // Deactivate other active rows with same brand+product and same owner
+              let deactQuery = supabase
                 .from('targets')
                 .update({ is_active: false })
                 .neq('id', targetId)
                 .eq('brand', b)
                 .eq('product', p)
                 .is('is_active', true);
+              if (bowner === null) {
+                deactQuery = deactQuery.is('brand_owner', null);
+              } else {
+                deactQuery = deactQuery.eq('brand_owner', bowner);
+              }
+              const { error: deactErr } = await deactQuery;
               if (deactErr) throw deactErr;
 
               // Activate requested target

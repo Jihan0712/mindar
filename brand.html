@@ -233,7 +233,10 @@
             const { data: userData } = await supabase.auth.getUser();
             const insertObj = { name, mindurl: mindUrlLocal, videourl: videoUrlLocal, is_active: false };
             if (userData?.user?.id) insertObj.user_id = userData.user.id;
-            if (currentUserBrand) insertObj.brand = currentUserBrand;
+            if (currentUserBrand) {
+              insertObj.brand = currentUserBrand;
+              insertObj.brand_owner = currentUser?.id || userData?.user?.id;
+            }
             const prodVal = (document.getElementById('productInput')?.value || '').trim(); if (prodVal) insertObj.product = prodVal;
             if (imageUrlLocal) insertObj.imageurl = imageUrlLocal;
             const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
@@ -259,7 +262,10 @@
           const { data: userData } = await supabase.auth.getUser();
           const insertObj = { name, mindurl: window.uploadedMindUrl, videourl: videoUrl, is_active: false };
           if (userData?.user?.id) insertObj.user_id = userData.user.id;
-          if (currentUserBrand) insertObj.brand = currentUserBrand;
+          if (currentUserBrand) {
+            insertObj.brand = currentUserBrand;
+            insertObj.brand_owner = currentUser?.id || userData?.user?.id;
+          }
           const prodValNew = (document.getElementById('productInput')?.value || '').trim(); if (prodValNew) insertObj.product = prodValNew;
           if (imageUrlNew) insertObj.imageurl = imageUrlNew;
           const { error: dbErr } = await supabase.from('targets').insert([insertObj]);

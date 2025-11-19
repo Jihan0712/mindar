@@ -86,15 +86,16 @@ AS $$
 DECLARE
   v_user uuid;
   v_brand text;
+  v_brand_owner uuid;
   v_product text;
   v_is_admin boolean := false;
   v_brand_active_count integer := 0;
   v_brand_max integer := 3;
   v_user_active_count integer := 0;
   v_client_limit integer := 1; -- per-user active limit for non-admins
-  v_replaced_id uuid := null;
+  v_replaced_ids uuid[] := NULL;
 BEGIN
-  SELECT user_id, brand, product INTO v_user, v_brand, v_product FROM targets WHERE id = p_target_id FOR UPDATE;
+  SELECT user_id, brand, product, brand_owner INTO v_user, v_brand, v_product, v_brand_owner FROM targets WHERE id = p_target_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'target not found';
   END IF;
@@ -110,26 +111,23 @@ BEGIN
   -- (exclude the target we're activating). We do this for all uploaders
   -- so the unique partial index cannot block the subsequent activation.
   IF coalesce(v_brand, '') IS NOT NULL THEN
-    DECLARE
-      v_replaced_ids uuid[] := NULL;
-    BEGIN
-      -- Serialize activations for the same brand+product to avoid races.
-      PERFORM pg_advisory_xact_lock((hashtext(coalesce(v_brand,'') || '|' || coalesce(v_product,'')))::bigint);
+    -- Serialize activations for the same brand+product+owner to avoid races.
+    PERFORM pg_advisory_xact_lock((hashtext(coalesce(v_brand,'') || '|' || coalesce(v_product,'') || '|' || coalesce(coalesce(v_brand_owner::text,''), '')) )::bigint);
 
-      WITH deactivated AS (
-        UPDATE targets t
-        SET is_active = false
-        WHERE coalesce(t.brand,'') = coalesce(v_brand,'')
-          AND coalesce(t.product,'') = coalesce(v_product,'')
-          AND t.is_active = true
-          AND t.id <> p_target_id
-        RETURNING id
-      )
-      SELECT array_agg(id) INTO v_replaced_ids FROM deactivated;
+    WITH deactivated AS (
+      UPDATE targets t
+      SET is_active = false
+      WHERE coalesce(t.brand,'') = coalesce(v_brand,'')
+        AND coalesce(t.product,'') = coalesce(v_product,'')
+        AND coalesce(t.brand_owner::text,'') = coalesce(v_brand_owner::text,'')
+        AND t.is_active = true
+        AND t.id <> p_target_id
+      RETURNING id
+    )
+    SELECT array_agg(id) INTO v_replaced_ids FROM deactivated;
 
-      -- Continue to checks/activation below. We record any replaced ids to include
-      -- in the final return message after activation.
-    END;
+    -- Continue to checks/activation below. We record any replaced ids to include
+    -- in the final return message after activation.
   END IF;
 
   -- Enforce per-user (client) active limit (recompute after possible deactivation)
