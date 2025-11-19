@@ -73,33 +73,68 @@ GRANT EXECUTE ON FUNCTION public.set_brand_max_active(text, integer) TO authenti
 -- - Admin uploaders bypass limits entirely.
 -- - Non-admin users (clients) are limited to 1 active target each.
 -- - Brands are limited by `brand_settings.max_active` (default 3), counting only non-admin uploads.
+-- Drop any existing function with the same signature before creating.
+-- PostgreSQL does not allow changing a function's return type with CREATE OR REPLACE,
+-- so we drop the old function first to avoid error 42P13.
+DROP FUNCTION IF EXISTS public.set_active_target(uuid);
+
 CREATE OR REPLACE FUNCTION public.set_active_target(p_target_id uuid)
-RETURNS void
+RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
   v_user uuid;
   v_brand text;
+  v_product text;
   v_is_admin boolean := false;
   v_brand_active_count integer := 0;
   v_brand_max integer := 3;
   v_user_active_count integer := 0;
   v_client_limit integer := 1; -- per-user active limit for non-admins
+  v_replaced_id uuid := null;
 BEGIN
-  SELECT user_id, brand INTO v_user, v_brand FROM targets WHERE id = p_target_id FOR UPDATE;
+  SELECT user_id, brand, product INTO v_user, v_brand, v_product FROM targets WHERE id = p_target_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'target not found';
   END IF;
 
   SELECT EXISTS (SELECT 1 FROM admins WHERE user_id = v_user) INTO v_is_admin;
   IF v_is_admin THEN
-    -- Admins bypass limits
+    -- Admins bypass limits; simply activate
     UPDATE targets SET is_active = true WHERE id = p_target_id;
-    RETURN;
+    RETURN 'activated_admin';
   END IF;
 
-  -- Enforce per-user (client) active limit
+  -- If there's any existing active non-admin targets with the same brand+product,
+  -- deactivate them (all) so activating the requested target will not violate
+  -- the unique partial index on active brand+product. Collect deactivated ids
+  -- so we can return a helpful status message.
+  IF coalesce(v_brand, '') IS NOT NULL THEN
+    DECLARE
+      v_replaced_ids uuid[] := NULL;
+    BEGIN
+      WITH deactivated AS (
+        UPDATE targets t
+        SET is_active = false
+        WHERE coalesce(t.brand,'') = coalesce(v_brand,'')
+          AND coalesce(t.product,'') = coalesce(v_product,'')
+          AND t.is_active = true
+          AND NOT EXISTS (SELECT 1 FROM admins a WHERE a.user_id = t.user_id)
+          AND t.id <> p_target_id
+        RETURNING id
+      )
+      SELECT array_agg(id) INTO v_replaced_ids FROM deactivated;
+
+      IF v_replaced_ids IS NOT NULL AND array_length(v_replaced_ids, 1) > 0 THEN
+        -- Activate the requested target
+        UPDATE targets SET is_active = true WHERE id = p_target_id;
+        RETURN format('replaced_active_targets:%s', array_to_string(v_replaced_ids, ','));
+      END IF;
+    END;
+  END IF;
+
+  -- Enforce per-user (client) active limit (excluding any same-product that would be replaced)
   SELECT COUNT(*) INTO v_user_active_count FROM targets WHERE user_id = v_user AND is_active;
   IF v_user_active_count >= v_client_limit THEN
     RAISE EXCEPTION 'Max active targets for user';
@@ -122,6 +157,7 @@ BEGIN
 
   -- All checks passed: activate the target
   UPDATE targets SET is_active = true WHERE id = p_target_id;
+  RETURN 'activated';
 END;
 $$;
 

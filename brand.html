@@ -326,15 +326,24 @@
         statusEl.textContent = '⏳ Updating active target...';
         try {
           try {
-            const { error: rpcErr } = await supabase.rpc('set_active_target', { p_target_id: targetId });
-            if (rpcErr) throw rpcErr;
+            const res = await supabase.rpc('set_active_target', { p_target_id: targetId });
+            if (res.error) throw res.error;
+            const returned = res.data;
+            if (typeof returned === 'string' && returned.startsWith('replaced_active_target:')) {
+              const oldId = returned.split(':')[1] || '';
+              statusEl.textContent = `✅ Active product replaced (previous active id ${oldId})`;
+            } else if (returned === 'activated_admin') {
+              statusEl.textContent = '✅ Activated (admin bypass)';
+            } else {
+              statusEl.textContent = '✅ Active target updated!';
+            }
           } catch (rpcEx) {
             console.warn('set_active_target RPC failed, falling back to client updates:', rpcEx);
             await supabase.from('targets').update({ is_active: false }).neq('id', targetId);
             const { error } = await supabase.from('targets').update({ is_active: true }).eq('id', targetId);
             if (error) throw error;
+            statusEl.textContent = '✅ Active target updated!';
           }
-          statusEl.textContent = '✅ Active target updated!';
         } catch (e) { console.error('Failed to set active target:', e); statusEl.textContent = '❌ Error: ' + (e.message || String(e)); }
         loadTargets();
       };

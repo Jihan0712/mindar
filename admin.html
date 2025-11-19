@@ -1332,16 +1332,24 @@
         // The database trigger will enforce per-brand maximums.
         try {
           try {
-            const { error: rpcErr } = await supabase.rpc('set_active_target', { p_target_id: targetId });
-            if (rpcErr) throw rpcErr;
+            const res = await supabase.rpc('set_active_target', { p_target_id: targetId });
+            if (res.error) throw res.error;
+            const returned = res.data;
+            if (typeof returned === 'string' && returned.startsWith('replaced_active_target:')) {
+              const oldId = returned.split(':')[1] || '';
+              statusEl.textContent = `✅ Active product replaced (previous active id ${oldId})`;
+            } else if (returned === 'activated_admin') {
+              statusEl.textContent = '✅ Activated (admin bypass)';
+            } else {
+              statusEl.textContent = "✅ Active target updated!";
+            }
           } catch (rpcEx) {
             // If RPC fails (not installed or permission issue), fallback to simple update on this row only
             console.warn('set_active_target RPC failed, falling back to single-row update:', rpcEx);
             const { error } = await supabase.from("targets").update({ is_active: true }).eq("id", targetId);
             if (error) throw error;
+            statusEl.textContent = "✅ Active target updated!";
           }
-
-          statusEl.textContent = "✅ Active target updated!";
           // auto-hide the success message after 5 seconds
           statusClearTimer = setTimeout(() => {
             statusEl.textContent = "";
