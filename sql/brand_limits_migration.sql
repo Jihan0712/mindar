@@ -102,10 +102,35 @@ BEGIN
 
   SELECT EXISTS (SELECT 1 FROM admins WHERE user_id = v_user) INTO v_is_admin;
   IF v_is_admin THEN
-    -- Admins bypass limits; simply activate
+    -- Admins bypass limits; but to avoid unique-index conflicts we must
+    -- deactivate any existing active rows for the same brand/product/owner
+    -- before activating the requested target. Use the same advisory lock
+    -- and FOR UPDATE locking as the normal path to serialize operations.
+    PERFORM pg_advisory_xact_lock((hashtext(coalesce(v_brand,'') || '|' || coalesce(v_product,'') || '|' || coalesce(coalesce(v_brand_owner::text,''), '')) )::bigint);
+
+    -- Lock matching active rows
+    PERFORM id FROM targets t
+    WHERE coalesce(t.brand,'') = coalesce(v_brand,'')
+      AND coalesce(t.product,'') = coalesce(v_product,'')
+      AND coalesce(t.brand_owner::text,'') = coalesce(v_brand_owner::text,'')
+      AND t.is_active = true
+      AND t.id <> p_target_id
+    FOR UPDATE;
+
+    -- Deactivate them
+    UPDATE targets t
+    SET is_active = false
+    WHERE coalesce(t.brand,'') = coalesce(v_brand,'')
+      AND coalesce(t.product,'') = coalesce(v_product,'')
+      AND coalesce(t.brand_owner::text,'') = coalesce(v_brand_owner::text,'')
+      AND t.is_active = true
+      AND t.id <> p_target_id;
+
     UPDATE targets SET is_active = true WHERE id = p_target_id;
     RETURN 'activated_admin';
   END IF;
+
+
 
   -- Deactivate any existing active targets with the same brand+product
   -- (exclude the target we're activating). We do this for all uploaders
@@ -113,6 +138,15 @@ BEGIN
   IF coalesce(v_brand, '') IS NOT NULL THEN
     -- Serialize activations for the same brand+product+owner to avoid races.
     PERFORM pg_advisory_xact_lock((hashtext(coalesce(v_brand,'') || '|' || coalesce(v_product,'') || '|' || coalesce(coalesce(v_brand_owner::text,''), '')) )::bigint);
+
+    -- Lock existing active rows for this brand/product/owner to serialize updates
+    PERFORM id FROM targets t
+    WHERE coalesce(t.brand,'') = coalesce(v_brand,'')
+      AND coalesce(t.product,'') = coalesce(v_product,'')
+      AND coalesce(t.brand_owner::text,'') = coalesce(v_brand_owner::text,'')
+      AND t.is_active = true
+      AND t.id <> p_target_id
+    FOR UPDATE;
 
     WITH deactivated AS (
       UPDATE targets t
