@@ -108,6 +108,9 @@
         const aframeVideoAsset = document.querySelector("#card");
         const planeEl = document.querySelector("#video-plane");
         const target = document.querySelector("#target");
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        let lastTargetVisible = false;
 
         // --- Sound toggle and AudioContext unlock helper ---
         let audioCtx = null;
@@ -165,6 +168,22 @@
           if (!soundEnabled) await enableSound(); else disableSound();
         });
 
+        // First user interaction should always prime media playback on Safari/iOS
+        const primePlaybackOnce = async () => {
+          await unlockAudio().catch(()=>{});
+          try {
+            // Safari sometimes needs a play+pause gesture to allow future autoplay
+            await aframeVideoAsset.play();
+            aframeVideoAsset.pause();
+          } catch (err) {
+            console.warn('primePlaybackOnce play/ pause failed (expected on locked browsers):', err);
+          }
+          window.removeEventListener('touchend', primePlaybackOnce);
+          window.removeEventListener('click', primePlaybackOnce);
+        };
+        window.addEventListener('touchend', primePlaybackOnce, { once: true });
+        window.addEventListener('click', primePlaybackOnce, { once: true });
+
         // Initialize UI from stored preference
         if (soundEnabled) {
           // ensure audio unlocked when page loads if preference was enabled
@@ -185,7 +204,20 @@
         })();
 
         if (mindUrl && videoUrl) {
-          scene.setAttribute("mindar-image", `imageTargetSrc: ${mindUrl};`);
+          const mindarOpts = [
+            `imageTargetSrc: ${mindUrl}`,
+            'autoStart: true',
+            'filterMinCF: 0.0001',
+            'filterBeta: 0.01',
+            'warmupTolerance: 5',
+            'missTolerance: 5'
+          ];
+          if (isIOS) {
+            mindarOpts.push('maxTrack: 1');
+            mindarOpts.push('uiScanning: false');
+            mindarOpts.push('uiLoading: false');
+          }
+          scene.setAttribute("mindar-image", mindarOpts.join('; '));
 
           // Set video attributes early so the browser can begin fetching metadata as soon
           // as possible. We still wait for loadedmetadata before starting the draw loop.
@@ -363,6 +395,7 @@
 
         target.addEventListener("targetFound", () => {
           console.log("🎯 Target found — play video");
+          lastTargetVisible = true;
           aframeVideoAsset.play().catch((e) => {
             console.warn("play blocked (no user gesture):", e);
             const prompt = document.createElement('div');
@@ -381,7 +414,16 @@
 
         target.addEventListener("targetLost", () => {
           console.log("👀 Target lost — pause video");
+          lastTargetVisible = false;
           aframeVideoAsset.pause();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            aframeVideoAsset.pause();
+          } else if (lastTargetVisible) {
+            aframeVideoAsset.play().catch(()=>{});
+          }
         });
       });
     </script>

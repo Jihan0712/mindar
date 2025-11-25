@@ -1426,6 +1426,13 @@
                 if (res.ok && !json?.error) {
                   ok = true;
                   message = json?.status === 'deleted' ? '✅ Account fully deleted (auth + domain).' : '✅ Delete request sent.';
+                  // Ensure domain cleanup (profiles, targets, admins) even if edge function only removed auth user.
+                  try {
+                    const { error: dcErr } = await supabase.rpc('admin_delete_account_domain_cleanup', { p_user_id: userId });
+                    if (dcErr) console.warn('Domain cleanup RPC error after edge delete:', dcErr);
+                  } catch (dcEx) {
+                    console.warn('Domain cleanup RPC exception after edge delete:', dcEx);
+                  }
                 } else {
                   message = json?.error || `Edge function failed: HTTP ${res.status}`;
                 }
@@ -1454,6 +1461,13 @@
                 if (res.ok && !json?.error) {
                   ok = true;
                   message = json?.status === 'deleted' ? '✅ Account fully deleted (auth + domain).' : '⚠️ Domain only deletion completed.';
+                  // Perform domain cleanup for safety (if backend didn't do it fully)
+                  try {
+                    const { error: dcErr2 } = await supabase.rpc('admin_delete_account_domain_cleanup', { p_user_id: userId });
+                    if (dcErr2) console.warn('Domain cleanup RPC error after backend delete:', dcErr2);
+                  } catch (dcEx2) {
+                    console.warn('Domain cleanup RPC exception after backend delete:', dcEx2);
+                  }
                 } else {
                   message = json?.error || `Backend failed: HTTP ${res.status}`;
                 }
