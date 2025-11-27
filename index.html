@@ -119,7 +119,7 @@
 
         function updateSoundUI() {
           if (!soundToggle) return;
-          soundToggle.textContent = soundEnabled ? '🔊' : '🔈';
+          soundToggle.textContent = soundEnabled ? '🔊' : '❌';
           soundToggle.setAttribute('aria-pressed', String(!!soundEnabled));
         }
 
