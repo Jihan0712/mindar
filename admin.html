@@ -1408,7 +1408,7 @@
           statusEl.textContent = '⏳ Deleting account...';
           // Call the fixed Netlify Edge Function at /.netlify/functions/delete-user
           // Use the current Supabase session access token as Authorization Bearer.
-          let ok = false; let message = '';
+          let ok = false; let message = ''; 
           try {
             const fixedFn = '/.netlify/functions/delete-user';
             try {
