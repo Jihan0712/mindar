@@ -1631,29 +1631,74 @@
         const { error: delErr } = await supabase.from("targets").delete().eq("id", id);
         if (delErr) return (statusEl.textContent = "❌ Failed: " + delErr.message);
 
-        // compute storage object paths
+        // Attempt deletion from both Supabase storage (legacy) and R2 via Worker.
         const mindPath = storagePathFromPublicUrl(mindUrl);
         const videoPath = storagePathFromPublicUrl(videoUrl);
         const imagePath = storagePathFromPublicUrl(imageUrl);
-        const toRemove = [mindPath, videoPath, imagePath].filter(Boolean);
+        const supabaseToRemove = [mindPath, videoPath, imagePath].filter(Boolean);
 
-        // Remove storage objects and check for per-file errors (Supabase doesn't throw on error)
+        // Remove from Supabase storage where applicable
         let removed = 0;
         const failed = [];
-        for (const p of toRemove) {
-          const { error } = await supabase.storage.from("assets").remove([p]);
-          if (error) {
-            failed.push({ path: p, error: error.message || String(error) });
-          } else {
-            removed += 1;
+        for (const p of supabaseToRemove) {
+          try {
+            const { error } = await supabase.storage.from("assets").remove([p]);
+            if (error) {
+              failed.push({ path: p, error: error.message || String(error) });
+            } else {
+              removed += 1;
+            }
+          } catch (e) {
+            failed.push({ path: p, error: String(e) });
+          }
+        }
+
+        // Now try to delete R2 assets via the Worker /delete endpoint for any URLs that look like R2/worker-hosted
+        const possibleR2Urls = [mindUrl, videoUrl, imageUrl].filter(Boolean);
+        // normalize configured worker base (same logic as uploadToWorker)
+        let workerBase = (window.WORKER_UPLOAD_URL || (window.ASSETS_DOMAIN ? window.ASSETS_DOMAIN : '') ) || '';
+        workerBase = workerBase.replace(/\/$/, '');
+        if (workerBase && !/^https?:\/\//i.test(workerBase)) workerBase = 'https://' + workerBase;
+
+        for (const u of possibleR2Urls) {
+          try {
+            let candidate = u;
+            // If URL lacks protocol, assume https
+            if (!/^https?:\/\//i.test(candidate)) candidate = 'https://' + candidate.replace(/^\/+/, '');
+            const parsed = new URL(candidate);
+
+            // If this URL appears to be hosted on our worker/assets domain, call the worker delete endpoint
+            const shouldCallWorker = (() => {
+              if (workerBase) {
+                try { return parsed.origin === (new URL(workerBase)).origin; } catch (e) { return false; }
+              }
+              // fallback: call worker if host looks like a workers.dev domain
+              return /workers\.dev$/i.test(parsed.hostname) || parsed.hostname === (window.ASSETS_DOMAIN || '').replace(/^https?:\/\//i, '').replace(/\/$/, '');
+            })();
+
+            if (shouldCallWorker) {
+              const deleteEndpoint = workerBase || `${parsed.origin}`;
+              await fetch(`${deleteEndpoint.replace(/\/$/, '')}/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: candidate })
+              }).then(async (r) => {
+                if (!r.ok) {
+                  const txt = await r.text().catch(() => '');
+                  console.warn('Worker delete failed for', candidate, r.status, txt);
+                }
+              }).catch(err => console.warn('Worker delete request error', err));
+            }
+          } catch (e) {
+            console.warn('Failed to attempt worker delete for', u, e);
           }
         }
 
         if (failed.length > 0) {
           console.warn('Some storage files failed to delete:', failed);
-          statusEl.textContent = `⚠️ Target deleted in DB. Removed ${removed}/${toRemove.length} storage file(s); ${failed.length} failed. Check console.`;
+          statusEl.textContent = `⚠️ Target deleted in DB. Removed ${removed}/${supabaseToRemove.length} storage file(s); ${failed.length} failed. Worker delete attempted for R2 URLs.`;
         } else {
-          statusEl.textContent = "✅ Target deleted and files removed!";
+          statusEl.textContent = "✅ Target deleted and files removed (or worker delete attempted).";
         }
         loadTargets();
       };
