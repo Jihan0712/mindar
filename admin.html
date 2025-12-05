@@ -91,6 +91,8 @@
             <button id="upload" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">
               Upload
             </button>
+            <button id="runMigrationBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 ml-2">Run Migration (batch)</button>
+            <div id="migrationOutput" class="text-xs text-gray-600 mt-2"></div>
           </div>
         </section>
 
@@ -651,6 +653,59 @@
         listSection.classList.add("hidden");
         uploadTab.classList.add("bg-blue-600");
         listTab.classList.remove("bg-blue-600");
+      });
+
+      // Migration runner: processes a small batch of rows from `asset_migration` with status='pending'
+      document.getElementById('runMigrationBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('runMigrationBtn');
+        const out = document.getElementById('migrationOutput');
+        btn.disabled = true; btn.textContent = 'Running...'; out.textContent = 'Starting migration batch...';
+        try {
+          const batchSize = 5;
+          const { data: rows, error } = await supabase.from('asset_migration').select('id,target_id,field,old_url').eq('status','pending').order('created_at',{ascending:true}).limit(batchSize);
+          if (error) throw error;
+          if (!rows || rows.length === 0) { out.textContent = 'No pending migration rows found.'; return; }
+          const summary = [];
+          for (const row of rows) {
+            out.textContent = `Processing ${row.id} (${row.field})...`;
+            try {
+              if (!row.old_url) {
+                await supabase.from('asset_migration').update({ status: 'failed', error: 'empty old_url', updated_at: new Date().toISOString() }).eq('id', row.id);
+                summary.push({ id: row.id, status: 'failed', reason: 'empty old_url' });
+                continue;
+              }
+              // skip if already on worker domain
+              try { if (new URL(row.old_url).hostname === new URL(window.WORKER_UPLOAD_URL || window.ASSETS_DOMAIN || window.location.origin).hostname) {
+                await supabase.from('asset_migration').update({ status: 'skipped', new_url: row.old_url, updated_at: new Date().toISOString() }).eq('id', row.id);
+                summary.push({ id: row.id, status: 'skipped' });
+                continue;
+              }} catch(e){}
+
+              // fetch blob
+              const r = await fetch(row.old_url, { credentials: 'omit' });
+              if (!r.ok) throw new Error('Fetch failed: ' + r.status);
+              const blob = await r.blob();
+              const ext = (row.old_url.split('.').pop().split('?')[0] || 'bin').slice(0,8);
+              const filename = `${row.field}-${row.target_id}.${ext}`;
+              const uploadRes = await uploadToWorker(blob, row.field, filename);
+              // update migration row
+              await supabase.from('asset_migration').update({ new_url: uploadRes.url, status: 'migrated', updated_at: new Date().toISOString() }).eq('id', row.id);
+              summary.push({ id: row.id, status: 'migrated', new: uploadRes.url });
+            } catch (e) {
+              console.error('migration error', e);
+              await supabase.from('asset_migration').update({ status: 'failed', error: String(e).substring(0,1000), updated_at: new Date().toISOString() }).eq('id', row.id);
+              summary.push({ id: row.id, status: 'failed', error: String(e) });
+            }
+            await new Promise(r => setTimeout(r, 600));
+          }
+          out.textContent = 'Batch complete. See console for details.';
+          console.table(summary);
+          const blob = new Blob([JSON.stringify(summary,null,2)], { type: 'application/json' }); const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = 'asset_migration_batch.json'; a.textContent = 'Download batch mapping'; out.appendChild(document.createElement('br')); out.appendChild(a);
+        } catch (e) {
+          console.error('Migration batch failed', e);
+          out.textContent = 'Migration failed: ' + (e.message || e);
+        } finally { btn.disabled = false; btn.textContent = 'Run Migration (batch)'; }
       });
 
       listTab.addEventListener("click", () => {
