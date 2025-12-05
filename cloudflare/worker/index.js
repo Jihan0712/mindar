@@ -35,6 +35,10 @@ async function handleGet(request) {
     headers.set('Content-Type', contentType);
     // Strong caching for immutable asset files
     headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    // Allow cross-origin image embedding and client-side fetches where appropriate
+    headers.set('Access-Control-Allow-Origin', '*');
+    headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     return new Response(obj.body, { status: 200, headers });
   } catch (e) {
@@ -58,8 +62,12 @@ async function handleUpload(request) {
       httpMetadata: { contentType: file.type || 'application/octet-stream' }
     });
 
-    const publicUrl = `${ASSETS_DOMAIN.replace(/\/$/, '')}/${key}`;
-    return new Response(JSON.stringify({ ok: true, key, url: publicUrl }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    // Normalize ASSETS_DOMAIN to include a protocol if operator omitted it
+    let assetsDomain = (typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '') || '';
+    assetsDomain = assetsDomain.replace(/\/$/, '');
+    if (assetsDomain && !/^https?:\/\//i.test(assetsDomain)) assetsDomain = 'https://' + assetsDomain;
+    const publicUrl = `${assetsDomain}/${key}`;
+    return new Response(JSON.stringify({ ok: true, key, url: publicUrl }), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
@@ -81,7 +89,7 @@ async function handleDelete(request) {
         });
       }
     } catch ( _e ) { /* ignore purge errors */ }
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }

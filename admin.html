@@ -538,7 +538,11 @@
       // Worker upload helper: posts file to the Worker /upload endpoint and returns { ok, key, url }
       // Set `window.WORKER_UPLOAD_URL` in the page to point to your worker (e.g. 'https://assets.example.com' or the workers.dev URL).
       async function uploadToWorker(file, path = 'uploads', filename) {
-        const base = (window.WORKER_UPLOAD_URL || (window.ASSETS_DOMAIN ? window.ASSETS_DOMAIN : '')).replace(/\/$/, '');
+        // Normalize configured worker/upload base so missing protocol doesn't create
+        // a relative URL like `/current-origin/mindar-worker.../path` in the page.
+        let base = (window.WORKER_UPLOAD_URL || (window.ASSETS_DOMAIN ? window.ASSETS_DOMAIN : '') ) || '';
+        base = base.replace(/\/$/, '');
+        if (base && !/^https?:\/\//i.test(base)) base = 'https://' + base;
         const uploadUrl = base ? `${base}/upload` : '/upload';
         const form = new FormData();
         form.append('file', file, filename || (file.name || `${Date.now()}`));
