@@ -531,6 +531,28 @@
   const BACKEND_API_URL = ""; // TODO: set to your backend origin
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+      // Default worker upload URL (can be overridden in browser console)
+      window.WORKER_UPLOAD_URL = window.WORKER_UPLOAD_URL || 'https://mindar-worker.nico-824.workers.dev';
+
+      // Worker upload helper: posts file to the Worker /upload endpoint and returns { ok, key, url }
+      // Set `window.WORKER_UPLOAD_URL` in the page to point to your worker (e.g. 'https://assets.example.com' or the workers.dev URL).
+      async function uploadToWorker(file, path = 'uploads', filename) {
+        const base = (window.WORKER_UPLOAD_URL || (window.ASSETS_DOMAIN ? window.ASSETS_DOMAIN : '')).replace(/\/$/, '');
+        const uploadUrl = base ? `${base}/upload` : '/upload';
+        const form = new FormData();
+        form.append('file', file, filename || (file.name || `${Date.now()}`));
+        form.append('path', path);
+        form.append('filename', filename || (file.name || `${Date.now()}`));
+        const res = await fetch(uploadUrl, { method: 'POST', body: form });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error('Worker upload failed: ' + res.status + ' ' + txt);
+        }
+        const j = await res.json().catch(() => ({}));
+        if (j.error) throw new Error(j.error || 'Upload returned error');
+        return j; // { ok, key, url }
+      }
+
       // Guard: ensure only admins may access admin.html. Non-admins are redirected
       // Use getUser() to confirm the user is currently authenticated (avoids stale sessions)
       (async () => {
@@ -1089,10 +1111,9 @@
           const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
           const timestamp = Date.now();
           const mindPath = `minds/${timestamp}-${filename}`;
-          const { error: mindErr } = await supabase.storage.from('assets').upload(mindPath, fileForUpload);
-          if (mindErr) throw mindErr;
-
-          const mindUrl = supabase.storage.from('assets').getPublicUrl(mindPath).data.publicUrl;
+          // upload compiled .mind to Worker-backed R2
+          const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
+          const mindUrl = mindUpload.url;
           // store uploaded mind URL for later use by the Upload flow
           uploadedMindUrl = mindUrl;
           compileStatus.textContent = '✅ Compiled and uploaded to storage! Ready to Upload.';
@@ -1131,31 +1152,21 @@
               compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
             });
 
-            compileStatus.textContent = 'Uploading compiled .mind to Supabase storage...';
+            compileStatus.textContent = 'Uploading compiled .mind to storage (via Worker)...';
             const filename = markerImage.name.replace(/\.[^/.]+$/, '') + '.mind';
             const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
-            const mindPathLocal = `minds/${timestamp}-${filename}`;
-            const { error: mindErr } = await supabase.storage.from('assets').upload(mindPathLocal, fileForUpload);
-            if (mindErr) throw mindErr;
+            const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
+            const mindUrlLocal = mindUpload.url;
 
-            const mindUrlLocal = supabase.storage.from('assets').getPublicUrl(mindPathLocal).data.publicUrl;
+            // upload video via Worker
+            const videoUpload = await uploadToWorker(video, 'videos', video.name);
+            const videoUrlLocal = videoUpload.url;
 
-            // upload video
-            const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
-            if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
-
-            const videoUrlLocal = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
-
-            // upload original image marker
+            // upload original image marker via Worker
             let imageUrlLocal = null;
             try {
-              const markerPathLocal = `markers/${timestamp}-${markerImage.name}`;
-              const { error: markerErr } = await supabase.storage.from('assets').upload(markerPathLocal, markerImage);
-              if (!markerErr) {
-                imageUrlLocal = supabase.storage.from('assets').getPublicUrl(markerPathLocal).data.publicUrl;
-              } else {
-                console.warn('Image upload failed:', markerErr.message || markerErr);
-              }
+              const markerUpload = await uploadToWorker(markerImage, 'markers', markerImage.name);
+              imageUrlLocal = markerUpload.url;
             } catch (e) {
               console.warn('Image upload threw', e);
             }
@@ -1189,19 +1200,16 @@
 
         // .mind upload
         if (uploadedMindUrl) {
-          const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
-          if (vidErr) return (statusEl.textContent = "❌ Video upload failed: " + vidErr.message);
-
-          const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+          // upload video through Worker
+          const videoUpload = await uploadToWorker(video, 'videos', video.name);
+          const videoUrl = videoUpload.url;
 
           // if a marker image file was selected, upload it as well and save imageUrl
           let imageUrlNew = null;
           if (markerImage) {
             try {
-              const markerPath = `markers/${timestamp}-${markerImage.name}`;
-              const { error: mErr } = await supabase.storage.from('assets').upload(markerPath, markerImage);
-              if (!mErr) imageUrlNew = supabase.storage.from('assets').getPublicUrl(markerPath).data.publicUrl;
-              else console.warn('Marker upload failed:', mErr.message || mErr);
+              const markerUpload = await uploadToWorker(markerImage, 'markers', markerImage.name);
+              imageUrlNew = markerUpload.url;
             } catch (e) {
               console.warn('Marker upload threw', e);
             }

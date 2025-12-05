@@ -103,6 +103,27 @@
   const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+      // Default worker upload URL (can be overridden in browser console)
+      window.WORKER_UPLOAD_URL = window.WORKER_UPLOAD_URL || 'https://mindar-worker.nico-824.workers.dev';
+
+      // Worker upload helper (same approach as admin): set window.WORKER_UPLOAD_URL or window.ASSETS_DOMAIN to point to your worker/domain
+      async function uploadToWorker(file, path = 'uploads', filename) {
+        const base = (window.WORKER_UPLOAD_URL || (window.ASSETS_DOMAIN ? window.ASSETS_DOMAIN : '')).replace(/\/$/, '');
+        const uploadUrl = base ? `${base}/upload` : '/upload';
+        const form = new FormData();
+        form.append('file', file, filename || (file.name || `${Date.now()}`));
+        form.append('path', path);
+        form.append('filename', filename || (file.name || `${Date.now()}`));
+        const res = await fetch(uploadUrl, { method: 'POST', body: form });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error('Worker upload failed: ' + res.status + ' ' + txt);
+        }
+        const j = await res.json().catch(() => ({}));
+        if (j.error) throw new Error(j.error || 'Upload returned error');
+        return j; // { ok, key, url }
+      }
+
       // small helper functions copied/adapted from admin.html
       async function resizeImage(file, maxDim = 1024) {
         const img = new Image();
@@ -183,14 +204,11 @@
         try {
           statusEl.textContent = 'Compiling marker image in the browser...';
           const buffer = await compileImageClient(markerFile, (p) => { document.getElementById('compileStatus').textContent = `Progress: ${p.toFixed(1)}%`; });
-          document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to Supabase storage...';
+          document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to storage (via Worker)...';
           const filename = markerFile.name.replace(/\.[^/.]+$/, '') + '.mind';
           const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
-          const timestamp = Date.now();
-          const mindPath = `minds/${timestamp}-${filename}`;
-          const { error: mindErr } = await supabase.storage.from('assets').upload(mindPath, fileForUpload);
-          if (mindErr) throw mindErr;
-          const mindUrl = supabase.storage.from('assets').getPublicUrl(mindPath).data.publicUrl;
+          const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
+          const mindUrl = mindUpload.url;
           // stash on window for the upload flow
           window.uploadedMindUrl = mindUrl;
           document.getElementById('compileStatus').textContent = '✅ Compiled and uploaded to storage! Ready to Upload.';
@@ -214,20 +232,16 @@
             document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to Supabase storage...';
             const filename = markerImage.name.replace(/\.[^/.]+$/, '') + '.mind';
             const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
-            const mindPathLocal = `minds/${timestamp}-${filename}`;
-            const { error: mindErr } = await supabase.storage.from('assets').upload(mindPathLocal, fileForUpload);
-            if (mindErr) throw mindErr;
-            const mindUrlLocal = supabase.storage.from('assets').getPublicUrl(mindPathLocal).data.publicUrl;
+            const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
+            const mindUrlLocal = mindUpload.url;
             // upload video
-            const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
-            if (vidErr) return (statusEl.textContent = '❌ Video upload failed: ' + vidErr.message);
-            const videoUrlLocal = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+            const videoUpload = await uploadToWorker(video, 'videos', video.name);
+            const videoUrlLocal = videoUpload.url;
             // upload original image marker
             let imageUrlLocal = null;
             try {
-              const markerPathLocal = `markers/${timestamp}-${markerImage.name}`;
-              const { error: markerErr } = await supabase.storage.from('assets').upload(markerPathLocal, markerImage);
-              if (!markerErr) imageUrlLocal = supabase.storage.from('assets').getPublicUrl(markerPathLocal).data.publicUrl;
+              const markerUpload = await uploadToWorker(markerImage, 'markers', markerImage.name);
+              imageUrlLocal = markerUpload.url;
             } catch (e) { console.warn('Image upload threw', e); }
 
             const { data: userData } = await supabase.auth.getUser();
@@ -248,15 +262,13 @@
 
         // .mind upload (when compiled earlier)
         if (window.uploadedMindUrl) {
-          const { error: vidErr } = await supabase.storage.from('assets').upload(videoPath, video);
-          if (vidErr) return (statusEl.textContent = '❌ Video upload failed: ' + vidErr.message);
-          const videoUrl = supabase.storage.from('assets').getPublicUrl(videoPath).data.publicUrl;
+          const videoUpload = await uploadToWorker(video, 'videos', video.name);
+          const videoUrl = videoUpload.url;
           let imageUrlNew = null;
           if (markerImage) {
             try {
-              const markerPath = `markers/${timestamp}-${markerImage.name}`;
-              const { error: mErr } = await supabase.storage.from('assets').upload(markerPath, markerImage);
-              if (!mErr) imageUrlNew = supabase.storage.from('assets').getPublicUrl(markerPath).data.publicUrl;
+              const markerUpload = await uploadToWorker(markerImage, 'markers', markerImage.name);
+              imageUrlNew = markerUpload.url;
             } catch (e) { console.warn('Marker upload threw', e); }
           }
           const { data: userData } = await supabase.auth.getUser();

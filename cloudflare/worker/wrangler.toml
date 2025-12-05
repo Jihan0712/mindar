@@ -1,0 +1,22 @@
+name = "mindar-worker"
+main = "worker/index.js"
+compatibility_date = "2025-12-02"
+type = "javascript"
+
+account_id = "824f1ff193c0e8b1d663ffc690be8a58"
+workers_dev = false
+route = "" # leave or set when ready
+zone_id = "bc2f1c0ae2db3af08933ef6eab98446d"
+
+[vars]
+ASSETS_DOMAIN = "https://assets.example.com"
+SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co"
+
+[[]] # r2_buckets array placeholder replaced below
+[[r2_buckets]]
+binding = "ASSETS_BUCKET"
+bucket_name = "mindar-assets"
+preview_bucket = "mindar-assets"
+
+[secrets]
+# add secrets via `wrangler secret put` instead of committing
