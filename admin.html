@@ -1307,13 +1307,25 @@
           const productArg = encodeURIComponent(t.product || '');
 
           // choose initial src: first candidate or placeholder (avoid empty src which shows broken icon)
-          const initialSrc2 = initialSrc;
+          // Defensive: if stored URL lacks protocol (e.g. "mindar-worker.nico-824.workers.dev/.."),
+          // the browser will resolve it relative to the site origin (Netlify). Normalize here.
+          const normalizeUrl = (u) => {
+            if (!u) return u;
+            try {
+              // already absolute
+              if (/^https?:\/\//i.test(u) || u.startsWith('//')) return u;
+              // strip leading slashes to avoid double slashes
+              return 'https://' + u.replace(/^\/+/, '');
+            } catch (e) { return u; }
+          };
+          const normalizedCandidates = uniq.map(normalizeUrl);
+          const initialSrc2 = normalizedCandidates.length ? normalizedCandidates[0] : normalizeUrl(placeholder);
           const deactivateBtn = t.is_active ? `<button onclick="setInactive('${t.id}')" class="px-3 py-1 rounded bg-gray-500 text-white hover:bg-gray-600">Deactivate</button>` : '';
           const brandCell = isAdmin ? `<td class="p-3">${t.brand || ''}</td>` : '';
           const row = `
             <tr class="${activeClass}">
               <td class="p-3">
-                <img src="${initialSrc2}" data-src="${initialSrc2}" data-candidates="${encodeURIComponent(JSON.stringify(uniq))}" data-name="${encodeURIComponent(t.name)}" alt="${t.name}" class="target-thumb w-24 h-24 object-contain rounded border border-gray-200 cursor-zoom-in" />
+                <img src="${initialSrc2}" data-src="${initialSrc2}" data-candidates="${encodeURIComponent(JSON.stringify(normalizedCandidates))}" data-name="${encodeURIComponent(t.name)}" alt="${t.name}" class="target-thumb w-24 h-24 object-contain rounded border border-gray-200 cursor-zoom-in" />
               </td>
               <td class="p-3">${t.name}</td>
               ${brandCell}
