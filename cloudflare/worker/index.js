@@ -51,6 +51,7 @@ async function handleGet(request) {
   }
 }
 
+
 async function handleUpload(request) {
   // Expect: form-data with file, path, filename. Authorization: Bearer <supabase_access_token> (optional)
   try {
