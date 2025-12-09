@@ -2,6 +2,8 @@
 // Bindings (set in wrangler.toml / Cloudflare dashboard):
 // - R2 bucket binding: ASSETS_BUCKET
 // - env var: ASSETS_DOMAIN (e.g. https://assets.inrl.com)
+// - env var: ALLOWED_ORIGINS (comma-separated allowed origins)
+// - secret: WORKER_DELETE_KEY (required for delete/purge protection)
 // - env var: SUPABASE_URL
 // - secret: SUPABASE_SERVICE_ROLE_KEY (optional, for server-side inserts)
 // - secret: CF_API_TOKEN (optional, for purge)
@@ -35,10 +37,13 @@ async function handleGet(request) {
     headers.set('Content-Type', contentType);
     // Strong caching for immutable asset files
     headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-    // Allow cross-origin image embedding and client-side fetches where appropriate
-    headers.set('Access-Control-Allow-Origin', '*');
+    // CORS: honor ALLOWED_ORIGINS if set, else allow all during rollout
+    const allowed = (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) ? ALLOWED_ORIGINS.split(',').map(s=>s.trim()) : null;
+    const origin = request.headers.get('Origin');
+    if (allowed && origin && allowed.includes(origin)) headers.set('Access-Control-Allow-Origin', origin);
+    else headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key');
 
     return new Response(obj.body, { status: 200, headers });
   } catch (e) {
@@ -67,7 +72,15 @@ async function handleUpload(request) {
     assetsDomain = assetsDomain.replace(/\/$/, '');
     if (assetsDomain && !/^https?:\/\//i.test(assetsDomain)) assetsDomain = 'https://' + assetsDomain;
     const publicUrl = `${assetsDomain}/${key}`;
-    return new Response(JSON.stringify({ ok: true, key, url: publicUrl }), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } });
+    // CORS for upload response
+    const uploadHeaders = new Headers({ 'Content-Type': 'application/json' });
+    const originReq = request.headers.get('Origin');
+    const allowedOrigins = (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) ? ALLOWED_ORIGINS.split(',').map(s=>s.trim()) : null;
+    if (allowedOrigins && originReq && allowedOrigins.includes(originReq)) uploadHeaders.set('Access-Control-Allow-Origin', originReq);
+    else uploadHeaders.set('Access-Control-Allow-Origin', '*');
+    uploadHeaders.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    uploadHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key');
+    return new Response(JSON.stringify({ ok: true, key, url: publicUrl }), { status: 200, headers: uploadHeaders });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
@@ -75,9 +88,14 @@ async function handleUpload(request) {
 
 async function handleDelete(request) {
   try {
+    // Protect delete: require a secret header matching WORKER_DELETE_KEY
+    const provided = request.headers.get('x-admin-key') || '';
+    if (!provided || provided !== (typeof WORKER_DELETE_KEY === 'string' ? WORKER_DELETE_KEY : '')) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
     const body = await request.json().catch(() => ({}));
-    const key = body.key || (body.url ? body.url.replace(`${ASSETS_DOMAIN.replace(/\/$/, '')}/`, '') : null);
-    if (!key) return new Response(JSON.stringify({ error: 'key or url required' }), { status: 400 });
+    const key = body.key || (body.url ? body.url.replace(`${(typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '').replace(/\/$/, '')}/`, '') : null);
+    if (!key) return new Response(JSON.stringify({ error: 'key or url required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     await ASSETS_BUCKET.delete(key);
     // Purge CDN for the deleted file if configured
     try {
@@ -89,7 +107,15 @@ async function handleDelete(request) {
         });
       }
     } catch ( _e ) { /* ignore purge errors */ }
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } });
+    // CORS for delete response (respect ALLOWED_ORIGINS if provided)
+    const dHeaders = new Headers({ 'Content-Type': 'application/json' });
+    const originReq2 = request.headers.get('Origin');
+    const allowedOrigins2 = (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) ? ALLOWED_ORIGINS.split(',').map(s=>s.trim()) : null;
+    if (allowedOrigins2 && originReq2 && allowedOrigins2.includes(originReq2)) dHeaders.set('Access-Control-Allow-Origin', originReq2);
+    else dHeaders.set('Access-Control-Allow-Origin', '*');
+    dHeaders.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    dHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key');
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: dHeaders });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }

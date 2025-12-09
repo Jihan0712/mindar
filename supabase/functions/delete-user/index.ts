@@ -72,8 +72,32 @@ serve(async (req: Request) => {
       console.error('deleteUser error:', error);
       return new Response(JSON.stringify({ error: error.message || error }), { status: 500, headers: corsHeaders });
     }
+    // If provided, attempt to delete associated asset URLs via the Worker
+    const assets: string[] = Array.isArray(body.assets) ? body.assets : [];
+    const workerBase = Deno.env.get('WORKER_BASE') || Deno.env.get('WORKER_UPLOAD_URL') || '';
+    const workerKey = Deno.env.get('WORKER_DELETE_KEY') || '';
+    const assetResults: any[] = [];
+    if (assets.length && workerBase && workerKey) {
+      for (const a of assets) {
+        try {
+          const url = `${workerBase.replace(/\/$/, '')}/delete`;
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-admin-key': workerKey,
+            },
+            body: JSON.stringify({ url: a }),
+          });
+          const txt = await resp.text().catch(() => '');
+          assetResults.push({ url: a, status: resp.status, body: txt });
+        } catch (e: any) {
+          assetResults.push({ url: a, error: e.message || String(e) });
+        }
+      }
+    }
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: corsHeaders });
+    return new Response(JSON.stringify({ ok: true, assetResults }), { status: 200, headers: corsHeaders });
   } catch (err: any) {
     console.error('Unexpected error in delete-user:', err);
     return new Response(JSON.stringify({ error: err.message || String(err) }), { status: 500, headers: corsHeaders });

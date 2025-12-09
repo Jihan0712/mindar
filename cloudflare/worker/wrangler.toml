@@ -11,6 +11,7 @@ zone_id = "bc2f1c0ae2db3af08933ef6eab98446d"
 [vars]
 ASSETS_DOMAIN = "https://assets.example.com"
 SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co"
+ALLOWED_ORIGINS = "https://inrlar.netlify.app,https://your-admin.example.com"
 
 [[]] # r2_buckets array placeholder replaced below
 [[r2_buckets]]
@@ -20,3 +21,4 @@ preview_bucket = "mindar-assets"
 
 [secrets]
 # add secrets via `wrangler secret put` instead of committing
+# Example secrets: WORKER_DELETE_KEY, CF_API_TOKEN, SUPABASE_SERVICE_ROLE_KEY

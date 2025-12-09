@@ -91,8 +91,32 @@ exports.handler = async function(event) {
     }
 
     // Optionally, you can perform DB cleanup here using the service role key via the REST API or SDK.
+    // If caller provided `assets` (array of URLs), forward deletes to the Worker using WORKER_DELETE_KEY
+    const workerBase = process.env.WORKER_BASE || process.env.WORKER_UPLOAD_URL || null;
+    const workerKey = process.env.WORKER_DELETE_KEY || null;
+    const assets = body.assets && Array.isArray(body.assets) ? body.assets : [];
+    const assetResults = [];
+    if (assets.length && workerBase && workerKey) {
+      for (const a of assets) {
+        try {
+          const url = `${workerBase.replace(/\/$/, '')}/delete`;
+          const wresp = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-admin-key': workerKey,
+            },
+            body: JSON.stringify({ url: a }),
+          });
+          const j = await wresp.text().catch(() => '');
+          assetResults.push({ url: a, status: wresp.status, body: j });
+        } catch (e) {
+          assetResults.push({ url: a, error: String(e) });
+        }
+      }
+    }
 
-    return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true }) };
+    return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true, assetResults }) };
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: String(err) }) };
   }
