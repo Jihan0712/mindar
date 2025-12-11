@@ -13,10 +13,32 @@ addEventListener('fetch', event => event.respondWith(handleRequest(event.request
 async function handleRequest(request) {
   const url = new URL(request.url);
   const pathname = url.pathname.replace(/\/$/, '');
+  // CORS helper for preflight and simple responses
+  const buildCorsHeaders = (req) => {
+    const h = new Headers();
+    const allowed = (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) ? ALLOWED_ORIGINS.split(',').map(s=>s.trim()) : null;
+    const origin = req.headers.get('Origin');
+    if (allowed && origin && allowed.includes(origin)) h.set('Access-Control-Allow-Origin', origin);
+    else h.set('Access-Control-Allow-Origin', '*');
+    h.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key');
+    return h;
+  };
+
+  // Handle OPTIONS preflight quickly
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: buildCorsHeaders(request) });
+  }
   if (request.method === 'POST' && pathname === '/upload') return handleUpload(request);
   if (request.method === 'POST' && pathname === '/delete') return handleDelete(request);
   if (request.method === 'POST' && pathname === '/purge') return handlePurge(request);
   // Shopify webhook removed — add later if needed
+  // Root health-check: respond with simple JSON so visiting base worker URL doesn't 404
+  if (request.method === 'GET' && (pathname === '' || pathname === '/')) {
+    const headers = buildCorsHeaders(request);
+    headers.set('Content-Type', 'application/json');
+    return new Response(JSON.stringify({ ok: true, worker: true }), { status: 200, headers });
+  }
   if (request.method === 'GET') return handleGet(request);
   return new Response('Not Found', { status: 404 });
 }
