@@ -1653,44 +1653,28 @@
           }
         }
 
-        // Now try to delete R2 assets via the Worker /delete endpoint for any URLs that look like R2/worker-hosted
+        // Now request server-side deletion of R2 assets via Netlify/Supabase function
+        // This ensures the server holds `WORKER_DELETE_KEY` and forwards deletes to Cloudflare Worker.
         const possibleR2Urls = [mindUrl, videoUrl, imageUrl].filter(Boolean);
-        // normalize configured worker base (same logic as uploadToWorker)
-        let workerBase = (window.WORKER_UPLOAD_URL || (window.ASSETS_DOMAIN ? window.ASSETS_DOMAIN : '') ) || '';
-        workerBase = workerBase.replace(/\/$/, '');
-        if (workerBase && !/^https?:\/\//i.test(workerBase)) workerBase = 'https://' + workerBase;
-
-        for (const u of possibleR2Urls) {
+        if (possibleR2Urls.length) {
           try {
-            let candidate = u;
-            // If URL lacks protocol, assume https
-            if (!/^https?:\/\//i.test(candidate)) candidate = 'https://' + candidate.replace(/^\/+/, '');
-            const parsed = new URL(candidate);
-
-            // If this URL appears to be hosted on our worker/assets domain, call the worker delete endpoint
-            const shouldCallWorker = (() => {
-              if (workerBase) {
-                try { return parsed.origin === (new URL(workerBase)).origin; } catch (e) { return false; }
-              }
-              // fallback: call worker if host looks like a workers.dev domain
-              return /workers\.dev$/i.test(parsed.hostname) || parsed.hostname === (window.ASSETS_DOMAIN || '').replace(/^https?:\/\//i, '').replace(/\/$/, '');
-            })();
-
-            if (shouldCallWorker) {
-              const deleteEndpoint = workerBase || `${parsed.origin}`;
-              await fetch(`${deleteEndpoint.replace(/\/$/, '')}/delete`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: candidate })
-              }).then(async (r) => {
-                if (!r.ok) {
-                  const txt = await r.text().catch(() => '');
-                  console.warn('Worker delete failed for', candidate, r.status, txt);
-                }
-              }).catch(err => console.warn('Worker delete request error', err));
-            }
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token || '';
+            // Prefer Netlify function endpoint which forwards deletes securely
+            const fnUrl = '/.netlify/functions/delete-assets';
+            const resp = await fetch(fnUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({ assets: possibleR2Urls })
+            });
+            const jr = await resp.json().catch(() => null);
+            if (!resp.ok) console.warn('Server delete-assets failed', resp.status, jr);
+            else console.log('Server delete-assets result', jr);
           } catch (e) {
-            console.warn('Failed to attempt worker delete for', u, e);
+            console.warn('delete-assets server call failed', e);
           }
         }
 
