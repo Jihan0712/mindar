@@ -86,6 +86,33 @@
         return row;
       }
 
+      // debounce helper
+      function debounce(fn, wait) {
+        let t = null;
+        return function(...args) {
+          clearTimeout(t);
+          t = setTimeout(() => fn.apply(this, args), wait);
+        };
+      }
+
+      // When device orientation or window resizes, re-apply the active target
+      const handleOrientationOrResize = debounce(() => {
+        try {
+          const target = window.currentActiveTarget || null;
+          if (typeof window.applyActiveTarget === 'function') {
+            window.applyActiveTarget(target);
+          }
+          // also trigger resize/refresh on aframe scene if available
+          const sceneEl = document.querySelector('a-scene');
+          if (sceneEl && sceneEl.resize) sceneEl.resize();
+        } catch (e) {
+          console.warn('orientation/resize handler error', e);
+        }
+      }, 250);
+
+      window.addEventListener('orientationchange', handleOrientationOrResize);
+      window.addEventListener('resize', handleOrientationOrResize);
+
       document.addEventListener("DOMContentLoaded", async () => {
         const tOverallStart = performance.now();
         const activeTarget = await loadActiveTarget();
@@ -103,6 +130,8 @@
 
         const mindUrl = activeTarget ? activeTarget.mindurl : null;
         const videoUrl = activeTarget ? activeTarget.videourl : null;
+        // expose current active target for orientation/resize handlers
+        window.currentActiveTarget = activeTarget;
 
         const scene = document.querySelector("a-scene");
         const aframeVideoAsset = document.querySelector("#card");
@@ -203,36 +232,47 @@
           }
         })();
 
-        if (mindUrl && videoUrl) {
-          const mindarOpts = [
-            `imageTargetSrc: ${mindUrl}`,
-            'autoStart: true',
-            'filterMinCF: 0.0001',
-            'filterBeta: 0.01',
-            'warmupTolerance: 5',
-            'missTolerance: 5'
-          ];
-          if (isIOS) {
-            mindarOpts.push('maxTrack: 1');
-            mindarOpts.push('uiScanning: false');
-            mindarOpts.push('uiLoading: false');
+        // function to apply the active target to the scene (re-usable on rotate/resize)
+        async function applyActiveTarget(target) {
+          const mindUrlLocal = target ? target.mindurl : null;
+          const videoUrlLocal = target ? target.videourl : null;
+          if (mindUrlLocal && videoUrlLocal) {
+            const mindarOpts = [
+              `imageTargetSrc: ${mindUrlLocal}`,
+              'autoStart: true',
+              'filterMinCF: 0.0001',
+              'filterBeta: 0.01',
+              'warmupTolerance: 5',
+              'missTolerance: 5'
+            ];
+            if (isIOS) {
+              mindarOpts.push('maxTrack: 1');
+              mindarOpts.push('uiScanning: false');
+              mindarOpts.push('uiLoading: false');
+            }
+            scene.setAttribute('mindar-image', mindarOpts.join('; '));
+            try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
+            // reassign source so browser refetches metadata if orientation changed
+            if (aframeVideoAsset.src !== videoUrlLocal) aframeVideoAsset.src = videoUrlLocal;
+            aframeVideoAsset.loop = true;
+            aframeVideoAsset.muted = !(localStorage.getItem('inrl_sound_enabled') === 'true');
+            aframeVideoAsset.playsInline = true;
+            aframeVideoAsset.preload = 'auto';
+            // after metadata loads, size inner plane
+            aframeVideoAsset.addEventListener('loadedmetadata', () => {
+              try { if (typeof sizeInnerPlaneGlobal === 'function') sizeInnerPlaneGlobal(); } catch(e){}
+            }, { once: true });
+          } else {
+            try { aframeVideoAsset.removeAttribute('src'); } catch(e){}
+            try { aframeVideoAsset.muted = true; } catch(e){}
           }
-          scene.setAttribute("mindar-image", mindarOpts.join('; '));
-
-          // Set video attributes early so the browser can begin fetching metadata as soon
-          // as possible. We still wait for loadedmetadata before starting the draw loop.
-          try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
-          aframeVideoAsset.src = videoUrl;
-          aframeVideoAsset.loop = true;
-          // default to muted unless user enabled sound
-          aframeVideoAsset.muted = !(localStorage.getItem('inrl_sound_enabled') === 'true');
-          aframeVideoAsset.playsInline = true;
-          aframeVideoAsset.preload = "auto";
-        } else {
-          // No active target: ensure video asset is blank and muted so it doesn't block
-          try { aframeVideoAsset.removeAttribute('src'); } catch(e){}
-          try { aframeVideoAsset.muted = true; } catch(e){}
         }
+
+        // expose for external use
+        window.applyActiveTarget = applyActiveTarget;
+
+        // initially apply
+        applyActiveTarget(activeTarget).catch(()=>{});
 
         // Wait until mesh is ready. More robust: listen for both 'loaded' (A-Frame primitive)
         // and 'model-loaded' events, and poll for a longer window before giving up.

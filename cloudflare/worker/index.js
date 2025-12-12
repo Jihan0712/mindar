@@ -73,7 +73,6 @@ async function handleGet(request) {
   }
 }
 
-
 async function handleUpload(request) {
   try {
     const auth = request.headers.get('authorization') || '';
