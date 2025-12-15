@@ -1,5 +1,93 @@
 # MindAR — Admin & Viewer (INRL AR)
 
+This repository provides a lightweight static admin UI and a public AR viewer built on MindAR and A-Frame, using Supabase for authentication and metadata. Over the project's lifetime we've migrated media hosting from Supabase Storage to Cloudflare R2 served by a Cloudflare Worker and implemented secure server-side deletion flows. This README documents the repository, a detailed history of changes, and guidance for future updates and integrations.
+
+**Status:** Project is functional. Key pieces still require dashboard configuration (Cloudflare R2/Worker bindings, secrets, and optional Netlify/Supabase function envs).
+
+**Quick links:**
+- **Admin UI:** [admin.html](admin.html)
+- **Viewer:** [index.html](index.html)
+- **Brand registration:** [brand-register.html](brand-register.html)
+- **Admin registration:** [admin-register.html](admin-register.html)
+- **Netlify functions:** [netlify/functions](netlify/functions)
+- **Supabase Edge function (delete-user):** [supabase/functions/delete-user/index.ts](supabase/functions/delete-user/index.ts)
+- **Cloudflare Worker:** [cloudflare/worker/index.js](cloudflare/worker/index.js)
+- **SQL migrations:** [sql](sql)
+
+**Why this README was updated:**
+The project underwent multiple migrations and hardening steps (asset hosting → R2, secure delete flow, URL normalization, migration helpers). This README now captures that history and provides specific operational and developer guidance so I can continue helping you with future work.
+
+**Table of contents**
+- **Project overview**
+- **Chronological history (what was done)**
+- **Files added or modified (important changes)**
+- **Deployment & configuration checklist**
+- **Security / secrets**
+- **Developer notes: how to continue**
+- **Troubleshooting & verification**
+
+**Project overview**
+- Core idea: store AR target metadata (mindurl, videourl, imageurl) and use MindAR viewer in `index.html` to load the active marker for a brand/product.
+- Auth & metadata: Supabase (Auth + Postgres tables). Media storage: Cloudflare R2 (via Worker). Deletions: secured via server-side function that holds a Worker delete secret.
+
+**Chronological history (high-level, actionable)**
+- Initial app: static admin/viewer using Supabase Storage for assets and Supabase Auth for users.
+- Migration design decision: move heavy media to Cloudflare R2 and serve via a Cloudflare Worker; keep Supabase for auth and metadata only.
+- Implemented Cloudflare Worker endpoints: POST `/upload` (form multipart → R2 put), POST `/delete` (delete by key or URL, requires secret), POST `/purge` (optional Cloudflare cache purge), GET `/<key>` (serve object with correct CORS and Cache-Control).
+- Patched frontends (`admin.html`, `brand.html`) to upload to the Worker (uploadToWorker helper) and to defensively normalize returned URLs (ensure `https://` prefix when necessary).
+- Implemented migration helpers & SQL guidance to move existing assets from Supabase Storage → R2 (asset_migration strategy and SQL steps delivered). Temporary migration UI added and later removed after the user ran migration.
+- Fixed thumbnail & CORS issues by returning proper CORS headers from the Worker and normalizing ASSETS_DOMAIN handling.
+- Hardened delete flow: Worker now requires `WORKER_DELETE_KEY` for deletes; clients must call a server function (Netlify function `delete-assets.js` or a Supabase Edge Function) that holds `WORKER_DELETE_KEY` and forwards delete requests to the Worker.
+- Updated Supabase Edge Function and Netlify delete-user functions to forward asset deletions to the Worker via the server-held secret.
+- Added defensive viewer update: `index.html` now exposes an `applyActiveTarget()` helper and listens for `orientationchange` and `resize` to re-apply MindAR/video attributes so rotation doesn't break playback.
+
+**Files added or significantly modified (summary)**
+- `cloudflare/worker/index.js` — Worker implementation (GET/POST handlers, CORS, ASSETS_DOMAIN normalization). Security: checks `x-admin-key` on delete.
+- `cloudflare/worker/wrangler.toml` — corrected bindings and env placeholders.
+- `admin.html`, `brand.html` — switched uploads to use Worker `/upload`, added `uploadToWorker()` helper, defensive URL normalization, and updated delete flows to call a server forward function.
+- `index.html` — viewer; updated to reapply active target on `orientationchange`/`resize` and expose `window.applyActiveTarget` for programmatic recovery.
+- `netlify/functions/delete-assets.js` — new server-forward function that validates admin and forwards deletes to Worker with `WORKER_DELETE_KEY` (Netlify env var required).
+- `netlify/functions/delete-user.js` and `supabase/functions/delete-user/index.ts` — updated to forward asset deletions securely to Cloudflare Worker.
+- `sql/` — migration SQL and helpers for normalizing `is_active` per brand.
+
+**Deployment & configuration checklist (must-do items)**
+- Cloudflare Worker: create a Worker, bind R2 bucket as `ASSETS_BUCKET`, and set env vars:
+  - `ASSETS_DOMAIN` — optional custom domain for assets (include https:// or set to null to auto-resolve).
+  - `WORKER_DELETE_KEY` — strong random secret (used by server functions only).
+  - `ALLOWED_ORIGINS` — comma-separated origins to allow CORS from.
+  - `CF_API_TOKEN` and `CF_ZONE_ID` — required only if you want the Worker to call Cloudflare cache purge on delete.
+- R2: create an R2 bucket and grant the Worker write/read/delete permissions.
+- Netlify (optional): if still hosting server-forward functions on Netlify, set env vars `WORKER_BASE` (worker base URL) and `WORKER_DELETE_KEY` and redeploy functions.
+- Supabase Edge Functions (alternative to Netlify): deploy `supabase/functions/delete-user` and set `WORKER_BASE` and `WORKER_DELETE_KEY` in function envs.
+
+**Security / secrets**
+- Never store `SUPABASE_SERVICE_ROLE_KEY` in client-side code. Keep it in server-side envs for Edge/Netlify functions only.
+- `WORKER_DELETE_KEY` must only exist in server envs (Netlify or Supabase Edge). Clients must not have this key; otherwise deletes can be abused.
+- If you enable Cloudflare cache purge, create a scoped API token with `Cache Purge: Zone` and `Workers: Edit` permissions and keep `CF_API_TOKEN` secret.
+
+**Developer notes: how I can help next**
+- Configure Cloudflare: I can prepare a `wrangler` deploy config or step-by-step dashboard instructions and verify the Worker binding.
+- Replace Netlify with Cloudflare Pages + Supabase Edge Functions: I can convert `netlify/functions/delete-assets.js` to a Supabase Edge Function and update admin calls.
+- Add compile-service (optional): scaffold a small Node service that runs tfjs-node compilation workloads if you want server-side compilation and storage of heavy artifacts.
+- Add e2e tests: small Puppeteer script that uploads an asset, sets active target, loads `index.html?brand=...`, and checks that the video plays and that delete flow removes R2 object.
+
+**Troubleshooting & verification steps**
+- After Worker deploy and env setup: run an upload from `admin.html` and confirm the returned URL resolves and the thumbnail loads in the admin list.
+- Test delete flow: call the server-forward endpoint (`/.netlify/functions/delete-assets` or Supabase Edge Function) with the admin token and check that the object disappears from R2.
+- If thumbnails are broken: check Worker logs for CORS issues and ensure `ASSETS_DOMAIN` is normalized with `https://` if you use a custom domain.
+
+**Immediate next steps I recommend**
+- Configure Cloudflare dashboard (R2 bucket + Worker + secrets). I can generate a deployable wrangler config and a checklist to finish this.
+- Migrate Netlify functions to Supabase Edge Functions if you want to remove Netlify hosting.
+- Add automated e2e verification for upload/delete/view flows.
+
+If you'd like, I will also open a small PR that adds a `CHECKLIST.md` with step-by-step Cloudflare dashboard instructions and a tiny `deploy_worker.sh` script to make deployment smoother.
+
+---
+
+Last update: detailed project history and operational guidance added to help future updates and integrations. If you want more/less detail in any section, tell me which part to expand or where to add runbook-style commands.
+# MindAR — Admin & Viewer (INRL AR)
+
 This repository contains a lightweight static admin and viewer UI for a Supabase-backed AR system (MindAR-based). It includes admin pages to upload/compile AR targets, manage brands, invitations and admin tokens, and a viewer page which loads the active target for a brand.
 
 This README summarizes how the code works, how the pieces fit together, and how to set up and run the project locally with Supabase.
