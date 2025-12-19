@@ -112,9 +112,10 @@
         }
       }, 250);
 
-      // On orientation change, hard refresh to fully reinitialize camera and tracking
+      // On orientation change, perform soft reinit + rescale (no hard reload)
       window.addEventListener('orientationchange', () => {
-        try { location.reload(); } catch (e) { /* ignore */ }
+        try { if (typeof window.softReinit === 'function') window.softReinit(); } catch (e) {}
+        handleOrientationOrResize();
       });
       window.addEventListener('resize', handleOrientationOrResize);
 
@@ -474,6 +475,25 @@
             aframeVideoAsset.play().catch(()=>{});
           }
         });
+        // Soft reinit routine used on orientation changes
+        try {
+          window.softReinit = function() {
+            try {
+              // pause while reconfiguring
+              try { aframeVideoAsset.pause(); } catch(e) {}
+              // re-apply target and rescale
+              try { window.applyActiveTarget(window.currentActiveTarget || null); } catch(e) {}
+              try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e) {}
+              // refresh aframe scene sizing
+              try {
+                const sceneEl = document.querySelector('a-scene');
+                if (sceneEl && sceneEl.resize) sceneEl.resize();
+              } catch(e) {}
+              // resume if target visible
+              if (lastTargetVisible) { aframeVideoAsset.play().catch(()=>{}); }
+            } catch (err) { console.warn('softReinit failed', err); }
+          };
+        } catch(e) {}
         // initial rescale pass after scene setup (in case rotation occurred before video metadata)
         try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e) {}
       });
