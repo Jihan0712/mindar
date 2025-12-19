@@ -1,66 +1,518 @@
-// Cloudflare Worker: upload/delete/purge
-// Bindings (set in wrangler.toml / Cloudflare dashboard):
-// - R2 bucket binding: ASSETS_BUCKET
-// - env var: ASSETS_DOMAIN (e.g. https://assets.inrl.com)
-// - env var: ALLOWED_ORIGINS (comma-separated allowed origins)
-// - secret: WORKER_DELETE_KEY (required for delete/purge protection)
-// - env var: SUPABASE_URL
-// - secret: SUPABASE_SERVICE_ROLE_KEY (optional, for server-side inserts)
-// - secret: CF_API_TOKEN (optional, for purge)
+// Cloudflare Worker: R2 assets + auth/targets/viewer APIs (Cloudflare-only backend)
 
 addEventListener('fetch', event => event.respondWith(handleRequest(event.request)));
+
+// ---------- CORS / JSON helpers ----------
+
+function getAllowedOrigins() {
+  if (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) {
+    return ALLOWED_ORIGINS.split(',').map(s => s.trim());
+  }
+  return null;
+}
+
+function buildCorsHeaders(req) {
+  const h = new Headers();
+  const allowed = getAllowedOrigins();
+  const origin = req.headers.get('Origin');
+  if (allowed && origin && allowed.includes(origin)) h.set('Access-Control-Allow-Origin', origin);
+  else h.set('Access-Control-Allow-Origin', '*');
+  h.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
+  h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key, x-bootstrap-key');
+  h.set('Vary', 'Origin');
+  return h;
+}
+
+function jsonResponse(body, status = 200, request = null) {
+  const headers = request ? buildCorsHeaders(request) : new Headers();
+  headers.set('Content-Type', 'application/json');
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+async function readJson(request) {
+  try {
+    const txt = await request.text();
+    return txt ? JSON.parse(txt) : {};
+  } catch {
+    return {};
+  }
+}
+
+// ---------- Crypto / D1 helpers ----------
+
+function randomId(prefix = '') {
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  const hex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+  return prefix + hex;
+}
+
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 100_000, hash: 'SHA-256' },
+    key,
+    256
+  );
+  const hashArr = new Uint8Array(bits);
+  const hashHex = Array.from(hashArr).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${salt}$${hashHex}`;
+}
+
+async function verifyPassword(password, stored) {
+  if (!stored || !stored.includes('$')) return false;
+  const [salt] = stored.split('$');
+  const check = await hashPassword(password, salt);
+  return check === stored;
+}
+
+async function dbGet(sql, ...params) {
+  const row = await DB.prepare(sql).bind(...params).first();
+  return row || null;
+}
+async function dbAll(sql, ...params) {
+  const res = await DB.prepare(sql).bind(...params).all();
+  return res?.results || [];
+}
+async function dbRun(sql, ...params) {
+  await DB.prepare(sql).bind(...params).run();
+}
+
+// ---------- Sessions ----------
+
+const SESSION_COOKIE_NAME = 'session';
+const SESSION_TTL_DAYS = 30;
+
+async function createSession(userId) {
+  const token = randomId('sess_');
+  await dbRun('insert into sessions (token, user_id) values (?, ?)', token, userId);
+  return token;
+}
+
+function parseCookies(header) {
+  const out = {};
+  (header || '').split(';').map(c => c.trim()).filter(Boolean).forEach(pair => {
+    const idx = pair.indexOf('=');
+    if (idx === -1) return;
+    const k = decodeURIComponent(pair.slice(0, idx));
+    const v = decodeURIComponent(pair.slice(idx + 1));
+    out[k] = v;
+  });
+  return out;
+}
+
+async function getSessionUser(request) {
+  const cookies = parseCookies(request.headers.get('Cookie') || '');
+  const token = cookies[SESSION_COOKIE_NAME];
+  if (!token) return null;
+  const row = await dbGet(
+    'select s.token, u.id as user_id, u.email, u.role from sessions s join users u on u.id = s.user_id where s.token = ?',
+    token
+  );
+  if (!row) return null;
+  const brands = await dbAll(
+    'select b.id, b.name from brand_users bu join brands b on b.id = bu.brand_id where bu.user_id = ?',
+    row.user_id
+  );
+  return {
+    token,
+    user: { id: row.user_id, email: row.email, role: row.role, brands }
+  };
+}
+
+function buildSessionCookie(token, request) {
+  const url = new URL(request.url);
+  const exp = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000).toUTCString();
+  const parts = [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    'Path=/',
+    `Expires=${exp}`,
+    'SameSite=Lax'
+  ];
+  if (url.protocol === 'https:') parts.push('Secure');
+  return parts.join('; ');
+}
+
+function clearSessionCookie() {
+  return `${SESSION_COOKIE_NAME}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+}
+
+// ---------- Main router ----------
 
 async function handleRequest(request) {
   const url = new URL(request.url);
   const pathname = url.pathname.replace(/\/$/, '');
-  // CORS helper for preflight and simple responses
-  const buildCorsHeaders = (req) => {
-    const h = new Headers();
-    const allowed = (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) ? ALLOWED_ORIGINS.split(',').map(s=>s.trim()) : null;
-    const origin = req.headers.get('Origin');
-    if (allowed && origin && allowed.includes(origin)) h.set('Access-Control-Allow-Origin', origin);
-    else h.set('Access-Control-Allow-Origin', '*');
-    h.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key');
-    return h;
-  };
 
-  // Handle OPTIONS preflight quickly
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: buildCorsHeaders(request) });
   }
+
+  // Existing R2 operations
   if (request.method === 'POST' && pathname === '/upload') return handleUpload(request);
   if (request.method === 'POST' && pathname === '/delete') return handleDelete(request);
-  if (request.method === 'POST' && pathname === '/purge') return handlePurge(request);
-  // Shopify webhook removed — add later if needed
-  // Root health-check: respond with simple JSON so visiting base worker URL doesn't 404
+  if (request.method === 'POST' && pathname === '/purge')  return handlePurge(request);
+
+  // JSON API
+  if (pathname.startsWith('/api/')) return handleApi(request, pathname);
+
+  // Health
   if (request.method === 'GET' && (pathname === '' || pathname === '/')) {
     const headers = buildCorsHeaders(request);
     headers.set('Content-Type', 'application/json');
     return new Response(JSON.stringify({ ok: true, worker: true }), { status: 200, headers });
   }
+
+  // Asset GET from R2
   if (request.method === 'GET') return handleGet(request);
   return new Response('Not Found', { status: 404 });
 }
 
-// Serve objects from R2 at GET /<key>
+// ---------- /api/* router ----------
+
+async function handleApi(request, pathname) {
+  // Auth
+  if (request.method === 'POST' && pathname === '/api/auth/bootstrap-admin') return apiBootstrapAdmin(request);
+  if (request.method === 'POST' && pathname === '/api/auth/login')           return apiLogin(request);
+  if (request.method === 'POST' && pathname === '/api/auth/logout')          return apiLogout(request);
+  if (request.method === 'GET'  && pathname === '/api/auth/me')              return apiMe(request);
+
+  // Targets
+  if (request.method === 'GET'  && pathname === '/api/targets')              return apiListTargets(request);
+  if (request.method === 'POST' && pathname === '/api/targets')              return apiCreateTarget(request);
+  if (request.method === 'POST' && pathname.endsWith('/activate')) {
+    const id = parseInt(pathname.split('/')[3], 10); return apiActivateTarget(request, id);
+  }
+  if (request.method === 'POST' && pathname.endsWith('/deactivate')) {
+    const id = parseInt(pathname.split('/')[3], 10); return apiDeactivateTarget(request, id);
+  }
+  if (request.method === 'DELETE' && /^\/api\/targets\/\d+$/.test(pathname)) {
+    const id = parseInt(pathname.split('/')[3], 10); return apiDeleteTarget(request, id);
+  }
+
+  // Viewer
+  if (request.method === 'GET' && pathname === '/api/viewer/active')         return apiViewerActive(request);
+
+  return jsonResponse({ error: 'Not Found' }, 404, request);
+}
+
+// ---------- Auth APIs ----------
+
+async function apiBootstrapAdmin(request) {
+  const body = await readJson(request);
+  const provided = request.headers.get('x-bootstrap-key') || '';
+  if (!BOOTSTRAP_ADMIN_KEY || provided !== BOOTSTRAP_ADMIN_KEY) {
+    return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  }
+  const email = (body.email || '').trim().toLowerCase();
+  const password = body.password || '';
+  if (!email || !password) return jsonResponse({ error: 'email and password required' }, 400, request);
+
+  const existing = await dbGet('select id from users where email = ?', email);
+  if (existing) return jsonResponse({ error: 'admin already exists for this email' }, 400, request);
+
+  const salt = randomId('salt_');
+  const hash = await hashPassword(password, salt);
+  const userId = randomId('usr_');
+  await dbRun('insert into users (id, email, password_hash, role) values (?, ?, ?, ?)', userId, email, hash, 'admin');
+  const token = await createSession(userId);
+  const res = jsonResponse({ ok: true, user: { id: userId, email, role: 'admin' } }, 200, request);
+  res.headers.append('Set-Cookie', buildSessionCookie(token, request));
+  return res;
+}
+
+async function apiLogin(request) {
+  const body = await readJson(request);
+  const email = (body.email || '').trim().toLowerCase();
+  const password = body.password || '';
+  if (!email || !password) return jsonResponse({ error: 'email and password required' }, 400, request);
+
+  const user = await dbGet('select id, email, password_hash, role from users where email = ?', email);
+  if (!user) return jsonResponse({ error: 'Invalid credentials' }, 401, request);
+
+  const ok = await verifyPassword(password, user.password_hash);
+  if (!ok) return jsonResponse({ error: 'Invalid credentials' }, 401, request);
+
+  const token = await createSession(user.id);
+  const brands = await dbAll(
+    'select b.id, b.name from brand_users bu join brands b on b.id = bu.brand_id where bu.user_id = ?',
+    user.id
+  );
+  const res = jsonResponse({ ok: true, user: { id: user.id, email: user.email, role: user.role, brands } }, 200, request);
+  res.headers.append('Set-Cookie', buildSessionCookie(token, request));
+  return res;
+}
+
+async function apiLogout(request) {
+  const sess = await getSessionUser(request);
+  if (sess?.token) await dbRun('delete from sessions where token = ?', sess.token);
+  const res = jsonResponse({ ok: true }, 200, request);
+  res.headers.append('Set-Cookie', clearSessionCookie());
+  return res;
+}
+
+async function apiMe(request) {
+  const sess = await getSessionUser(request);
+  return jsonResponse({ user: sess ? sess.user : null }, 200, request);
+}
+
+// ---------- Targets APIs (admin + brand) ----------
+
+async function apiListTargets(request) {
+  const sess = await getSessionUser(request);
+  if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  const role = sess.user.role;
+  const url = new URL(request.url);
+  const brandName = (url.searchParams.get('brand') || '').trim();
+  const product   = (url.searchParams.get('product') || '').trim();
+
+  let sql = `
+    select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
+           t.is_active, t.created_at, b.name as brand
+    from targets t
+    left join brands b on b.id = t.brand_id
+  `;
+  const where = [];
+  const params = [];
+
+  if (role === 'brand') {
+    const brandIds = (sess.user.brands || []).map(b => b.id);
+    if (!brandIds.length) return jsonResponse({ items: [] }, 200, request);
+    where.push(`t.brand_id in (${brandIds.map(() => '?').join(',')})`);
+    params.push(...brandIds);
+  }
+  if (brandName) { where.push('b.name = ?');      params.push(brandName); }
+  if (product)   { where.push('t.product = ?');   params.push(product);   }
+
+  if (where.length) sql += ' where ' + where.join(' and ');
+  sql += ' order by t.created_at desc';
+
+  const rows = await dbAll(sql, ...params);
+  const items = rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    product: r.product,
+    mindurl: r.mind_url,
+    videourl: r.video_url,
+    imageurl: r.image_url,
+    is_active: !!r.is_active,
+    created_at: r.created_at,
+    brand: r.brand || null
+  }));
+  return jsonResponse({ items }, 200, request);
+}
+
+async function apiCreateTarget(request) {
+  const sess = await getSessionUser(request);
+  if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  const body = await readJson(request);
+  const name    = (body.name || '').trim();
+  const product = (body.product || '').trim() || null;
+  const mindUrl = (body.mind_url || '').trim();
+  const videoUrl= (body.video_url || '').trim();
+  const imageUrl= (body.image_url || '').trim() || null;
+  let brandName = (body.brand || '').trim();
+
+  if (!name || !mindUrl || !videoUrl) {
+    return jsonResponse({ error: 'name, mind_url, video_url required' }, 400, request);
+  }
+
+  let brandId = null;
+  if (sess.user.role === 'admin') {
+    if (brandName) {
+      let b = await dbGet('select id from brands where name = ?', brandName);
+      if (!b) {
+        await dbRun('insert into brands (name) values (?)', brandName);
+        b = await dbGet('select id from brands where name = ?', brandName);
+      }
+      brandId = b.id;
+    }
+  } else if (sess.user.role === 'brand') {
+    const brands = sess.user.brands || [];
+    if (!brands.length) return jsonResponse({ error: 'Brand account has no brand assigned' }, 400, request);
+    brandId = brands[0].id;
+    brandName = brands[0].name;
+  } else {
+    return jsonResponse({ error: 'Forbidden' }, 403, request);
+  }
+
+  await dbRun(
+    'insert into targets (user_id, brand_id, name, product, mind_url, video_url, image_url, is_active) values (?, ?, ?, ?, ?, ?, ?, 0)',
+    sess.user.id, brandId, name, product, mindUrl, videoUrl, imageUrl
+  );
+
+  const row = await dbGet(
+    `select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
+            t.is_active, t.created_at, b.name as brand
+     from targets t
+     left join brands b on b.id = t.brand_id
+     where t.rowid = last_insert_rowid()`
+  );
+
+  const item = row && {
+    id: row.id,
+    name: row.name,
+    product: row.product,
+    mindurl: row.mind_url,
+    videourl: row.video_url,
+    imageurl: row.image_url,
+    is_active: !!row.is_active,
+    created_at: row.created_at,
+    brand: row.brand || brandName || null
+  };
+  return jsonResponse({ ok: true, item }, 201, request);
+}
+
+async function apiActivateTarget(request, id) {
+  const sess = await getSessionUser(request);
+  if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  if (!id)   return jsonResponse({ error: 'id required' }, 400, request);
+
+  const t = await dbGet(
+    'select t.id, t.brand_id, t.product, b.name as brand from targets t left join brands b on b.id = t.brand_id where t.id = ?',
+    id
+  );
+  if (!t) return jsonResponse({ error: 'Not found' }, 404, request);
+
+  if (sess.user.role === 'brand') {
+    const brandIds = (sess.user.brands || []).map(b => b.id);
+    if (!brandIds.includes(t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+  }
+
+  let maxActive = 3;
+  if (t.brand_id != null) {
+    const limitRow = await dbGet('select max_active from brand_limits where brand_id = ?', t.brand_id);
+    if (limitRow && typeof limitRow.max_active === 'number') maxActive = limitRow.max_active;
+  }
+  const countRow = await dbGet(
+    'select count(*) as c from targets where brand_id = ? and is_active = 1',
+    t.brand_id
+  );
+  const activeCount = countRow ? countRow.c : 0;
+  if (activeCount >= maxActive) {
+    return jsonResponse(
+      { error: 'Max active targets for brand reached', brand: t.brand, max: maxActive },
+      400,
+      request
+    );
+  }
+
+  await dbRun(
+    'update targets set is_active = 0 where brand_id = ? and product is ? and id != ?',
+    t.brand_id,
+    t.product,
+    id
+  );
+  await dbRun('update targets set is_active = 1 where id = ?', id);
+  return jsonResponse({ ok: true }, 200, request);
+}
+
+async function apiDeactivateTarget(request, id) {
+  const sess = await getSessionUser(request);
+  if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  if (!id)   return jsonResponse({ error: 'id required' }, 400, request);
+
+  const t = await dbGet('select id, brand_id from targets where id = ?', id);
+  if (!t) return jsonResponse({ error: 'Not found' }, 404, request);
+  if (sess.user.role === 'brand') {
+    const brandIds = (sess.user.brands || []).map(b => b.id);
+    if (!brandIds.includes(t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+  }
+  await dbRun('update targets set is_active = 0 where id = ?', id);
+  return jsonResponse({ ok: true }, 200, request);
+}
+
+async function apiDeleteTarget(request, id) {
+  const sess = await getSessionUser(request);
+  if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  if (!id)   return jsonResponse({ error: 'id required' }, 400, request);
+
+  const row = await dbGet('select id, brand_id, mind_url, video_url, image_url from targets where id = ?', id);
+  if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+  if (sess.user.role === 'brand') {
+    const brandIds = (sess.user.brands || []).map(b => b.id);
+    if (!brandIds.includes(row.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+  }
+
+  await dbRun('delete from targets where id = ?', id);
+
+  const assets = [row.mind_url, row.video_url, row.image_url].filter(Boolean);
+  const results = [];
+  for (const u of assets) {
+    try {
+      const base = (typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '').replace(/\/$/, '');
+      const key = u.replace(`${base}/`, '');
+      await ASSETS_BUCKET.delete(key);
+      results.push({ url: u, ok: true });
+    } catch (e) {
+      results.push({ url: u, ok: false, error: String(e) });
+    }
+  }
+  return jsonResponse({ ok: true, deleteResults: results }, 200, request);
+}
+
+// ---------- Viewer API ----------
+
+async function apiViewerActive(request) {
+  const url = new URL(request.url);
+  const brand   = (url.searchParams.get('brand') || '').trim();
+  const product = (url.searchParams.get('product') || '').trim();
+
+  let sql = `
+    select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
+           t.is_active, t.created_at, b.name as brand
+    from targets t
+    left join brands b on b.id = t.brand_id
+    where t.is_active = 1
+  `;
+  const where = [];
+  const params = [];
+
+  if (brand)   { where.push('lower(b.name) = lower(?)');    params.push(brand);   }
+  if (product) { where.push('lower(t.product) = lower(?)'); params.push(product); }
+
+  if (!brand && !product) {
+    where.push('t.brand_id is null');
+    where.push('t.product is null');
+  }
+  if (where.length) sql += ' and ' + where.join(' and ');
+  sql += ' order by t.created_at desc limit 1';
+
+  const row = await dbGet(sql, ...params);
+  if (!row) return jsonResponse({ error: 'No active target found' }, 404, request);
+
+  return jsonResponse({
+    id: row.id,
+    name: row.name,
+    product: row.product,
+    brand: row.brand || null,
+    mindurl: row.mind_url,
+    videourl: row.video_url,
+    imageurl: row.image_url,
+    is_active: !!row.is_active,
+    created_at: row.created_at
+  }, 200, request);
+}
+
+// ---------- Existing R2 handlers (unchanged from your current worker) ----------
+
 async function handleGet(request) {
   try {
     const url = new URL(request.url);
     let key = url.pathname.replace(/^\//, '');
     if (!key) return new Response('Not Found', { status: 404 });
 
-    // Attempt to fetch object from R2
     const obj = await ASSETS_BUCKET.get(key, { allowUnencrypted: true });
     if (!obj || !obj.body) return new Response('Not Found', { status: 404 });
 
     const headers = new Headers();
-    const contentType = (obj.httpMetadata && obj.httpMetadata.contentType) || (obj.customMetadata && obj.customMetadata.contentType) || 'application/octet-stream';
-    headers.set('Content-Type', contentType);
-    // Strong caching for immutable asset files
+    const ct = (obj.httpMetadata && obj.httpMetadata.contentType) ||
+               (obj.customMetadata && obj.customMetadata.contentType) ||
+               'application/octet-stream';
+    headers.set('Content-Type', ct);
     headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-    // CORS: honor ALLOWED_ORIGINS if set, else allow all during rollout
-    const allowed = (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) ? ALLOWED_ORIGINS.split(',').map(s=>s.trim()) : null;
+
+    const allowed = getAllowedOrigins();
     const origin = request.headers.get('Origin');
     if (allowed && origin && allowed.includes(origin)) headers.set('Access-Control-Allow-Origin', origin);
     else headers.set('Access-Control-Allow-Origin', '*');
@@ -75,11 +527,10 @@ async function handleGet(request) {
 
 async function handleUpload(request) {
   try {
-    const auth = request.headers.get('authorization') || '';
-    // Optionally validate the bearer token here by forwarding to Supabase /auth/v1/user
     const form = await request.formData();
     const file = form.get('file');
-    if (!file) return new Response(JSON.stringify({ error: 'file required' }), { status: 400 });
+    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
+
     const path = (form.get('path') || 'videos').toString();
     const filename = (form.get('filename') || (file.name || `${Date.now()}`)).toString();
     const key = `${path}/${Date.now()}-${filename}`;
@@ -88,37 +539,32 @@ async function handleUpload(request) {
       httpMetadata: { contentType: file.type || 'application/octet-stream' }
     });
 
-    // Normalize ASSETS_DOMAIN to include a protocol if operator omitted it
     let assetsDomain = (typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '') || '';
     assetsDomain = assetsDomain.replace(/\/$/, '');
     if (assetsDomain && !/^https?:\/\//i.test(assetsDomain)) assetsDomain = 'https://' + assetsDomain;
     const publicUrl = `${assetsDomain}/${key}`;
-    // CORS for upload response
-    const uploadHeaders = new Headers({ 'Content-Type': 'application/json' });
-    const originReq = request.headers.get('Origin');
-    const allowedOrigins = (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) ? ALLOWED_ORIGINS.split(',').map(s=>s.trim()) : null;
-    if (allowedOrigins && originReq && allowedOrigins.includes(originReq)) uploadHeaders.set('Access-Control-Allow-Origin', originReq);
-    else uploadHeaders.set('Access-Control-Allow-Origin', '*');
-    uploadHeaders.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    uploadHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key');
-    return new Response(JSON.stringify({ ok: true, key, url: publicUrl }), { status: 200, headers: uploadHeaders });
+
+    const headers = buildCorsHeaders(request);
+    headers.set('Content-Type', 'application/json');
+    return new Response(JSON.stringify({ ok: true, key, url: publicUrl }), { status: 200, headers });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return jsonResponse({ error: String(e) }, 500, request);
   }
 }
 
 async function handleDelete(request) {
   try {
-    // Protect delete: require a secret header matching WORKER_DELETE_KEY
     const provided = request.headers.get('x-admin-key') || '';
     if (!provided || provided !== (typeof WORKER_DELETE_KEY === 'string' ? WORKER_DELETE_KEY : '')) {
-      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+      return jsonResponse({ error: 'unauthorized' }, 401, request);
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJson(request);
     const key = body.key || (body.url ? body.url.replace(`${(typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '').replace(/\/$/, '')}/`, '') : null);
-    if (!key) return new Response(JSON.stringify({ error: 'key or url required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    if (!key) return jsonResponse({ error: 'key or url required' }, 400, request);
+
     await ASSETS_BUCKET.delete(key);
-    // Purge CDN for the deleted file if configured
+
+    
     try {
       if (CF_ZONE_ID && CF_API_TOKEN) {
         await fetch(`https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache`, {
@@ -127,37 +573,34 @@ async function handleDelete(request) {
           body: JSON.stringify({ files: [`${ASSETS_DOMAIN.replace(/\/$/, '')}/${key}`] })
         });
       }
-    } catch ( _e ) { /* ignore purge errors */ }
-    // CORS for delete response (respect ALLOWED_ORIGINS if provided)
-    const dHeaders = new Headers({ 'Content-Type': 'application/json' });
-    const originReq2 = request.headers.get('Origin');
-    const allowedOrigins2 = (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) ? ALLOWED_ORIGINS.split(',').map(s=>s.trim()) : null;
-    if (allowedOrigins2 && originReq2 && allowedOrigins2.includes(originReq2)) dHeaders.set('Access-Control-Allow-Origin', originReq2);
-    else dHeaders.set('Access-Control-Allow-Origin', '*');
-    dHeaders.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    dHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key');
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: dHeaders });
+    } catch {
+      // ignore purge errors 1
+    }
+
+    return jsonResponse({ ok: true }, 200, request);
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return jsonResponse({ error: String(e) }, 500, request);
   }
 }
 
 async function handlePurge(request) {
   try {
-    const body = await request.json();
+    const body = await readJson(request);
     const urls = body.urls || [];
-    if (!Array.isArray(urls) || urls.length === 0) return new Response(JSON.stringify({ error: 'urls required' }), { status: 400 });
-    if (!CF_ZONE_ID || !CF_API_TOKEN) return new Response(JSON.stringify({ error: 'CF purge not configured' }), { status: 500 });
+    if (!Array.isArray(urls) || !urls.length) return jsonResponse({ error: 'urls required' }, 400, request);
+    if (!CF_ZONE_ID || !CF_API_TOKEN)       return jsonResponse({ error: 'CF purge not configured' }, 500, request);
+
     const resp = await fetch(`https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${CF_API_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ files: urls })
     });
     const j = await resp.json().catch(() => ({}));
-    return new Response(JSON.stringify({ ok: true, result: j }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return jsonResponse({ ok: true, result: j }, 200, request);
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  
+
+    return jsonResponse({ error: String(e) }, 500, request);
   }
 }
-
 
