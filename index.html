@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>INRL AR Viewer (Stabilized)</title>
 
     <!-- A-Frame + MindAR -->
@@ -31,8 +31,6 @@
         z-index: 10002;
       }
       .sound-toggle.hidden { display: none; }
-
-      /* (Removed) Orientation guard styles — viewer now works in landscape */
     </style>
 
     <!-- Supabase Client -->
@@ -97,59 +95,30 @@
         };
       }
 
-      // When device orientation or window resizes, re-size scene and video plane only
+      // When device orientation or window resizes, re-apply the active target
       const handleOrientationOrResize = debounce(() => {
         try {
+          const target = window.currentActiveTarget || null;
+          if (typeof window.applyActiveTarget === 'function') {
+            window.applyActiveTarget(target);
+          }
+          if (typeof window.sizeInnerPlaneGlobal === 'function') {
+            window.sizeInnerPlaneGlobal();
+          }
           // also trigger resize/refresh on aframe scene if available
           const sceneEl = document.querySelector('a-scene');
           if (sceneEl && sceneEl.resize) sceneEl.resize();
-          if (typeof window.sizeInnerPlaneGlobal === 'function') {
-            try { window.sizeInnerPlaneGlobal(); } catch(e) {}
-          }
-          setTimeout(() => { try { sceneEl && sceneEl.resize && sceneEl.resize(); } catch(e){} }, 200);
         } catch (e) {
           console.warn('orientation/resize handler error', e);
         }
       }, 250);
 
-      function realignMindARAfterRotate() {
-        try {
-          const sceneEl = document.querySelector('a-scene');
-          const arSystem = sceneEl?.systems?.['mindar-image-system'];
-          try { arSystem?.onResize?.(); } catch(e) {}
-          try { arSystem?.controller?.onResize?.(); } catch(e) {}
-          // Optional fallback restart via query (?rotateRestart=1) to handle edge devices
-          try {
-            const p = new URLSearchParams(location.search);
-            const shouldRestart = ['1','true','yes'].includes((p.get('rotateRestart')||'').toLowerCase());
-            if (shouldRestart && arSystem && arSystem.stop && arSystem.start) {
-              arSystem.stop();
-              setTimeout(() => { try { arSystem.start(); } catch(e){} }, 60);
-            }
-          } catch (e) {}
-        } catch (e) { console.warn('realignMindARAfterRotate error', e); }
-      }
-
-      window.addEventListener('orientationchange', () => {
-        handleOrientationOrResize();
-        // settle layout and realign MindAR without showing loading
-        setTimeout(() => {
-          try { handleOrientationOrResize(); } catch(e){}
-          realignMindARAfterRotate();
-          try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e){}
-          // a couple of rAF ticks to smooth out relayout
-          let ticks = 0; const sceneEl = document.querySelector('a-scene');
-          const smooth = () => {
-            try { sceneEl && sceneEl.resize && sceneEl.resize(); } catch(e){}
-            if (ticks++ < 2) requestAnimationFrame(smooth);
-          };
-          requestAnimationFrame(smooth);
-        }, 180);
-      });
+      window.addEventListener('orientationchange', handleOrientationOrResize);
       window.addEventListener('resize', handleOrientationOrResize);
-      try { if (window.visualViewport) visualViewport.addEventListener('resize', handleOrientationOrResize); } catch(e){}
 
       document.addEventListener("DOMContentLoaded", async () => {
+        // Attempt to lock orientation to portrait where supported (PWA/Android Chrome)
+        try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); } catch (e) {}
         const tOverallStart = performance.now();
         const activeTarget = await loadActiveTarget();
         console.log(`timing: fetched active target in ${Math.round(performance.now()-tOverallStart)}ms`);
@@ -176,17 +145,6 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         let lastTargetVisible = false;
-
-        // Fit mode from query: contain | cover | stretch (default: contain)
-        (function initFitMode() {
-          try {
-            const p = new URLSearchParams(window.location.search);
-            const f = (p.get('fit') || 'contain').toLowerCase();
-            const allowed = ['contain','cover','stretch'];
-            window.inrlFitMode = allowed.includes(f) ? f : 'contain';
-            console.log('[viewer] fit mode =', window.inrlFitMode);
-          } catch (e) { window.inrlFitMode = 'contain'; }
-        })();
 
         // --- Sound toggle and AudioContext unlock helper ---
         let audioCtx = null;
@@ -290,11 +248,13 @@
               'filterMinCF: 0.0001',
               'filterBeta: 0.01',
               'warmupTolerance: 5',
-              'missTolerance: 5',
-              'uiScanning: false',
-              'uiLoading: false'
+              'missTolerance: 5'
             ];
-            if (isIOS) { mindarOpts.push('maxTrack: 1'); }
+            if (isIOS) {
+              mindarOpts.push('maxTrack: 1');
+              mindarOpts.push('uiScanning: false');
+              mindarOpts.push('uiLoading: false');
+            }
             scene.setAttribute('mindar-image', mindarOpts.join('; '));
             try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
             // reassign source so browser refetches metadata if orientation changed
@@ -318,8 +278,6 @@
 
         // initially apply
         applyActiveTarget(activeTarget).catch(()=>{});
-        // ensure any late layout settles
-        setTimeout(() => { try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e){} }, 300);
 
         // Wait until mesh is ready. More robust: listen for both 'loaded' (A-Frame primitive)
         // and 'model-loaded' events, and poll for a longer window before giving up.
@@ -416,7 +374,6 @@
           planeEl.setAttribute("width", planeWidthUnits);
           planeEl.setAttribute("height", planeHeightUnits);
           try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch(e) {}
-          try { planeEl.removeAttribute('src'); } catch(e) {}
 
           // Create (or reuse) an inner video plane that will display the <video> element directly.
           let inner = target.querySelector('#video-inner-plane');
@@ -440,34 +397,13 @@
 
             const markerW = planeWidthUnits;
             const markerH = planeHeightUnits;
-            const markerAspect = markerW / markerH;
             let videoUnitW, videoUnitH;
-            const mode = (window.inrlFitMode || 'contain');
-
-            if (mode === 'stretch') {
-              // Ignore aspect: fill marker completely
+            if (videoAspect > (markerW / markerH)) {
               videoUnitW = markerW;
-              videoUnitH = markerH;
-            } else if (mode === 'cover') {
-              // Fill marker in both dimensions (may overflow one side)
-              if (videoAspect > markerAspect) {
-                // video wider than marker -> match height, overflow width
-                videoUnitH = markerH;
-                videoUnitW = markerH * videoAspect;
-              } else {
-                // video taller/narrower -> match width, overflow height
-                videoUnitW = markerW;
-                videoUnitH = markerW / videoAspect;
-              }
+              videoUnitH = markerW / videoAspect;
             } else {
-              // contain (default): fit entirely inside marker
-              if (videoAspect > markerAspect) {
-                videoUnitW = markerW;
-                videoUnitH = markerW / videoAspect;
-              } else {
-                videoUnitH = markerH;
-                videoUnitW = markerH * videoAspect;
-              }
+              videoUnitH = markerH;
+              videoUnitW = markerH * videoAspect;
             }
 
             inner.setAttribute('width', videoUnitW);
@@ -476,12 +412,12 @@
             try { planeEl.setAttribute('visible', 'true'); } catch(e) {}
           }
 
-          // expose re-sizer for orientation/resize handlers
-          try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch(e) {}
-
           // Wait for video metadata so we can read natural dimensions.
           if (aframeVideoAsset.readyState >= 1) sizeInnerPlane();
           else aframeVideoAsset.addEventListener('loadedmetadata', sizeInnerPlane, { once: true });
+
+          // Expose globally so orientation/resize handlers can rescale without reloading
+          try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch (e) {}
         });
 
         // start-screen removed; playback will attempt on targetFound and prompt if blocked
@@ -546,8 +482,6 @@
       <!-- Minimal floating sound toggle -->
       <button id="soundToggle" class="sound-toggle" aria-pressed="false" aria-label="Enable sound">🔈</button>
 
-      <!-- Orientation guard removed: viewer supported in landscape -->
-
     <a-scene
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
@@ -563,6 +497,7 @@
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-plane
           id="video-plane"
+          src="#card"
           position="0 0 0"
           width="1"
           height="1"
