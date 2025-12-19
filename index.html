@@ -44,22 +44,48 @@
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       async function loadActiveTarget() {
-        console.log("📡 Loading active target from Worker API...");
+        console.log("📡 Loading active target from Supabase...");
         const params = new URLSearchParams(window.location.search);
         const brand = (params.get('brand') || '').trim();
         const product = (params.get('product') || '').trim();
-        const qs = new URLSearchParams();
-        if (brand) qs.set('brand', brand);
-        if (product) qs.set('product', product);
-        const res = await fetch(`/api/viewer/active${qs.toString() ? `?${qs}` : ''}`);
-        if (!res.ok) {
-          const msg = await res.text().catch(() => '');
-          console.error("❌ No active target", res.status, msg);
+
+        // Build query: be permissive when only product is provided (match any brand),
+        // but when no params are provided default to the global bucket (brand IS NULL and product IS NULL).
+        let q = supabase
+          .from('targets')
+          .select('*')
+          .eq('is_active', true);
+
+        const noParams = !brand && !product;
+
+        // Case-insensitive matches to be forgiving on mobile keyboards/URLs
+        if (brand) q = q.ilike('brand', brand);
+        if (product) q = q.ilike('product', product);
+
+        if (noParams) {
+          // Original behavior: load the global active target when no params are provided
+          q = q.is('brand', null).is('product', null);
+        }
+
+        // Be resilient if multiple rows match (e.g., duplicates). Take most recent.
+        q = q.order('updated_at', { ascending: false }).limit(1);
+
+        const { data, error } = await q;
+
+        if (error || !Array.isArray(data) || data.length === 0) {
+          console.error("❌ No active target found or query failed:", error);
+          const message = error?.message || 'No active target found for this brand/product.';
+          document.body.innerHTML =
+            `<div style="padding:16px;text-align:center;color:#b91c1c;">
+               <h2 style='margin-bottom:8px;'>❌ ${message}</h2>
+               <div style="font-size:12px;color:#6b7280;">Tip: Ensure the target is marked active and that public SELECT is allowed by RLS for active targets.</div>
+             </div>`;
           return null;
         }
-        const row = await res.json();
+
+        const row = data[0];
         console.log("✅ Active target loaded:", row);
-        return row; // has mindurl, videourl, imageurl
+        return row;
       }
 
       // debounce helper
