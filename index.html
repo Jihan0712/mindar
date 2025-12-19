@@ -35,23 +35,38 @@
 
     <!-- Viewer Script -->
     <script type="module">
+      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
       async function loadActiveTarget() {
-        console.log("📡 Loading active target from Worker API...");
+        console.log("📡 Loading active target from Supabase...");
         const params = new URLSearchParams(window.location.search);
         const brand = (params.get('brand') || '').trim();
         const product = (params.get('product') || '').trim();
-        const qs = new URLSearchParams();
-        if (brand) qs.set('brand', brand);
-        if (product) qs.set('product', product);
-        const res = await fetch(`/api/viewer/active${qs.toString() ? `?${qs}` : ''}`);
-        if (!res.ok) {
-          const msg = await res.text().catch(() => '');
-          console.error("❌ No active target", res.status, msg);
+
+        let q = supabase
+          .from('targets')
+          .select('*')
+          .eq('is_active', true);
+
+        const noParams = !brand && !product;
+        if (brand) q = q.ilike('brand', brand);
+        if (product) q = q.ilike('product', product);
+        if (noParams) q = q.is('brand', null).is('product', null);
+
+        q = q.order('updated_at', { ascending: false }).limit(1);
+
+        const { data, error } = await q;
+        if (error || !Array.isArray(data) || data.length === 0) {
+          console.error("❌ No active target found or query failed:", error);
           return null;
         }
-        const row = await res.json();
+        const row = data[0];
         console.log("✅ Active target loaded:", row);
-        return row; // has mindurl, videourl, imageurl
+        return row;
       }
 
       // debounce helper
