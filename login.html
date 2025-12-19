@@ -30,7 +30,7 @@
     <script>
   const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       const emailEl = document.getElementById('email');
       const passEl = document.getElementById('password');
@@ -50,26 +50,26 @@
       // If already signed in, try to auto-claim any brand invite, then route
       (async () => {
         try {
-          const { data } = await supabase.auth.getSession();
+          const { data } = await sb.auth.getSession();
           const session = data?.session || null;
           if (!session) return; // not signed in
           const user = session.user;
 
           // Try claim by email (non-fatal)
-          try { await supabase.rpc('claim_brand_invite_for_self'); } catch (e) { /* ignore */ }
+          try { await sb.rpc('claim_brand_invite_for_self'); } catch (e) { /* ignore */ }
 
           // Prefer RPCs if you have them; fallback to table selects (may be blocked under RLS)
           try {
             // Prefer RPC is_admin() if available (safer under RLS). Fallback to table select.
             try {
-              const { data: isAdm, error: rpcErr } = await supabase.rpc('is_admin');
+              const { data: isAdm, error: rpcErr } = await sb.rpc('is_admin');
               if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
             } catch (e) {
               // ignore rpc errors and fallback
             }
 
             // Fallback: query admins table directly (schema uses only user_id)
-            const { data: adminRow, error: adminErr } = await supabase
+            const { data: adminRow, error: adminErr } = await sb
               .from('admins')
               .select('user_id')
               .eq('user_id', user.id)
@@ -82,12 +82,12 @@
             console.warn('Admin check failed:', e);
           }
 
-          // check profile.brand
+          // check profile.role (admin) then profile.brand (brand)
           try {
-            const { data: prof, error: profErr } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
-            if (!profErr && prof && prof.brand) {
-              window.location.href = '/brand.html';
-              return;
+            const { data: prof, error: profErr } = await sb.from('profiles').select('role, brand').eq('user_id', user.id).maybeSingle();
+            if (!profErr && prof) {
+              if (prof.role === 'admin') { window.location.href = '/admin.html'; return; }
+              if (prof.brand) { window.location.href = '/brand.html'; return; }
             }
           } catch (e) {
             console.warn('Profile check failed:', e);
@@ -105,26 +105,27 @@
           const email = emailEl.value.trim();
           const password = passEl.value;
           if (!email || !password) return showError('Enter email and password');
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          const { error } = await sb.auth.signInWithPassword({ email, password });
           if (error) return showError(error);
           // signed in -> route by role
           try {
-            const { data: sessionData } = await supabase.auth.getSession();
+            const { data: sessionData } = await sb.auth.getSession();
             const user = sessionData?.data?.session?.user || sessionData?.session?.user || null;
             if (!user) { window.location.href = '/client.html'; return; }
             // Try to claim automatically now that session exists
-            try { await supabase.rpc('claim_brand_invite_for_self'); } catch (e) {}
+            try { await sb.rpc('claim_brand_invite_for_self'); } catch (e) {}
             try {
-              const { data: isAdm, error: rpcErr } = await supabase.rpc('is_admin');
+              const { data: isAdm, error: rpcErr } = await sb.rpc('is_admin');
               if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
             } catch (e) {}
-            const { data: adminRow } = await supabase
+            const { data: adminRow } = await sb
               .from('admins')
               .select('user_id')
               .eq('user_id', user.id)
               .maybeSingle();
             if (adminRow && adminRow.user_id === user.id) { window.location.href = '/admin.html'; return; }
-            const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
+            const { data: prof } = await sb.from('profiles').select('role, brand').eq('user_id', user.id).maybeSingle();
+            if (prof && prof.role === 'admin') { window.location.href = '/admin.html'; return; }
             if (prof && prof.brand) { window.location.href = '/brand.html'; return; }
           } catch (e) {
             console.warn('Post-login routing failed, falling back to client.html', e);
