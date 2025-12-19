@@ -496,13 +496,34 @@
             try {
               // pause while reconfiguring
               try { aframeVideoAsset.pause(); } catch(e) {}
-              // re-apply target and rescale
+              // Force mindar component to rebuild by removing and re-setting attribute
+              try {
+                if (scene && scene.removeAttribute) scene.removeAttribute('mindar-image');
+              } catch(e) {}
+              // re-apply target and rescale (includes setting mindar-image again)
               try { window.applyActiveTarget(window.currentActiveTarget || null); } catch(e) {}
-              try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e) {}
+              // restart MindAR tracking system if available
+              try {
+                const sys = scene && scene.systems && scene.systems['mindar-image-system'];
+                if (sys && sys.stop) sys.stop();
+                if (sys && sys.start) sys.start();
+              } catch(e) {}
+              // rescale inner plane after viewport settle
+              try {
+                if (typeof window.sizeInnerPlaneGlobal === 'function') {
+                  setTimeout(() => { try { window.sizeInnerPlaneGlobal(); } catch(_){} }, 50);
+                }
+              } catch(e) {}
               // refresh aframe scene sizing
               try {
                 const sceneEl = document.querySelector('a-scene');
                 if (sceneEl && sceneEl.resize) sceneEl.resize();
+              } catch(e) {}
+              // update camera projection for new aspect
+              try {
+                const camEl = document.querySelector('a-camera');
+                const cam = camEl && camEl.getObject3D && camEl.getObject3D('camera');
+                if (cam && cam.updateProjectionMatrix) cam.updateProjectionMatrix();
               } catch(e) {}
               // resume if target visible
               if (lastTargetVisible) { aframeVideoAsset.play().catch(()=>{}); }
