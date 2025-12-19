@@ -116,10 +116,14 @@
         }
       }, 250);
 
-      // On orientation change, perform soft reinit + rescale (no hard reload)
+      // On orientation change, perform soft reinit + rescale after a short settle delay
       window.addEventListener('orientationchange', () => {
-        try { if (typeof window.softReinit === 'function') window.softReinit(); } catch (e) {}
-        handleOrientationOrResize();
+        try {
+          setTimeout(() => {
+            try { if (typeof window.softReinit === 'function') window.softReinit(); } catch (e) {}
+            handleOrientationOrResize();
+          }, 200);
+        } catch (e) {}
       });
       window.addEventListener('resize', handleOrientationOrResize);
 
@@ -264,8 +268,8 @@
             }
             scene.setAttribute('mindar-image', mindarOpts.join('; '));
             try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
-            // reassign source so browser refetches metadata if orientation changed
-            if (aframeVideoAsset.src !== videoUrlLocal) aframeVideoAsset.src = videoUrlLocal;
+            // Always reassign source so browser refetches metadata (helps on rotation)
+            aframeVideoAsset.src = videoUrlLocal;
             aframeVideoAsset.loop = true;
             aframeVideoAsset.muted = !(localStorage.getItem('inrl_sound_enabled') === 'true');
             aframeVideoAsset.playsInline = true;
@@ -382,6 +386,8 @@
           planeEl.setAttribute("width", planeWidthUnits);
           planeEl.setAttribute("height", planeHeightUnits);
           try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch(e) {}
+          // Ensure the outer plane does not render the video; only the inner plane should
+          try { planeEl.removeAttribute('src'); } catch(e) {}
 
           // Create (or reuse) an inner video plane that will display the <video> element directly.
           let inner = target.querySelector('#video-inner-plane');
