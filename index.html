@@ -112,7 +112,10 @@
         }
       }, 250);
 
-      window.addEventListener('orientationchange', handleOrientationOrResize);
+      // On orientation change, hard refresh to fully reinitialize camera and tracking
+      window.addEventListener('orientationchange', () => {
+        try { location.reload(); } catch (e) { /* ignore */ }
+      });
       window.addEventListener('resize', handleOrientationOrResize);
 
       document.addEventListener("DOMContentLoaded", async () => {
@@ -142,17 +145,6 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         let lastTargetVisible = false;
-
-        // Fit mode from query: contain | cover | stretch (default: contain)
-        (function initFitMode() {
-          try {
-            const p = new URLSearchParams(window.location.search);
-            const f = (p.get('fit') || 'contain').toLowerCase();
-            const allowed = ['contain','cover','stretch'];
-            window.inrlFitMode = allowed.includes(f) ? f : 'contain';
-            console.log('[viewer] fit mode =', window.inrlFitMode);
-          } catch (e) { window.inrlFitMode = 'contain'; }
-        })();
 
         // Landscape support: no overlay; keep tracking stable and rescale inner plane on rotation
 
@@ -258,12 +250,12 @@
               'filterMinCF: 0.0001',
               'filterBeta: 0.01',
               'warmupTolerance: 5',
-              'missTolerance: 5',
-              'uiScanning: false',
-              'uiLoading: false'
+              'missTolerance: 5'
             ];
             if (isIOS) {
               mindarOpts.push('maxTrack: 1');
+              mindarOpts.push('uiScanning: false');
+              mindarOpts.push('uiLoading: false');
             }
             scene.setAttribute('mindar-image', mindarOpts.join('; '));
             try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
@@ -288,8 +280,6 @@
 
         // initially apply
         applyActiveTarget(activeTarget).catch(()=>{});
-        // ensure any late layout settles
-        setTimeout(() => { try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e){} }, 300);
 
         // Wait until mesh is ready. More robust: listen for both 'loaded' (A-Frame primitive)
         // and 'model-loaded' events, and poll for a longer window before giving up.
@@ -386,7 +376,6 @@
           planeEl.setAttribute("width", planeWidthUnits);
           planeEl.setAttribute("height", planeHeightUnits);
           try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch(e) {}
-          try { planeEl.removeAttribute('src'); } catch(e) {}
 
           // Create (or reuse) an inner video plane that will display the <video> element directly.
           let inner = target.querySelector('#video-inner-plane');
@@ -410,34 +399,13 @@
 
             const markerW = planeWidthUnits;
             const markerH = planeHeightUnits;
-            const markerAspect = markerW / markerH;
             let videoUnitW, videoUnitH;
-            const mode = (window.inrlFitMode || 'contain');
-
-            if (mode === 'stretch') {
-              // Ignore aspect: fill marker completely
+            if (videoAspect > (markerW / markerH)) {
               videoUnitW = markerW;
-              videoUnitH = markerH;
-            } else if (mode === 'cover') {
-              // Fill marker in both dimensions (may overflow one side)
-              if (videoAspect > markerAspect) {
-                // video wider than marker -> match height, overflow width
-                videoUnitH = markerH;
-                videoUnitW = markerH * videoAspect;
-              } else {
-                // video taller/narrower -> match width, overflow height
-                videoUnitW = markerW;
-                videoUnitH = markerW / videoAspect;
-              }
+              videoUnitH = markerW / videoAspect;
             } else {
-              // contain (default): fit entirely inside marker
-              if (videoAspect > markerAspect) {
-                videoUnitW = markerW;
-                videoUnitH = markerW / videoAspect;
-              } else {
-                videoUnitH = markerH;
-                videoUnitW = markerH * videoAspect;
-              }
+              videoUnitH = markerH;
+              videoUnitW = markerH * videoAspect;
             }
 
             inner.setAttribute('width', videoUnitW);
