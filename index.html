@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <title>INRL AR Viewer (Stabilized)</title>
 
     <!-- A-Frame + MindAR -->
@@ -31,6 +31,8 @@
         z-index: 10002;
       }
       .sound-toggle.hidden { display: none; }
+
+      /* (Removed) Orientation guard styles — viewer now works in landscape */
     </style>
 
     <!-- Supabase Client -->
@@ -42,48 +44,22 @@
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       async function loadActiveTarget() {
-        console.log("📡 Loading active target from Supabase...");
+        console.log("📡 Loading active target from Worker API...");
         const params = new URLSearchParams(window.location.search);
         const brand = (params.get('brand') || '').trim();
         const product = (params.get('product') || '').trim();
-
-        // Build query: be permissive when only product is provided (match any brand),
-        // but when no params are provided default to the global bucket (brand IS NULL and product IS NULL).
-        let q = supabase
-          .from('targets')
-          .select('*')
-          .eq('is_active', true);
-
-        const noParams = !brand && !product;
-
-        // Case-insensitive matches to be forgiving on mobile keyboards/URLs
-        if (brand) q = q.ilike('brand', brand);
-        if (product) q = q.ilike('product', product);
-
-        if (noParams) {
-          // Original behavior: load the global active target when no params are provided
-          q = q.is('brand', null).is('product', null);
-        }
-
-        // Be resilient if multiple rows match (e.g., duplicates). Take most recent.
-        q = q.order('updated_at', { ascending: false }).limit(1);
-
-        const { data, error } = await q;
-
-        if (error || !Array.isArray(data) || data.length === 0) {
-          console.error("❌ No active target found or query failed:", error);
-          const message = error?.message || 'No active target found for this brand/product.';
-          document.body.innerHTML =
-            `<div style="padding:16px;text-align:center;color:#b91c1c;">
-               <h2 style='margin-bottom:8px;'>❌ ${message}</h2>
-               <div style="font-size:12px;color:#6b7280;">Tip: Ensure the target is marked active and that public SELECT is allowed by RLS for active targets.</div>
-             </div>`;
+        const qs = new URLSearchParams();
+        if (brand) qs.set('brand', brand);
+        if (product) qs.set('product', product);
+        const res = await fetch(`/api/viewer/active${qs.toString() ? `?${qs}` : ''}`);
+        if (!res.ok) {
+          const msg = await res.text().catch(() => '');
+          console.error("❌ No active target", res.status, msg);
           return null;
         }
-
-        const row = data[0];
+        const row = await res.json();
         console.log("✅ Active target loaded:", row);
-        return row;
+        return row; // has mindurl, videourl, imageurl
       }
 
       // debounce helper
@@ -95,23 +71,57 @@
         };
       }
 
-      // When device orientation or window resizes, re-apply the active target
+      // When device orientation or window resizes, re-size scene and video plane only
       const handleOrientationOrResize = debounce(() => {
         try {
-          const target = window.currentActiveTarget || null;
-          if (typeof window.applyActiveTarget === 'function') {
-            window.applyActiveTarget(target);
-          }
           // also trigger resize/refresh on aframe scene if available
           const sceneEl = document.querySelector('a-scene');
           if (sceneEl && sceneEl.resize) sceneEl.resize();
+          if (typeof window.sizeInnerPlaneGlobal === 'function') {
+            try { window.sizeInnerPlaneGlobal(); } catch(e) {}
+          }
+          setTimeout(() => { try { sceneEl && sceneEl.resize && sceneEl.resize(); } catch(e){} }, 200);
         } catch (e) {
           console.warn('orientation/resize handler error', e);
         }
       }, 250);
 
-      window.addEventListener('orientationchange', handleOrientationOrResize);
+      function realignMindARAfterRotate() {
+        try {
+          const sceneEl = document.querySelector('a-scene');
+          const arSystem = sceneEl?.systems?.['mindar-image-system'];
+          try { arSystem?.onResize?.(); } catch(e) {}
+          try { arSystem?.controller?.onResize?.(); } catch(e) {}
+          // Optional fallback restart via query (?rotateRestart=1) to handle edge devices
+          try {
+            const p = new URLSearchParams(location.search);
+            const shouldRestart = ['1','true','yes'].includes((p.get('rotateRestart')||'').toLowerCase());
+            if (shouldRestart && arSystem && arSystem.stop && arSystem.start) {
+              arSystem.stop();
+              setTimeout(() => { try { arSystem.start(); } catch(e){} }, 60);
+            }
+          } catch (e) {}
+        } catch (e) { console.warn('realignMindARAfterRotate error', e); }
+      }
+
+      window.addEventListener('orientationchange', () => {
+        handleOrientationOrResize();
+        // settle layout and realign MindAR without showing loading
+        setTimeout(() => {
+          try { handleOrientationOrResize(); } catch(e){}
+          realignMindARAfterRotate();
+          try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e){}
+          // a couple of rAF ticks to smooth out relayout
+          let ticks = 0; const sceneEl = document.querySelector('a-scene');
+          const smooth = () => {
+            try { sceneEl && sceneEl.resize && sceneEl.resize(); } catch(e){}
+            if (ticks++ < 2) requestAnimationFrame(smooth);
+          };
+          requestAnimationFrame(smooth);
+        }, 180);
+      });
       window.addEventListener('resize', handleOrientationOrResize);
+      try { if (window.visualViewport) visualViewport.addEventListener('resize', handleOrientationOrResize); } catch(e){}
 
       document.addEventListener("DOMContentLoaded", async () => {
         const tOverallStart = performance.now();
@@ -140,6 +150,17 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         let lastTargetVisible = false;
+
+        // Fit mode from query: contain | cover | stretch (default: contain)
+        (function initFitMode() {
+          try {
+            const p = new URLSearchParams(window.location.search);
+            const f = (p.get('fit') || 'contain').toLowerCase();
+            const allowed = ['contain','cover','stretch'];
+            window.inrlFitMode = allowed.includes(f) ? f : 'contain';
+            console.log('[viewer] fit mode =', window.inrlFitMode);
+          } catch (e) { window.inrlFitMode = 'contain'; }
+        })();
 
         // --- Sound toggle and AudioContext unlock helper ---
         let audioCtx = null;
@@ -243,13 +264,11 @@
               'filterMinCF: 0.0001',
               'filterBeta: 0.01',
               'warmupTolerance: 5',
-              'missTolerance: 5'
+              'missTolerance: 5',
+              'uiScanning: false',
+              'uiLoading: false'
             ];
-            if (isIOS) {
-              mindarOpts.push('maxTrack: 1');
-              mindarOpts.push('uiScanning: false');
-              mindarOpts.push('uiLoading: false');
-            }
+            if (isIOS) { mindarOpts.push('maxTrack: 1'); }
             scene.setAttribute('mindar-image', mindarOpts.join('; '));
             try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
             // reassign source so browser refetches metadata if orientation changed
@@ -273,6 +292,8 @@
 
         // initially apply
         applyActiveTarget(activeTarget).catch(()=>{});
+        // ensure any late layout settles
+        setTimeout(() => { try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e){} }, 300);
 
         // Wait until mesh is ready. More robust: listen for both 'loaded' (A-Frame primitive)
         // and 'model-loaded' events, and poll for a longer window before giving up.
@@ -369,6 +390,7 @@
           planeEl.setAttribute("width", planeWidthUnits);
           planeEl.setAttribute("height", planeHeightUnits);
           try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch(e) {}
+          try { planeEl.removeAttribute('src'); } catch(e) {}
 
           // Create (or reuse) an inner video plane that will display the <video> element directly.
           let inner = target.querySelector('#video-inner-plane');
@@ -392,13 +414,34 @@
 
             const markerW = planeWidthUnits;
             const markerH = planeHeightUnits;
+            const markerAspect = markerW / markerH;
             let videoUnitW, videoUnitH;
-            if (videoAspect > (markerW / markerH)) {
+            const mode = (window.inrlFitMode || 'contain');
+
+            if (mode === 'stretch') {
+              // Ignore aspect: fill marker completely
               videoUnitW = markerW;
-              videoUnitH = markerW / videoAspect;
-            } else {
               videoUnitH = markerH;
-              videoUnitW = markerH * videoAspect;
+            } else if (mode === 'cover') {
+              // Fill marker in both dimensions (may overflow one side)
+              if (videoAspect > markerAspect) {
+                // video wider than marker -> match height, overflow width
+                videoUnitH = markerH;
+                videoUnitW = markerH * videoAspect;
+              } else {
+                // video taller/narrower -> match width, overflow height
+                videoUnitW = markerW;
+                videoUnitH = markerW / videoAspect;
+              }
+            } else {
+              // contain (default): fit entirely inside marker
+              if (videoAspect > markerAspect) {
+                videoUnitW = markerW;
+                videoUnitH = markerW / videoAspect;
+              } else {
+                videoUnitH = markerH;
+                videoUnitW = markerH * videoAspect;
+              }
             }
 
             inner.setAttribute('width', videoUnitW);
@@ -406,6 +449,9 @@
             inner.setAttribute('visible', 'true');
             try { planeEl.setAttribute('visible', 'true'); } catch(e) {}
           }
+
+          // expose re-sizer for orientation/resize handlers
+          try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch(e) {}
 
           // Wait for video metadata so we can read natural dimensions.
           if (aframeVideoAsset.readyState >= 1) sizeInnerPlane();
@@ -474,6 +520,8 @@
       <!-- Minimal floating sound toggle -->
       <button id="soundToggle" class="sound-toggle" aria-pressed="false" aria-label="Enable sound">🔈</button>
 
+      <!-- Orientation guard removed: viewer supported in landscape -->
+
     <a-scene
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
@@ -489,7 +537,6 @@
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-plane
           id="video-plane"
-          src="#card"
           position="0 0 0"
           width="1"
           height="1"
