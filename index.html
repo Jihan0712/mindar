@@ -105,9 +105,8 @@
           // also trigger resize/refresh on aframe scene if available
           const sceneEl = document.querySelector('a-scene');
           if (sceneEl && sceneEl.resize) sceneEl.resize();
-          // re-size inner plane and update orientation overlay if available
+          // re-size inner plane to maintain correct fit on rotation
           if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal();
-          if (typeof window.updateOrientationState === 'function') window.updateOrientationState();
         } catch (e) {
           console.warn('orientation/resize handler error', e);
         }
@@ -144,32 +143,7 @@
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         let lastTargetVisible = false;
 
-        // --- Orientation overlay: enforce portrait and avoid user error ---
-        (function setupOrientationOverlay(){
-          try {
-            let overlay = document.getElementById('orientation-overlay');
-            if (!overlay) {
-              overlay = document.createElement('div');
-              overlay.id = 'orientation-overlay';
-              overlay.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:#fff;font-size:16px;text-align:center;z-index:10004;padding:20px;';
-              overlay.innerHTML = '<div><div style="font-size:20px;margin-bottom:8px;">Rotate your phone</div><div>This experience is optimized for portrait orientation. Please rotate back to portrait to continue.</div></div>';
-              document.body.appendChild(overlay);
-            }
-            function isPortrait() {
-              return window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-            }
-            function update() {
-              const portrait = isPortrait();
-              overlay.style.display = portrait ? 'none' : 'flex';
-              try {
-                if (!portrait) { aframeVideoAsset.pause(); }
-                else if (lastTargetVisible) { aframeVideoAsset.play().catch(()=>{}); }
-              } catch(e) {}
-            }
-            window.updateOrientationState = update;
-            update();
-          } catch(e) { console.warn('setupOrientationOverlay failed', e); }
-        })();
+        // Landscape support: no overlay; keep tracking stable and rescale inner plane on rotation
 
         // --- Sound toggle and AudioContext unlock helper ---
         let audioCtx = null;
@@ -497,8 +471,8 @@
             aframeVideoAsset.play().catch(()=>{});
           }
         });
-        // initial check for orientation state after scene setup
-        try { if (typeof window.updateOrientationState === 'function') window.updateOrientationState(); } catch(e) {}
+        // initial rescale pass after scene setup (in case rotation occurred before video metadata)
+        try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e) {}
       });
     </script>
   </head>
