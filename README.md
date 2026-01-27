@@ -2,17 +2,66 @@
 
 This repository provides a lightweight static admin UI and a public AR viewer built on MindAR and A-Frame, using Supabase for authentication and metadata. Over the project's lifetime we've migrated media hosting from Supabase Storage to Cloudflare R2 served by a Cloudflare Worker and implemented secure server-side deletion flows. This README documents the repository, a detailed history of changes, and guidance for future updates and integrations.
 
-**Status:** Project is functional. Key pieces still require dashboard configuration (Cloudflare R2/Worker bindings, secrets, and optional Netlify/Supabase function envs).
+**Status (Jan 2026):** Project runs today with Supabase (auth/data) + Cloudflare Worker (R2 assets). Target is Cloudflare-only: Cloudflare Pages (static), Cloudflare Workers (API), R2 (media), and D1 (data). This README adds the Cloudflare-only plan and a migration TODO.
 
 **Quick links:**
 - **Admin UI:** [admin.html](admin.html)
 - **Viewer:** [index.html](index.html)
+- **Shop:** [ecommerce/index.html](ecommerce/index.html)
+- **Checkout:** [ecommerce/checkout.html](ecommerce/checkout.html)
 - **Brand registration:** [brand-register.html](brand-register.html)
 - **Admin registration:** [admin-register.html](admin-register.html)
-- **Netlify functions:** [netlify/functions](netlify/functions)
-- **Supabase Edge function (delete-user):** [supabase/functions/delete-user/index.ts](supabase/functions/delete-user/index.ts)
+- Legacy (to be removed): Netlify functions → Cloudflare, Supabase Edge function → Cloudflare Worker/D1
+  - Netlify functions: [netlify/functions](netlify/functions)
+  - Supabase Edge function (delete-user): [supabase/functions/delete-user/index.ts](supabase/functions/delete-user/index.ts)
 - **Cloudflare Worker:** [cloudflare/worker/index.js](cloudflare/worker/index.js)
 - **SQL migrations:** [sql](sql)
+
+---
+
+## Cloudflare-Only Plan
+
+**Target Architecture**
+- Hosting: Cloudflare Pages serves static UI (admin, viewer, ecommerce).
+- API: Cloudflare Worker at `/api/*` handles auth, targets CRUD, viewer active lookup, and asset operations.
+- Database: Cloudflare D1 (binding `DB`) stores users, brands, brand_users, targets, sessions, brand_limits.
+- Storage: Cloudflare R2 (binding `ASSETS_BUCKET`) stores `.mind`, video, and image assets; public URLs via `ASSETS_DOMAIN`.
+
+**Required Worker bindings (env/secrets)**
+- R2: `ASSETS_BUCKET`
+- D1: `DB`
+- Secrets: `WORKER_DELETE_KEY` (admin-side R2 delete), `BOOTSTRAP_ADMIN_KEY` (one-time admin bootstrap), `ALLOWED_ORIGINS` (comma-separated), `ASSETS_DOMAIN` (e.g., https://assets.example.com)
+- Optional: `CF_ZONE_ID`, `CF_API_TOKEN` (cache purge)
+
+**Existing Worker API surface** (see [cloudflare/worker/index.js](cloudflare/worker/index.js))
+- Auth: `POST /api/auth/bootstrap-admin`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- Targets: `GET /api/targets`, `POST /api/targets`, `POST /api/targets/:id/activate`, `POST /api/targets/:id/deactivate`, `DELETE /api/targets/:id`
+- Viewer: `GET /api/viewer/active?brand=&product=`
+- Assets: `POST /upload`, `POST /delete`, `POST /purge`, `GET /:key`
+
+**Migration TODO (Cloudflare-only)**
+1) UI auth → Worker auth
+  - Replace Supabase JS auth in `admin.html`, `brand-register.html`, `login.html`, `admin-register.html` with Worker endpoints.
+  - Use cookie-based sessions from Worker (`/api/auth/login`/`/api/auth/me`).
+2) Data access → Worker/D1
+  - Replace Supabase RPC/table calls in admin UI with `/api/targets` endpoints.
+  - Map Supabase tables to D1 schema: `targets`, `users`, `brands`, `brand_users`, `brand_limits`, `sessions`.
+3) Viewer → Worker
+  - Update `index.html` to fetch `/api/viewer/active?brand=&product=` instead of querying Supabase.
+4) Deletions → Worker only
+  - Remove Netlify/Supabase function forwarding. Admin UI calls Worker targets `DELETE /api/targets/:id` when deleting a target; Worker deletes R2 assets.
+5) Hosting → Cloudflare Pages
+  - Add Pages project for this repo. Configure custom domain and CORS `ALLOWED_ORIGINS` to include it.
+6) Secrets & bootstrap
+  - Set `BOOTSTRAP_ADMIN_KEY` and run one-time `POST /api/auth/bootstrap-admin` to create the first admin.
+7) Data migration
+  - Export required data from Supabase (`targets`, `profiles/admins` → `users/brands/brand_users`). Provide a one-off import script to D1 (SQL or Worker script).
+8) Clean up legacy
+  - Remove `supabase/` and `netlify/` once UI is fully switched, and strip Supabase SDK from HTML files.
+
+Short, focused PRs are recommended for each item above.
+
+See also: [TODO.md](TODO.md) for a consolidated, checkable list.
 
 **Why this README was updated:**
 The project underwent multiple migrations and hardening steps (asset hosting → R2, secure delete flow, URL normalization, migration helpers). This README now captures that history and provides specific operational and developer guidance so I can continue helping you with future work.

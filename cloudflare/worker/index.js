@@ -1,6 +1,25 @@
 // Cloudflare Worker: R2 assets + auth/targets/viewer APIs (Cloudflare-only backend)
 
-addEventListener('fetch', event => event.respondWith(handleRequest(event.request)));
+// ES Module format: expose fetch and inject env bindings into globals per request
+export default {
+  async fetch(request, env, ctx) {
+    setEnvGlobals(env);
+    return handleRequest(request);
+  }
+};
+
+function setEnvGlobals(env) {
+  // Bindings
+  globalThis.ASSETS_BUCKET = env.ASSETS_BUCKET;
+  globalThis.DB = env.DB;
+  // Vars / Secrets
+  globalThis.ALLOWED_ORIGINS = env.ALLOWED_ORIGINS;
+  globalThis.ASSETS_DOMAIN = env.ASSETS_DOMAIN;
+  globalThis.WORKER_DELETE_KEY = env.WORKER_DELETE_KEY;
+  globalThis.BOOTSTRAP_ADMIN_KEY = env.BOOTSTRAP_ADMIN_KEY;
+  globalThis.CF_API_TOKEN = env.CF_API_TOKEN;
+  globalThis.CF_ZONE_ID = env.CF_ZONE_ID;
+}
 
 // ---------- CORS / JSON helpers ----------
 
