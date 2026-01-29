@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>INRL AR — Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/js/auth-worker.js"></script>
   </head>
   <body class="min-h-screen bg-gray-100 flex items-center justify-center">
     <div class="w-full max-w-md bg-white rounded shadow p-6">
@@ -28,76 +28,23 @@
     </div>
 
     <script>
-  const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
-      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
       const emailEl = document.getElementById('email');
       const passEl = document.getElementById('password');
       const signInBtn = document.getElementById('signin');
       const signUpBtn = document.getElementById('signup');
-  // magic link removed from this page — registration and invite flows live on register pages
       const msg = document.getElementById('message');
 
-      async function showError(e) {
+      function showError(e) {
         console.error('Auth error:', e);
-        // supabase-js error objects sometimes have .message and sometimes nested info
-        const text = e?.message || (e?.error_description) || JSON.stringify(e);
+        const text = e?.message || String(e);
         msg.textContent = text;
         setTimeout(() => msg.textContent = '', 8000);
       }
 
-      // If already signed in, try to auto-claim any brand invite, then route
+      // If already signed in, route by role (Worker session cookie)
       (async () => {
-        try {
-          const { data } = await sb.auth.getSession();
-          const session = data?.session || null;
-          if (!session) return; // not signed in
-          const user = session.user;
-
-          // Try claim by email (non-fatal)
-          try { await sb.rpc('claim_brand_invite_for_self'); } catch (e) { /* ignore */ }
-
-          // Prefer RPCs if you have them; fallback to table selects (may be blocked under RLS)
-          try {
-            // Prefer RPC is_admin() if available (safer under RLS). Fallback to table select.
-            try {
-              const { data: isAdm, error: rpcErr } = await sb.rpc('is_admin');
-              if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
-            } catch (e) {
-              // ignore rpc errors and fallback
-            }
-
-            // Fallback: query admins table directly (schema uses only user_id)
-            const { data: adminRow, error: adminErr } = await sb
-              .from('admins')
-              .select('user_id')
-              .eq('user_id', user.id)
-              .maybeSingle();
-            if (!adminErr && adminRow && adminRow.user_id === user.id) {
-              window.location.href = '/admin.html';
-              return;
-            }
-          } catch (e) {
-            console.warn('Admin check failed:', e);
-          }
-
-          // check profile.role (admin) then profile.brand (brand)
-          try {
-            const { data: prof, error: profErr } = await sb.from('profiles').select('role, brand').eq('user_id', user.id).maybeSingle();
-            if (!profErr && prof) {
-              if (prof.role === 'admin') { window.location.href = '/admin.html'; return; }
-              if (prof.brand) { window.location.href = '/brand.html'; return; }
-            }
-          } catch (e) {
-            console.warn('Profile check failed:', e);
-          }
-
-          // default to client view
-          window.location.href = '/client.html';
-        } catch (e) {
-          console.warn('Session check failed', e);
-        }
+        const user = await auth.me();
+        if (user) auth.redirectByRole(user);
       })();
 
       signInBtn.addEventListener('click', async () => {
@@ -105,41 +52,15 @@
           const email = emailEl.value.trim();
           const password = passEl.value;
           if (!email || !password) return showError('Enter email and password');
-          const { error } = await sb.auth.signInWithPassword({ email, password });
-          if (error) return showError(error);
-          // signed in -> route by role
-          try {
-            const { data: sessionData } = await sb.auth.getSession();
-            const user = sessionData?.data?.session?.user || sessionData?.session?.user || null;
-            if (!user) { window.location.href = '/client.html'; return; }
-            // Try to claim automatically now that session exists
-            try { await sb.rpc('claim_brand_invite_for_self'); } catch (e) {}
-            try {
-              const { data: isAdm, error: rpcErr } = await sb.rpc('is_admin');
-              if (!rpcErr && isAdm === true) { window.location.href = '/admin.html'; return; }
-            } catch (e) {}
-            const { data: adminRow } = await sb
-              .from('admins')
-              .select('user_id')
-              .eq('user_id', user.id)
-              .maybeSingle();
-            if (adminRow && adminRow.user_id === user.id) { window.location.href = '/admin.html'; return; }
-            const { data: prof } = await sb.from('profiles').select('role, brand').eq('user_id', user.id).maybeSingle();
-            if (prof && prof.role === 'admin') { window.location.href = '/admin.html'; return; }
-            if (prof && prof.brand) { window.location.href = '/brand.html'; return; }
-          } catch (e) {
-            console.warn('Post-login routing failed, falling back to client.html', e);
-          }
-          window.location.href = '/client.html';
+          await auth.login(email, password);
+          const user = await auth.me();
+          auth.redirectByRole(user);
         } catch (e) { showError(e); }
       });
 
       signUpBtn.addEventListener('click', () => {
-        // Redirect to brand/client registration page; registration flow lives in register.html
         window.location.href = '/register.html';
       });
-
-      // no magic link button on this page; use /register.html or admin invite flows instead
     </script>
   </body>
 </html>

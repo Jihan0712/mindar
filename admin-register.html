@@ -6,6 +6,7 @@
     <title>INRL AR — Admin Registration</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/js/auth-worker.js"></script>
   </head>
   <body class="min-h-screen bg-gray-100 flex items-center justify-center">
     <div class="w-full max-w-lg bg-white rounded shadow p-6">
@@ -61,6 +62,14 @@
         showAlert('No admin token provided. You must use an invite link from an existing admin.');
         registerBtn.disabled = true;
       }
+
+      // If already logged in via Worker and role is admin, redirect to dashboard
+      (async () => {
+        const user = await auth.me();
+        if (user && user.role === 'admin') {
+          window.location.href = '/admin.html';
+        }
+      })();
 
       registerBtn.addEventListener('click', async () => {
         if (!token) return showAlert('No admin token provided.');

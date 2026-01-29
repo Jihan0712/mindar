@@ -7,8 +7,10 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Supabase JS -->
+    <!-- Supabase JS (kept for data calls until Step 4) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Worker Auth Client -->
+    <script src="assets/js/auth-worker.js"></script>
   </head>
   <body class="bg-gray-100 text-gray-800 font-sans">
     <div class="flex min-h-screen">
@@ -303,6 +305,26 @@
         </section>
       </main>
     </div>
+
+    <!-- Worker Auth Guard & Logout -->
+    <script>
+      (async () => {
+        const user = await auth.requireRole(['admin']);
+        if (!user) return; // redirected
+        const emailEl = document.getElementById('userEmail');
+        if (emailEl) emailEl.textContent = user.email || '';
+        const bindLogout = (id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('click', async () => {
+            await auth.logout();
+            location.href = '/login.html';
+          });
+        };
+        bindLogout('logoutBtn');
+        bindLogout('logoutBtnSidebar');
+      })();
+    </script>
 
     <!-- MindAR Compiler Integration -->
     <script type="module">

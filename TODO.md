@@ -10,11 +10,11 @@ Goal: Consolidate hosting, API, data, and storage on Cloudflare (Pages + Workers
   - Explanation: Public base used by the Worker when returning asset URLs (e.g., `https://assets.example.com/path/to/file`). Include `https://`. If using a Workers.dev route, set it to that domain.
 - [x] Set `ALLOWED_ORIGINS` (comma-separated admin/viewer origins)
   - Explanation: CORS allowlist for your Pages domain(s) and local dev (e.g., `https://your-site.pages.dev, http://localhost:8000`). Requests from these origins receive `Access-Control-Allow-Origin`.
-- [ ] Set `WORKER_DELETE_KEY` (random long secret)
+- [x] Set `WORKER_DELETE_KEY` (random long secret)
   - Explanation: Checked by the Worker `POST /delete` endpoint to authorize asset removal from R2. Keep server-side only; do not expose in clients. Set via Wrangler secrets or Dashboard.
-- [ ] Set `BOOTSTRAP_ADMIN_KEY` (temporary; delete after bootstrap)
+- [x] Set `BOOTSTRAP_ADMIN_KEY` (temporary; delete after bootstrap)
   - Explanation: One-time secret used by `POST /api/auth/bootstrap-admin` to create the first admin. Remove/rotate after bootstrap for safety.
-- [ ] (Optional) `CF_ZONE_ID`, `CF_API_TOKEN` for purge
+- [x] (Optional) `CF_ZONE_ID`, `CF_API_TOKEN` for purge
   - Explanation: Enables optional cache purge calls after deletes. Token should be scoped for your zone with `Cache Purge: Zone` (and optionally `Workers: Edit`) permissions.
 
 Example (Wrangler secrets):
@@ -28,19 +28,40 @@ wrangler secret put CF_API_TOKEN
 
 ## 2) Bootstrap admin
 
-- [ ] With `BOOTSTRAP_ADMIN_KEY` set, run:
+- [x] With `BOOTSTRAP_ADMIN_KEY` set, run:
 
 ```bash
 curl -i -X POST "$WORKER_URL/api/auth/bootstrap-admin" \
   -H "x-bootstrap-key: $BOOTSTRAP_ADMIN_KEY" \
   -H "Content-Type: application/json" \
-  --data '{"email":"admin@example.com","password":"changeme"}'
+  --data '{"email":"admin@example.com","password":"changeme"}'  
 ```
 
 ## 3) UI auth → Worker
 
 - [ ] Replace Supabase auth in `admin.html`, `brand-register.html`, `admin-register.html`, `login.html`
 - [ ] Use `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
+
+Dashboard-only setup (no Wrangler)
+
+- Pages domain: Create/attach your Pages project to a custom domain (e.g., `https://shop.inrl.co`). Add this exact origin to `ALLOWED_ORIGINS` in the Worker.
+- Worker routes (same-origin): In Cloudflare Dashboard → Workers → your worker → Settings → Routes → add:
+  - `shop.inrl.co/api*` (auth + data)
+  - `shop.inrl.co/upload` (file uploads)
+  - `shop.inrl.co/delete` (asset deletion)
+  - `shop.inrl.co/purge` (optional CDN purge)
+  If you also serve `www`, add equivalents for `www.shop.inrl.co/*`.
+- Why this matters: `assets/js/auth-worker.js` calls relative `/api/...` with `credentials: 'include'` so the browser sends the session cookie only when the API is same-origin. Mapping `/api*` (and `/upload`) on your site domain ensures the Worker handles those requests on the same origin.
+- Preview domains: If you use Pages previews (e.g., `https://<project>.pages.dev`), include that origin in `ALLOWED_ORIGINS` as well so CORS preflight succeeds during OPTIONS/JSON calls.
+- CORS & cookies: The Worker sets `Access-Control-Allow-Origin` to the request origin when it matches `ALLOWED_ORIGINS`. Cookie-based sessions require same-origin; cross-origin (e.g., calling a `workers.dev` URL from your site) will not send cookies. Prefer the same-origin `/api` route and map `/upload` to the same domain as the UI.
+- Conflicts: Ensure you do not also define Pages Functions for `/api/*` on the same domain. If you do, remove or change those so Worker Routes own `/api*`. Similarly, avoid a Pages Function for `/upload` if the Worker handles uploads.
+- Health check: After adding the route, visit `https://shop.inrl.co/api/auth/me` in the browser (you should get `{ user: null }` unauthenticated) and `https://shop.inrl.co/` should still serve your Pages site.
+
+DNS for `shop.inrl.co` (Dashboard-only)
+
+- In Cloudflare DNS, add a CNAME record `shop` → your Pages hostname (e.g., `<project>.pages.dev`), proxied (orange cloud).
+- In Cloudflare Pages → your project → Custom Domains → add `shop.inrl.co` and complete verification.
+- Keep `assets.inrl.co` as a separate subdomain for asset delivery (already routed). Set `ASSETS_DOMAIN` to `https://assets.inrl.co` in Worker variables so returned URLs are under assets.
 
 ## 4) Admin targets → Worker/D1
 
@@ -70,6 +91,10 @@ curl -i -X POST "$WORKER_URL/api/auth/bootstrap-admin" \
 
 - [ ] Set up Pages project pointing to repo root
 - [ ] Configure custom domain and `ALLOWED_ORIGINS`
+- Build settings (no Wrangler):
+  - Build command: leave empty (static files only)
+  - Output directory: `.` (repo root with index.html) or `ecommerce` if serving from that folder
+  - Do NOT set `npx wrangler deploy` here; Workers are routed via Dashboard → Worker Routes
 
 ## 9) Remove legacy
 

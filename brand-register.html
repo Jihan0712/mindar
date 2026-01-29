@@ -6,6 +6,7 @@
     <title>INRL AR — Brand Registration</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/js/auth-worker.js"></script>
   </head>
   <body class="min-h-screen bg-gray-100 flex items-center justify-center">
     <div class="w-full max-w-lg bg-white rounded shadow p-6">
@@ -87,16 +88,14 @@
 
       async function claimIfSignedIn() {
         try {
-          const { data: sessionData } = await supabase.auth.getSession();
-          const session = sessionData?.session;
-          if (!session || !session.user) return;
+          const user = await auth.me();
+          if (!user) return;
           if (!inviteId) return;
           const { error } = await supabase.rpc('claim_brand_invite', { p_id: inviteId });
           if (error) throw error;
           showAlert('✅ Invite claimed. You are now a brand account.', false);
           setTimeout(() => { window.location.href = '/brand.html'; }, 1200);
         } catch (e) {
-          // Do not block page; just show message if mismatch
           console.warn('claimIfSignedIn:', e?.message || e);
         }
       }
