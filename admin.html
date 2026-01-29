@@ -580,9 +580,10 @@
         return j; // { ok, key, url }
       }
 
-      // Guard: ensure only admins may access admin.html. Non-admins are redirected
-      // Use getUser() to confirm the user is currently authenticated (avoids stale sessions)
+      // Legacy Supabase guard (disabled when Worker auth is present).
+      // If Worker auth is loaded, we rely on the earlier auth.requireRole(['admin']) script instead.
       (async () => {
+        if (window.auth) { return; }
         try {
           const { data: userData } = await supabase.auth.getUser();
           const user = userData?.user || null;

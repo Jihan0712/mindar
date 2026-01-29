@@ -41,10 +41,16 @@
         setTimeout(() => msg.textContent = '', 8000);
       }
 
-      // If already signed in, route by role (Worker session cookie)
+      // If already signed in, optionally route by role.
+      // Skip auto-redirect if `?force=1` or a `next` param is present (user may want to switch accounts).
       (async () => {
+        const qs = new URLSearchParams(location.search);
+        const force = qs.get('force');
+        const hasNext = qs.has('next');
         const user = await auth.me();
-        if (user) auth.redirectByRole(user);
+        if (user && !hasNext && force !== '1') {
+          auth.redirectByRole(user);
+        }
       })();
 
       signInBtn.addEventListener('click', async () => {
@@ -60,6 +66,22 @@
 
       signUpBtn.addEventListener('click', () => {
         window.location.href = '/register.html';
+      });
+
+      // Optional: allow quick logout from the login page if already signed in
+      // (useful when reaching login via bookmark and wanting to switch accounts)
+      document.addEventListener('DOMContentLoaded', async () => {
+        const user = await auth.me();
+        if (user) {
+          const toggle = document.createElement('div');
+          toggle.className = 'mt-3 text-xs text-gray-600';
+          toggle.innerHTML = `Signed in as <strong>${user.email || ''}</strong>. <button id="logoutFromLogin" class="underline">Logout</button>`;
+          document.querySelector('.max-w-md')?.appendChild(toggle);
+          document.getElementById('logoutFromLogin')?.addEventListener('click', async () => {
+            await auth.logout();
+            location.href = '/login.html?force=1';
+          });
+        }
       });
     </script>
   </body>
