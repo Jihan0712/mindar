@@ -613,8 +613,8 @@
             if (prof && prof.brand) { window.location.href = '/brand.html'; return; }
           } catch (e) { console.warn('Profile check failed:', e); }
 
-          // default to client view for authenticated non-admins
-          window.location.href = '/client.html';
+          // default to ecommerce view for authenticated non-admins
+          window.location.href = '/ecommerce/';
         } catch (e) {
           console.warn('Access guard failed:', e);
           // If anything goes wrong checking auth, redirect to login to be safe

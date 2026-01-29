@@ -428,13 +428,13 @@
           // Ensure user has a brand in profiles; otherwise send to client view
           try {
             const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
-            if (!prof || !prof.brand) { window.location.href = '/client.html'; return; }
+            if (!prof || !prof.brand) { window.location.href = '/ecommerce/'; return; }
             // ok: brand owner
             await initBrandContext();
             loadTargets();
           } catch (e) {
             console.warn('Profile check failed:', e);
-            window.location.href = '/client.html';
+            window.location.href = '/ecommerce/';
           }
         } catch (e) {
           console.warn('Access guard failed:', e);

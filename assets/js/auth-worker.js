@@ -48,7 +48,7 @@
       if (!user) return;
       if (user.role === 'admin') location.href = overrides.admin || '/admin.html';
       else if (user.role === 'brand') location.href = overrides.brand || '/brand.html';
-      else location.href = overrides.client || '/client.html';
+      else location.href = overrides.client || '/ecommerce/';
     }
   };
 
