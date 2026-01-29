@@ -24,7 +24,10 @@
       return true;
     },
     async me() {
-      try { return await apiFetch('/auth/me'); } catch { return null; }
+      try {
+        const data = await apiFetch('/auth/me');
+        return data && data.user ? data.user : null;
+      } catch { return null; }
     },
     async logout() {
       try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
