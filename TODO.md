@@ -74,8 +74,8 @@ DNS for `shop.inrl.co` (Dashboard-only)
 
 ## 5) Viewer → Worker
 
-- [ ] Fetch active target from `GET /api/viewer/active?brand=&product=`
-- [ ] Apply returned `mindurl` / `videourl` to MindAR viewer
+- [x] Fetch active target from `GET /api/viewer/active?brand=&product=`
+- [x] Apply returned `mindurl` / `videourl` to MindAR viewer (`index.html`)
 
 ## 6) Asset uploads → Worker
 
