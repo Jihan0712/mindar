@@ -65,11 +65,12 @@ DNS for `shop.inrl.co` (Dashboard-only)
 
 ## 4) Admin targets → Worker/D1
 
-- [ ] List targets via `GET /api/targets`
-- [ ] Create via `POST /api/targets`
-- [ ] Activate via `POST /api/targets/:id/activate`
-- [ ] Deactivate via `POST /api/targets/:id/deactivate`
-- [ ] Delete via `DELETE /api/targets/:id` (also removes R2 assets)
+- [x] List targets via `GET /api/targets`
+- [x] Create via `POST /api/targets`
+- [x] Activate via `POST /api/targets/:id/activate`
+- [x] Deactivate via `POST /api/targets/:id/deactivate`
+- [x] Delete via `DELETE /api/targets/:id` (also removes R2 assets)
+ - [x] Filters wired (brand, product, clientId)
 
 ## 5) Viewer → Worker
 

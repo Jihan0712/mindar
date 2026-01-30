@@ -157,6 +157,28 @@ function clearSessionCookie() {
   return `${SESSION_COOKIE_NAME}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
 }
 
+// Robustly extract an R2 object key from a public URL or path.
+function keyFromPublicUrl(u) {
+  try {
+    const url = new URL(u);
+    return url.pathname.replace(/^\/+/, '').split('?')[0].split('#')[0];
+  } catch {
+    let s = String(u || '');
+    // Remove configured ASSETS_DOMAIN prefix if present in any form
+    try {
+      let base = (typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '').trim();
+      if (base) {
+        base = base.replace(/\/$/, '');
+        const noProto = base.replace(/^https?:\/\//i, '');
+        s = s.replace(new RegExp('^https?:\\/\\/' + noProto, 'i'), '');
+        s = s.replace(new RegExp('^' + noProto, 'i'), '');
+        s = s.replace(new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\/'), '');
+      }
+    } catch {}
+    return s.replace(/^\/+/, '').split('?')[0].split('#')[0];
+  }
+}
+
 // ---------- Main router ----------
 
 async function handleRequest(request) {
@@ -284,9 +306,10 @@ async function apiListTargets(request) {
   const url = new URL(request.url);
   const brandName = (url.searchParams.get('brand') || '').trim();
   const product   = (url.searchParams.get('product') || '').trim();
+  const clientId  = (url.searchParams.get('clientId') || '').trim();
 
   let sql = `
-    select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
+    select t.id, t.user_id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
            t.is_active, t.created_at, b.name as brand
     from targets t
     left join brands b on b.id = t.brand_id
@@ -302,6 +325,7 @@ async function apiListTargets(request) {
   }
   if (brandName) { where.push('b.name = ?');      params.push(brandName); }
   if (product)   { where.push('t.product = ?');   params.push(product);   }
+  if (clientId && role === 'admin') { where.push('t.user_id = ?'); params.push(clientId); }
 
   if (where.length) sql += ' where ' + where.join(' and ');
   sql += ' order by t.created_at desc';
@@ -309,6 +333,7 @@ async function apiListTargets(request) {
   const rows = await dbAll(sql, ...params);
   const items = rows.map(r => ({
     id: r.id,
+    user_id: r.user_id,
     name: r.name,
     product: r.product,
     mindurl: r.mind_url,
@@ -459,8 +484,7 @@ async function apiDeleteTarget(request, id) {
   const results = [];
   for (const u of assets) {
     try {
-      const base = (typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '').replace(/\/$/, '');
-      const key = u.replace(`${base}/`, '');
+      const key = keyFromPublicUrl(u);
       await ASSETS_BUCKET.delete(key);
       results.push({ url: u, ok: true });
     } catch (e) {
@@ -578,7 +602,7 @@ async function handleDelete(request) {
       return jsonResponse({ error: 'unauthorized' }, 401, request);
     }
     const body = await readJson(request);
-    const key = body.key || (body.url ? body.url.replace(`${(typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '').replace(/\/$/, '')}/`, '') : null);
+    const key = body.key || (body.url ? keyFromPublicUrl(body.url) : null);
     if (!key) return jsonResponse({ error: 'key or url required' }, 400, request);
 
     await ASSETS_BUCKET.delete(key);

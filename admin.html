@@ -724,69 +724,86 @@
 
       // Initialize auth + admin and load brand options
       async function initAdminContext() {
-        const { data: sessionData } = await supabase.auth.getSession();
-        currentUser = sessionData?.session?.user || null;
-        // show current user email if available
-        if (userEmailEl) userEmailEl.textContent = currentUser?.email ? currentUser.email : '';
-        try {
-          // First, try to fetch only the current user's admin row (more likely allowed by RLS)
-          if (currentUser?.id) {
-            const { data: selfAdmin, error: selfErr } = await supabase
-              .from('admins')
-              .select('user_id')
-              .eq('user_id', currentUser.id)
-              .maybeSingle();
-            if (!selfErr && selfAdmin?.user_id) {
-              isAdmin = true;
-            }
-          }
-
-          // Then try to fetch all admin IDs (best-effort; may fail under RLS)
-          const { data: adminsData, error: listErr } = await supabase.from('admins').select('user_id');
-          if (!listErr) {
-            (adminsData || []).forEach(r => adminIds.add(r.user_id));
-            if (currentUser?.id && adminIds.has(currentUser.id)) {
-              isAdmin = true;
-            }
-          }
-
-          if (isAdmin) {
-            filterEls.bar.classList.remove('hidden');
-            adminTab?.classList.remove('hidden');
-            // Show Brand column in list header for admins
-            try {
-              if (targetsHeadRow) {
-                targetsHeadRow.innerHTML = `
-                  <th class="p-3">Target Image</th>
-                  <th class="p-3">Name</th>
-                  <th class="p-3">Brand</th>
-                  <th class="p-3">Product</th>
-                  <th class="p-3">Created</th>
-                  <th class="p-3">Active</th>
-                  <th class="p-3 text-center">Actions</th>
-                `;
-              }
-            } catch {}
-          }
-        } catch (e) {
-          console.warn('Admin detection failed:', e);
-        }
-
-        // Determine user's brand (if any) from profiles
-        if (currentUser?.id) {
+        // Prefer Worker auth context when available
+        if (window.auth) {
           try {
-            const { data: prof } = await supabase
-              .from('profiles')
-              .select('brand')
-              .eq('user_id', currentUser.id)
-              .not('brand','is', null)
-              .limit(1)
-              .maybeSingle();
-            currentUserBrand = (prof && typeof prof.brand === 'string' && prof.brand.trim()) ? prof.brand.trim() : null;
+            const me = await auth.me();
+            currentUser = me || null;
+            if (userEmailEl) userEmailEl.textContent = me?.email ? me.email : '';
+            isAdmin = me?.role === 'admin';
+            currentUserBrand = me?.role === 'brand' ? (me?.brands?.[0]?.name || null) : null;
+            adminIds.clear();
+            if (isAdmin && me?.id) adminIds.add(me.id);
           } catch (e) {
-            currentUserBrand = null; // silently ignore if no access or table missing
+            console.warn('Worker auth context failed:', e);
+            currentUser = null;
+            isAdmin = false;
+            currentUserBrand = null;
+          }
+        } else {
+          // Fallback: legacy Supabase session/admin detection
+          const { data: sessionData } = await supabase.auth.getSession();
+          currentUser = sessionData?.session?.user || null;
+          if (userEmailEl) userEmailEl.textContent = currentUser?.email ? currentUser.email : '';
+          try {
+            if (currentUser?.id) {
+              const { data: selfAdmin, error: selfErr } = await supabase
+                .from('admins')
+                .select('user_id')
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+              if (!selfErr && selfAdmin?.user_id) {
+                isAdmin = true;
+              }
+            }
+            const { data: adminsData, error: listErr } = await supabase.from('admins').select('user_id');
+            if (!listErr) {
+              (adminsData || []).forEach(r => adminIds.add(r.user_id));
+              if (currentUser?.id && adminIds.has(currentUser.id)) {
+                isAdmin = true;
+              }
+            }
+          } catch (e) {
+            console.warn('Admin detection failed:', e);
+          }
+
+          if (currentUser?.id) {
+            try {
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('brand')
+                .eq('user_id', currentUser.id)
+                .not('brand','is', null)
+                .limit(1)
+                .maybeSingle();
+              currentUserBrand = (prof && typeof prof.brand === 'string' && prof.brand.trim()) ? prof.brand.trim() : null;
+            } catch (e) {
+              currentUserBrand = null;
+            }
           }
         }
+
+        // Apply admin UI toggles
+        try {
+          if (isAdmin) {
+            filterEls.bar?.classList.remove('hidden');
+            adminTab?.classList.remove('hidden');
+            if (targetsHeadRow) {
+              targetsHeadRow.innerHTML = `
+                <th class="p-3">Target Image</th>
+                <th class="p-3">Name</th>
+                <th class="p-3">Brand</th>
+                <th class="p-3">Product</th>
+                <th class="p-3">Created</th>
+                <th class="p-3">Active</th>
+                <th class="p-3 text-center">Actions</th>
+              `;
+            }
+          } else {
+            filterEls.bar?.classList.add('hidden');
+            adminTab?.classList.add('hidden');
+          }
+        } catch {}
 
         // Load brand/product lists via Worker targets (dedup client-side)
         try {
@@ -832,7 +849,8 @@
             buttonEl.dataset.prevText = buttonEl.textContent;
             buttonEl.textContent = 'Signing out...';
           }
-          await supabase.auth.signOut();
+          if (window.auth) await auth.logout();
+          else await supabase.auth.signOut();
         } catch (e) {
           console.warn('Sign out issue:', e);
         } finally {
@@ -1275,9 +1293,19 @@
           const params = new URLSearchParams();
           if (filters.brand) params.set('brand', filters.brand);
           if (filters.product) params.set('product', filters.product);
+          if (filters.clientId) params.set('clientId', filters.clientId);
           const res = await apiFetch(`/targets?${params.toString()}`);
           let rows = Array.isArray(res?.items) ? res.items : [];
-          // Optional uploader-type filtering not supported (no user_id available). Skip.
+          // Optional uploader-type filtering for admins using returned user_id
+          if (isAdmin && filters.uploader && filters.uploader !== 'all') {
+            if (filters.uploader === 'admin') {
+              rows = rows.filter(r => r.user_id && adminIds.has(r.user_id));
+            } else if (filters.uploader === 'client') {
+              rows = rows.filter(r => r.user_id && !adminIds.has(r.user_id));
+            } else if (filters.uploader === 'brand') {
+              rows = rows.filter(r => (r.brand ?? '').trim() !== '');
+            }
+          }
 
           const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
 
