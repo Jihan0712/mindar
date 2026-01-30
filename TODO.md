@@ -39,8 +39,8 @@ curl -i -X POST "$WORKER_URL/api/auth/bootstrap-admin" \
 
 ## 3) UI auth → Worker
 
-- [ ] Replace Supabase auth in `admin.html`, `brand-register.html`, `admin-register.html`, `login.html`
-- [ ] Use `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
+- [x] Replace Supabase auth in `admin.html`, `brand-register.html`, `admin-register.html`, `login.html`
+- [x] Use `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
 
 Dashboard-only setup (no Wrangler)
 
@@ -89,8 +89,8 @@ DNS for `shop.inrl.co` (Dashboard-only)
 
 ## 8) Hosting on Cloudflare Pages
 
-- [ ] Set up Pages project pointing to repo root
-- [ ] Configure custom domain and `ALLOWED_ORIGINS`
+- [x] Set up Pages project pointing to repo root
+- [x] Configure custom domain and `ALLOWED_ORIGINS`
 - Build settings (no Wrangler):
   - Build command: leave empty (static files only)
   - Output directory: `.` (repo root with index.html) or `ecommerce` if serving from that folder
@@ -103,7 +103,7 @@ DNS for `shop.inrl.co` (Dashboard-only)
 
 ## 10) Verification
 
-- [ ] Admin login/logout works
+- [x] Admin login/logout works
 - [ ] Upload .mind/video/image -> URLs resolve from R2
 - [ ] Create/activate target -> Viewer plays video
 - [ ] Delete target -> R2 assets deleted

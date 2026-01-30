@@ -788,22 +788,17 @@
           }
         }
 
-        // Load brand list for filter (dedup client-side)
+        // Load brand/product lists via Worker targets (dedup client-side)
         try {
-          const { data: brandRows } = await supabase.from('targets').select('brand');
-          const brands = Array.from(new Set((brandRows || []).map(r => r.brand).filter(Boolean))).sort();
+          const res = await apiFetch('/targets');
+          const items = Array.isArray(res?.items) ? res.items : [];
+          const brands = Array.from(new Set(items.map(r => r.brand).filter(Boolean))).sort();
           filterEls.brand.innerHTML = '<option value="">All brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
-          // Load product list for filter
-          try {
-            const { data: productRows } = await supabase.from('targets').select('product');
-            const products = Array.from(new Set((productRows || []).map(r => r.product).filter(Boolean))).sort();
-            const prodEl = document.getElementById('filterProduct');
-            if (prodEl) prodEl.innerHTML = '<option value="">All products</option>' + products.map(p => `<option value="${p}">${p}</option>`).join('');
-          } catch (e) {
-            // ignore product load failures
-          }
+          const products = Array.from(new Set(items.map(r => r.product).filter(Boolean))).sort();
+          const prodEl = document.getElementById('filterProduct');
+          if (prodEl) prodEl.innerHTML = '<option value="">All products</option>' + products.map(p => `<option value="${p}">${p}</option>`).join('');
         } catch (e) {
-          // ignore errors loading brands
+          // ignore errors loading filters
         }
 
         // hook up events
@@ -1201,17 +1196,22 @@
               console.warn('Image upload threw', e);
             }
 
-            // insert DB record (include imageurl if available)
-            const { data: userData } = await supabase.auth.getUser();
-            const insertObj = { name, mindurl: mindUrlLocal, videourl: videoUrlLocal, is_active: false };
-            if (userData?.user?.id) insertObj.user_id = userData.user.id;
-            // Ensure `brand` is always set (DB enforces NOT NULL). Use user's brand when available, otherwise default to empty string.
-            insertObj.brand = currentUserBrand ? currentUserBrand : '';
+            // Create target via Worker API
             const prodVal = (document.getElementById('productInput')?.value || '').trim();
-            if (prodVal) insertObj.product = prodVal;
-            if (imageUrlLocal) insertObj.imageurl = imageUrlLocal;
-            const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
-            if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
+            const body = {
+              name,
+              mind_url: mindUrlLocal,
+              video_url: videoUrlLocal,
+              image_url: imageUrlLocal || null,
+            };
+            if (prodVal) body.product = prodVal;
+            if (currentUserBrand) body.brand = currentUserBrand;
+            try {
+              await apiFetch('/targets', { method: 'POST', body });
+            } catch (e) {
+              statusEl.textContent = '❌ Create failed: ' + (e.message || e);
+              return;
+            }
 
             statusEl.textContent = '✅ Upload complete (client-side compile)!';
             document.getElementById("name").value = "";
@@ -1245,17 +1245,21 @@
             }
           }
 
-          const { data: userData } = await supabase.auth.getUser();
-          const insertObj = { name, mindurl: uploadedMindUrl, videourl: videoUrl, is_active: false };
-          if (userData?.user?.id) insertObj.user_id = userData.user.id;
-          // Ensure `brand` is always set to satisfy NOT NULL constraint on targets.brand
-          insertObj.brand = currentUserBrand ? currentUserBrand : '';
           const prodValNew = (document.getElementById('productInput')?.value || '').trim();
-          if (prodValNew) insertObj.product = prodValNew;
-          if (imageUrlNew) insertObj.imageurl = imageUrlNew;
-
-          const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
-          if (dbErr) return (statusEl.textContent = "❌ Database insert failed: " + dbErr.message);
+          const body2 = {
+            name,
+            mind_url: uploadedMindUrl,
+            video_url: videoUrl,
+            image_url: imageUrlNew || null,
+          };
+          if (prodValNew) body2.product = prodValNew;
+          if (currentUserBrand) body2.brand = currentUserBrand;
+          try {
+            await apiFetch('/targets', { method: 'POST', body: body2 });
+          } catch (e) {
+            statusEl.textContent = '❌ Create failed: ' + (e.message || e);
+            return;
+          }
 
           statusEl.textContent = "✅ Upload complete!";
           document.getElementById("name").value = "";
@@ -1267,41 +1271,18 @@
       });
 
       async function loadTargets() {
-        let query = supabase
-          .from("targets")
-          .select("*")
-          .order("created_at", { ascending: false });
+        try {
+          const params = new URLSearchParams();
+          if (filters.brand) params.set('brand', filters.brand);
+          if (filters.product) params.set('product', filters.product);
+          const res = await apiFetch(`/targets?${params.toString()}`);
+          let rows = Array.isArray(res?.items) ? res.items : [];
+          // Optional uploader-type filtering not supported (no user_id available). Skip.
 
-        if (filters.brand) {
-          query = query.eq('brand', filters.brand);
-        }
-        if (filters.product) {
-          query = query.eq('product', filters.product);
-        }
-        if (filters.clientId) {
-          query = query.eq('user_id', filters.clientId);
-        }
+          const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
 
-        const { data, error } = await query;
-        if (error) return console.error("Error loading targets:", error);
-
-        // Optional uploader-type filtering (client-side) for admins
-        let rows = Array.isArray(data) ? data : [];
-        if (isAdmin && filters.uploader && filters.uploader !== 'all') {
-          if (filters.uploader === 'admin') {
-            rows = rows.filter(r => adminIds.has(r.user_id));
-          } else if (filters.uploader === 'client') {
-            rows = rows.filter(r => !adminIds.has(r.user_id));
-          } else if (filters.uploader === 'brand') {
-            // brand uploads == entries where brand column is not null/empty
-            rows = rows.filter(r => (r.brand ?? '').trim() !== '');
-          }
-        }
-
-        const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
-
-  targetsTable.innerHTML = "";
-  rows.forEach((t) => {
+          targetsTable.innerHTML = "";
+          rows.forEach((t) => {
           const isActive = t.is_active ? "✅" : "❌";
           const activeClass = t.is_active ? "bg-green-50 border-l-4 border-green-500" : "";
 
@@ -1358,13 +1339,16 @@
               <td class="p-3 text-center space-x-2">
                 <button onclick="setActive('${t.id}')" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">Set Active</button>
                 ${deactivateBtn}
-                <button onclick="editVideo('${t.id}', '${t.name}')" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">Edit</button>
                 <button onclick="deleteTarget('${t.id}', '${t.name}', decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))" class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">Delete</button>
                 <button onclick="copyViewer('${brandArg}','${productArg}')" class="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700">Copy Link</button>
               </td>
             </tr>`;
-          targetsTable.innerHTML += row;
-        });
+            targetsTable.innerHTML += row;
+          });
+        } catch (e) {
+          console.error('Error loading targets:', e);
+          targetsTable.innerHTML = `<tr><td class="p-3 text-red-600">Failed to load targets: ${e.message || e}</td></tr>`;
+        }
       }
 
       window.setActive = async (targetId) => {
@@ -1376,60 +1360,9 @@
 
         statusEl.textContent = "⏳ Updating active target...";
 
-        // Prefer a server-side RPC which simply sets this target active (no global deactivation).
-        // The database trigger will enforce per-brand maximums.
         try {
-          try {
-            const res = await supabase.rpc('set_active_target', { p_target_id: targetId });
-            if (res.error) throw res.error;
-            const returned = res.data;
-            if (typeof returned === 'string' && returned.startsWith('replaced_active_target:')) {
-              const oldId = returned.split(':')[1] || '';
-              statusEl.textContent = `✅ Active product replaced (previous active id ${oldId})`;
-            } else if (returned === 'activated_admin') {
-              statusEl.textContent = '✅ Activated (admin bypass)';
-            } else {
-              statusEl.textContent = "✅ Active target updated!";
-            }
-          } catch (rpcEx) {
-            // If RPC fails, attempt a safe client-side fallback that deactivates
-            // other active rows for the same brand+product first, then activates
-            // the requested target. This mirrors the brand page fallback.
-            console.warn('set_active_target RPC failed, falling back to client-side swap:', rpcEx);
-            try {
-              // Fetch the brand/product for this target
-              const { data: sel, error: selErr } = await supabase.from('targets').select('brand,product,brand_owner').eq('id', targetId).maybeSingle();
-              if (selErr) throw selErr;
-              const b = sel?.brand ?? '';
-              const p = sel?.product ?? '';
-              const bowner = sel?.brand_owner ?? null;
-
-              // Deactivate other active rows with same brand+product and same owner
-              let deactQuery = supabase
-                .from('targets')
-                .update({ is_active: false })
-                .neq('id', targetId)
-                .eq('brand', b)
-                .eq('product', p)
-                .is('is_active', true);
-              if (bowner === null) {
-                deactQuery = deactQuery.is('brand_owner', null);
-              } else {
-                deactQuery = deactQuery.eq('brand_owner', bowner);
-              }
-              const { error: deactErr } = await deactQuery;
-              if (deactErr) throw deactErr;
-
-              // Activate requested target
-              const { error: actErr } = await supabase.from('targets').update({ is_active: true }).eq('id', targetId);
-              if (actErr) throw actErr;
-
-              statusEl.textContent = '✅ Active target updated!';
-            } catch (fallbackErr) {
-              console.error('Fallback activation failed', fallbackErr);
-              statusEl.textContent = '❌ Failed to set active target: ' + (fallbackErr?.message || JSON.stringify(fallbackErr));
-            }
-          }
+          await apiFetch(`/targets/${encodeURIComponent(String(targetId))}/activate`, { method: 'POST' });
+          statusEl.textContent = '✅ Active target updated!';
           // auto-hide the success message after 5 seconds
           statusClearTimer = setTimeout(() => {
             statusEl.textContent = "";
@@ -1556,14 +1489,13 @@
       // Deactivate a target
       window.setInactive = async (targetId) => {
         try {
-          const { error } = await supabase.from('targets').update({ is_active: false }).eq('id', targetId);
-          if (error) throw error;
+          await apiFetch(`/targets/${encodeURIComponent(String(targetId))}/deactivate`, { method: 'POST' });
           statusEl.textContent = '✅ Target deactivated';
           setTimeout(() => { statusEl.textContent = ''; }, 3000);
           loadTargets();
         } catch (e) {
           console.error('Failed to deactivate target', e);
-          statusEl.textContent = '❌ Failed to deactivate target';
+          statusEl.textContent = '❌ Failed to deactivate target: ' + (e.message || e);
         }
       };
 
@@ -1650,62 +1582,12 @@
         const confirm2 = prompt('Type "delete" to confirm this action:');
         if (confirm2?.toLowerCase() !== "delete") return alert("❌ Deletion cancelled.");
 
-        statusEl.textContent = "Deleting target...";
-        const { error: delErr } = await supabase.from("targets").delete().eq("id", id);
-        if (delErr) return (statusEl.textContent = "❌ Failed: " + delErr.message);
-
-        // Attempt deletion from both Supabase storage (legacy) and R2 via Worker.
-        const mindPath = storagePathFromPublicUrl(mindUrl);
-        const videoPath = storagePathFromPublicUrl(videoUrl);
-        const imagePath = storagePathFromPublicUrl(imageUrl);
-        const supabaseToRemove = [mindPath, videoPath, imagePath].filter(Boolean);
-
-        // Remove from Supabase storage where applicable
-        let removed = 0;
-        const failed = [];
-        for (const p of supabaseToRemove) {
-          try {
-            const { error } = await supabase.storage.from("assets").remove([p]);
-            if (error) {
-              failed.push({ path: p, error: error.message || String(error) });
-            } else {
-              removed += 1;
-            }
-          } catch (e) {
-            failed.push({ path: p, error: String(e) });
-          }
-        }
-
-        // Now request server-side deletion of R2 assets via Netlify/Supabase function
-        // This ensures the server holds `WORKER_DELETE_KEY` and forwards deletes to Cloudflare Worker.
-        const possibleR2Urls = [mindUrl, videoUrl, imageUrl].filter(Boolean);
-        if (possibleR2Urls.length) {
-          try {
-            const { data: sessionData } = await supabase.auth.getSession();
-            const token = sessionData?.session?.access_token || '';
-            // Prefer Netlify function endpoint which forwards deletes securely
-            const fnUrl = '/.netlify/functions/delete-assets';
-            const resp = await fetch(fnUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify({ assets: possibleR2Urls })
-            });
-            const jr = await resp.json().catch(() => null);
-            if (!resp.ok) console.warn('Server delete-assets failed', resp.status, jr);
-            else console.log('Server delete-assets result', jr);
-          } catch (e) {
-            console.warn('delete-assets server call failed', e);
-          }
-        }
-
-        if (failed.length > 0) {
-          console.warn('Some storage files failed to delete:', failed);
-          statusEl.textContent = `⚠️ Target deleted in DB. Removed ${removed}/${supabaseToRemove.length} storage file(s); ${failed.length} failed. Worker delete attempted for R2 URLs.`;
-        } else {
-          statusEl.textContent = "✅ Target deleted and files removed (or worker delete attempted).";
+        statusEl.textContent = 'Deleting target...';
+        try {
+          await apiFetch(`/targets/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
+          statusEl.textContent = '✅ Target deleted';
+        } catch (e) {
+          statusEl.textContent = '❌ Delete failed: ' + (e.message || e);
         }
         loadTargets();
       };
