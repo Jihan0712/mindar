@@ -1,5 +1,5 @@
 -- Migration: add brand_owner to targets and make active uniqueness scoped by owner
--- Run in Supabase SQL editor
+-- Run in a Postgres SQL editor
 
 ALTER TABLE public.targets
   ADD COLUMN IF NOT EXISTS brand_owner uuid;

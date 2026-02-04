@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>INRL AR — Brand Registration</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="assets/js/auth-worker.js?v=20260130"></script>
   </head>
   <body class="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -35,120 +34,13 @@
     </div>
 
     <script>
-      const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
-      const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-      const params = new URLSearchParams(window.location.search);
-      const inviteId = params.get('invite_id') || params.get('invite');
-
       const inviteInfoEl = document.getElementById('inviteInfo');
-      const emailEl = document.getElementById('email');
-      const passwordEl = document.getElementById('password');
-      const fullNameEl = document.getElementById('fullName');
-      const brandEl = document.getElementById('brand');
       const registerBtn = document.getElementById('registerBtn');
       const alertEl = document.getElementById('alert');
 
-      function showAlert(msg, isError = true) {
-        alertEl.textContent = msg;
-        alertEl.style.color = isError ? 'crimson' : 'green';
-        if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
-      }
-
-      async function prefillInvite() {
-        if (!inviteId) {
-          inviteInfoEl.textContent = 'No invite specified. Use the link from your admin.';
-          registerBtn.disabled = true;
-          return;
-        }
-        try {
-          const { data, error } = await supabase.rpc('get_brand_invite', { p_id: inviteId });
-          if (error) throw error;
-          const row = Array.isArray(data) ? data[0] : data;
-          if (!row) {
-            inviteInfoEl.textContent = 'Invitation not found or already used.';
-            registerBtn.disabled = true;
-            return;
-          }
-          if (row.consumed_at) {
-            inviteInfoEl.textContent = 'This invitation has already been used.';
-            registerBtn.disabled = true;
-            return;
-          }
-          emailEl.value = row.email || '';
-          brandEl.value = row.brand || '';
-          inviteInfoEl.textContent = `You are invited to register for brand: ${row.brand}`;
-        } catch (e) {
-          console.error('prefillInvite failed', e);
-          inviteInfoEl.textContent = 'Unable to load invitation. Please contact your admin.';
-          registerBtn.disabled = true;
-        }
-      }
-
-      async function claimIfSignedIn() {
-        try {
-          const user = await auth.me();
-          if (!user) return;
-          if (!inviteId) return;
-          const { error } = await supabase.rpc('claim_brand_invite', { p_id: inviteId });
-          if (error) throw error;
-          showAlert('✅ Invite claimed. You are now a brand account.', false);
-          setTimeout(() => { window.location.href = '/brand.html'; }, 1200);
-        } catch (e) {
-          console.warn('claimIfSignedIn:', e?.message || e);
-        }
-      }
-
-      registerBtn.addEventListener('click', async () => {
-        const email = (emailEl.value || '').trim().toLowerCase();
-        const password = (passwordEl.value || '').trim();
-        const name = (fullNameEl.value || '').trim();
-        if (!inviteId) return showAlert('No invite specified.');
-        if (!email) return showAlert('Invitation not loaded.');
-        if (!name) return showAlert('Please provide your full name.');
-        if (!(brandEl.value || '').trim()) return showAlert('Brand missing from invite. Ask admin to regenerate.');
-        if (password.length < 8) return showAlert('Password must be at least 8 characters.');
-        try {
-          // Mirror admin-register flow: simple signUp (no redirect URL) then profile + claim
-          const { data, error } = await supabase.auth.signUp({ email, password });
-          if (error) throw error;
-          const user = data?.user;
-          if (!user) {
-            showAlert('Registration request sent — check your email to confirm your account.', false);
-            return;
-          }
-          // Best-effort profile insert (role set later by claim)
-          try {
-            await supabase.from('profiles').upsert([
-              { user_id: user.id, name, email, brand: brandEl.value || null }
-            ], { onConflict: 'user_id' });
-          } catch (e) { console.warn('Profile upsert failed (non-fatal):', e); }
-          // Attempt to claim invite immediately (will also set role/brand definitively)
-          try {
-            const { error: claimErr } = await supabase.rpc('claim_brand_invite', { p_id: inviteId });
-            if (claimErr) console.warn('Immediate claim failed (maybe needs email confirm):', claimErr);
-          } catch (e) { console.warn('Immediate claim threw:', e); }
-          // Fallback ensure brand & role applied if claim not yet effective
-          try {
-            const { data: prof } = await supabase.from('profiles').select('brand, role').eq('user_id', user.id).maybeSingle();
-            if (!prof || !prof.brand) {
-              await supabase.from('profiles').update({ brand: brandEl.value, role: 'brand' }).eq('user_id', user.id);
-              console.log('[brand-register] Applied fallback brand/role update');
-            }
-          } catch (e) { console.warn('Fallback brand update failed:', e); }
-          showAlert('Brand registration successful. Check email for confirmation.', false);
-        } catch (e) {
-          console.error('register failed', e);
-          showAlert(e?.message || String(e));
-        }
-      });
-
-      // On load: show invite details and, if already signed in (after email confirm), claim automatically
-      (async () => {
-        await prefillInvite();
-        await claimIfSignedIn();
-      })();
+      inviteInfoEl.textContent = 'Brand invite registration has been disabled after migrating off the legacy system.';
+      alertEl.textContent = 'Please contact an admin to create your account in the new system.';
+      registerBtn.disabled = true;
     </script>
   </body>
 </html>

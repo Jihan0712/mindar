@@ -3,7 +3,7 @@
 -- 1. Enable pg_net extension (if not already):
 --    create extension if not exists pg_net;
 -- 2. Set project URL + service role key (REPLACE placeholders):
---    alter database current set app.settings.supabase_url = 'https://YOUR-PROJECT.supabase.co';
+--    (legacy) alter database current set app.settings.auth_base_url = 'https://YOUR-PROJECT.example.com';
 --    alter database current set app.settings.service_role_key = 'SERVICE_ROLE_KEY';
 -- 3. Create or replace the functions below.
 -- 4. Test: select public.admin_delete_account('00000000-0000-0000-0000-000000000000');

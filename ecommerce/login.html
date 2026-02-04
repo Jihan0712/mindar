@@ -40,25 +40,14 @@
     </form>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js"></script>
-  <script src="js/auth.js"></script>
   <script>
     const form = document.getElementById('login-form');
     const statusEl = document.getElementById('status');
-    function setStatus(msg, ok=false){ statusEl.innerHTML = `<div class="alert ${ok? 'alert-success':'alert-danger'}">${msg}</div>`; }
-    form.addEventListener('submit', async (e) => {
+    statusEl.innerHTML = '<div class="alert alert-warning">Login has moved. Redirecting to the main login…</div>';
+    setTimeout(() => { window.location.href = '/login.html'; }, 800);
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
-      form.classList.add('was-validated');
-      if (!form.checkValidity()) return;
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value.trim();
-      try {
-        await Auth.signIn(email, password);
-        window.location.href = 'dashboard.html';
-      } catch (err){
-        setStatus(err.message || 'Login failed');
-      }
+      window.location.href = '/login.html';
     });
   </script>
 </body>

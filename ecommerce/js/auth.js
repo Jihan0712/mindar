@@ -1,30 +1,29 @@
 (function(){
-  // Supabase client init
-  const { SUPABASE_URL, SUPABASE_ANON_KEY } = window;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn('[auth] Supabase not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in js/config.js');
+  async function authMe(){
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (!res.ok) return null;
+    return await res.json().catch(() => null);
   }
-  const supabase = window.supabase?.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
   window.Auth = {
-    client: supabase,
     async currentUser(){
-      if (!supabase) return null;
-      const { data } = await supabase.auth.getUser();
-      return data?.user || null;
+      const j = await authMe();
+      return j?.user || null;
     },
-    async signIn(email, password){
-      if (!supabase) throw new Error('Supabase not configured');
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      return data?.user || null;
+    async signIn(){
+      // Login lives on the main site page.
+      window.location.href = '/login.html';
     },
     async signOut(){
-      if (!supabase) return;
-      await supabase.auth.signOut();
+      try {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      } finally {
+        window.location.href = '/login.html?loggedout=1';
+      }
     },
     async requireLogin(){
       const u = await this.currentUser();
-      if (!u) window.location.href = 'login.html';
+      if (!u) window.location.href = '/login.html';
       return !!u;
     }
   };

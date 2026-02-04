@@ -39,7 +39,7 @@ curl -i -X POST "$WORKER_URL/api/auth/bootstrap-admin" \
 
 ## 3) UI auth → Worker
 
-- [x] Replace Supabase auth in `admin.html`, `brand-register.html`, `admin-register.html`, `login.html`
+- [x] Replace legacy auth in `admin.html`, `brand-register.html`, `admin-register.html`, `login.html`
 - [x] Use `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
 
 Dashboard-only setup (no Wrangler)
@@ -82,7 +82,7 @@ DNS for `shop.inrl.co` (Dashboard-only)
 - [ ] Continue using `POST /upload` in `admin.html` (already integrated)
 - [ ] Ensure `ASSETS_DOMAIN` is correct/public
 
-## 7) Data migration (Supabase → D1)
+## 7) Data migration (legacy → D1)
 
 - [ ] Export CSV/SQL for `targets`, `admins`, `profiles` (for brands/role)
 - [ ] Transform to D1 schema: `users(email, role, password_hash?)`, `brands`, `brand_users`, `targets`, `brand_limits`
@@ -99,8 +99,18 @@ DNS for `shop.inrl.co` (Dashboard-only)
 
 ## 9) Remove legacy
 
-- [ ] Remove `supabase/` and `netlify/` directories
-- [ ] Strip Supabase SDK includes from HTML files
+- [x] Remove legacy hosting directories
+- [x] Strip legacy SDK includes from HTML files
+
+## 12) Ecommerce ↔ AR integration
+
+- [ ] Connect the AR dashboard to the ecommerce side (product catalog → target linking)
+- [ ] Add an ecommerce dashboard to regulate products (CRUD + publish/unpublish + link AR target)
+- [ ] Unify accounts + roles across ecommerce and AR (single session + same role)
+  - Role hierarchy: `admin` (full), `brand`/`user` (brand-scoped), `client` (viewer/shop)
+  - Use the same Worker cookie session for both `/admin.html` and `/ecommerce/*` (same-origin `/api/*` with `credentials: 'include'`)
+  - Update ecommerce UI to read `GET /api/auth/me` and enforce role-based redirects consistently
+  - Ensure D1 `users.role` is the single source of truth (no separate ecommerce auth)
 
 ## 10) Verification
 

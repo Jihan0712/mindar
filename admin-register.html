@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>INRL AR — Admin Registration</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="assets/js/auth-worker.js?v=20260130"></script>
   </head>
   <body class="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -36,110 +35,10 @@
     </div>
 
     <script>
-  const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  const params = new URLSearchParams(window.location.search);
-  // Normalize token from URL: trim and strip accidental wrapping quotes
-  const rawToken = params.get('token');
-  const token = rawToken ? rawToken.trim().replace(/^['"]|['"]$/g, '') : null;
-  console.log('[admin-register] token param:', token);
-
       const alertEl = document.getElementById('alert');
-      const emailEl = document.getElementById('email');
-      const passwordEl = document.getElementById('password');
-      const displayNameEl = document.getElementById('displayName');
       const registerBtn = document.getElementById('registerBtn');
-
-      function showAlert(msg, isError = true) {
-        alertEl.textContent = msg;
-        alertEl.style.color = isError ? 'crimson' : 'green';
-        if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
-      }
-
-      if (!token) {
-        showAlert('No admin token provided. You must use an invite link from an existing admin.');
-        registerBtn.disabled = true;
-      }
-
-      // If already logged in via Worker and role is admin, redirect to dashboard
-      (async () => {
-        const user = await auth.me();
-        if (user && user.role === 'admin') {
-          window.location.href = '/admin.html';
-        }
-      })();
-
-      registerBtn.addEventListener('click', async () => {
-        if (!token) return showAlert('No admin token provided.');
-        const email = (emailEl.value || '').trim().toLowerCase();
-        const password = (passwordEl.value || '').trim();
-        const displayName = (displayNameEl.value || '').trim() || null;
-        if (!email || !password) return showAlert('Please provide email and password.');
-
-        try {
-          // Proceed with signup first. After we have a user id we'll call
-          // a SECURITY DEFINER RPC that atomically consumes the token and promotes the user.
-          const { data, error } = await supabase.auth.signUp({ email, password });
-          if (error) return showAlert(error.message);
-
-          const user = data?.user;
-          if (!user) {
-            // Email confirmation flows may require the user to confirm first
-            return showAlert('Registration request sent — check your email to confirm your account.', false);
-          }
-
-          // Create profile entry (best-effort)
-          try {
-            await supabase.from('profiles').insert([{ user_id: user.id, name: displayName }]);
-          } catch (e) {
-            console.warn('Failed to insert profile (non-fatal):', e);
-          }
-
-          // Try RPC that consumes token and promotes the user in one atomic step
-          let promoted = false;
-          try {
-            const { data: rpcData, error: rpcErr } = await supabase.rpc('consume_admin_token_and_promote', { p_token: token, p_user_id: user.id });
-            if (!rpcErr) promoted = rpcData === true || rpcData === 't';
-            console.log('[admin-register] consume_admin_token_and_promote:', rpcData, rpcErr);
-          } catch (e) {
-            console.warn('[admin-register] RPC consume_admin_token_and_promote threw:', e);
-          }
-
-          // Fallback if RPC not available: attempt to mark token consumed and insert into admins.
-          if (!promoted) {
-            try {
-              // Try to mark token consumed via table update (may be blocked by RLS)
-              const { error: updErr } = await supabase.from('admin_tokens').update({ consumed_at: new Date().toISOString() }).eq('token', token);
-              if (updErr) throw updErr;
-
-              // Try to insert admin row (may be blocked by RLS)
-              const { error: admErr } = await supabase.from('admins').insert([{ user_id: user.id }]);
-              if (admErr) throw admErr;
-
-              promoted = true;
-            } catch (e) {
-              console.warn('Fallback promote failed (RLS or other):', e);
-            }
-          }
-
-          if (promoted) {
-            // Ensure profile reflects admin role and no brand
-            try {
-              await supabase.from('profiles')
-                .upsert([{ user_id: user.id, email, role: 'admin', brand: null }], { onConflict: 'user_id' });
-            } catch (e) { console.warn('Failed to set admin role in profile (non-fatal):', e); }
-            showAlert('Admin registration successful. You can now sign in.', false);
-            if (passwordEl) passwordEl.value = '';
-          } else {
-            showAlert('Account created but could not be promoted to admin automatically. Contact an existing admin.', true);
-          }
-        } catch (e) {
-          console.error(e);
-          showAlert(e?.message || String(e));
-        }
-      });
+      alertEl.textContent = 'Admin token registration has been disabled after migrating off the legacy system.';
+      registerBtn.disabled = true;
     </script>
   </body>
 </html>

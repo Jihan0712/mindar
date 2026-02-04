@@ -7,6 +7,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="style.css">
+
+  <!-- Worker Auth Client (same session/role as AR dashboards) -->
+  <script src="/assets/js/auth-worker.js?v=20260204"></script>
 </head>
 <body>
   <nav class="navbar navbar-expand-lg bg-light text-uppercase fs-6 p-3 border-bottom align-items-center">
@@ -15,57 +18,314 @@
       <div class="ms-auto">
         <a href="index.html" class="text-uppercase mx-3">Shop</a>
         <a href="checkout.html" class="text-uppercase mx-3">Checkout</a>
-        <a href="#" id="logout" class="text-uppercase mx-3">Logout</a>
+        <a href="/admin.html" class="text-uppercase mx-3">AR Admin</a>
+        <button id="logoutBtn" class="btn btn-sm btn-outline-dark text-uppercase ms-2">Logout</button>
       </div>
     </div>
   </nav>
+  <main class="container py-5" style="max-width: 1100px">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+      <div>
+        <h1 class="h4 text-uppercase mb-1">Product Dashboard</h1>
+        <div class="text-muted" style="font-size: 14px">
+          Signed in as <span id="userEmail"></span> (<span id="userRole"></span>)
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="/brand.html">AR Brand Dashboard</a>
+        <a class="btn btn-outline-secondary" href="/admin.html">AR Admin Dashboard</a>
+      </div>
+    </div>
 
-  <main class="container py-5">
-    <h2 class="text-uppercase mb-4">My Dashboard</h2>
-    <p id="userEmail" class="text-muted mb-4"></p>
+    <div id="status" class="alert alert-light border" role="status" style="display:none"></div>
 
     <div class="row g-4">
-      <div class="col-12 col-lg-6">
+      <div class="col-12 col-lg-5">
         <div class="card">
-          <div class="card-header">Recent Orders</div>
+          <div class="card-header text-uppercase">Create / Edit Product</div>
           <div class="card-body">
-            <ul id="ordersList" class="list-group"></ul>
-            <div id="ordersEmpty" class="text-muted">No orders yet.</div>
+            <form id="productForm" class="vstack gap-3">
+              <input type="hidden" id="productId" value="">
+
+              <div id="brandGroup" style="display:none">
+                <label class="form-label text-uppercase" for="brandInput">Brand (admin only)</label>
+                <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
+              </div>
+
+              <div>
+                <label class="form-label text-uppercase" for="titleInput">Title</label>
+                <input id="titleInput" class="form-control" type="text" required />
+              </div>
+
+              <div>
+                <label class="form-label text-uppercase" for="slugInput">Slug (used for AR linking)</label>
+                <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
+                <div class="form-text">Viewer link becomes: <code>/index.html?brand=…&amp;product=&lt;slug&gt;</code></div>
+              </div>
+
+              <div>
+                <label class="form-label text-uppercase" for="priceInput">Price</label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" />
+                  <select id="currencyInput" class="form-select" style="max-width: 120px">
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="form-label text-uppercase" for="imageUrlInput">Image URL (optional)</label>
+                <input id="imageUrlInput" class="form-control" type="url" placeholder="https://..." />
+              </div>
+
+              <div>
+                <label class="form-label text-uppercase" for="descInput">Description</label>
+                <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
+              </div>
+
+              <div>
+                <label class="form-label text-uppercase" for="targetSelect">Link to AR Target (optional)</label>
+                <select id="targetSelect" class="form-select">
+                  <option value="">(none)</option>
+                </select>
+              </div>
+
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="publishInput">
+                <label class="form-check-label text-uppercase" for="publishInput">Published</label>
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-dark text-uppercase" type="submit" id="saveBtn">Save</button>
+                <button class="btn btn-outline-secondary text-uppercase" type="button" id="resetBtn">Reset</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-7">
+        <div class="card">
+          <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
+            <span>Products</span>
+            <button id="refreshBtn" class="btn btn-sm btn-outline-dark text-uppercase">Refresh</button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-striped table-hover mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Slug</th>
+                    <th>Brand</th>
+                    <th>Price</th>
+                    <th>Published</th>
+                    <th>AR</th>
+                    <th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="productsTbody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js"></script>
-  <script src="js/auth.js"></script>
   <script>
-    (async function(){
-      await Auth.requireLogin();
-      const u = await Auth.currentUser();
-      document.getElementById('userEmail').textContent = u?.email ? `Signed in as ${u.email}` : '';
-      document.getElementById('logout').addEventListener('click', async (e) => { e.preventDefault(); await Auth.signOut(); window.location.href = 'login.html'; });
+    const el = (id) => document.getElementById(id);
 
-      const ORDERS_KEY = 'mindar_orders_v1';
-      const orders = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
-      const list = document.getElementById('ordersList');
-      const empty = document.getElementById('ordersEmpty');
-      if (orders.length){
-        empty.style.display = 'none';
-        list.innerHTML = orders.map(o => `
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-              <div class="fw-semibold">Order ${o.order_id}</div>
-              <div class="text-muted small">${new Date(o.ts).toLocaleString()}</div>
-            </div>
-            <div class="text-end">
-              <div class="fw-semibold">$${(Math.round(o.total*100)/100).toFixed(2)}</div>
-              <div class="small text-muted">${o.items} item(s)</div>
-            </div>
-          </li>
-        `).join('');
+    function showStatus(msg, type = 'info') {
+      const s = el('status');
+      s.className = 'alert border ' + (type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : 'alert-light');
+      s.textContent = msg;
+      s.style.display = 'block';
+    }
+
+    function clearStatus() {
+      const s = el('status');
+      s.style.display = 'none';
+      s.textContent = '';
+    }
+
+    function formatMoney(cents, currency) {
+      const v = Number(cents || 0) / 100;
+      const cur = currency || 'USD';
+      try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(v);
+      } catch {
+        return `$${v.toFixed(2)}`;
       }
+    }
+
+    function setFormProduct(p, isAdmin) {
+      el('productId').value = p ? String(p.id) : '';
+      if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
+      el('titleInput').value = p ? (p.title || '') : '';
+      el('slugInput').value = p ? (p.slug || '') : '';
+      el('priceInput').value = p ? ((Number(p.price_cents || 0) / 100).toFixed(2)) : '';
+      el('currencyInput').value = p ? (p.currency || 'USD') : 'USD';
+      el('imageUrlInput').value = p ? (p.image_url || '') : '';
+      el('descInput').value = p ? (p.description || '') : '';
+      el('publishInput').checked = !!(p && p.is_published);
+      el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
+      el('saveBtn').textContent = p ? 'Update' : 'Create';
+    }
+
+    async function loadTargets() {
+      const res = await apiFetch('/targets');
+      const items = res.items || [];
+      const select = el('targetSelect');
+      select.innerHTML = '<option value="">(none)</option>' + items.map(t => {
+        const label = `${t.name}${t.product ? ` — ${t.product}` : ''}${t.brand ? ` — ${t.brand}` : ''}`;
+        return `<option value="${t.id}">${label}</option>`;
+      }).join('');
+    }
+
+    function renderProducts(items, isAdmin) {
+      const tbody = el('productsTbody');
+      tbody.innerHTML = '';
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted p-4">No products yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items.map(p => {
+        const viewerLink = p.viewer_url || '/index.html';
+        const hasTarget = p.ar_target_id != null;
+        return `
+          <tr>
+            <td>${escapeHtml(p.title || '')}</td>
+            <td><code>${escapeHtml(p.slug || '')}</code></td>
+            <td>${escapeHtml(p.brand || '')}</td>
+            <td>${escapeHtml(formatMoney(p.price_cents, p.currency))}</td>
+            <td>
+              <span class="badge ${p.is_published ? 'bg-success' : 'bg-secondary'}">${p.is_published ? 'Yes' : 'No'}</span>
+            </td>
+            <td>
+              <a href="${viewerLink}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">View</a>
+              ${hasTarget ? '' : '<span class="text-muted" style="font-size:12px">(no target)</span>'}
+            </td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-dark" data-action="edit" data-id="${p.id}">Edit</button>
+              <button class="btn btn-sm ${p.is_published ? 'btn-outline-warning' : 'btn-outline-success'}" data-action="toggle" data-id="${p.id}">${p.is_published ? 'Unpublish' : 'Publish'}</button>
+              <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${p.id}">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
+
+    async function loadProducts() {
+      const res = await apiFetch('/products?includeUnpublished=1');
+      return res.items || [];
+    }
+
+    (async function main() {
+      clearStatus();
+      const user = await auth.requireRole(['admin','brand'], { redirectTo: '/login.html', next: location.pathname + location.search });
+      if (!user) return;
+      el('userEmail').textContent = user.email || '';
+      el('userRole').textContent = user.role || '';
+      const isAdmin = user.role === 'admin';
+      el('brandGroup').style.display = isAdmin ? '' : 'none';
+
+      el('logoutBtn').addEventListener('click', async () => {
+        await auth.logout();
+        location.href = '/login.html';
+      });
+
+      try {
+        await loadTargets();
+      } catch (e) {
+        showStatus('Targets failed to load: ' + (e.message || e), 'error');
+      }
+
+      let products = [];
+      async function refresh() {
+        clearStatus();
+        products = await loadProducts();
+        renderProducts(products, isAdmin);
+      }
+      await refresh();
+
+      el('refreshBtn').addEventListener('click', refresh);
+
+      el('resetBtn').addEventListener('click', () => setFormProduct(null, isAdmin));
+      setFormProduct(null, isAdmin);
+
+      el('productForm').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        clearStatus();
+        const id = el('productId').value.trim();
+        const body = {
+          title: el('titleInput').value.trim(),
+          slug: el('slugInput').value.trim(),
+          price: el('priceInput').value,
+          currency: el('currencyInput').value,
+          image_url: el('imageUrlInput').value.trim(),
+          description: el('descInput').value.trim(),
+          is_published: el('publishInput').checked,
+          ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
+        };
+        if (isAdmin) body.brand = el('brandInput').value.trim();
+
+        try {
+          if (!id) {
+            await apiFetch('/products', { method: 'POST', body });
+            showStatus('Product created.', 'success');
+          } else {
+            await apiFetch(`/products/${encodeURIComponent(id)}`, { method: 'POST', body });
+            showStatus('Product updated.', 'success');
+          }
+          setFormProduct(null, isAdmin);
+          await refresh();
+        } catch (e) {
+          showStatus(e.message || String(e), 'error');
+        }
+      });
+
+      el('productsTbody').addEventListener('click', async (ev) => {
+        const btn = ev.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.getAttribute('data-action');
+        const id = btn.getAttribute('data-id');
+        const p = products.find(x => String(x.id) === String(id));
+
+        if (action === 'edit' && p) {
+          setFormProduct(p, isAdmin);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+
+        if (action === 'toggle' && p) {
+          try {
+            await apiFetch(`/products/${encodeURIComponent(id)}`, { method: 'POST', body: { is_published: !p.is_published } });
+            await refresh();
+          } catch (e) {
+            showStatus(e.message || String(e), 'error');
+          }
+          return;
+        }
+
+        if (action === 'delete') {
+          if (!confirm('Delete this product?')) return;
+          try {
+            await apiFetch(`/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            setFormProduct(null, isAdmin);
+            await refresh();
+          } catch (e) {
+            showStatus(e.message || String(e), 'error');
+          }
+          return;
+        }
+      });
     })();
   </script>
 </body>

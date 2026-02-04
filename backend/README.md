@@ -1,12 +1,13 @@
-# Admin deletion backend (Option 2)
+# Checkout demo backend
 
-This folder contains a minimal Express server that exposes POST /admin-delete-user to fully delete accounts (Auth + domain) for admins.
+This folder contains a minimal Express server used by the checkout pages as a demo API.
 
-Deploy anywhere (Render, Fly.io, Railway, your VPS) and set these env vars:
+Endpoints:
+- `POST /orders` — accepts `{ cart, customer, total }` and returns `{ order_id, status, total }` (no persistence)
+- `GET /health` — returns `{ ok: true }`
 
-- SUPABASE_URL = https://YOUR-PROJECT.supabase.co
-- SUPABASE_SERVICE_ROLE_KEY = <service role key>
-- ALLOWED_ORIGINS = https://your-admin-site.com (comma-separated list)
+Env vars:
+- `ALLOWED_ORIGINS` — comma-separated allowlist for CORS (default `*`)
 
 Local run:
 
@@ -16,10 +17,4 @@ npm install
 npm start
 ```
 
-Endpoint contract:
-- POST /admin-delete-user
-- Headers: Authorization: Bearer <access_token>, Content-Type: application/json
-- Body: { "user_id": "<uuid>" }
-- Response: { status: "deleted" } or { status: "domain_only", warning: "..." }
-
-Security: The Service Role key must only live on the server. The admin UI (`admin.html`) sends the current session JWT and never sees the Service Role key.
+By default the checkout JS posts to `http://localhost:8080/orders`.

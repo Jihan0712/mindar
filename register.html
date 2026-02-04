@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>INRL AR — Register (Client)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body class="min-h-screen bg-gray-100 flex items-center justify-center">
     <div class="w-full max-w-lg bg-white rounded shadow p-6">
@@ -37,51 +36,10 @@
     </div>
 
     <script>
-  const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-      const emailEl = document.getElementById('email');
-      const passwordEl = document.getElementById('password');
-      const displayNameEl = document.getElementById('displayName');
-      const registerBtn = document.getElementById('registerBtn');
       const alertEl = document.getElementById('alert');
-
-      function showAlert(msg, isError = true) {
-        alertEl.textContent = msg;
-        alertEl.style.color = isError ? 'crimson' : 'green';
-        if (msg) setTimeout(() => { alertEl.textContent = ''; }, 7000);
-      }
-
-      registerBtn.addEventListener('click', async () => {
-        const email = (emailEl.value || '').trim().toLowerCase();
-        const password = (passwordEl.value || '').trim();
-        const displayName = (displayNameEl.value || '').trim() || null;
-        if (!email || !password) return showAlert('Please provide email and password to register.');
-        try {
-          // Regular client signup - no admin/brand flows
-          const { data, error } = await supabase.auth.signUp({ email, password });
-          if (error) return showAlert(error.message);
-          
-          const user = data?.user;
-          if (user) {
-            // Create or update regular client profile (use upsert to be idempotent)
-            // Ensure role is 'client' and brand is null for plain signups.
-            try {
-              await supabase.from('profiles').upsert([
-                { user_id: user.id, name: displayName, email, role: 'client', brand: null }
-              ], { onConflict: 'user_id' });
-            } catch (e) { console.warn('profile upsert failed', e); }
-            showAlert('Registration successful. You can now log in with your email and password.', false);
-            if (passwordEl) passwordEl.value = '';
-          } else {
-            showAlert('Registration request sent — check your email for confirmation.', false);
-          }
-        } catch (e) {
-          console.error(e);
-          showAlert(e?.message || String(e));
-        }
-      });
+      const registerBtn = document.getElementById('registerBtn');
+      alertEl.textContent = 'Client self-registration has been disabled after migrating off the legacy system.';
+      registerBtn.disabled = true;
     </script>
   </body>
 </html>

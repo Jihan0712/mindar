@@ -1,5 +1,5 @@
 -- Migration: create brand_settings and supporting RPCs for Admin UI
--- Run this in Supabase SQL editor (SQL -> New Query) or via psql connected to your Supabase DB.
+-- Run this in a Postgres SQL editor (or via psql connected to your DB).
 
 CREATE TABLE IF NOT EXISTS public.brand_settings (
   brand text PRIMARY KEY,
@@ -205,4 +205,4 @@ $$;
 --     GRANT EXECUTE ON FUNCTION public.get_brand_limits() TO authenticated;
 --     GRANT EXECUTE ON FUNCTION public.set_brand_max_active(text, integer) TO authenticated;
 --   (Adjust roles/permissions according to your security model.)
--- - Run in the Supabase SQL editor: paste this file and click "RUN".
+-- - Run in a Postgres SQL editor: paste this file and execute.

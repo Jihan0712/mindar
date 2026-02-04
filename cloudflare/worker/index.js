@@ -234,7 +234,71 @@ async function handleApi(request, pathname) {
   // Viewer
   if (request.method === 'GET' && pathname === '/api/viewer/active')         return apiViewerActive(request);
 
+  // Products (shop catalog)
+  if (request.method === 'GET'  && pathname === '/api/products')             return apiListProducts(request);
+  if (request.method === 'POST' && pathname === '/api/products')             return apiCreateProduct(request);
+  if (request.method === 'POST' && /^\/api\/products\/\d+$/.test(pathname)) {
+    const id = parseInt(pathname.split('/')[3], 10); return apiUpdateProduct(request, id);
+  }
+  if (request.method === 'DELETE' && /^\/api\/products\/\d+$/.test(pathname)) {
+    const id = parseInt(pathname.split('/')[3], 10); return apiDeleteProduct(request, id);
+  }
+
   return jsonResponse({ error: 'Not Found' }, 404, request);
+}
+
+// ---------- Role / input helpers ----------
+
+function normalizeSlug(input) {
+  const s = String(input || '').trim().toLowerCase();
+  if (!s) return '';
+  return s
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-');
+}
+
+function parsePriceCents(body) {
+  if (body && body.price_cents != null && body.price_cents !== '') {
+    const n = Number(body.price_cents);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.round(n));
+  }
+  if (body && body.price != null && body.price !== '') {
+    const n = Number(String(body.price).replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.round(n * 100));
+  }
+  return 0;
+}
+
+function isPrivilegedRole(role) {
+  return role === 'admin' || role === 'brand';
+}
+
+async function requirePrivilegedSession(request) {
+  const sess = await getSessionUser(request);
+  if (!sess) return { error: jsonResponse({ error: 'Unauthorized' }, 401, request) };
+  if (!isPrivilegedRole(sess.user.role)) return { error: jsonResponse({ error: 'Forbidden' }, 403, request) };
+  return { sess };
+}
+
+async function getScopedBrandIds(sess) {
+  if (!sess) return [];
+  if (sess.user.role === 'brand') return (sess.user.brands || []).map(b => b.id);
+  return [];
+}
+
+async function ensureBrandIdByName(brandName) {
+  const name = (brandName || '').trim();
+  if (!name) return null;
+  let b = await dbGet('select id from brands where name = ?', name);
+  if (!b) {
+    await dbRun('insert into brands (name) values (?)', name);
+    b = await dbGet('select id from brands where name = ?', name);
+  }
+  return b ? b.id : null;
 }
 
 // ---------- Auth APIs ----------
@@ -295,6 +359,221 @@ async function apiLogout(request) {
 async function apiMe(request) {
   const sess = await getSessionUser(request);
   return jsonResponse({ user: sess ? sess.user : null }, 200, request);
+}
+
+// ---------- Products APIs ----------
+
+async function apiListProducts(request) {
+  const url = new URL(request.url);
+  const brandName = (url.searchParams.get('brand') || '').trim();
+  const includeUnpublished = url.searchParams.get('includeUnpublished') === '1';
+
+  const sess = await getSessionUser(request);
+  const role = sess?.user?.role || 'anonymous';
+
+  let sql = `
+    select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
+           p.is_published, p.ar_target_id, p.created_at, p.updated_at,
+           b.name as brand
+    from products p
+    left join brands b on b.id = p.brand_id
+  `;
+  const where = [];
+  const params = [];
+
+  if (sess && role === 'brand') {
+    const brandIds = (sess.user.brands || []).map(b => b.id);
+    if (!brandIds.length) return jsonResponse({ items: [] }, 200, request);
+    where.push(`p.brand_id in (${brandIds.map(() => '?').join(',')})`);
+    params.push(...brandIds);
+  }
+
+  if (brandName) {
+    where.push('lower(b.name) = lower(?)');
+    params.push(brandName);
+  }
+
+  const canSeeUnpublished = sess && isPrivilegedRole(role) && includeUnpublished;
+  if (!canSeeUnpublished) {
+    where.push('p.is_published = 1');
+  }
+
+  if (where.length) sql += ' where ' + where.join(' and ');
+  sql += ' order by p.created_at desc';
+
+  const rows = await dbAll(sql, ...params);
+  const items = rows.map(r => {
+    const qs = new URLSearchParams();
+    if (r.brand) qs.set('brand', r.brand);
+    if (r.slug) qs.set('product', r.slug);
+    const viewer_url = `/index.html${qs.toString() ? `?${qs.toString()}` : ''}`;
+    return {
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      description: r.description,
+      price_cents: r.price_cents,
+      currency: r.currency,
+      image_url: r.image_url,
+      is_published: !!r.is_published,
+      ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
+      brand: r.brand || null,
+      viewer_url,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    };
+  });
+  return jsonResponse({ items }, 200, request);
+}
+
+async function apiCreateProduct(request) {
+  const { sess, error } = await requirePrivilegedSession(request);
+  if (error) return error;
+
+  const body = await readJson(request);
+  const title = (body.title || '').trim();
+  const description = (body.description || '').trim() || null;
+  const currency = (body.currency || 'USD').trim().toUpperCase() || 'USD';
+  const imageUrl = (body.image_url || '').trim() || null;
+  const isPublished = body.is_published ? 1 : 0;
+  const priceCents = parsePriceCents(body);
+  if (priceCents == null) return jsonResponse({ error: 'Invalid price' }, 400, request);
+
+  let slug = normalizeSlug(body.slug || title);
+  if (!title) return jsonResponse({ error: 'title required' }, 400, request);
+  if (!slug) return jsonResponse({ error: 'slug required' }, 400, request);
+
+  let brandId = null;
+  if (sess.user.role === 'admin') {
+    const brandName = (body.brand || '').trim();
+    if (brandName) brandId = await ensureBrandIdByName(brandName);
+  } else {
+    const brandIds = await getScopedBrandIds(sess);
+    if (!brandIds.length) return jsonResponse({ error: 'Brand account has no brand assigned' }, 400, request);
+    brandId = brandIds[0];
+  }
+
+  let targetId = body.ar_target_id != null && body.ar_target_id !== '' ? Number(body.ar_target_id) : null;
+  if (targetId != null && !Number.isFinite(targetId)) return jsonResponse({ error: 'Invalid ar_target_id' }, 400, request);
+  if (targetId != null) {
+    const t = await dbGet('select id, brand_id from targets where id = ?', targetId);
+    if (!t) return jsonResponse({ error: 'Target not found' }, 404, request);
+    if (sess.user.role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.includes(t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+  }
+
+  await dbRun(
+    'insert into products (brand_id, title, slug, description, price_cents, currency, image_url, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    brandId,
+    title,
+    slug,
+    description,
+    priceCents,
+    currency,
+    imageUrl,
+    isPublished,
+    targetId
+  );
+
+  const row = await dbGet(
+    `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
+            p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
+     from products p
+     left join brands b on b.id = p.brand_id
+     where p.rowid = last_insert_rowid()`
+  );
+
+  return jsonResponse({ ok: true, item: row || null }, 201, request);
+}
+
+async function apiUpdateProduct(request, id) {
+  const { sess, error } = await requirePrivilegedSession(request);
+  if (error) return error;
+  if (!id) return jsonResponse({ error: 'id required' }, 400, request);
+
+  const existing = await dbGet('select id, brand_id from products where id = ?', id);
+  if (!existing) return jsonResponse({ error: 'Not found' }, 404, request);
+
+  if (sess.user.role === 'brand') {
+    const brandIds = (sess.user.brands || []).map(b => b.id);
+    if (!brandIds.includes(existing.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+  }
+
+  const body = await readJson(request);
+  const fields = [];
+  const params = [];
+
+  if (body.title != null) { fields.push('title = ?'); params.push(String(body.title).trim()); }
+  if (body.slug != null) {
+    const slug = normalizeSlug(body.slug);
+    if (!slug) return jsonResponse({ error: 'Invalid slug' }, 400, request);
+    fields.push('slug = ?'); params.push(slug);
+  }
+  if (body.description != null) { fields.push('description = ?'); params.push(String(body.description).trim() || null); }
+  if (body.currency != null) { fields.push('currency = ?'); params.push(String(body.currency).trim().toUpperCase() || 'USD'); }
+  if (body.image_url != null) { fields.push('image_url = ?'); params.push(String(body.image_url).trim() || null); }
+  if (body.is_published != null) { fields.push('is_published = ?'); params.push(body.is_published ? 1 : 0); }
+
+  if (body.price_cents != null || body.price != null) {
+    const cents = parsePriceCents(body);
+    if (cents == null) return jsonResponse({ error: 'Invalid price' }, 400, request);
+    fields.push('price_cents = ?'); params.push(cents);
+  }
+
+  if (body.ar_target_id !== undefined) {
+    let targetId = body.ar_target_id != null && body.ar_target_id !== '' ? Number(body.ar_target_id) : null;
+    if (targetId != null && !Number.isFinite(targetId)) return jsonResponse({ error: 'Invalid ar_target_id' }, 400, request);
+    if (targetId != null) {
+      const t = await dbGet('select id, brand_id from targets where id = ?', targetId);
+      if (!t) return jsonResponse({ error: 'Target not found' }, 404, request);
+      if (sess.user.role === 'brand') {
+        const brandIds = (sess.user.brands || []).map(b => b.id);
+        if (!brandIds.includes(t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+      }
+    }
+    fields.push('ar_target_id = ?'); params.push(targetId);
+  }
+
+  if (!fields.length) return jsonResponse({ ok: true }, 200, request);
+  fields.push("updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
+
+  try {
+    await dbRun(`update products set ${fields.join(', ')} where id = ?`, ...params, id);
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('unique') && msg.toLowerCase().includes('slug')) {
+      return jsonResponse({ error: 'slug already exists' }, 409, request);
+    }
+    throw e;
+  }
+
+  const row = await dbGet(
+    `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
+            p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
+     from products p
+     left join brands b on b.id = p.brand_id
+     where p.id = ?`,
+    id
+  );
+  return jsonResponse({ ok: true, item: row || null }, 200, request);
+}
+
+async function apiDeleteProduct(request, id) {
+  const { sess, error } = await requirePrivilegedSession(request);
+  if (error) return error;
+  if (!id) return jsonResponse({ error: 'id required' }, 400, request);
+
+  const existing = await dbGet('select id, brand_id from products where id = ?', id);
+  if (!existing) return jsonResponse({ error: 'Not found' }, 404, request);
+  if (sess.user.role === 'brand') {
+    const brandIds = (sess.user.brands || []).map(b => b.id);
+    if (!brandIds.includes(existing.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+  }
+
+  await dbRun('delete from products where id = ?', id);
+  return jsonResponse({ ok: true }, 200, request);
 }
 
 // ---------- Targets APIs (admin + brand) ----------

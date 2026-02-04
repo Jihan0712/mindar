@@ -7,8 +7,8 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Supabase JS -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Worker Auth Client -->
+    <script src="assets/js/auth-worker.js?v=20260130"></script>
   </head>
   <body class="bg-gray-100 text-gray-800 font-sans">
     <div class="flex min-h-screen">
@@ -95,21 +95,10 @@
       </main>
     </div>
 
-    <!-- Minimal JS: reuses many helpers from admin, but admin-only tools removed -->
-    <script type="module">
-      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-  const SUPABASE_URL = "https://cxcbgrhqujgrrmkqcewv.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_kdk75aMwV6efd8Fcs1AsoA_a905uRWO";
-      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-      // Default worker upload URL (can be overridden in browser console)
-      window.WORKER_UPLOAD_URL = window.WORKER_UPLOAD_URL || 'https://mindar-worker.nico-824.workers.dev';
-
-      // Worker upload helper (same approach as admin): set window.WORKER_UPLOAD_URL or window.ASSETS_DOMAIN to point to your worker/domain
+    <!-- Worker-based Brand Dashboard -->
+    <script>
       async function uploadToWorker(file, path = 'uploads', filename) {
-        const base = (window.WORKER_UPLOAD_URL || (window.ASSETS_DOMAIN ? window.ASSETS_DOMAIN : '')).replace(/\/$/, '');
-        const uploadUrl = base ? `${base}/upload` : '/upload';
+        const uploadUrl = '/upload';
         const form = new FormData();
         form.append('file', file, filename || (file.name || `${Date.now()}`));
         form.append('path', path);
@@ -117,7 +106,7 @@
         const res = await fetch(uploadUrl, { method: 'POST', body: form });
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
-          throw new Error('Worker upload failed: ' + res.status + ' ' + txt);
+          throw new Error('Upload failed: ' + res.status + ' ' + txt);
         }
         const j = await res.json().catch(() => ({}));
         if (j.error) throw new Error(j.error || 'Upload returned error');
@@ -186,15 +175,14 @@
       let currentUserBrand = null;
 
       async function initBrandContext() {
-        const { data: sessionData } = await supabase.auth.getSession();
-        currentUser = sessionData?.session?.user || null;
-        if (userEmailEl) userEmailEl.textContent = currentUser?.email || '';
-        if (currentUser?.id) {
-          try {
-            const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', currentUser.id).maybeSingle();
-            currentUserBrand = (prof && typeof prof.brand === 'string' && prof.brand.trim()) ? prof.brand.trim() : null;
-          } catch (e) { currentUserBrand = null; }
-        }
+        if (!window.auth) { window.location.href = '/login.html'; return; }
+        const me = await auth.me();
+        if (!me) { window.location.href = '/login.html'; return; }
+        if (me.role === 'admin') { window.location.href = '/admin.html'; return; }
+        if (me.role !== 'brand') { window.location.href = '/ecommerce/'; return; }
+        currentUser = me;
+        currentUserBrand = me?.brands?.[0]?.name || null;
+        if (userEmailEl) userEmailEl.textContent = me?.email || '';
       }
 
       // upload flow: similar to admin but always tags brand if currentUserBrand is set
@@ -229,7 +217,7 @@
           try {
             statusEl.textContent = 'Compiling marker image in the browser...';
             const buffer = await compileImageClient(markerImage, (p) => { document.getElementById('compileStatus').textContent = `Progress: ${p.toFixed(1)}%`; });
-            document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to Supabase storage...';
+            document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to storage (via Worker)...';
             const filename = markerImage.name.replace(/\.[^/.]+$/, '') + '.mind';
             const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
             const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
@@ -244,17 +232,11 @@
               imageUrlLocal = markerUpload.url;
             } catch (e) { console.warn('Image upload threw', e); }
 
-            const { data: userData } = await supabase.auth.getUser();
             const insertObj = { name, mindurl: mindUrlLocal, videourl: videoUrlLocal, is_active: false };
-            if (userData?.user?.id) insertObj.user_id = userData.user.id;
-            if (currentUserBrand) {
-              insertObj.brand = currentUserBrand;
-              insertObj.brand_owner = currentUser?.id || userData?.user?.id;
-            }
+            if (currentUserBrand) insertObj.brand = currentUserBrand;
             const prodVal = (document.getElementById('productInput')?.value || '').trim(); if (prodVal) insertObj.product = prodVal;
             if (imageUrlLocal) insertObj.imageurl = imageUrlLocal;
-            const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
-            if (dbErr) return (statusEl.textContent = '❌ Database insert failed: ' + dbErr.message);
+            await apiFetch('/targets', { method: 'POST', body: insertObj });
             statusEl.textContent = '✅ Upload complete (client-side compile)!';
             document.getElementById('name').value = ''; document.getElementById('videoFile').value = ''; document.getElementById('markerFile').value = ''; document.getElementById('compileStatus').textContent = ''; window.uploadedMindUrl = null; loadTargets(); return;
           } catch (err) { console.error(err); statusEl.textContent = '❌ Client compile/upload failed: ' + (err.message || JSON.stringify(err)); return; }
@@ -271,28 +253,18 @@
               imageUrlNew = markerUpload.url;
             } catch (e) { console.warn('Marker upload threw', e); }
           }
-          const { data: userData } = await supabase.auth.getUser();
           const insertObj = { name, mindurl: window.uploadedMindUrl, videourl: videoUrl, is_active: false };
-          if (userData?.user?.id) insertObj.user_id = userData.user.id;
-          if (currentUserBrand) {
-            insertObj.brand = currentUserBrand;
-            insertObj.brand_owner = currentUser?.id || userData?.user?.id;
-          }
+          if (currentUserBrand) insertObj.brand = currentUserBrand;
           const prodValNew = (document.getElementById('productInput')?.value || '').trim(); if (prodValNew) insertObj.product = prodValNew;
           if (imageUrlNew) insertObj.imageurl = imageUrlNew;
-          const { error: dbErr } = await supabase.from('targets').insert([insertObj]);
-          if (dbErr) return (statusEl.textContent = '❌ Database insert failed: ' + dbErr.message);
+          await apiFetch('/targets', { method: 'POST', body: insertObj });
           statusEl.textContent = '✅ Upload complete!'; document.getElementById('name').value = ''; document.getElementById('videoFile').value = ''; window.uploadedMindUrl = null; loadTargets(); return;
         }
       });
 
       async function loadTargets() {
-        let query = supabase.from('targets').select('*').order('created_at', { ascending: false });
-        // restrict to brand owner if brand known
-        if (currentUserBrand) query = query.eq('brand', currentUserBrand);
-        const { data, error } = await query;
-        if (error) return console.error('Error loading targets:', error);
-        const rows = Array.isArray(data) ? data : [];
+        const res = await apiFetch('/targets');
+        const rows = Array.isArray(res?.items) ? res.items : [];
         targetsTable.innerHTML = '';
         const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
         rows.forEach((t) => {
@@ -343,25 +315,8 @@
       window.setActive = async (targetId) => {
         statusEl.textContent = '⏳ Updating active target...';
         try {
-          try {
-            const res = await supabase.rpc('set_active_target', { p_target_id: targetId });
-            if (res.error) throw res.error;
-            const returned = res.data;
-            if (typeof returned === 'string' && returned.startsWith('replaced_active_target:')) {
-              const oldId = returned.split(':')[1] || '';
-              statusEl.textContent = `✅ Active product replaced (previous active id ${oldId})`;
-            } else if (returned === 'activated_admin') {
-              statusEl.textContent = '✅ Activated (admin bypass)';
-            } else {
-              statusEl.textContent = '✅ Active target updated!';
-            }
-          } catch (rpcEx) {
-            console.warn('set_active_target RPC failed, falling back to client updates:', rpcEx);
-            await supabase.from('targets').update({ is_active: false }).neq('id', targetId);
-            const { error } = await supabase.from('targets').update({ is_active: true }).eq('id', targetId);
-            if (error) throw error;
-            statusEl.textContent = '✅ Active target updated!';
-          }
+          await apiFetch(`/targets/${encodeURIComponent(targetId)}/activate`, { method: 'POST' });
+          statusEl.textContent = '✅ Active target updated!';
         } catch (e) { console.error('Failed to set active target:', e); statusEl.textContent = '❌ Error: ' + (e.message || String(e)); }
         loadTargets();
       };
@@ -383,63 +338,28 @@
         } catch (e) { console.error('Failed to copy viewer URL', e); statusEl.textContent = '❌ Failed to copy viewer URL'; }
       };
 
-      // delete target helper (copied from admin, simplified)
-      function storagePathFromPublicUrl(u) {
-        if (!u) return null; try {
-          const noQuery = u.split('?')[0]; const marker1 = '/object/public/assets/'; const i1 = noQuery.indexOf(marker1);
-          if (i1 !== -1) return noQuery.substring(i1 + marker1.length);
-          const parts = noQuery.split('/'); if (parts.length >= 2) return parts.slice(-2).join('/');
-        } catch (e) { console.warn('storagePathFromPublicUrl failed', e); }
-        return null;
-      }
-
       window.deleteTarget = async (id, name, mindUrl, videoUrl, imageUrl) => {
         if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
         const confirm2 = prompt('Type "delete" to confirm this action:'); if (confirm2?.toLowerCase() !== 'delete') return alert('❌ Deletion cancelled.');
         statusEl.textContent = 'Deleting target...';
-        const { error: delErr } = await supabase.from('targets').delete().eq('id', id);
-        if (delErr) return (statusEl.textContent = '❌ Failed: ' + delErr.message);
-        const mindPath = storagePathFromPublicUrl(mindUrl); const videoPath = storagePathFromPublicUrl(videoUrl); const imagePath = storagePathFromPublicUrl(imageUrl);
-        const toRemove = [mindPath, videoPath, imagePath].filter(Boolean);
-        let removed = 0; const failed = [];
-        for (const p of toRemove) {
-          const { error } = await supabase.storage.from('assets').remove([p]); if (error) failed.push({ path: p, error: error.message || String(error) }); else removed += 1;
-        }
-        if (failed.length > 0) statusEl.textContent = `⚠️ Target deleted in DB. Removed ${removed}/${toRemove.length} storage file(s); ${failed.length} failed.`; else statusEl.textContent = '✅ Target deleted and files removed!';
+        await apiFetch(`/targets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        statusEl.textContent = '✅ Target deleted!';
         loadTargets();
       };
 
-      // Guard + init: only brand users may access brand.html. Admins/clients are redirected.
-      (async () => {
+      logoutBtn?.addEventListener('click', async () => {
         try {
-          const { data } = await supabase.auth.getSession();
-          const session = data?.session || null;
-          if (!session) { window.location.href = '/login.html'; return; }
-          const user = session.user;
-
-          // If user is an admin, redirect to admin dashboard (no cross-access)
-          try {
-            const { data: adminRow } = await supabase.from('admins').select('user_id,id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle();
-            if (adminRow && (adminRow.user_id === user.id || adminRow.id === user.id)) { window.location.href = '/admin.html'; return; }
-          } catch (e) {
-            console.warn('Admin check failed:', e);
-          }
-
-          // Ensure user has a brand in profiles; otherwise send to client view
-          try {
-            const { data: prof } = await supabase.from('profiles').select('brand').eq('user_id', user.id).maybeSingle();
-            if (!prof || !prof.brand) { window.location.href = '/ecommerce/'; return; }
-            // ok: brand owner
-            await initBrandContext();
-            loadTargets();
-          } catch (e) {
-            console.warn('Profile check failed:', e);
-            window.location.href = '/ecommerce/';
-          }
-        } catch (e) {
-          console.warn('Access guard failed:', e);
-          window.location.href = '/login.html';
+          if (!confirm('Sign out now?')) return;
+          await auth.logout();
+        } finally {
+          window.location.href = '/login.html?loggedout=1';
         }
+      });
+
+      // Init
+      (async () => {
+        await initBrandContext();
+        await loadTargets();
       })();
     </script>
   </body>
