@@ -1243,6 +1243,9 @@
           if (filters.brand) params.set('brand', filters.brand);
           if (filters.product) params.set('product', filters.product);
           if (filters.clientId) params.set('clientId', filters.clientId);
+          if (isAdmin && filters.uploader && filters.uploader !== 'all') {
+            params.set('uploaderRole', filters.uploader);
+          }
           const res = await apiFetch(`/targets?${params.toString()}`);
           let rows = Array.isArray(res?.items) ? res.items : [];
           // Optional uploader-type filtering for admins using returned user_id

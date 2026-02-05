@@ -586,6 +586,7 @@ async function apiListTargets(request) {
   const brandName = (url.searchParams.get('brand') || '').trim();
   const product   = (url.searchParams.get('product') || '').trim();
   const clientId  = (url.searchParams.get('clientId') || '').trim();
+  const uploaderRole = (url.searchParams.get('uploaderRole') || '').trim().toLowerCase();
 
   let sql = `
     select t.id, t.user_id, u.email as uploader_email, u.role as uploader_role,
@@ -607,6 +608,13 @@ async function apiListTargets(request) {
   if (brandName) { where.push('b.name = ?');      params.push(brandName); }
   if (product)   { where.push('t.product = ?');   params.push(product);   }
   if (clientId && role === 'admin') { where.push('t.user_id = ?'); params.push(clientId); }
+  if (uploaderRole && role === 'admin') {
+    if (!['admin', 'brand', 'client'].includes(uploaderRole)) {
+      return jsonResponse({ error: 'Invalid uploaderRole' }, 400, request);
+    }
+    where.push('lower(u.role) = lower(?)');
+    params.push(uploaderRole);
+  }
 
   if (where.length) sql += ' where ' + where.join(' and ');
   sql += ' order by t.created_at desc';
