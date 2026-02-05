@@ -1247,12 +1247,19 @@
           let rows = Array.isArray(res?.items) ? res.items : [];
           // Optional uploader-type filtering for admins using returned user_id
           if (isAdmin && filters.uploader && filters.uploader !== 'all') {
-            if (filters.uploader === 'admin') {
-              rows = rows.filter(r => r.user_id && adminIds.has(r.user_id));
-            } else if (filters.uploader === 'client') {
-              rows = rows.filter(r => r.user_id && !adminIds.has(r.user_id));
-            } else if (filters.uploader === 'brand') {
-              rows = rows.filter(r => (r.brand ?? '').trim() !== '');
+            // Preferred: Worker now returns uploader_role directly.
+            const hasRole = rows.some(r => typeof r?.uploader_role === 'string' && r.uploader_role);
+            if (hasRole) {
+              rows = rows.filter(r => String(r.uploader_role || '').toLowerCase() === filters.uploader);
+            } else {
+              // Fallback (older Worker): best-effort heuristics.
+              if (filters.uploader === 'admin') {
+                rows = rows.filter(r => r.user_id && adminIds.has(r.user_id));
+              } else if (filters.uploader === 'client') {
+                rows = rows.filter(r => r.user_id && !adminIds.has(r.user_id));
+              } else if (filters.uploader === 'brand') {
+                rows = rows.filter(r => (r.brand ?? '').trim() !== '');
+              }
             }
           }
 

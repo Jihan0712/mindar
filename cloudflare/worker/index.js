@@ -588,10 +588,12 @@ async function apiListTargets(request) {
   const clientId  = (url.searchParams.get('clientId') || '').trim();
 
   let sql = `
-    select t.id, t.user_id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
-           t.is_active, t.created_at, b.name as brand
+    select t.id, t.user_id, u.email as uploader_email, u.role as uploader_role,
+      t.name, t.product, t.mind_url, t.video_url, t.image_url,
+      t.is_active, t.created_at, b.name as brand
     from targets t
     left join brands b on b.id = t.brand_id
+    left join users u on u.id = t.user_id
   `;
   const where = [];
   const params = [];
@@ -613,6 +615,8 @@ async function apiListTargets(request) {
   const items = rows.map(r => ({
     id: r.id,
     user_id: r.user_id,
+    uploader_email: r.uploader_email || null,
+    uploader_role: r.uploader_role || null,
     name: r.name,
     product: r.product,
     mindurl: r.mind_url,
