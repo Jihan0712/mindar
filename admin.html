@@ -100,35 +100,46 @@
           <h2 class="text-xl font-semibold mb-4">Existing Targets</h2>
           <!-- Admin-only Filters -->
           <div id="filtersBar" class="mb-4 hidden">
-            <div class="flex flex-wrap gap-3 items-end">
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Brand</label>
-                <select id="filterBrand" class="border rounded p-2 min-w-[12rem]">
-                  <option value="">All brands</option>
-                </select>
+            <div class="bg-white shadow rounded-lg p-4">
+              <div class="flex items-center justify-between gap-4 mb-3">
+                <div>
+                  <h3 class="text-sm font-medium text-gray-800">Filters</h3>
+                  <p class="text-xs text-gray-500">Admin-only filtering for targets.</p>
+                </div>
+                <div id="filtersSummary" class="text-xs text-gray-500"></div>
               </div>
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Product</label>
-                <select id="filterProduct" class="border rounded p-2 min-w-[12rem]">
-                  <option value="">All products</option>
-                </select>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-xs text-gray-600 mb-1" for="filterBrand">Brand</label>
+                  <select id="filterBrand" class="border rounded p-2 w-full">
+                    <option value="">All brands</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-600 mb-1" for="filterProduct">Product</label>
+                  <select id="filterProduct" class="border rounded p-2 w-full">
+                    <option value="">All products</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-600 mb-1" for="filterClientId">Client ID (uploader user_id)</label>
+                  <input id="filterClientId" type="text" placeholder="e.g. usr_..." class="border rounded p-2 w-full" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-600 mb-1" for="filterUploaderType">Uploader type</label>
+                  <select id="filterUploaderType" class="border rounded p-2 w-full">
+                    <option value="all">All uploads</option>
+                    <option value="brand">Brand uploads</option>
+                    <option value="admin">Admin uploads</option>
+                    <option value="client">Client uploads</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Client ID (user_id)</label>
-                <input id="filterClientId" type="text" placeholder="uuid" class="border rounded p-2 min-w-[18rem]" />
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Uploads</label>
-                <select id="filterUploaderType" class="border rounded p-2">
-                  <option value="all">All uploads</option>
-                  <option value="brand">Brand uploads only</option>
-                  <option value="admin">Admin uploads only</option>
-                  <option value="client">Client uploads only</option>
-                </select>
-              </div>
-              <div class="flex gap-2">
-                <button id="applyFilters" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Apply</button>
+
+              <div class="flex flex-wrap gap-2 justify-end mt-3">
                 <button id="clearFilters" class="bg-gray-200 text-gray-800 px-3 py-2 rounded hover:bg-gray-300">Clear</button>
+                <button id="applyFilters" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Apply</button>
               </div>
             </div>
           </div>
@@ -588,14 +599,16 @@
   let isAdmin = false;
   let currentUserBrand = null;
       const adminIds = new Set();
-      const filters = { brand: "", clientId: "", uploader: "all" };
+      const filters = { brand: "", product: "", clientId: "", uploader: "all" };
       const filterEls = {
         bar: document.getElementById('filtersBar'),
         brand: document.getElementById('filterBrand'),
+        product: document.getElementById('filterProduct'),
         clientId: document.getElementById('filterClientId'),
         uploaderType: document.getElementById('filterUploaderType'),
         apply: document.getElementById('applyFilters'),
-        clear: document.getElementById('clearFilters')
+        clear: document.getElementById('clearFilters'),
+        summary: document.getElementById('filtersSummary')
       };
 
       const uploadBtn = document.getElementById("upload");
@@ -718,33 +731,48 @@
           const brands = Array.from(new Set(items.map(r => r.brand).filter(Boolean))).sort();
           filterEls.brand.innerHTML = '<option value="">All brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
           const products = Array.from(new Set(items.map(r => r.product).filter(Boolean))).sort();
-          const prodEl = document.getElementById('filterProduct');
-          if (prodEl) prodEl.innerHTML = '<option value="">All products</option>' + products.map(p => `<option value="${p}">${p}</option>`).join('');
+          if (filterEls.product) filterEls.product.innerHTML = '<option value="">All products</option>' + products.map(p => `<option value="${p}">${p}</option>`).join('');
         } catch (e) {
           // ignore errors loading filters
         }
 
-        // hook up events
-        filterEls.apply?.addEventListener('click', () => {
-          filters.brand = filterEls.brand?.value || '';
-          filters.product = (document.getElementById('filterProduct')?.value || '').trim();
-          filters.clientId = (filterEls.clientId?.value || '').trim();
-          filters.uploader = filterEls.uploaderType?.value || 'all';
-          loadTargets();
-        });
+        // hook up events (only once)
+        if (!initAdminContext._filtersBound) {
+          initAdminContext._filtersBound = true;
+          const applyFilters = () => {
+            filters.brand = filterEls.brand?.value || '';
+            filters.product = (filterEls.product?.value || '').trim();
+            filters.clientId = (filterEls.clientId?.value || '').trim();
+            filters.uploader = filterEls.uploaderType?.value || 'all';
+            loadTargets();
+          };
+          const clearFilters = () => {
+            filters.brand = '';
+            filters.product = '';
+            filters.clientId = '';
+            filters.uploader = 'all';
+            if (filterEls.brand) filterEls.brand.value = '';
+            if (filterEls.product) filterEls.product.value = '';
+            if (filterEls.clientId) filterEls.clientId.value = '';
+            if (filterEls.uploaderType) filterEls.uploaderType.value = 'all';
+            loadTargets();
+          };
 
-        filterEls.clear?.addEventListener('click', () => {
-          filters.brand = '';
-          filters.product = '';
-          filters.clientId = '';
-          filters.uploader = 'all';
-          if (filterEls.brand) filterEls.brand.value = '';
-          const fp = document.getElementById('filterProduct'); if (fp) fp.value = '';
-          if (filterEls.clientId) filterEls.clientId.value = '';
-          if (filterEls.uploaderType) filterEls.uploaderType.value = 'all';
-          loadTargets();
-        });
+          filterEls.apply?.addEventListener('click', applyFilters);
+          filterEls.clear?.addEventListener('click', clearFilters);
+
+          // Convenience: press Enter in Client ID field to apply
+          filterEls.clientId?.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+              ev.preventDefault();
+              applyFilters();
+            }
+          });
+        }
       }
+
+      // static property used as a lightweight "bind once" flag
+      initAdminContext._filtersBound = false;
 
       // Logout helper used by any logout control
       async function doSignOut(buttonEl) {
@@ -1215,6 +1243,17 @@
           const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
 
           targetsTable.innerHTML = "";
+          try {
+            if (isAdmin && filterEls.summary) {
+              const parts = [];
+              if (filters.brand) parts.push(`Brand: ${filters.brand}`);
+              if (filters.product) parts.push(`Product: ${filters.product}`);
+              if (filters.clientId) parts.push(`Client: ${filters.clientId}`);
+              if (filters.uploader && filters.uploader !== 'all') parts.push(`Uploader: ${filters.uploader}`);
+              const prefix = parts.length ? parts.join(' • ') : 'No filters';
+              filterEls.summary.textContent = `${prefix} • ${rows.length} result${rows.length === 1 ? '' : 's'}`;
+            }
+          } catch {}
           rows.forEach((t) => {
           const isActive = t.is_active ? "✅" : "❌";
           const activeClass = t.is_active ? "bg-green-50 border-l-4 border-green-500" : "";
