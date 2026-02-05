@@ -739,6 +739,7 @@
         // hook up events (only once)
         if (!initAdminContext._filtersBound) {
           initAdminContext._filtersBound = true;
+          let autoApplyTimer = null;
           const applyFilters = () => {
             filters.brand = filterEls.brand?.value || '';
             filters.product = (filterEls.product?.value || '').trim();
@@ -761,10 +762,25 @@
           filterEls.apply?.addEventListener('click', applyFilters);
           filterEls.clear?.addEventListener('click', clearFilters);
 
+          // Auto-apply: dropdown changes refresh immediately.
+          filterEls.brand?.addEventListener('change', applyFilters);
+          filterEls.product?.addEventListener('change', applyFilters);
+          filterEls.uploaderType?.addEventListener('change', applyFilters);
+
+          // Auto-apply: client id refreshes after typing pause.
+          filterEls.clientId?.addEventListener('input', () => {
+            if (autoApplyTimer) clearTimeout(autoApplyTimer);
+            autoApplyTimer = setTimeout(applyFilters, 450);
+          });
+
           // Convenience: press Enter in Client ID field to apply
           filterEls.clientId?.addEventListener('keydown', (ev) => {
             if (ev.key === 'Enter') {
               ev.preventDefault();
+              if (autoApplyTimer) {
+                clearTimeout(autoApplyTimer);
+                autoApplyTimer = null;
+              }
               applyFilters();
             }
           });
