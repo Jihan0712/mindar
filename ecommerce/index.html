@@ -17,6 +17,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
   <link rel="stylesheet" type="text/css" href="style.css">
 
+  <!-- Worker Auth Client (shared session + role with AR dashboards) -->
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -372,10 +375,13 @@
                   <a class="nav-link" href="#">Contact</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="login.html">Login</a>
+                  <a class="nav-link" id="navLogin" href="/login.html">Login</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="dashboard.html">Dashboard</a>
+                  <a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a>
                 </li>
               </ul>
             </div>
@@ -554,6 +560,18 @@
             <use xlink:href="#arrow-right"></use>
           </svg></div>
       </div>
+    </div>
+  </section>
+
+  <!-- Step 12: Live catalog powered by /api/products (Worker + D1) -->
+  <section id="live-catalog" class="py-5">
+    <div class="container">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <h4 class="text-uppercase m-0">Shop (Live Catalog)</h4>
+        <div id="liveCatalogUser" class="text-muted" style="font-size: 14px"></div>
+      </div>
+      <div id="liveCatalogStatus" class="text-muted mb-3" style="font-size: 14px">Loading products…</div>
+      <div id="liveProductsRow" class="row g-4"></div>
     </div>
   </section>
 
@@ -1414,6 +1432,100 @@
   <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
   <script>
+    // --- Auth-aware navbar (shared Worker cookie session) ---
+    (async function initAuthNav(){
+      const loginEl = document.getElementById('navLogin');
+      const dashEl = document.getElementById('navDashboard');
+      const logoutEl = document.getElementById('navLogout');
+      const userEl = document.getElementById('liveCatalogUser');
+      try {
+        const me = await auth.me();
+        const user = me && me.email ? me : null;
+
+        if (userEl) {
+          userEl.textContent = user ? `Signed in as ${user.email} (${user.role})` : 'Not signed in';
+        }
+
+        if (logoutEl) {
+          logoutEl.style.display = user ? '' : 'none';
+          logoutEl.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await auth.logout();
+            location.reload();
+          });
+        }
+        if (loginEl) loginEl.style.display = user ? 'none' : '';
+
+        // Dashboard is only for admin/brand
+        const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
+        if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
+      } catch (e) {
+        if (userEl) userEl.textContent = 'Not signed in';
+      }
+    })();
+
+    // --- Live catalog rendering ---
+    function moneyFromCents(cents, currency){
+      const amt = (Number(cents || 0) / 100);
+      const sym = (currency || 'USD') === 'USD' ? '$' : '';
+      return `${sym}${amt.toFixed(2)}`;
+    }
+
+    async function loadLiveCatalog(){
+      const rowEl = document.getElementById('liveProductsRow');
+      const statusEl = document.getElementById('liveCatalogStatus');
+      if (!rowEl) return;
+      try {
+        const res = await fetch('/api/products', { credentials: 'include' });
+        if (!res.ok) throw new Error(`Products API error (${res.status})`);
+        const data = await res.json();
+        const items = Array.isArray(data && data.items) ? data.items : [];
+
+        if (items.length === 0) {
+          if (statusEl) statusEl.textContent = 'No published products yet.';
+          rowEl.innerHTML = '';
+          return;
+        }
+
+        if (statusEl) statusEl.textContent = '';
+        rowEl.innerHTML = items.map(p => {
+          const title = (p.title || 'Product').toString();
+          const slug = (p.slug || '').toString();
+          const price = moneyFromCents(p.price_cents, p.currency);
+          const img = (p.image_url || 'images/product-item-1.jpg').toString();
+          const viewer = (p.viewer_url || '').toString();
+          const addPrice = (Number(p.price_cents || 0) / 100).toFixed(2);
+
+          return `
+            <div class="col-12 col-sm-6 col-lg-3">
+              <div class="product-item image-zoom-effect link-effect h-100">
+                <div class="image-holder position-relative">
+                  <a href="${viewer || '#'}" ${viewer ? '' : 'onclick="return false"'}>
+                    <img src="${img}" alt="product" class="product-image img-fluid">
+                  </a>
+                  <div class="product-content">
+                    <h5 class="element-title text-uppercase fs-6 mt-3">
+                      <a href="${viewer || '#'}" ${viewer ? '' : 'onclick="return false"'}>${title}</a>
+                    </h5>
+                    <a href="#" class="text-decoration-none" data-after="Add to cart"><span>${price}</span></a>
+                    ${viewer ? `<div style="font-size: 13px" class="mt-1"><a href="${viewer}" class="text-decoration-none">View in AR</a></div>` : ''}
+                    <div class="visually-hidden" data-sku="${slug}"></div>
+                    <div class="visually-hidden" data-price="${addPrice}"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        if (statusEl) statusEl.textContent = 'Failed to load live catalog.';
+        rowEl.innerHTML = '';
+        console.warn('Live catalog failed:', e);
+      }
+    }
+
+    loadLiveCatalog();
+
     // Add-to-cart wiring for theme product cards
     function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
     document.addEventListener('click', function(e){
@@ -1428,7 +1540,10 @@
       const priceText = (a.textContent||'').replace(/[^0-9.]/g,'');
       const price = parseFloat(priceText || '0');
       const name = nameEl ? nameEl.textContent.trim() : 'Product';
-      const id = 'sku-' + slugify(name);
+      // Prefer catalog slug when present (live catalog), else derive from name.
+      const skuEl = itemEl && itemEl.querySelector('[data-sku]');
+      const sku = skuEl ? (skuEl.getAttribute('data-sku') || '').trim() : '';
+      const id = sku ? ('sku-' + sku) : ('sku-' + slugify(name));
       const image = imgEl ? imgEl.getAttribute('src') : '';
       Cart.add({ id, name, price, image, qty: 1 });
       CartUI.render();

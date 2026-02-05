@@ -67,6 +67,8 @@
               <label class="block text-sm font-medium mb-1">Product (optional)</label>
               <input id="productInput" type="text" placeholder="Product identifier (e.g. SKU or slug)"
                 class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+              <datalist id="productOptions"></datalist>
+              <p class="text-xs text-gray-400 mt-1">Tip: use a product <span class="font-mono">slug</span> from the ecommerce catalog for clean AR linking.</p>
             </div>
 
             <div>
@@ -318,7 +320,7 @@
     <!-- Worker Auth Guard & Logout -->
     <script>
       (async () => {
-        const user = await auth.requireRole(['admin']);
+        const user = await auth.requireRole(['admin', 'brand']);
         if (!user) return; // redirected
         const emailEl = document.getElementById('userEmail');
         if (emailEl) emailEl.textContent = user.email || '';
@@ -724,16 +726,52 @@
           }
         } catch {}
 
-        // Load brand/product lists via Worker targets (dedup client-side)
+        // Load brand list via Worker targets (dedup client-side)
+        // Product list comes from /api/products so AR uses the ecommerce catalog slugs.
+        let targetItems = [];
         try {
           const res = await apiFetch('/targets');
-          const items = Array.isArray(res?.items) ? res.items : [];
-          const brands = Array.from(new Set(items.map(r => r.brand).filter(Boolean))).sort();
+          targetItems = Array.isArray(res?.items) ? res.items : [];
+          const brands = Array.from(new Set(targetItems.map(r => r.brand).filter(Boolean))).sort();
           filterEls.brand.innerHTML = '<option value="">All brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
-          const products = Array.from(new Set(items.map(r => r.product).filter(Boolean))).sort();
-          if (filterEls.product) filterEls.product.innerHTML = '<option value="">All products</option>' + products.map(p => `<option value="${p}">${p}</option>`).join('');
         } catch (e) {
-          // ignore errors loading filters
+          targetItems = [];
+        }
+
+        // Load products for filter dropdown + upload datalist
+        try {
+          const includeUnpublished = (currentUser?.role === 'admin' || currentUser?.role === 'brand') ? '1' : '0';
+          const pres = await apiFetch(`/products?includeUnpublished=${includeUnpublished}`);
+          const products = Array.isArray(pres?.items) ? pres.items : [];
+
+          // Build a union: catalog slugs first, then any legacy target.product strings not present in catalog.
+          const catalogSlugs = products.map(p => (p?.slug || '').trim()).filter(Boolean);
+          const legacySlugs = Array.from(new Set((targetItems || []).map(t => (t?.product || '').trim()).filter(Boolean)))
+            .filter(s => !catalogSlugs.includes(s));
+          const allSlugs = Array.from(new Set([...catalogSlugs, ...legacySlugs])).sort((a,b) => a.localeCompare(b));
+
+          // Upload suggestions
+          const dl = document.getElementById('productOptions');
+          if (dl) {
+            const opts = allSlugs.map(slug => {
+              const p = products.find(pp => (pp?.slug || '') === slug);
+              const label = p?.title ? `${p.title} (${slug})` : slug;
+              return `<option value="${slug}">${label}</option>`;
+            }).join('');
+            dl.innerHTML = opts;
+          }
+
+          // Filter dropdown
+          if (filterEls.product) {
+            const options = allSlugs.map(slug => {
+              const p = products.find(pp => (pp?.slug || '') === slug);
+              const label = p?.title ? `${p.title} (${slug})` : slug;
+              return `<option value="${slug}">${label}</option>`;
+            }).join('');
+            filterEls.product.innerHTML = '<option value="">All products</option>' + options;
+          }
+        } catch (e) {
+          // ignore errors loading products
         }
 
         // hook up events (only once)

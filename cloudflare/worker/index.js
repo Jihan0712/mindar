@@ -792,6 +792,58 @@ async function apiViewerActive(request) {
   const brand   = (url.searchParams.get('brand') || '').trim();
   const product = (url.searchParams.get('product') || '').trim();
 
+  // Step 12 integration: if a product slug is provided, prefer the catalog link
+  // (products.ar_target_id) so ecommerce can drive AR without duplicating product
+  // strings into targets.
+  if (product) {
+    try {
+      let psql = `
+        select p.ar_target_id, p.slug, b.name as brand
+        from products p
+        left join brands b on b.id = p.brand_id
+        where lower(p.slug) = lower(?)
+          and p.is_published = 1
+      `;
+      const pparams = [product];
+      if (brand) {
+        psql += ' and lower(b.name) = lower(?)';
+        pparams.push(brand);
+      }
+      psql += ' limit 1';
+
+      const prow = await dbGet(psql, ...pparams);
+      const targetId = prow?.ar_target_id != null ? Number(prow.ar_target_id) : null;
+      if (targetId != null && Number.isFinite(targetId)) {
+        const t = await dbGet(`
+          select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
+                 t.is_active, t.created_at, b.name as brand
+          from targets t
+          left join brands b on b.id = t.brand_id
+          where t.id = ?
+          limit 1
+        `, targetId);
+
+        if (t && t.is_active) {
+          return jsonResponse({
+            id: t.id,
+            name: t.name,
+            product: t.product,
+            brand: t.brand || null,
+            mindurl: t.mind_url,
+            videourl: t.video_url,
+            imageurl: t.image_url,
+            is_active: !!t.is_active,
+            created_at: t.created_at,
+            source: 'product_link'
+          }, 200, request);
+        }
+      }
+    } catch (e) {
+      // If products table isn't present yet (or any other issue), fall back to legacy.
+      console.warn('viewer active: product link lookup failed; falling back', e);
+    }
+  }
+
   let sql = `
     select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
            t.is_active, t.created_at, b.name as brand
@@ -824,7 +876,8 @@ async function apiViewerActive(request) {
     videourl: row.video_url,
     imageurl: row.image_url,
     is_active: !!row.is_active,
-    created_at: row.created_at
+    created_at: row.created_at,
+    source: 'targets_active'
   }, 200, request);
 }
 
