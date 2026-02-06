@@ -72,15 +72,16 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium mb-1">Marker Image (.jpg/.png)</label>
+              <label class="block text-sm font-medium mb-1">Marker Image(s) (.jpg/.png)</label>
               <div class="flex gap-2">
-                <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" class="flex-1 border p-2 rounded-md" />
+                <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" multiple class="flex-1 border p-2 rounded-md" />
                 <div class="flex gap-2">
                   <button id="serverCompile" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">
                     Compile on Server
                   </button>
                 </div>
               </div>
+              <p id="markerFilesInfo" class="text-xs text-gray-500 mt-1"></p>
               <p id="compileStatus" class="text-sm text-gray-500 mt-1"></p>
               <p class="text-xs text-gray-400">Tip: large images will be resized to 1024px max to speed up compilation.</p>
             </div>
@@ -1090,14 +1091,22 @@
       }
 
       // helper:: compile a marker image file in-browser and return an ArrayBuffer
-      async function compileImageClient(markerFile, progressCallback) {
+      async function compileImageClient(markerFileOrFiles, progressCallback) {
         // wait for TF and Compiler to be ready
         await readyPromise;
-        // resize image to avoid memory blowups
-        const fileToUse = await resizeImage(markerFile, 1024);
-        const img = new Image();
-        img.src = URL.createObjectURL(fileToUse);
-        await img.decode();
+        const files = Array.isArray(markerFileOrFiles) ? markerFileOrFiles : [markerFileOrFiles];
+        const cleanFiles = files.filter(Boolean);
+        if (!cleanFiles.length) throw new Error('No marker images selected');
+
+        // resize images to avoid memory blowups
+        const imgs = [];
+        for (const f of cleanFiles) {
+          const fileToUse = await resizeImage(f, 1024);
+          const img = new Image();
+          img.src = URL.createObjectURL(fileToUse);
+          await img.decode();
+          imgs.push(img);
+        }
 
         if (typeof tf === 'undefined') throw new Error('TensorFlow.js (tf) is not loaded.');
 
@@ -1108,9 +1117,9 @@
         try {
           console.log('tf.version:', tf?.version?.tfjs || 'unknown');
           if (progressCallback) {
-            await compiler.compileImageTargets([img], progressCallback);
+            await compiler.compileImageTargets(imgs, progressCallback);
           } else {
-            await compiler.compileImageTargets([img]);
+            await compiler.compileImageTargets(imgs);
           }
         } catch (err) {
           console.error('compileImageTargets threw', err);
@@ -1122,22 +1131,40 @@
         return buffer;
       }
 
+      // UI: show selected marker files
+      const markerInputEl = document.getElementById('markerFile');
+      const markerFilesInfoEl = document.getElementById('markerFilesInfo');
+      markerInputEl?.addEventListener('change', () => {
+        try {
+          const files = Array.from(markerInputEl.files || []);
+          if (!markerFilesInfoEl) return;
+          if (!files.length) {
+            markerFilesInfoEl.textContent = '';
+            return;
+          }
+          const names = files.slice(0, 3).map(f => f.name).join(', ');
+          const extra = files.length > 3 ? ` (+${files.length - 3} more)` : '';
+          markerFilesInfoEl.textContent = `Selected: ${files.length} file(s) — ${names}${extra}`;
+        } catch {}
+      });
+
       // Server Compile button
       document.getElementById('serverCompile').addEventListener('click', async () => {
-        const markerFile = document.getElementById('markerFile').files[0];
-        if (!markerFile) {
+        const markerFiles = Array.from(document.getElementById('markerFile').files || []);
+        if (!markerFiles.length) {
           compileStatus.textContent = '⚠️ Please select an image file first.';
           return;
         }
 
         try {
-          statusEl.textContent = 'Compiling marker image in the browser (via "Server Compile" button)...';
-          const buffer = await compileImageClient(markerFile, (p) => {
+          statusEl.textContent = `Compiling ${markerFiles.length} marker image(s) in the browser…`;
+          const buffer = await compileImageClient(markerFiles, (p) => {
             compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
           });
 
           compileStatus.textContent = 'Uploading compiled .mind to Supabase storage...';
-          const filename = markerFile.name.replace(/\.[^/.]+$/, '') + '.mind';
+          const baseName = markerFiles[0]?.name ? markerFiles[0].name.replace(/\.[^/.]+$/, '') : `markers-${Date.now()}`;
+          const filename = baseName + (markerFiles.length > 1 ? `-${markerFiles.length}x` : '') + '.mind';
           const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
           const timestamp = Date.now();
           const mindPath = `minds/${timestamp}-${filename}`;
@@ -1162,10 +1189,11 @@
       uploadBtn.addEventListener("click", async () => {
         const name = document.getElementById("name").value.trim();
         const video = document.getElementById("videoFile").files[0];
-        const markerImage = document.getElementById("markerFile").files[0];
+        const markerFiles = Array.from(document.getElementById("markerFile").files || []);
+        const markerImage = markerFiles[0] || null;
 
         // req checker
-        if (!name || (!uploadedMindUrl && !markerImage) || !video) {
+        if (!name || (!uploadedMindUrl && !markerFiles.length) || !video) {
           alert("⚠️ Please fill all fields and upload required files.");
           return;
         }
@@ -1174,16 +1202,17 @@
         const timestamp = Date.now();
         const videoPath = `videos/${timestamp}-${video.name}`;
 
-        // If user provided a marker image and we dont already have an uploaded .mind, compile+upload now
-        if (!uploadedMindUrl && markerImage) {
+        // If user provided marker image(s) and we dont already have an uploaded .mind, compile+upload now
+        if (!uploadedMindUrl && markerFiles.length) {
           try {
-            statusEl.textContent = "Compiling marker image in the browser...";
-            const buffer = await compileImageClient(markerImage, (p) => {
+            statusEl.textContent = `Compiling ${markerFiles.length} marker image(s) in the browser...`;
+            const buffer = await compileImageClient(markerFiles, (p) => {
               compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
             });
 
             compileStatus.textContent = 'Uploading compiled .mind to storage (via Worker)...';
-            const filename = markerImage.name.replace(/\.[^/.]+$/, '') + '.mind';
+            const baseName = markerFiles[0]?.name ? markerFiles[0].name.replace(/\.[^/.]+$/, '') : `markers-${Date.now()}`;
+            const filename = baseName + (markerFiles.length > 1 ? `-${markerFiles.length}x` : '') + '.mind';
             const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
             const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
             const mindUrlLocal = mindUpload.url;
@@ -1192,11 +1221,11 @@
             const videoUpload = await uploadToWorker(video, 'videos', video.name);
             const videoUrlLocal = videoUpload.url;
 
-            // upload original image marker via Worker
+            // upload original marker image(s) via Worker (store the first one as preview)
             let imageUrlLocal = null;
             try {
-              const markerUpload = await uploadToWorker(markerImage, 'markers', markerImage.name);
-              imageUrlLocal = markerUpload.url;
+              const uploads = await Promise.all(markerFiles.map(f => uploadToWorker(f, 'markers', f.name)));
+              imageUrlLocal = uploads?.[0]?.url || null;
             } catch (e) {
               console.warn('Image upload threw', e);
             }
@@ -1222,6 +1251,7 @@
             document.getElementById("name").value = "";
             document.getElementById("videoFile").value = "";
             document.getElementById('markerFile').value = "";
+            try { const markerFilesInfoEl = document.getElementById('markerFilesInfo'); if (markerFilesInfoEl) markerFilesInfoEl.textContent = ''; } catch {}
             compileStatus.textContent = '';
             uploadedMindUrl = null;
             loadTargets();
@@ -1239,12 +1269,12 @@
           const videoUpload = await uploadToWorker(video, 'videos', video.name);
           const videoUrl = videoUpload.url;
 
-          // if a marker image file was selected, upload it as well and save imageUrl
+          // if marker image(s) were selected, upload them as well and save imageUrl
           let imageUrlNew = null;
           if (markerImage) {
             try {
-              const markerUpload = await uploadToWorker(markerImage, 'markers', markerImage.name);
-              imageUrlNew = markerUpload.url;
+              const uploads = await Promise.all(markerFiles.map(f => uploadToWorker(f, 'markers', f.name)));
+              imageUrlNew = uploads?.[0]?.url || null;
             } catch (e) {
               console.warn('Marker upload threw', e);
             }

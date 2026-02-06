@@ -104,13 +104,23 @@ DNS for `shop.inrl.co` (Dashboard-only)
 
 ## 12) Ecommerce ↔ AR integration
 
-- [ ] Connect the AR dashboard to the ecommerce side (product catalog → target linking)
-- [ ] Add an ecommerce dashboard to regulate products (CRUD + publish/unpublish + link AR target)
-- [ ] Unify accounts + roles across ecommerce and AR (single session + same role)
+- [x] Connect the AR dashboard to the ecommerce side (product catalog → target linking)
+  - Worker: `GET /api/viewer/active?brand=&product=` prefers `products.slug → products.ar_target_id` when available.
+- [x] Add an ecommerce dashboard to regulate products (CRUD + publish/unpublish + link AR target)
+- [x] Unify accounts + roles across ecommerce and AR (single session + same role)
   - Role hierarchy: `admin` (full), `brand`/`user` (brand-scoped), `client` (viewer/shop)
   - Use the same Worker cookie session for both `/admin.html` and `/ecommerce/*` (same-origin `/api/*` with `credentials: 'include'`)
   - Update ecommerce UI to read `GET /api/auth/me` and enforce role-based redirects consistently
   - Ensure D1 `users.role` is the single source of truth (no separate ecommerce auth)
+
+### Ecommerce navigation cleanup (template “Pages” dropdown)
+
+- [x] Fix the “Pages” dropdown links in `ecommerce/index.html` (currently template placeholders)
+  - [x] Cart: added `ecommerce/cart.html`
+  - [x] Checkout: links to `ecommerce/checkout.html`
+  - [x] My Account: added `ecommerce/account.html` (Worker auth-aware)
+  - [x] Wishlist / Order Tracking: routed to `ecommerce/coming-soon.html?page=...`
+  - [x] About / Contact / FAQs / Error Page / Coming Soon: routed to `ecommerce/coming-soon.html?page=...`
 
 ## 10) Verification
 
