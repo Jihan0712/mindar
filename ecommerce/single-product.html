@@ -19,6 +19,43 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css">
   <link rel="stylesheet" type="text/css" href="style.css">
 
+  <style>
+    /* Center the large product image within the Swiper slide */
+    .product-large-slider .swiper-slide {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .product-large-slider .image-zoom {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: zoom-in;
+    }
+    .product-large-slider img.img-fluid {
+      margin-left: auto;
+      margin-right: auto;
+      transition: transform 180ms ease;
+      transform-origin: center center;
+      will-change: transform;
+      max-width: 100%;
+      height: auto;
+    }
+    .product-large-slider .image-zoom:hover img.img-fluid {
+      transform: scale(1.2);
+    }
+
+    /* Add a little breathing room like the template preview */
+    @media (min-width: 992px) {
+      .product-large-slider .swiper-slide {
+        padding: 2rem;
+      }
+    }
+  </style>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -1200,6 +1237,25 @@
         return [s];
       }
 
+      function parseSizesString(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return [];
+        // Accept comma / pipe / whitespace separated sizes.
+        const parts = raw
+          .split(/[,|\n\t\r ]+/g)
+          .map(s => s.trim())
+          .filter(Boolean);
+        const uniq = [];
+        const seen = new Set();
+        for (const p of parts) {
+          const k = p.toUpperCase();
+          if (seen.has(k)) continue;
+          seen.add(k);
+          uniq.push(p);
+        }
+        return uniq;
+      }
+
       function getProductImages(product) {
         const fromList = parseImageUrlsField(product && product.image_urls).slice(0, 5).map(normalizeAssetUrl).filter(Boolean);
         if (fromList.length) return fromList;
@@ -1280,6 +1336,13 @@
         const imageUrl = images[0] || '';
         const priceText = moneyFromCents(product.price_cents, product.currency);
         const description = (product.description || '').toString();
+        const color = (product.color || '').toString().trim();
+        const category = (product.category || '').toString().trim();
+        const sizes = parseSizesString(product.sizes);
+
+        const stockVal = (product.stock ?? product.stock_count ?? product.quantity ?? null);
+        const stockNum = stockVal == null || stockVal === '' ? null : Number(stockVal);
+        const hasStockNumber = stockNum != null && Number.isFinite(stockNum) && stockNum >= 0;
 
         document.title = `${title} | MindAR Store`;
 
@@ -1305,6 +1368,72 @@
 
         const accDescEl = document.querySelector('#collapse-one .accordion-body p');
         if (accDescEl && description) accDescEl.textContent = description;
+
+        // Color
+        const colorTextEl = document.querySelector('.color-toggle .item-title span');
+        if (colorTextEl) colorTextEl.textContent = color || '—';
+
+        // Category
+        const catWrap = document.querySelector('.cate-tag .tag-item');
+        if (catWrap) {
+          catWrap.innerHTML = '';
+          if (category) {
+            const a = document.createElement('a');
+            a.href = '#';
+            a.textContent = category;
+            catWrap.appendChild(a);
+          } else {
+            catWrap.textContent = '—';
+          }
+        }
+
+        // Sizes
+        const swatch = document.querySelector('.swatch.option-1');
+        if (swatch) {
+          // Keep the first title element ("Size:") but replace options.
+          const titleEl = swatch.querySelector('.item-title');
+          swatch.innerHTML = '';
+          if (titleEl) swatch.appendChild(titleEl);
+
+          if (sizes.length) {
+            sizes.forEach((sz, i) => {
+              const id = `size-${i}-${sz.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+              const el = document.createElement('div');
+              el.className = 'swatch-element';
+              el.setAttribute('data-value', sz);
+
+              const input = document.createElement('input');
+              input.className = 'swatch-input hide';
+              input.id = id;
+              input.type = 'radio';
+              input.name = 'option-1';
+              input.value = sz;
+              if (i === 0) input.checked = true;
+
+              const label = document.createElement('label');
+              label.className = 'swatch-label square-only';
+              label.setAttribute('for', id);
+              label.textContent = sz;
+
+              el.appendChild(input);
+              el.appendChild(label);
+              swatch.appendChild(el);
+            });
+          } else {
+            const empty = document.createElement('div');
+            empty.className = 'ms-2';
+            empty.textContent = '—';
+            swatch.appendChild(empty);
+          }
+        }
+
+        // Stock
+        const stockEl = document.querySelector('.product-action .item-title');
+        if (stockEl) {
+          if (hasStockNumber) stockEl.textContent = `${stockNum} in stock`;
+          else stockEl.style.display = 'none';
+        }
 
         if (imageUrl) {
           const thumbWrap = document.querySelector('.product-thumbnail-slider .swiper-wrapper');
@@ -1340,7 +1469,7 @@
         const price = Number(currentProduct.price_cents || 0) / 100;
         const id = currentProduct.slug ? ('sku-' + currentProduct.slug) : ('sku-' + String(currentProduct.id || 'product'));
         const name = (currentProduct.title || 'Product').toString();
-        const image = (currentProduct.image_url || '').toString();
+        const image = ((getProductImages(currentProduct)[0]) || (currentProduct.image_url || '')).toString();
 
         Cart.add({ id, name, price, image, qty });
         if (window.CartUI) CartUI.render();
