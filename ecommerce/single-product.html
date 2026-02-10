@@ -3,13 +3,13 @@
 <html lang="en">
 
 <head>
-  <title>Kaira - Bootstrap 5 Fashion Store HTML CSS Template</title>
+  <title>INRL view product</title>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="format-detection" content="telephone=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="author" content="TemplatesJungle">
+  <meta name="author" content="inrl">
   <meta name="keywords" content="ecommerce,fashion,store">
   <meta name="description" content="Bootstrap 5 Fashion Store HTML CSS Template">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -201,37 +201,16 @@
       <div class="order-md-last">
         <h4 class="d-flex justify-content-between align-items-center mb-3">
           <span class="text-primary">Your cart</span>
-          <span class="badge bg-primary rounded-pill">3</span>
+          <span class="badge bg-primary rounded-pill" id="cart-count">0</span>
         </h4>
-        <ul class="list-group mb-3">
-          <li class="list-group-item d-flex justify-content-between lh-sm">
-            <div>
-              <h6 class="my-0">Growers cider</h6>
-              <small class="text-body-secondary">Brief description</small>
-            </div>
-            <span class="text-body-secondary">$12</span>
-          </li>
-          <li class="list-group-item d-flex justify-content-between lh-sm">
-            <div>
-              <h6 class="my-0">Fresh grapes</h6>
-              <small class="text-body-secondary">Brief description</small>
-            </div>
-            <span class="text-body-secondary">$8</span>
-          </li>
-          <li class="list-group-item d-flex justify-content-between lh-sm">
-            <div>
-              <h6 class="my-0">Heinz tomato ketchup</h6>
-              <small class="text-body-secondary">Brief description</small>
-            </div>
-            <span class="text-body-secondary">$5</span>
-          </li>
-          <li class="list-group-item d-flex justify-content-between">
-            <span>Total (USD)</span>
-            <strong>$20</strong>
-          </li>
-        </ul>
+        <ul class="list-group mb-3" id="cart-list"></ul>
 
-        <button class="w-100 btn btn-primary btn-lg" type="submit">Continue to checkout</button>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span>Total (USD)</span>
+          <strong id="cart-total">$0.00</strong>
+        </div>
+
+        <a class="w-100 btn btn-primary btn-lg" href="checkout.html">Continue to checkout</a>
       </div>
     </div>
   </div>
@@ -380,9 +359,6 @@
                 <li class="nav-item">
                   <a class="nav-link" href="#">Contact</a>
                 </li>
-                <li class="nav-item">
-                  <a class="btn btn-outline-primary rounded-pill" href="https://templatesjungle.gumroad.com/l/kaira-bootstrap-ecommerce-template" target="_blank">Get PRO</a>
-                </li>
               </ul>
             </div>
           </div>
@@ -396,7 +372,7 @@
             </li>
             <li>
               <a href="cart.html" class="text-uppercase mx-3" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart"
-                aria-controls="offcanvasCart">Cart <span class="cart-count">(0)</span>
+                aria-controls="offcanvasCart">Cart <span class="cart-count js-cart-count">(0)</span>
               </a>
             </li>
             <li>
@@ -991,42 +967,42 @@
         <h6 class="element-title text-center">Follow us on Instagram</h6>
         <div class="col-6 col-sm-4 col-md-2">
           <div class="insta-item">
-            <a href="https://www.instagram.com/templatesjungle/" target="_blank">
+            <a href="https://www.instagram.com/" target="_blank">
               <img src="images/insta-item1.jpg" alt="instagram" class="insta-image img-fluid">
             </a>
           </div>
         </div>
         <div class="col-6 col-sm-4 col-md-2">
           <div class="insta-item">
-            <a href="https://www.instagram.com/templatesjungle/" target="_blank">
+            <a href="https://www.instagram.com/" target="_blank">
               <img src="images/insta-item2.jpg" alt="instagram" class="insta-image img-fluid">
             </a>
           </div>
         </div>
         <div class="col-6 col-sm-4 col-md-2">
           <div class="insta-item">
-            <a href="https://www.instagram.com/templatesjungle/" target="_blank">
+            <a href="https://www.instagram.com/" target="_blank">
               <img src="images/insta-item3.jpg" alt="instagram" class="insta-image img-fluid">
             </a>
           </div>
         </div>
         <div class="col-6 col-sm-4 col-md-2">
           <div class="insta-item">
-            <a href="https://www.instagram.com/templatesjungle/" target="_blank">
+            <a href="https://www.instagram.com/" target="_blank">
               <img src="images/insta-item4.jpg" alt="instagram" class="insta-image img-fluid">
             </a>
           </div>
         </div>
         <div class="col-6 col-sm-4 col-md-2">
           <div class="insta-item">
-            <a href="https://www.instagram.com/templatesjungle/" target="_blank">
+            <a href="https://www.instagram.com/" target="_blank">
               <img src="images/insta-item5.jpg" alt="instagram" class="insta-image img-fluid">
             </a>
           </div>
         </div>
         <div class="col-6 col-sm-4 col-md-2">
           <div class="insta-item">
-            <a href="https://www.instagram.com/templatesjungle/" target="_blank">
+            <a href="https://www.instagram.com/" target="_blank">
               <img src="images/insta-item6.jpg" alt="instagram" class="insta-image img-fluid">
             </a>
           </div>
@@ -1164,8 +1140,8 @@
             </div>
           </div>
           <div class="col-md-6 text-end">
-            <p>© Copyright 2022 Kaira. All rights reserved. Design by <a href="https://templatesjungle.com"
-                target="_blank">TemplatesJungle</a></p>
+            <p>© Copyright 2022 INRL. All rights reserved. Design by <a href="https://inrl.com"
+                target="_blank">inrl</a></p>
           </div>
         </div>
       </div>
@@ -1179,9 +1155,12 @@
     crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
   <script src="js/script.js"></script>
+  <script src="js/cart.js"></script>
 
   <script>
     (function () {
+      let currentProduct = null;
+
       function getParam(name) {
         try {
           return new URLSearchParams(window.location.search).get(name) || '';
@@ -1194,6 +1173,11 @@
         const amt = (Number(cents || 0) / 100);
         const sym = (currency || 'USD') === 'USD' ? '$' : '';
         return `${sym}${amt.toFixed(2)}`;
+      }
+
+      function getQty() {
+        const qtyEl = document.getElementById('quantity');
+        return Math.max(1, parseInt((qtyEl && qtyEl.value) || '1', 10) || 1);
       }
 
       async function loadProductFromApi() {
@@ -1223,6 +1207,8 @@
 
         if (!product) return;
 
+        currentProduct = product;
+
         const title = (product.title || '').toString() || 'Product';
         const imageUrl = (product.image_url || '').toString();
         const priceText = moneyFromCents(product.price_cents, product.currency);
@@ -1250,7 +1236,15 @@
         const tabDescEl = document.querySelector('#nav-home p');
         if (tabDescEl && description) tabDescEl.textContent = description;
 
+        const accDescEl = document.querySelector('#collapse-one .accordion-body p');
+        if (accDescEl && description) accDescEl.textContent = description;
+
         if (imageUrl) {
+          document.querySelectorAll('.product-preview img').forEach(img => {
+            img.src = imageUrl;
+            img.alt = title;
+          });
+
           document.querySelectorAll('.product-thumbnail-slider img.thumb-image').forEach(img => {
             img.src = imageUrl;
             img.alt = title;
@@ -1267,8 +1261,23 @@
         }
       }
 
+      document.querySelector('button.product-cart-submit')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!currentProduct || !window.Cart) return;
+
+        const qty = getQty();
+        const price = Number(currentProduct.price_cents || 0) / 100;
+        const id = currentProduct.slug ? ('sku-' + currentProduct.slug) : ('sku-' + String(currentProduct.id || 'product'));
+        const name = (currentProduct.title || 'Product').toString();
+        const image = (currentProduct.image_url || '').toString();
+
+        Cart.add({ id, name, price, image, qty });
+        if (window.CartUI) CartUI.render();
+      });
+
       // Keep existing template behavior; only hydrate from API when available.
       loadProductFromApi();
+      if (window.CartUI) CartUI.render();
     })();
   </script>
 </body>
