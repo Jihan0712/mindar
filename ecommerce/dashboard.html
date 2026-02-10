@@ -96,6 +96,12 @@
               </div>
 
               <div>
+                <label class="form-label text-uppercase" for="imageFileInput">Upload Image (optional)</label>
+                <input id="imageFileInput" class="form-control" type="file" accept="image/*" />
+                <div class="form-text">Uploads are stored in the database. Max 2MB.</div>
+              </div>
+
+              <div>
                 <label class="form-label text-uppercase" for="descInput">Description</label>
                 <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
               </div>
@@ -187,6 +193,7 @@
       el('priceInput').value = p ? ((Number(p.price_cents || 0) / 100).toFixed(2)) : '';
       el('currencyInput').value = p ? (p.currency || 'USD') : 'USD';
       el('imageUrlInput').value = p ? (p.image_url || '') : '';
+      el('imageFileInput').value = '';
       el('descInput').value = p ? (p.description || '') : '';
       el('publishInput').checked = !!(p && p.is_published);
       el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
@@ -195,6 +202,15 @@
 
     function requireField(label, value) {
       if (!String(value || '').trim()) throw new Error(`${label} required`);
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error('Failed to read image file'));
+        r.onload = () => resolve(String(r.result || ''));
+        r.readAsDataURL(file);
+      });
     }
 
     async function loadTargets() {
@@ -287,6 +303,7 @@
         ev.preventDefault();
         clearStatus();
         const id = el('productId').value.trim();
+        const imageFile = el('imageFileInput').files && el('imageFileInput').files[0] ? el('imageFileInput').files[0] : null;
         const body = {
           title: el('titleInput').value.trim(),
           category: el('categoryInput').value.trim(),
@@ -314,6 +331,12 @@
         }
 
         try {
+          if (imageFile) {
+            if (imageFile.size > 2 * 1024 * 1024) throw new Error('Image too large (max 2MB)');
+            if (!String(imageFile.type || '').toLowerCase().startsWith('image/')) throw new Error('Invalid image file');
+            body.image_data = await readFileAsDataUrl(imageFile);
+            body.image_url = '';
+          }
           if (!id) {
             await apiFetch('/products', { method: 'POST', body });
             showStatus('Product created.', 'success');

@@ -368,6 +368,17 @@
       return `${sym}${amt.toFixed(2)}`;
     }
 
+    function normalizeCatalogImageUrl(u){
+      const s = (u || '').toString();
+      if (!s) return s;
+      if (s.startsWith('data:')) return s;
+      if (s.startsWith('http://') || s.startsWith('https://')) return s;
+      if (s.startsWith('/api/')) return s;
+      if (s.startsWith('/ecommerce/')) return s;
+      if (s.startsWith('/images/')) return s.replace(/^\/images\//, 'images/');
+      return s;
+    }
+
     function getProductSlugFromUrl() {
       const qs = new URLSearchParams(location.search);
       return (qs.get('slug') || qs.get('product') || '').trim();
@@ -411,7 +422,7 @@
         arLinkEl.style.display = 'none';
       }
 
-      const src = (p.image_url || 'images/product-item-1.jpg').toString();
+      const src = normalizeCatalogImageUrl((p.image_url || 'images/product-item-1.jpg').toString());
       const preview = document.getElementById('productPreview');
       if (preview) {
         preview.innerHTML = [0, 1, 2, 3].map(() => `
@@ -459,7 +470,7 @@
       const price = Number(currentProduct.price_cents || 0) / 100;
       const id = currentProduct.slug ? ('sku-' + currentProduct.slug) : ('sku-' + String(currentProduct.id || 'product'));
       const name = (currentProduct.title || 'Product').toString();
-      const image = (currentProduct.image_url || '').toString();
+      const image = normalizeCatalogImageUrl((currentProduct.image_url || '').toString());
       Cart.add({ id, name, price, image, qty });
       CartUI.render();
     });

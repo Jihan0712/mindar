@@ -344,6 +344,17 @@
       return `${sym}${amt.toFixed(2)}`;
     }
 
+    function normalizeCatalogImageUrl(u){
+      const s = (u || '').toString();
+      if (!s) return s;
+      if (s.startsWith('data:')) return s;
+      if (s.startsWith('http://') || s.startsWith('https://')) return s;
+      if (s.startsWith('/api/')) return s;
+      if (s.startsWith('/ecommerce/')) return s;
+      if (s.startsWith('/images/')) return s.replace(/^\/images\//, 'images/');
+      return s;
+    }
+
     async function loadThreeColumnProducts() {
       const gridEl = document.getElementById('shopThreeGrid');
       const statusEl = document.getElementById('shopThreeStatus');
@@ -371,7 +382,7 @@
           const title = (p.title || 'Product').toString();
           const slug = (p.slug || '').toString();
           const price = moneyFromCents(p.price_cents, p.currency);
-          const img = (p.image_url || 'images/product-item-1.jpg').toString();
+          const img = normalizeCatalogImageUrl((p.image_url || 'images/product-item-1.jpg').toString());
           const viewer = (p.viewer_url || '').toString();
           const addPrice = (Number(p.price_cents || 0) / 100).toFixed(2);
           const href = slug ? `single-product.html?slug=${encodeURIComponent(slug)}` : 'single-product.html';

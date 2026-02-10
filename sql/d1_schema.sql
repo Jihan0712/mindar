@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS products (
   price_cents  INTEGER NOT NULL DEFAULT 0,
   currency     TEXT NOT NULL DEFAULT 'USD',
   image_url    TEXT NULL,
+  image_data   TEXT NULL,
   is_published INTEGER NOT NULL DEFAULT 0,
   ar_target_id INTEGER NULL,
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
