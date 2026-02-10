@@ -97,8 +97,8 @@
 
               <div>
                 <label class="form-label text-uppercase" for="imageFileInput">Upload Image (optional)</label>
-                <input id="imageFileInput" class="form-control" type="file" accept="image/*" />
-                <div class="form-text">Uploads are stored in the database. Max 2MB.</div>
+                <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
+                <div class="form-text">Upload up to 5 images. Files are stored in R2 and URLs are saved in the database.</div>
               </div>
 
               <div>
@@ -204,13 +204,17 @@
       if (!String(value || '').trim()) throw new Error(`${label} required`);
     }
 
-    function readFileAsDataUrl(file) {
-      return new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onerror = () => reject(new Error('Failed to read image file'));
-        r.onload = () => resolve(String(r.result || ''));
-        r.readAsDataURL(file);
-      });
+    async function uploadProductImage(file, path = 'products') {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('path', path);
+      form.append('filename', file.name || `image-${Date.now()}`);
+
+      const res = await fetch('/upload', { method: 'POST', body: form, credentials: 'include' });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      const data = await res.json().catch(() => ({}));
+      if (!data || !data.url) throw new Error('Upload failed (no url)');
+      return String(data.url);
     }
 
     async function loadTargets() {
@@ -303,7 +307,7 @@
         ev.preventDefault();
         clearStatus();
         const id = el('productId').value.trim();
-        const imageFile = el('imageFileInput').files && el('imageFileInput').files[0] ? el('imageFileInput').files[0] : null;
+        const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
         const body = {
           title: el('titleInput').value.trim(),
           category: el('categoryInput').value.trim(),
@@ -331,11 +335,17 @@
         }
 
         try {
-          if (imageFile) {
-            if (imageFile.size > 2 * 1024 * 1024) throw new Error('Image too large (max 2MB)');
-            if (!String(imageFile.type || '').toLowerCase().startsWith('image/')) throw new Error('Invalid image file');
-            body.image_data = await readFileAsDataUrl(imageFile);
-            body.image_url = '';
+          if (imageFiles.length > 5) throw new Error('Max 5 images per product');
+          if (imageFiles.length) {
+            for (const f of imageFiles) {
+              if (!String(f.type || '').toLowerCase().startsWith('image/')) throw new Error('Invalid image file');
+            }
+            const urls = [];
+            for (const f of imageFiles) {
+              urls.push(await uploadProductImage(f));
+            }
+            body.image_urls = urls;
+            body.image_url = urls[0] || '';
           }
           if (!id) {
             await apiFetch('/products', { method: 'POST', body });

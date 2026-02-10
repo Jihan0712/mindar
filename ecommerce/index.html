@@ -1506,17 +1506,18 @@
           const img = normalizeCatalogImageUrl((p.image_url || 'images/product-item-1.jpg').toString());
           const viewer = (p.viewer_url || '').toString();
           const addPrice = (Number(p.price_cents || 0) / 100).toFixed(2);
+          const href = slug ? `single-product.html?slug=${encodeURIComponent(slug)}` : 'single-product.html';
 
           return `
             <div class="col-12 col-sm-6 col-lg-3">
               <div class="product-item image-zoom-effect link-effect h-100">
                 <div class="image-holder position-relative">
-                  <a href="${viewer || '#'}" ${viewer ? '' : 'onclick="return false"'}>
+                  <a href="${href}">
                     <img src="${img}" alt="product" class="product-image img-fluid">
                   </a>
                   <div class="product-content">
                     <h5 class="element-title text-uppercase fs-6 mt-3">
-                      <a href="${viewer || '#'}" ${viewer ? '' : 'onclick="return false"'}>${title}</a>
+                      <a href="${href}">${title}</a>
                     </h5>
                     <a href="#" class="text-decoration-none" data-after="Add to cart"><span>${price}</span></a>
                     ${viewer ? `<div style="font-size: 13px" class="mt-1"><a href="${viewer}" class="text-decoration-none">View in AR</a></div>` : ''}

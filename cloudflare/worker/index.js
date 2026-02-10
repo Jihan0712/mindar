@@ -270,6 +270,48 @@ function base64ToBytes(b64) {
   return bytes;
 }
 
+function parseImageUrlsField(value) {
+  if (value == null) return null;
+  const v = value;
+  let arr = null;
+  if (Array.isArray(v)) arr = v;
+  else if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return [];
+    try {
+      const j = JSON.parse(s);
+      if (Array.isArray(j)) arr = j;
+      else return null;
+    } catch {
+      // Treat a single URL string as a one-item list
+      arr = [s];
+    }
+  } else {
+    return null;
+  }
+
+  const cleaned = arr
+    .map(x => String(x || '').trim())
+    .filter(Boolean);
+
+  if (cleaned.length > 5) return null;
+  for (const u of cleaned) {
+    if (!/^https?:\/\//i.test(u) && !u.startsWith('/')) return null;
+  }
+  return cleaned;
+}
+
+function firstImageUrl(imageUrl, imageUrlsJson) {
+  const direct = String(imageUrl || '').trim();
+  if (direct) return direct;
+  if (!imageUrlsJson) return '';
+  try {
+    const arr = typeof imageUrlsJson === 'string' ? JSON.parse(imageUrlsJson) : imageUrlsJson;
+    if (Array.isArray(arr) && arr.length) return String(arr[0] || '').trim();
+  } catch {}
+  return '';
+}
+
 // ---------- Role / input helpers ----------
 
 function normalizeSlug(input) {
@@ -395,7 +437,7 @@ async function apiListProducts(request) {
   const role = sess?.user?.role || 'anonymous';
 
   let sql = `
-    select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url,
+    select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
            case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
            p.is_published, p.ar_target_id, p.created_at, p.updated_at,
            b.name as brand
@@ -430,7 +472,7 @@ async function apiListProducts(request) {
     rows = await dbAll(sql, ...params);
   } catch (e) {
     const msg = String(e || '');
-    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data'))) {
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
       // Backward-compatible fallback if DB hasn't been migrated yet.
       const fallbackSql = `
         select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
@@ -452,7 +494,8 @@ async function apiListProducts(request) {
     if (r.brand) qs.set('brand', r.brand);
     if (r.slug) qs.set('product', r.slug);
     const viewer_url = `/index.html${qs.toString() ? `?${qs.toString()}` : ''}`;
-    const computedImageUrl = r.image_url || ((r.has_image_data || 0) ? `/api/product-image?id=${encodeURIComponent(r.id)}` : null);
+    const firstUrl = firstImageUrl(r.image_url, r.image_urls);
+    const computedImageUrl = firstUrl || ((r.has_image_data || 0) ? `/api/product-image?id=${encodeURIComponent(r.id)}&i=0` : null);
     return {
       id: r.id,
       title: r.title,
@@ -464,6 +507,7 @@ async function apiListProducts(request) {
       price_cents: r.price_cents,
       currency: r.currency,
       image_url: computedImageUrl,
+      image_urls: r.image_urls || null,
       is_published: !!r.is_published,
       ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
       brand: r.brand || null,
@@ -478,6 +522,7 @@ async function apiListProducts(request) {
 async function apiGetProductImage(request) {
   const url = new URL(request.url);
   const id = Number(url.searchParams.get('id'));
+  const idx = Math.max(0, Number(url.searchParams.get('i') || '0') || 0);
   if (!Number.isFinite(id) || id <= 0) return new Response('Bad Request', { status: 400 });
 
   let row;
@@ -492,7 +537,17 @@ async function apiGetProductImage(request) {
   }
   if (!row || !row.image_data) return new Response('Not Found', { status: 404 });
 
-  const parsed = parseImageDataUrl(row.image_data);
+  let picked = null;
+  const raw = String(row.image_data || '').trim();
+  if (raw.startsWith('[')) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) picked = String(arr[Math.min(idx, arr.length - 1)] || '');
+    } catch {}
+  }
+  if (!picked) picked = raw;
+
+  const parsed = parseImageDataUrl(picked);
   if (!parsed) return new Response('Invalid image data', { status: 500 });
 
   let bytes;
@@ -521,12 +576,15 @@ async function apiCreateProduct(request) {
   const currency = (body.currency || 'USD').trim().toUpperCase() || 'USD';
   const imageUrl = (body.image_url || '').trim() || null;
   const imageData = (body.image_data || '').trim() || null;
+  const imageUrlsArr = parseImageUrlsField(body.image_urls);
+  const imageUrlsJson = imageUrlsArr ? JSON.stringify(imageUrlsArr) : null;
   const isPublished = body.is_published ? 1 : 0;
-    if (imageData) {
-      if (imageData.length > 2_000_000) return jsonResponse({ error: 'image too large' }, 413, request);
-      const parsed = parseImageDataUrl(imageData);
-      if (!parsed) return jsonResponse({ error: 'Invalid image_data' }, 400, request);
-    }
+  if (imageUrlsArr == null && body.image_urls != null) return jsonResponse({ error: 'Invalid image_urls (max 5)' }, 400, request);
+  if (imageData) {
+    if (imageData.length > 2_000_000) return jsonResponse({ error: 'image too large' }, 413, request);
+    const parsed = parseImageDataUrl(imageData);
+    if (!parsed) return jsonResponse({ error: 'Invalid image_data' }, 400, request);
+  }
   const priceCents = parsePriceCents(body);
   if (priceCents == null) return jsonResponse({ error: 'Invalid price' }, 400, request);
 
@@ -560,7 +618,7 @@ async function apiCreateProduct(request) {
 
   try {
     await dbRun(
-      'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_data, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       brandId,
       title,
       slug,
@@ -571,20 +629,21 @@ async function apiCreateProduct(request) {
       priceCents,
       currency,
       imageUrl,
+      imageUrlsJson,
       imageData,
       isPublished,
       targetId
     );
   } catch (e) {
     const msg = String(e || '');
-    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data'))) {
-      return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql and sql/product_images_migration.sql against D1' }, 500, request);
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
+      return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
     }
     throw e;
   }
 
   const row = await dbGet(
-    `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url,
+    `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
             case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
             p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
      from products p
@@ -592,8 +651,12 @@ async function apiCreateProduct(request) {
      where p.rowid = last_insert_rowid()`
   );
 
-  if (row && !row.image_url && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}`;
-  if (row && row.has_image_data != null) delete row.has_image_data;
+  if (row) {
+    const firstUrl = firstImageUrl(row.image_url, row.image_urls);
+    if (!firstUrl && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}&i=0`;
+    else row.image_url = firstUrl || null;
+    if (row.has_image_data != null) delete row.has_image_data;
+  }
   return jsonResponse({ ok: true, item: row || null }, 201, request);
 }
 
@@ -623,6 +686,12 @@ async function apiUpdateProduct(request, id) {
   if (body.description != null) { fields.push('description = ?'); params.push(String(body.description).trim() || null); }
   if (body.currency != null) { fields.push('currency = ?'); params.push(String(body.currency).trim().toUpperCase() || 'USD'); }
   if (body.image_url != null) { fields.push('image_url = ?'); params.push(String(body.image_url).trim() || null); }
+  if (body.image_urls !== undefined) {
+    const parsed = parseImageUrlsField(body.image_urls);
+    if (parsed == null) return jsonResponse({ error: 'Invalid image_urls (max 5)' }, 400, request);
+    fields.push('image_urls = ?');
+    params.push(parsed.length ? JSON.stringify(parsed) : null);
+  }
   if (body.image_data !== undefined) {
     const v = String(body.image_data || '').trim();
     if (!v) {
@@ -689,8 +758,8 @@ async function apiUpdateProduct(request, id) {
     if (msg.toLowerCase().includes('unique') && msg.toLowerCase().includes('slug')) {
       return jsonResponse({ error: 'slug already exists' }, 409, request);
     }
-    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data'))) {
-      return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql and sql/product_images_migration.sql against D1' }, 500, request);
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
+      return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
     }
     throw e;
   }
@@ -698,7 +767,7 @@ async function apiUpdateProduct(request, id) {
   let row;
   try {
     row = await dbGet(
-      `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url,
+      `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
               case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
               p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
        from products p
@@ -708,7 +777,7 @@ async function apiUpdateProduct(request, id) {
     );
   } catch (e) {
     const msg = String(e || '');
-    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data'))) {
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
       row = await dbGet(
         `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
                 p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
@@ -721,8 +790,12 @@ async function apiUpdateProduct(request, id) {
       throw e;
     }
   }
-  if (row && !row.image_url && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}`;
-  if (row && row.has_image_data != null) delete row.has_image_data;
+  if (row) {
+    const firstUrl = firstImageUrl(row.image_url, row.image_urls);
+    if (!firstUrl && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}&i=0`;
+    else row.image_url = firstUrl || row.image_url || null;
+    if (row.has_image_data != null) delete row.has_image_data;
+  }
   return jsonResponse({ ok: true, item: row || null }, 200, request);
 }
 
