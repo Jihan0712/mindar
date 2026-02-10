@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>Product V2 | MindAR Store</title>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="keywords" content="ecommerce,store,product">
+  <meta name="description" content="Product details">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+  <link rel="stylesheet" type="text/css" href="css/vendor.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
+  <link rel="stylesheet" type="text/css" href="style.css">
+
+  <script src="/assets/js/auth-worker.js?v=20260206"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Marcellus&display=swap"
+    rel="stylesheet">
+</head>
+
+<body class="homepage">
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+    <defs>
+      <symbol xmlns="http://www.w3.org/2000/svg" id="heart" viewBox="0 0 24 24">
+        <path fill="currentColor"
+          d="M20.16 4.61A6.27 6.27 0 0 0 12 4a6.27 6.27 0 0 0-8.16 9.48l7.45 7.45a1 1 0 0 0 1.42 0l7.45-7.45a6.27 6.27 0 0 0 0-8.87Zm-1.41 7.46L12 18.81l-6.75-6.74a4.28 4.28 0 0 1 3-7.3a4.25 4.25 0 0 1 3 1.25a1 1 0 0 0 1.42 0a4.27 4.27 0 0 1 6 6.05Z" />
+      </symbol>
+      <symbol xmlns="http://www.w3.org/2000/svg" id="plus" viewBox="0 0 24 24">
+        <path fill="currentColor"
+          d="M19 11h-6V5a1 1 0 0 0-2 0v6H5a1 1 0 0 0 0 2h6v6a1 1 0 0 0 2 0v-6h6a1 1 0 0 0 0-2Z" />
+      </symbol>
+      <symbol xmlns="http://www.w3.org/2000/svg" id="minus" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M19 11H5a1 1 0 0 0 0 2h14a1 1 0 0 0 0-2Z" />
+      </symbol>
+      <symbol xmlns="http://www.w3.org/2000/svg" id="cart" viewBox="0 0 24 24">
+        <path fill="currentColor"
+          d="M8.5 19a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 8.5 19ZM19 16H7a1 1 0 0 1 0-2h8.491a3.013 3.013 0 0 0 2.885-2.176l1.585-5.55A1 1 0 0 0 19 5H6.74a3.007 3.007 0 0 0-2.82-2H3a1 1 0 0 0 0 2h.921a1.005 1.005 0 0 1 .962.725l.155.545v.005l1.641 5.742A3 3 0 0 0 7 18h12a1 1 0 0 0 0-2Zm-1.326-9l-1.22 4.274a1.005 1.005 0 0 1-.963.726H8.754l-.255-.892L7.326 7ZM16.5 19a1.5 1.5 0 1 0 1.5 1.5a1.5 1.5 0 0 0-1.5-1.5Z" />
+      </symbol>
+      <symbol xmlns="http://www.w3.org/2000/svg" id="search" viewBox="0 0 24 24">
+        <path fill="currentColor"
+          d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z" />
+      </symbol>
+      <symbol xmlns="http://www.w3.org/2000/svg" id="user" viewBox="0 0 24 24">
+        <path fill="currentColor"
+          d="M15.71 12.71a6 6 0 1 0-7.42 0a10 10 0 0 0-6.22 8.18a1 1 0 0 0 2 .22a8 8 0 0 1 15.9 0a1 1 0 0 0 1 .89h.11a1 1 0 0 0 .88-1.1a10 10 0 0 0-6.25-8.19ZM12 12a4 4 0 1 1 4-4a4 4 0 0 1-4 4Z" />
+      </symbol>
+      <symbol xmlns="http://www.w3.org/2000/svg" id="star-outline" viewBox="0 0 15 15">
+        <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+          d="M7.5 9.804L5.337 11l.413-2.533L4 6.674l2.418-.37L7.5 4l1.082 2.304l2.418.37l-1.75 1.793L9.663 11L7.5 9.804Z" />
+      </symbol>
+      <symbol xmlns="http://www.w3.org/2000/svg" id="star-solid" viewBox="0 0 15 15">
+        <path fill="currentColor"
+          d="M7.953 3.788a.5.5 0 0 0-.906 0L6.08 5.85l-2.154.33a.5.5 0 0 0-.283.843l1.574 1.613l-.373 2.284a.5.5 0 0 0 .736.518l1.92-1.063l1.921 1.063a.5.5 0 0 0 .736-.519l-.373-2.283l1.574-1.613a.5.5 0 0 0-.283-.844L8.921 5.85l-.968-2.062Z" />
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
+
+  <div class="search-popup">
+    <div class="search-popup-container">
+      <form role="search" method="get" class="form-group" action="index.html">
+        <input type="search" id="search-form" class="form-control border-0 border-bottom"
+          placeholder="Type and press enter" value="" name="s" />
+        <button type="submit" class="search-submit border-0 position-absolute bg-white" style="top: 15px;right: 15px;">
+          <svg class="search" width="24" height="24"><use xlink:href="#search"></use></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="offcanvasCart" aria-labelledby="My Cart">
+    <div class="offcanvas-header justify-content-center">
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="order-md-last">
+        <h4 class="d-flex justify-content-between align-items-center mb-3">
+          <span class="text-primary">Your cart</span>
+          <span class="badge bg-primary rounded-pill" id="cart-count">0</span>
+        </h4>
+        <ul id="cart-list" class="list-group mb-3"></ul>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <strong>Total (USD)</strong>
+          <strong id="cart-total">$0.00</strong>
+        </div>
+        <a class="w-100 btn btn-primary btn-lg" href="checkout.html">Continue to Checkout</a>
+      </div>
+    </div>
+  </div>
+
+  <nav class="navbar navbar-expand-lg bg-light text-uppercase fs-6 p-3 border-bottom align-items-center">
+    <div class="container-fluid">
+      <div class="row justify-content-between align-items-center w-100">
+        <div class="col-auto">
+          <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo" style="height:36px"></a>
+        </div>
+
+        <div class="col-auto">
+          <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"
+            aria-controls="offcanvasNavbar">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+            <div class="offcanvas-header">
+              <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Menu</h5>
+              <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+
+            <div class="offcanvas-body">
+              <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-5 pe-3">
+                <li class="nav-item"><a class="nav-link" href="shop-six-column.html">Shop</a></li>
+                <li class="nav-item"><a class="nav-link" href="shop-sidebar.html">Shop Sidebar</a></li>
+                <li class="nav-item"><a class="nav-link" href="cart.html">Cart</a></li>
+                <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
+                <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-auto">
+          <ul class="list-unstyled d-flex m-0">
+            <li class="d-none d-lg-block">
+              <a href="wishlist.html" class="text-uppercase mx-3">Wishlist <span class="wishlist-count">(0)</span></a>
+            </li>
+            <li class="d-none d-lg-block">
+              <a href="#" class="text-uppercase mx-3" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart"
+                aria-controls="offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
+            </li>
+            <li>
+              <a href="#like" class="mx-2" onclick="return false">
+                <svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#user"></use></svg>
+              </a>
+            </li>
+            <li class="search-box mx-2">
+              <a href="#search" class="search-button">
+                <svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <section class="main-content mt-5">
+    <div class="container-fluid">
+      <nav class="breadcrumb">
+        <a class="breadcrumb-item" href="index.html">Home</a>
+        <a class="breadcrumb-item" href="shop-six-column.html">Shop</a>
+        <span class="breadcrumb-item active" aria-current="page">Standard product</span>
+      </nav>
+      <div id="liveCatalogUser" class="text-muted pb-2" style="font-size: 14px">Checking sign-in…</div>
+    </div>
+  </section>
+
+  <main class="main-content">
+    <section class="single-product py-5">
+      <div class="container-fluid">
+        <div id="productStatus" class="text-muted mb-4" style="font-size: 14px">Loading product…</div>
+        <div class="row g-5" id="productRow" style="display:none">
+          <div class="col-md-7">
+            <div class="product-preview" id="productPreview"></div>
+          </div>
+
+          <div class="col-md-5 bg-white position-relative">
+            <div class="product-info sticky-info">
+              <div class="element-header">
+                <h2 class="product-title text-uppercase" id="productTitle">Product</h2>
+                <div class="rating-container d-flex align-items-center">
+                  <div class="rating" title="Rating (static)">
+                    <svg width="22" height="22"><use xlink:href="#star-solid"></use></svg>
+                    <svg width="22" height="22"><use xlink:href="#star-solid"></use></svg>
+                    <svg width="22" height="22"><use xlink:href="#star-solid"></use></svg>
+                    <svg width="22" height="22"><use xlink:href="#star-outline"></use></svg>
+                    <svg width="22" height="22"><use xlink:href="#star-outline"></use></svg>
+                  </div>
+                  <span class="rating-count" id="productRatingCount">(3.5)</span>
+                </div>
+              </div>
+
+              <div class="product-price">
+                <span class="fs-2" id="productPrice">$0.00</span>
+              </div>
+
+              <p id="productDescription">—</p>
+
+              <div class="mt-3">
+                <div class="text-muted" style="font-size: 14px">Brand: <span id="productBrand">—</span></div>
+                <div class="mt-2">
+                  <a id="productArLink" href="#" class="btn btn-outline-dark btn-sm text-uppercase" style="display:none">View in AR</a>
+                </div>
+              </div>
+
+              <div class="product-action mt-4">
+                <div class="product-quantity d-flex flex-wrap">
+                  <div class="input-group product-qty me-3" style="max-width: 150px;">
+                    <span class="input-group-btn">
+                      <button type="button" class="btn btn-light" id="qtyMinus" aria-label="Decrease quantity">
+                        <svg width="16" height="16"><use xlink:href="#minus"></use></svg>
+                      </button>
+                    </span>
+                    <input type="text" id="quantity" name="quantity" class="form-control input-number text-center" value="1" min="1" max="100">
+                    <span class="input-group-btn">
+                      <button type="button" class="btn btn-light" id="qtyPlus" aria-label="Increase quantity">
+                        <svg width="16" height="16"><use xlink:href="#plus"></use></svg>
+                      </button>
+                    </span>
+                  </div>
+
+                  <button type="button" class="btn btn-dark product-cart-submit btn-lg text-uppercase me-3" id="addToCartBtn">
+                    Add to cart
+                  </button>
+                  <button type="button" class="btn btn-dark wish-list-button bg-dark" onclick="return false">
+                    <svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="accordion" id="accordionProductInfo">
+                <div class="accordion-item">
+                  <div class="accordion-header" id="heading-one">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                      data-bs-target="#collapse-one" aria-expanded="true" aria-controls="collapse-one">
+                      <span class="accordion-title text-uppercase text-dark py-3 fs-4">Description</span>
+                    </button>
+                  </div>
+                  <div id="collapse-one" class="accordion-collapse collapse show" aria-labelledby="heading-one"
+                    data-bs-parent="#accordionProductInfo">
+                    <div class="accordion-body">
+                      <h5>Product Description</h5>
+                      <p id="accordionDescription">—</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <div class="accordion-header" id="heading-two">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                      data-bs-target="#collapse-two" aria-expanded="false" aria-controls="collapse-two">
+                      <span class="accordion-title text-uppercase text-dark py-3 fs-4">Additional information</span>
+                    </button>
+                  </div>
+                  <div id="collapse-two" class="accordion-collapse collapse" aria-labelledby="heading-two"
+                    data-bs-parent="#accordionProductInfo">
+                    <div class="accordion-body">
+                      <p class="text-muted">More product attributes can be added later.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <div class="accordion-header" id="heading-three">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                      data-bs-target="#collapse-three" aria-expanded="false" aria-controls="collapse-three">
+                      <span class="accordion-title text-uppercase text-dark py-3 fs-4">Shipping & return</span>
+                    </button>
+                  </div>
+                  <div id="collapse-three" class="accordion-collapse collapse" aria-labelledby="heading-three"
+                    data-bs-parent="#accordionProductInfo">
+                    <div class="accordion-body">
+                      <p class="text-muted">Shipping and return policies can be added later.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <div class="accordion-header" id="heading-four">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                      data-bs-target="#collapse-four" aria-expanded="false" aria-controls="collapse-four">
+                      <span class="accordion-title text-uppercase text-dark py-3 fs-4">Reviews <span class="review-count">(0)</span></span>
+                    </button>
+                  </div>
+                  <div id="collapse-four" class="accordion-collapse collapse" aria-labelledby="heading-four"
+                    data-bs-parent="#accordionProductInfo">
+                    <div class="accordion-body">
+                      <p class="text-muted">Reviews can be added later.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="footer" class="mt-5">
+    <div class="border-top py-4">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-md-6 d-flex flex-wrap">
+            <div class="shipping">
+              <span>We ship with:</span>
+              <img src="images/arct-icon.png" alt="icon">
+              <img src="images/dhl-logo.png" alt="icon">
+            </div>
+            <div class="payment-option">
+              <span>Payment Option:</span>
+              <img src="images/visa-card.png" alt="card">
+              <img src="images/paypal-card.png" alt="card">
+              <img src="images/master-card.png" alt="card">
+            </div>
+          </div>
+          <div class="col-md-6 text-end">
+            <p>© Copyright 2022 INRL. All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/jquery.min.js"></script>
+  <script src="js/plugins.js"></script>
+  <script src="js/SmoothScroll.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
+  <script src="js/script.min.js"></script>
+  <script src="js/cart.js"></script>
+
+  <script>
+    let currentProduct = null;
+
+    (async function initAuthNav() {
+      const loginEl = document.getElementById('navLogin');
+      const dashEl = document.getElementById('navDashboard');
+      const logoutEl = document.getElementById('navLogout');
+      const userEl = document.getElementById('liveCatalogUser');
+      try {
+        const me = await auth.me();
+        const user = me && me.email ? me : (me && me.user && me.user.email ? me.user : null);
+
+        if (userEl) userEl.textContent = user ? `Signed in as ${user.email} (${user.role})` : 'Not signed in';
+        if (loginEl) loginEl.style.display = user ? 'none' : '';
+
+        const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
+        if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
+
+        if (logoutEl) {
+          logoutEl.style.display = user ? '' : 'none';
+          logoutEl.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await auth.logout();
+            location.reload();
+          });
+        }
+      } catch {
+        if (userEl) userEl.textContent = 'Not signed in';
+      }
+    })();
+
+    function moneyFromCents(cents, currency) {
+      const amt = (Number(cents || 0) / 100);
+      const sym = (currency || 'USD') === 'USD' ? '$' : '';
+      return `${sym}${amt.toFixed(2)}`;
+    }
+
+    function getProductSlugFromUrl() {
+      const qs = new URLSearchParams(location.search);
+      return (qs.get('slug') || qs.get('product') || '').trim();
+    }
+
+    function setQty(next) {
+      const qtyEl = document.getElementById('quantity');
+      if (!qtyEl) return;
+      const n = Math.max(1, parseInt(next || '1', 10) || 1);
+      qtyEl.value = String(n);
+    }
+
+    function getQty() {
+      const qtyEl = document.getElementById('quantity');
+      const n = Math.max(1, parseInt((qtyEl && qtyEl.value) || '1', 10) || 1);
+      return n;
+    }
+
+    function renderProduct(p) {
+      currentProduct = p;
+
+      const statusEl = document.getElementById('productStatus');
+      const rowEl = document.getElementById('productRow');
+
+      if (statusEl) statusEl.textContent = '';
+      if (rowEl) rowEl.style.display = '';
+
+      document.title = `${p.title || 'Product'} | MindAR Store`;
+
+      document.getElementById('productTitle').textContent = (p.title || 'Product').toString();
+      document.getElementById('productPrice').textContent = moneyFromCents(p.price_cents, p.currency);
+      document.getElementById('productDescription').textContent = (p.description || '').toString() || '—';
+      document.getElementById('accordionDescription').textContent = (p.description || '').toString() || '—';
+      document.getElementById('productBrand').textContent = (p.brand || '—').toString();
+
+      const arLinkEl = document.getElementById('productArLink');
+      if (arLinkEl && p.viewer_url) {
+        arLinkEl.href = p.viewer_url;
+        arLinkEl.style.display = '';
+      } else if (arLinkEl) {
+        arLinkEl.style.display = 'none';
+      }
+
+      const src = (p.image_url || 'images/product-item-1.jpg').toString();
+      const preview = document.getElementById('productPreview');
+      if (preview) {
+        preview.innerHTML = [0, 1, 2, 3].map(() => `
+          <figure>
+            <img src="${src}" alt="single-product" class="img-fluid">
+          </figure>
+        `).join('');
+      }
+    }
+
+    async function loadProduct() {
+      const statusEl = document.getElementById('productStatus');
+      const slug = getProductSlugFromUrl();
+
+      try {
+        const res = await fetch('/api/products', { credentials: 'include' });
+        if (!res.ok) throw new Error(`Products API error (${res.status})`);
+        const data = await res.json();
+        const items = Array.isArray(data && data.items) ? data.items : [];
+
+        if (!items.length) {
+          if (statusEl) statusEl.textContent = 'No published products yet.';
+          return;
+        }
+
+        const picked = slug ? items.find(x => (x.slug || '').toString() === slug) : items[0];
+        if (!picked) {
+          if (statusEl) statusEl.textContent = 'Product not found.';
+          return;
+        }
+
+        renderProduct(picked);
+      } catch (e) {
+        if (statusEl) statusEl.textContent = 'Failed to load product.';
+        console.warn('Single product v2 load failed:', e);
+      }
+    }
+
+    document.getElementById('qtyMinus')?.addEventListener('click', () => setQty(getQty() - 1));
+    document.getElementById('qtyPlus')?.addEventListener('click', () => setQty(getQty() + 1));
+
+    document.getElementById('addToCartBtn')?.addEventListener('click', () => {
+      if (!currentProduct) return;
+      const qty = getQty();
+      const price = Number(currentProduct.price_cents || 0) / 100;
+      const id = currentProduct.slug ? ('sku-' + currentProduct.slug) : ('sku-' + String(currentProduct.id || 'product'));
+      const name = (currentProduct.title || 'Product').toString();
+      const image = (currentProduct.image_url || '').toString();
+      Cart.add({ id, name, price, image, qty });
+      CartUI.render();
+    });
+
+    loadProduct();
+    CartUI.render();
+  </script>
+</body>
+
+</html>
