@@ -372,7 +372,7 @@ async function apiListProducts(request) {
   const role = sess?.user?.role || 'anonymous';
 
   let sql = `
-    select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
+    select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url,
            p.is_published, p.ar_target_id, p.created_at, p.updated_at,
            b.name as brand
     from products p
@@ -401,7 +401,28 @@ async function apiListProducts(request) {
   if (where.length) sql += ' where ' + where.join(' and ');
   sql += ' order by p.created_at desc';
 
-  const rows = await dbAll(sql, ...params);
+  let rows;
+  try {
+    rows = await dbAll(sql, ...params);
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes'))) {
+      // Backward-compatible fallback if DB hasn't been migrated yet.
+      const fallbackSql = `
+        select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
+               p.is_published, p.ar_target_id, p.created_at, p.updated_at,
+               b.name as brand
+        from products p
+        left join brands b on b.id = p.brand_id
+      `;
+      let fb = fallbackSql;
+      if (where.length) fb += ' where ' + where.join(' and ');
+      fb += ' order by p.created_at desc';
+      rows = await dbAll(fb, ...params);
+    } else {
+      throw e;
+    }
+  }
   const items = rows.map(r => {
     const qs = new URLSearchParams();
     if (r.brand) qs.set('brand', r.brand);
@@ -411,6 +432,9 @@ async function apiListProducts(request) {
       id: r.id,
       title: r.title,
       slug: r.slug,
+      category: r.category || null,
+      color: r.color || null,
+      sizes: r.sizes || null,
       description: r.description,
       price_cents: r.price_cents,
       currency: r.currency,
@@ -432,6 +456,9 @@ async function apiCreateProduct(request) {
 
   const body = await readJson(request);
   const title = (body.title || '').trim();
+  const category = (body.category || '').trim();
+  const color = (body.color || '').trim();
+  const sizes = (body.sizes || '').trim();
   const description = (body.description || '').trim() || null;
   const currency = (body.currency || 'USD').trim().toUpperCase() || 'USD';
   const imageUrl = (body.image_url || '').trim() || null;
@@ -442,6 +469,9 @@ async function apiCreateProduct(request) {
   let slug = normalizeSlug(body.slug || title);
   if (!title) return jsonResponse({ error: 'title required' }, 400, request);
   if (!slug) return jsonResponse({ error: 'slug required' }, 400, request);
+  if (!category) return jsonResponse({ error: 'category required' }, 400, request);
+  if (!color) return jsonResponse({ error: 'color required' }, 400, request);
+  if (!sizes) return jsonResponse({ error: 'sizes required' }, 400, request);
 
   let brandId = null;
   if (sess.user.role === 'admin') {
@@ -464,21 +494,32 @@ async function apiCreateProduct(request) {
     }
   }
 
-  await dbRun(
-    'insert into products (brand_id, title, slug, description, price_cents, currency, image_url, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    brandId,
-    title,
-    slug,
-    description,
-    priceCents,
-    currency,
-    imageUrl,
-    isPublished,
-    targetId
-  );
+  try {
+    await dbRun(
+      'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      brandId,
+      title,
+      slug,
+      category,
+      color,
+      sizes,
+      description,
+      priceCents,
+      currency,
+      imageUrl,
+      isPublished,
+      targetId
+    );
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes'))) {
+      return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql against D1' }, 500, request);
+    }
+    throw e;
+  }
 
   const row = await dbGet(
-    `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
+    `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url,
             p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
      from products p
      left join brands b on b.id = p.brand_id
@@ -536,6 +577,27 @@ async function apiUpdateProduct(request, id) {
     fields.push('ar_target_id = ?'); params.push(targetId);
   }
 
+  if (body.category != null) {
+    const v = String(body.category).trim();
+    if (!v) return jsonResponse({ error: 'Invalid category' }, 400, request);
+    fields.push('category = ?');
+    params.push(v);
+  }
+
+  if (body.color != null) {
+    const v = String(body.color).trim();
+    if (!v) return jsonResponse({ error: 'Invalid color' }, 400, request);
+    fields.push('color = ?');
+    params.push(v);
+  }
+
+  if (body.sizes != null) {
+    const v = String(body.sizes).trim();
+    if (!v) return jsonResponse({ error: 'Invalid sizes' }, 400, request);
+    fields.push('sizes = ?');
+    params.push(v);
+  }
+
   if (!fields.length) return jsonResponse({ ok: true }, 200, request);
   fields.push("updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
 
@@ -546,17 +608,37 @@ async function apiUpdateProduct(request, id) {
     if (msg.toLowerCase().includes('unique') && msg.toLowerCase().includes('slug')) {
       return jsonResponse({ error: 'slug already exists' }, 409, request);
     }
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes'))) {
+      return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql against D1' }, 500, request);
+    }
     throw e;
   }
 
-  const row = await dbGet(
-    `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
-            p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
-     from products p
-     left join brands b on b.id = p.brand_id
-     where p.id = ?`,
-    id
-  );
+  let row;
+  try {
+    row = await dbGet(
+      `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url,
+              p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
+       from products p
+       left join brands b on b.id = p.brand_id
+       where p.id = ?`,
+      id
+    );
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes'))) {
+      row = await dbGet(
+        `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
+                p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
+         from products p
+         left join brands b on b.id = p.brand_id
+         where p.id = ?`,
+        id
+      );
+    } else {
+      throw e;
+    }
+  }
   return jsonResponse({ ok: true, item: row || null }, 200, request);
 }
 

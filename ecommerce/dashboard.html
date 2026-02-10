@@ -58,6 +58,22 @@
               </div>
 
               <div>
+                <label class="form-label text-uppercase" for="categoryInput">Category</label>
+                <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women / Dresses" required />
+              </div>
+
+              <div>
+                <label class="form-label text-uppercase" for="colorInput">Color</label>
+                <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
+              </div>
+
+              <div>
+                <label class="form-label text-uppercase" for="sizesInput">Sizing</label>
+                <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
+                <div class="form-text">Enter one or more sizes (comma-separated).</div>
+              </div>
+
+              <div>
                 <label class="form-label text-uppercase" for="slugInput">Slug (used for AR linking)</label>
                 <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
                 <div class="form-text">Viewer link becomes: <code>/index.html?brand=…&amp;product=&lt;slug&gt;</code></div>
@@ -67,7 +83,7 @@
                 <label class="form-label text-uppercase" for="priceInput">Price</label>
                 <div class="input-group">
                   <span class="input-group-text">$</span>
-                  <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" />
+                  <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" required />
                   <select id="currencyInput" class="form-select" style="max-width: 120px">
                     <option value="USD">USD</option>
                   </select>
@@ -164,6 +180,9 @@
       el('productId').value = p ? String(p.id) : '';
       if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
       el('titleInput').value = p ? (p.title || '') : '';
+      el('categoryInput').value = p ? (p.category || '') : '';
+      el('colorInput').value = p ? (p.color || '') : '';
+      el('sizesInput').value = p ? (p.sizes || '') : '';
       el('slugInput').value = p ? (p.slug || '') : '';
       el('priceInput').value = p ? ((Number(p.price_cents || 0) / 100).toFixed(2)) : '';
       el('currencyInput').value = p ? (p.currency || 'USD') : 'USD';
@@ -172,6 +191,10 @@
       el('publishInput').checked = !!(p && p.is_published);
       el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
       el('saveBtn').textContent = p ? 'Update' : 'Create';
+    }
+
+    function requireField(label, value) {
+      if (!String(value || '').trim()) throw new Error(`${label} required`);
     }
 
     async function loadTargets() {
@@ -266,6 +289,9 @@
         const id = el('productId').value.trim();
         const body = {
           title: el('titleInput').value.trim(),
+          category: el('categoryInput').value.trim(),
+          color: el('colorInput').value.trim(),
+          sizes: el('sizesInput').value.trim(),
           slug: el('slugInput').value.trim(),
           price: el('priceInput').value,
           currency: el('currencyInput').value,
@@ -275,6 +301,17 @@
           ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
         };
         if (isAdmin) body.brand = el('brandInput').value.trim();
+
+        try {
+          requireField('Title', body.title);
+          requireField('Category', body.category);
+          requireField('Color', body.color);
+          requireField('Sizing', body.sizes);
+          requireField('Price', body.price);
+        } catch (e) {
+          showStatus(e.message || String(e), 'error');
+          return;
+        }
 
         try {
           if (!id) {
