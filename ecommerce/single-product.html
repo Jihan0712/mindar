@@ -1188,6 +1188,59 @@
         return u;
       }
 
+      function parseImageUrlsField(v) {
+        if (!v) return [];
+        if (Array.isArray(v)) return v.map(x => String(x || '').trim()).filter(Boolean);
+        const s = String(v || '').trim();
+        if (!s) return [];
+        try {
+          const j = JSON.parse(s);
+          if (Array.isArray(j)) return j.map(x => String(x || '').trim()).filter(Boolean);
+        } catch {}
+        return [s];
+      }
+
+      function getProductImages(product) {
+        const fromList = parseImageUrlsField(product && product.image_urls).slice(0, 5).map(normalizeAssetUrl).filter(Boolean);
+        if (fromList.length) return fromList;
+        const single = normalizeAssetUrl(product && product.image_url);
+        return single ? [single] : [];
+      }
+
+      function initOrUpdateGallerySwipers() {
+        const thumbsEl = document.querySelector('.product-thumbnail-slider');
+        const largeEl = document.querySelector('.product-large-slider');
+        if (!thumbsEl || !largeEl) return;
+        if (!window.Swiper) {
+          // If Swiper isn't available, at least ensure images are in DOM.
+          return;
+        }
+
+        try { thumbsEl.swiper && thumbsEl.swiper.destroy(true, true); } catch {}
+        try { largeEl.swiper && largeEl.swiper.destroy(true, true); } catch {}
+
+        const thumbs = new Swiper(thumbsEl, {
+          spaceBetween: 10,
+          slidesPerView: 5,
+          freeMode: true,
+          watchSlidesProgress: true,
+          direction: 'vertical',
+          breakpoints: {
+            0: { direction: 'horizontal' },
+            992: { direction: 'vertical' },
+          }
+        });
+
+        new Swiper(largeEl, {
+          spaceBetween: 10,
+          pagination: {
+            el: largeEl.querySelector('.swiper-pagination'),
+            clickable: true,
+          },
+          thumbs: { swiper: thumbs },
+        });
+      }
+
       function getQty() {
         const qtyEl = document.getElementById('quantity');
         return Math.max(1, parseInt((qtyEl && qtyEl.value) || '1', 10) || 1);
@@ -1223,7 +1276,8 @@
         currentProduct = product;
 
         const title = (product.title || '').toString() || 'Product';
-        const imageUrl = normalizeAssetUrl(product.image_url);
+        const images = getProductImages(product);
+        const imageUrl = images[0] || '';
         const priceText = moneyFromCents(product.price_cents, product.currency);
         const description = (product.description || '').toString();
 
@@ -1253,24 +1307,28 @@
         if (accDescEl && description) accDescEl.textContent = description;
 
         if (imageUrl) {
-          document.querySelectorAll('.product-preview img').forEach(img => {
-            img.src = imageUrl;
-            img.alt = title;
-          });
-
-          document.querySelectorAll('.product-thumbnail-slider img.thumb-image').forEach(img => {
-            img.src = imageUrl;
-            img.alt = title;
-          });
-
-          document.querySelectorAll('.product-large-slider .image-zoom').forEach(zoom => {
-            zoom.setAttribute('data-image', imageUrl);
-            const img = zoom.querySelector('img');
-            if (img) {
+          const thumbWrap = document.querySelector('.product-thumbnail-slider .swiper-wrapper');
+          const largeWrap = document.querySelector('.product-large-slider .swiper-wrapper');
+          if (thumbWrap && largeWrap) {
+            const slides = (images.length ? images : [imageUrl]).slice(0, 5);
+            thumbWrap.innerHTML = slides.map(u => `
+              <div class="swiper-slide">
+                <img src="${u}" alt="${title}" class="thumb-image img-fluid">
+              </div>
+            `).join('');
+            largeWrap.innerHTML = slides.map(u => `
+              <div class="swiper-slide">
+                <div class="image-zoom" data-scale="2.5" data-image="${u}"><img src="${u}" alt="${title}" class="img-fluid"></div>
+              </div>
+            `).join('');
+            initOrUpdateGallerySwipers();
+          } else {
+            // Fallback: update any existing images.
+            document.querySelectorAll('.product-preview img').forEach(img => {
               img.src = imageUrl;
               img.alt = title;
-            }
-          });
+            });
+          }
         }
       }
 

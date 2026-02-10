@@ -312,6 +312,27 @@ function firstImageUrl(imageUrl, imageUrlsJson) {
   return '';
 }
 
+function parseImageUrlsFromRow(value) {
+  if (!value) return null;
+  if (Array.isArray(value)) {
+    const cleaned = value.map(x => String(x || '').trim()).filter(Boolean);
+    return cleaned.length ? cleaned.slice(0, 5) : null;
+  }
+  if (typeof value === 'string') {
+    const s = value.trim();
+    if (!s) return null;
+    try {
+      const j = JSON.parse(s);
+      if (!Array.isArray(j)) return null;
+      const cleaned = j.map(x => String(x || '').trim()).filter(Boolean);
+      return cleaned.length ? cleaned.slice(0, 5) : null;
+    } catch {
+      return [s].slice(0, 5);
+    }
+  }
+  return null;
+}
+
 // ---------- Role / input helpers ----------
 
 function normalizeSlug(input) {
@@ -494,7 +515,8 @@ async function apiListProducts(request) {
     if (r.brand) qs.set('brand', r.brand);
     if (r.slug) qs.set('product', r.slug);
     const viewer_url = `/index.html${qs.toString() ? `?${qs.toString()}` : ''}`;
-    const firstUrl = firstImageUrl(r.image_url, r.image_urls);
+    const parsedImageUrls = parseImageUrlsFromRow(r.image_urls);
+    const firstUrl = firstImageUrl(r.image_url, parsedImageUrls || r.image_urls);
     const computedImageUrl = firstUrl || ((r.has_image_data || 0) ? `/api/product-image?id=${encodeURIComponent(r.id)}&i=0` : null);
     return {
       id: r.id,
@@ -507,7 +529,7 @@ async function apiListProducts(request) {
       price_cents: r.price_cents,
       currency: r.currency,
       image_url: computedImageUrl,
-      image_urls: r.image_urls || null,
+      image_urls: parsedImageUrls,
       is_published: !!r.is_published,
       ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
       brand: r.brand || null,
@@ -652,9 +674,11 @@ async function apiCreateProduct(request) {
   );
 
   if (row) {
-    const firstUrl = firstImageUrl(row.image_url, row.image_urls);
+    const parsedImageUrls = parseImageUrlsFromRow(row.image_urls);
+    const firstUrl = firstImageUrl(row.image_url, parsedImageUrls || row.image_urls);
     if (!firstUrl && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}&i=0`;
     else row.image_url = firstUrl || null;
+    row.image_urls = parsedImageUrls;
     if (row.has_image_data != null) delete row.has_image_data;
   }
   return jsonResponse({ ok: true, item: row || null }, 201, request);
@@ -791,9 +815,11 @@ async function apiUpdateProduct(request, id) {
     }
   }
   if (row) {
-    const firstUrl = firstImageUrl(row.image_url, row.image_urls);
+    const parsedImageUrls = parseImageUrlsFromRow(row.image_urls);
+    const firstUrl = firstImageUrl(row.image_url, parsedImageUrls || row.image_urls);
     if (!firstUrl && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}&i=0`;
     else row.image_url = firstUrl || row.image_url || null;
+    row.image_urls = parsedImageUrls;
     if (row.has_image_data != null) delete row.has_image_data;
   }
   return jsonResponse({ ok: true, item: row || null }, 200, request);
