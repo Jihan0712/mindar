@@ -6,6 +6,8 @@ Static UI (admin + viewer + shop) hosted on Cloudflare Pages, with a same-origin
 - Admin UI: [admin.html](admin.html)
 - Viewer: [index.html](index.html)
 - Shop: [ecommerce/index.html](ecommerce/index.html)
+- Product Dashboard: [ecommerce/dashboard.html](ecommerce/dashboard.html)
+- Single Product: [ecommerce/single-product.html](ecommerce/single-product.html)
 - Checkout: [ecommerce/checkout.html](ecommerce/checkout.html)
 - Worker source: [cloudflare/worker/index.js](cloudflare/worker/index.js)
 
@@ -37,6 +39,11 @@ See [cloudflare/worker/index.js](cloudflare/worker/index.js) for details.
 - Products: `GET /api/products`, `POST /api/products`, `POST /api/products/:id`, `DELETE /api/products/:id` (`includeUnpublished=1` for admin/brand dashboards)
 - Viewer: `GET /api/viewer/active?brand=&product=`
 
+Shop pages that hydrate from the catalog:
+
+- [ecommerce/single-product.html](ecommerce/single-product.html) fetches `GET /api/products` and populates the product gallery + tabs (Description + Additional information) from the product record.
+- [ecommerce/dashboard.html](ecommerce/dashboard.html) manages the product catalog for `admin`/`brand` roles and includes a “Store” link to preview the store page.
+
 All browser calls are same-origin and must send cookies (`credentials: 'include'`).
 
 ## D1 schema reference
@@ -54,6 +61,11 @@ python -m http.server 8000
 ```
 
 Then open `http://localhost:8000/admin.html` or `http://localhost:8000/index.html`.
+
+To manage products locally:
+
+- Sign in via `http://localhost:8000/login.html` (requires a Worker session on the same origin).
+- Open `http://localhost:8000/ecommerce/dashboard.html`.
 
 ## Optional checkout API (local demo)
 

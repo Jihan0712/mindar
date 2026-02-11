@@ -687,16 +687,17 @@
                   Nullam malesuada erat ut turpis. Suspendisse urna viverra non, semper suscipit, posuere a, pede. Donec
                   nec justo eget felis facilisis fermentum. Aliquam porttitor mauris sit amet orci. Aenean dignissim
                   pellentesque felis. Phasellus ultrices nulla quis nibh. Quisque a lectus. Donec consectetuer ligula
-                  vulputate sem tristique cursus.
+                  vulputate sem tristique cursus.</p>
                 <ul>
                   <li>Donec nec justo eget felis facilisis fermentum.</li>
                   <li>Suspendisse urna viverra non, semper suscipit pede.</li>
                   <li>Aliquam porttitor mauris sit amet orci.</li>
-                </ul> Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Donec odio. Quisque volutpat mattis
-                eros. Nullam malesuada erat ut turpis. Suspendisse urna viverra non, semper suscipit, posuere a, pede.
-                Donec nec justo eget felis facilisis fermentum. Aliquam porttitor mauris sit amet orci. Aenean dignissim
-                pellentesque felis. Phasellus ultrices nulla quis nibh. Quisque a lectus. Donec consectetuer ligula
-                vulputate sem tristique cursus. </p>
+                </ul>
+                <p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Donec odio. Quisque volutpat mattis eros.
+                  Nullam malesuada erat ut turpis. Suspendisse urna viverra non, semper suscipit, posuere a, pede.
+                  Donec nec justo eget felis facilisis fermentum. Aliquam porttitor mauris sit amet orci. Aenean dignissim
+                  pellentesque felis. Phasellus ultrices nulla quis nibh. Quisque a lectus. Donec consectetuer ligula
+                  vulputate sem tristique cursus.</p>
               </div>
               <div class="tab-pane fade" id="nav-information" role="tabpanel" aria-labelledby="nav-information-tab">
                 <h5>It is Comfortable and Best</h5>
@@ -1263,6 +1264,99 @@
         return single ? [single] : [];
       }
 
+      function ensureHeading(pane, defaultTitle) {
+        if (!pane) return null;
+        let h = pane.querySelector('h5');
+        if (!h) {
+          h = document.createElement('h5');
+          h.textContent = defaultTitle;
+          pane.prepend(h);
+        }
+        return h;
+      }
+
+      function clearPaneKeepHeading(pane, headingText) {
+        if (!pane) return null;
+        const existing = ensureHeading(pane, headingText);
+        const h = existing ? existing.cloneNode(true) : null;
+        pane.innerHTML = '';
+        if (h) pane.appendChild(h);
+        return h;
+      }
+
+      function renderDescriptionPane(description) {
+        const pane = document.getElementById('nav-home');
+        if (!pane) return;
+        clearPaneKeepHeading(pane, 'Product Description');
+
+        const text = String(description || '').trim();
+        if (!text) {
+          const p = document.createElement('p');
+          p.textContent = '—';
+          pane.appendChild(p);
+          return;
+        }
+
+        // Basic bullet parsing so descriptions like:
+        // "Line 1\n- a\n- b" render nicely.
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const bullets = [];
+        const para = [];
+        for (const line of lines) {
+          const m = line.match(/^((?:-|\*|•)|(?:\d+\.))\s+(.*)$/);
+          if (m) bullets.push(m[2].trim());
+          else para.push(line);
+        }
+
+        if (para.length) {
+          const p = document.createElement('p');
+          p.textContent = para.join(' ');
+          pane.appendChild(p);
+        }
+        if (bullets.length) {
+          const ul = document.createElement('ul');
+          bullets.forEach(b => {
+            const li = document.createElement('li');
+            li.textContent = b;
+            ul.appendChild(li);
+          });
+          pane.appendChild(ul);
+        }
+      }
+
+      function renderAdditionalInfoPane(product, sizesArr) {
+        const pane = document.getElementById('nav-information');
+        if (!pane) return;
+        clearPaneKeepHeading(pane, 'Additional Information');
+
+        const rows = [
+          { label: 'Brand', value: product && product.brand },
+          { label: 'Category', value: product && product.category },
+          { label: 'Color', value: product && product.color },
+          { label: 'Sizes', value: Array.isArray(sizesArr) && sizesArr.length ? sizesArr.join(', ') : (product && product.sizes) },
+          { label: 'SKU', value: (product && (product.slug || product.id)) ? String(product.slug || product.id) : '' },
+        ].filter(r => String(r.value || '').trim());
+
+        if (!rows.length) {
+          const p = document.createElement('p');
+          p.textContent = '—';
+          pane.appendChild(p);
+          return;
+        }
+
+        const ul = document.createElement('ul');
+        ul.className = 'list-unstyled';
+        rows.forEach(r => {
+          const li = document.createElement('li');
+          const strong = document.createElement('strong');
+          strong.textContent = `${r.label}: `;
+          li.appendChild(strong);
+          li.appendChild(document.createTextNode(String(r.value).trim()));
+          ul.appendChild(li);
+        });
+        pane.appendChild(ul);
+      }
+
       function initOrUpdateGallerySwipers() {
         const thumbsEl = document.querySelector('.product-thumbnail-slider');
         const largeEl = document.querySelector('.product-large-slider');
@@ -1280,20 +1374,37 @@
           slidesPerView: 5,
           freeMode: true,
           watchSlidesProgress: true,
+          grabCursor: true,
+          mousewheel: {
+            forceToAxis: true,
+            releaseOnEdges: true,
+          },
           direction: 'vertical',
           breakpoints: {
-            0: { direction: 'horizontal' },
-            992: { direction: 'vertical' },
-          }
+            0: { direction: 'horizontal', slidesPerView: 4 },
+            992: { direction: 'vertical', slidesPerView: 5 },
+          },
+          observer: true,
+          observeParents: true,
         });
 
-        new Swiper(largeEl, {
+        const large = new Swiper(largeEl, {
           spaceBetween: 10,
+          effect: 'fade',
+          grabCursor: true,
           pagination: {
             el: largeEl.querySelector('.swiper-pagination'),
             clickable: true,
           },
           thumbs: { swiper: thumbs },
+          observer: true,
+          observeParents: true,
+        });
+
+        // Ensure layout recalculates after DOM/image changes.
+        requestAnimationFrame(() => {
+          try { thumbs.update(); } catch {}
+          try { large.update(); } catch {}
         });
       }
 
@@ -1363,11 +1474,8 @@
         }
         if (descEl && description) descEl.textContent = description;
 
-        const tabDescEl = document.querySelector('#nav-home p');
-        if (tabDescEl && description) tabDescEl.textContent = description;
-
-        const accDescEl = document.querySelector('#collapse-one .accordion-body p');
-        if (accDescEl && description) accDescEl.textContent = description;
+        renderDescriptionPane(description);
+        renderAdditionalInfoPane(product, sizes);
 
         // Color
         const colorTextEl = document.querySelector('.color-toggle .item-title span');
@@ -1450,7 +1558,7 @@
                 <div class="image-zoom" data-scale="2.5" data-image="${u}"><img src="${u}" alt="${title}" class="img-fluid"></div>
               </div>
             `).join('');
-            initOrUpdateGallerySwipers();
+            requestAnimationFrame(initOrUpdateGallerySwipers);
           } else {
             // Fallback: update any existing images.
             document.querySelectorAll('.product-preview img').forEach(img => {
@@ -1474,6 +1582,9 @@
         Cart.add({ id, name, price, image, qty });
         if (window.CartUI) CartUI.render();
       });
+
+      // Ensure the gallery works even if API hydration fails.
+      initOrUpdateGallerySwipers();
 
       // Keep existing template behavior; only hydrate from API when available.
       loadProductFromApi();

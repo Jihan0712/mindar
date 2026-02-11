@@ -237,6 +237,7 @@
 
       tbody.innerHTML = items.map(p => {
         const viewerLink = p.viewer_url || '/index.html';
+        const storeLink = `single-product.html?product=${encodeURIComponent((p.slug || p.id || '').toString())}`;
         const hasTarget = p.ar_target_id != null;
         return `
           <tr>
@@ -248,7 +249,8 @@
               <span class="badge ${p.is_published ? 'bg-success' : 'bg-secondary'}">${p.is_published ? 'Yes' : 'No'}</span>
             </td>
             <td>
-              <a href="${viewerLink}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">View</a>
+              <a href="${storeLink}" class="btn btn-sm btn-outline-dark" target="_blank" rel="noopener">Store</a>
+              <a href="${viewerLink}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">AR</a>
               ${hasTarget ? '' : '<span class="text-muted" style="font-size:12px">(no target)</span>'}
             </td>
             <td class="text-end">

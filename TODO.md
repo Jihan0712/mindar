@@ -107,6 +107,7 @@ DNS for `shop.inrl.co` (Dashboard-only)
 - [x] Connect the AR dashboard to the ecommerce side (product catalog → target linking)
   - Worker: `GET /api/viewer/active?brand=&product=` prefers `products.slug → products.ar_target_id` when available.
 - [x] Add an ecommerce dashboard to regulate products (CRUD + publish/unpublish + link AR target)
+- [x] Add “Store” preview link in Product Dashboard to open the store product page (`/ecommerce/single-product.html?product=<slug|id>`)
 - [x] Unify accounts + roles across ecommerce and AR (single session + same role)
   - Role hierarchy: `admin` (full), `brand`/`user` (brand-scoped), `client` (viewer/shop)
   - Use the same Worker cookie session for both `/admin.html` and `/ecommerce/*` (same-origin `/api/*` with `credentials: 'include'`)
@@ -164,12 +165,51 @@ Goal: make each page in the shop nav “real” (not placeholders) and consisten
 - [ ] Wishlist (`ecommerce/wishlist.html`)
   - [ ] Decide whether to implement real wishlist or route to Coming Soon
 
+- [ ] Single Product (`ecommerce/single-product.html`)
+  - [x] Fix product image gallery thumbnail scroller (Swiper re-init + mousewheel/drag)
+  - [x] Populate product tabs from `/api/products` (Description + Additional information)
+  - [ ] Decide whether Shipping & Return / Reviews should be dynamic (requires new product fields + API)
+
 ## 10) Verification
 
 - [x] Admin login/logout works
 - [ ] Upload .mind/video/image -> URLs resolve from R2
 - [ ] Create/activate target -> Viewer plays video
 - [ ] Delete target -> R2 assets deleted
+
+## 13) User flows (admin/brand vs shoppers)
+
+Goal: Document and verify the real end-to-end paths users take through auth, dashboards, and the shop.
+
+### Admin / Brand flow
+
+- [x] Sign in at `/login.html` (Worker session) and redirect by role
+  - `admin` → `/admin.html`
+  - `brand` → `/brand.html`
+- [x] Role-based access guards
+  - `/admin.html` requires `admin|brand`
+  - `/brand.html` requires `brand` (and redirects admins to `/admin.html`)
+  - `/ecommerce/dashboard.html` requires `admin|brand`
+- [x] Manage product catalog in `/ecommerce/dashboard.html` (CRUD + publish + link AR target)
+- [x] Preview store product page from dashboard (`Store` link → `/ecommerce/single-product.html?product=<slug|id>`)
+- [ ] Replace/remove legacy invite/token UI in `/admin.html` (still references Supabase; invite-based registration pages are disabled)
+- [ ] Implement Worker-native user provisioning for `brand` users (invite flow or admin-create) and update the UI accordingly
+
+### Shopper flow
+
+- [x] Anonymous shopping works (browse store pages without login)
+- [x] Deprecated `/ecommerce/login.html` redirects to `/login.html` (single login for AR + shop)
+- [ ] Decide shopper account model
+  - Current state: client self-registration is disabled (`/register.html`, `/brand-register.html`, `/admin-register.html`)
+  - Option A: keep shop anonymous + remove/adjust any “Sign up” UX
+  - Option B: add Worker endpoint for client registration + enable signup
+- [ ] Verify cart behavior end-to-end (add/remove/update qty + cart count + totals across pages)
+- [ ] Checkout submission: align on a single backend
+  - Current state: checkout uses demo `backend/server.js` (`POST /orders`) locally
+  - Decide Worker `/api/*` order endpoint vs keeping local demo
+- [x] Single product page hydrates from `/api/products`
+  - Gallery Swiper scroller works after dynamic slide injection
+  - Tabs: Description + Additional information populate from product record
 
 ---
 
