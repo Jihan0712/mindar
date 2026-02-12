@@ -506,33 +506,23 @@
             <div class="product-info">
               <div class="element-header">
                 <h2 itemprop="name" class="product-title text-uppercase">Handmade crop sweater</h2>
-                <div class="rating-container d-flex align-items-center">
-                  <div class="rating" data-rating="1" onclick=rate(1)>
-                    <svg width="32" height="32">
-                      <use xlink:href="#star-solid"></use>
-                    </svg>
+                <div class="rating-container d-flex align-items-center" id="product-rating">
+                  <div class="rating" data-star="1">
+                    <svg width="32" height="32"><use xlink:href="#star-outline"></use></svg>
                   </div>
-                  <div class="rating" data-rating="2" onclick=rate(1)>
-                    <svg width="32" height="32">
-                      <use xlink:href="#star-solid"></use>
-                    </svg>
+                  <div class="rating" data-star="2">
+                    <svg width="32" height="32"><use xlink:href="#star-outline"></use></svg>
                   </div>
-                  <div class="rating" data-rating="3" onclick=rate(1)>
-                    <svg width="32" height="32">
-                      <use xlink:href="#star-solid"></use>
-                    </svg>
+                  <div class="rating" data-star="3">
+                    <svg width="32" height="32"><use xlink:href="#star-outline"></use></svg>
                   </div>
-                  <div class="rating" data-rating="4" onclick=rate(1)>
-                    <svg width="32" height="32">
-                      <use xlink:href="#star-outline"></use>
-                    </svg>
+                  <div class="rating" data-star="4">
+                    <svg width="32" height="32"><use xlink:href="#star-outline"></use></svg>
                   </div>
-                  <div class="rating" data-rating="5" onclick=rate(1)>
-                    <svg width="32" height="32">
-                      <use xlink:href="#star-outline"></use>
-                    </svg>
+                  <div class="rating" data-star="5">
+                    <svg width="32" height="32"><use xlink:href="#star-outline"></use></svg>
                   </div>
-                  <span class="rating-count">(3.5)</span>
+                  <span class="rating-count" id="product-rating-count">(0.0)</span>
                 </div>
               </div>
               <div class="product-price">
@@ -723,96 +713,42 @@
                   interdum augue. Nam ut nibh mauris.</p>
               </div>
               <div class="tab-pane fade" id="nav-review" role="tabpanel" aria-labelledby="nav-review-tab">
-                <div class="review-box review-style1 d-flex">
-                  <div class="review-item d-flex">
-                    <div class="row g-4">
-                      <div class="col-md-3">
-                        <div class="image-holder">
-                          <img src="images/review-image1.jpg" alt="review" class="rounded-circle img-fluid">
-                        </div>
-                      </div>
-                      <div class="col-md-7">
-                        <div class="review-content">
-                          <div class="rating-container d-flex align-items-center">
-                            <div class="rating" data-rating="1" onclick="rate(1)">
-                              <svg width="32" height="32">
-                                <use xlink:href="#star-solid"></use>
-                              </svg>
-                            </div>
-                            <div class="rating" data-rating="2" onclick="rate(1)">
-                              <svg width="32" height="32">
-                                <use xlink:href="#star-solid"></use>
-                              </svg>
-                            </div>
-                            <div class="rating" data-rating="3" onclick="rate(1)">
-                              <svg width="32" height="32">
-                                <use xlink:href="#star-solid"></use>
-                              </svg>
-                            </div>
-                            <div class="rating" data-rating="4" onclick="rate(1)">
-                              <svg width="32" height="32">
-                                <use xlink:href="#star-outline"></use>
-                              </svg>
-                            </div>
-                            <div class="rating" data-rating="5" onclick="rate(1)">
-                              <svg width="32" height="32">
-                                <use xlink:href="#star-outline"></use>
-                              </svg>
-                            </div>
-                            <span class="rating-count">(3.5)</span>
-                          </div>
-                          <div class="review-header">
-                            <span class="author-name">Tom Johnson</span>
-                            <span class="review-date">– 07/05/2022</span>
-                          </div>
-                          <p>Vitae tortor condimentum lacinia quis vel eros donec ac. Nam at lectus urna duis convallis
-                            convallis</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="review-item d-flex">
-                    <div class="row g-4">
-                      <div class="col-md-3">
-                        <div class="image-holder">
-                          <img src="images/review-image2.jpg" alt="review" class="rounded-circle img-fluid">
-                        </div>
-                      </div>
-                      <div class="col-md-7">
-                        <div class="review-content">
-                          <div class="rating-container d-flex align-items-center">
-                            <div class="rating" data-rating="1" onclick="rate(1)">
-                              <i class="icon icon-star"></i>
-                            </div>
-                            <div class="rating" data-rating="2" onclick="rate(1)">
-                              <i class="icon icon-star"></i>
-                            </div>
-                            <div class="rating" data-rating="3" onclick="rate(1)">
-                              <i class="icon icon-star"></i>
-                            </div>
-                            <div class="rating" data-rating="4" onclick="rate(1)">
-                              <svg width="32" height="32">
-                                <use xlink:href="#star-outline"></use>
-                              </svg>
-                            </div>
-                            <div class="rating" data-rating="5" onclick="rate(1)">
-                              <svg width="32" height="32">
-                                <use xlink:href="#star-outline"></use>
-                              </svg>
-                            </div>
-                            <span class="rating-count">(3.5)</span>
-                          </div>
-                          <div class="review-header">
-                            <span class="author-name">Jenny Willis</span>
-                            <span class="review-date">– 07/05/2022</span>
-                          </div>
-                          <p>Vitae tortor condimentum lacinia quis vel eros donec ac. Nam at lectus urna duis convallis
-                            convallis</p>
-                        </div>
-                      </div>
-                    </div>
+                <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                  <div class="rating-container d-flex align-items-center" id="reviews-summary-stars"></div>
+                  <div class="text-muted">
+                    <span id="reviews-summary-average">0.0</span> / 5
+                    (<span id="reviews-summary-count">0</span> reviews)
                   </div>
                 </div>
+
+                <form id="review-form" class="row g-3 mb-4">
+                  <div class="col-md-3">
+                    <label class="form-label" for="review-rating">Rating</label>
+                    <select id="review-rating" name="rating" class="form-select" required>
+                      <option value="" selected disabled>Select…</option>
+                      <option value="5">5 - Excellent</option>
+                      <option value="4">4 - Good</option>
+                      <option value="3">3 - OK</option>
+                      <option value="2">2 - Poor</option>
+                      <option value="1">1 - Bad</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="review-author">Name (optional)</label>
+                    <input id="review-author" name="author" class="form-control" maxlength="60" placeholder="Your name">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="review-comment">Comment (optional)</label>
+                    <textarea id="review-comment" name="comment" class="form-control" rows="4" maxlength="1000" placeholder="Write your review..."></textarea>
+                  </div>
+                  <div class="col-12 d-flex flex-wrap align-items-center gap-3">
+                    <button type="submit" class="btn btn-dark text-uppercase">Submit review</button>
+                    <div id="review-form-status" class="text-muted small"></div>
+                  </div>
+                </form>
+
+                <div id="reviews-empty" class="text-muted" style="display:none;">No reviews yet.</div>
+                <div id="reviews-list" class="review-box review-style1"></div>
               </div>
             </div>
           </div>
@@ -1408,6 +1344,231 @@
         });
       }
 
+      function clamp(n, min, max) {
+        const x = Number(n);
+        if (!Number.isFinite(x)) return min;
+        return Math.min(max, Math.max(min, x));
+      }
+
+      function ensureStars(container, sizePx) {
+        if (!container) return;
+        const existing = container.querySelectorAll('[data-star]');
+        if (existing && existing.length >= 5) return;
+
+        container.innerHTML = '';
+        for (let i = 1; i <= 5; i++) {
+          const wrap = document.createElement('div');
+          wrap.className = 'rating';
+          wrap.setAttribute('data-star', String(i));
+
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('width', String(sizePx || 24));
+          svg.setAttribute('height', String(sizePx || 24));
+
+          const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+          use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '#star-outline');
+
+          svg.appendChild(use);
+          wrap.appendChild(svg);
+          container.appendChild(wrap);
+        }
+      }
+
+      function setStarsFromAverage(container, average) {
+        if (!container) return;
+        const avg = clamp(average, 0, 5);
+        const filled = Math.floor(avg + 1e-9);
+        const stars = Array.from(container.querySelectorAll('[data-star]'));
+        stars.forEach((node, idx) => {
+          const i = idx + 1;
+          const use = node.querySelector('use');
+          if (!use) return;
+          use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', i <= filled ? '#star-solid' : '#star-outline');
+        });
+      }
+
+      function updateRatingUI(stats) {
+        const avg = stats && stats.average != null ? Number(stats.average) : 0;
+        const count = stats && stats.count != null ? Number(stats.count) : 0;
+
+        // Header rating next to product title
+        const headerStars = document.getElementById('product-rating');
+        if (headerStars) setStarsFromAverage(headerStars, avg);
+        const headerCount = document.getElementById('product-rating-count');
+        if (headerCount) headerCount.textContent = `(${(Number.isFinite(avg) ? avg : 0).toFixed(1)})`;
+
+        // Reviews tab summary
+        const sumStars = document.getElementById('reviews-summary-stars');
+        if (sumStars) {
+          ensureStars(sumStars, 24);
+          setStarsFromAverage(sumStars, avg);
+        }
+        const avgEl = document.getElementById('reviews-summary-average');
+        if (avgEl) avgEl.textContent = (Number.isFinite(avg) ? avg : 0).toFixed(1);
+        const countEl = document.getElementById('reviews-summary-count');
+        if (countEl) countEl.textContent = String(Number.isFinite(count) ? count : 0);
+      }
+
+      function formatReviewDate(iso) {
+        const s = String(iso || '').trim();
+        if (!s) return '';
+        const d = new Date(s);
+        if (Number.isNaN(d.getTime())) return s;
+        return d.toLocaleDateString();
+      }
+
+      function renderReviews(items) {
+        const list = document.getElementById('reviews-list');
+        const empty = document.getElementById('reviews-empty');
+        if (!list || !empty) return;
+
+        list.innerHTML = '';
+        const arr = Array.isArray(items) ? items : [];
+        empty.style.display = arr.length ? 'none' : '';
+
+        arr.forEach(r => {
+          const item = document.createElement('div');
+          item.className = 'review-item d-flex mb-4';
+
+          const row = document.createElement('div');
+          row.className = 'row g-2 w-100';
+
+          const col = document.createElement('div');
+          col.className = 'col-12';
+
+          const content = document.createElement('div');
+          content.className = 'review-content';
+
+          const top = document.createElement('div');
+          top.className = 'd-flex flex-wrap align-items-center gap-3';
+
+          const stars = document.createElement('div');
+          stars.className = 'rating-container d-flex align-items-center';
+          ensureStars(stars, 20);
+          setStarsFromAverage(stars, Number(r && r.rating));
+          top.appendChild(stars);
+
+          const header = document.createElement('div');
+          header.className = 'review-header';
+          const author = document.createElement('span');
+          author.className = 'author-name';
+          author.textContent = (r && r.author) ? String(r.author) : 'Anonymous';
+          const date = document.createElement('span');
+          date.className = 'review-date';
+          const dt = formatReviewDate(r && r.created_at);
+          date.textContent = dt ? `– ${dt}` : '';
+          header.appendChild(author);
+          header.appendChild(document.createTextNode(' '));
+          header.appendChild(date);
+          top.appendChild(header);
+
+          content.appendChild(top);
+
+          const comment = document.createElement('p');
+          const c = (r && r.comment) ? String(r.comment).trim() : '';
+          comment.textContent = c || '—';
+          content.appendChild(comment);
+
+          col.appendChild(content);
+          row.appendChild(col);
+          item.appendChild(row);
+          list.appendChild(item);
+        });
+      }
+
+      function setReviewFormStatus(message, isError) {
+        const el = document.getElementById('review-form-status');
+        if (!el) return;
+        el.textContent = String(message || '');
+        el.className = isError ? 'text-danger small' : 'text-muted small';
+      }
+
+      async function loadReviewsForCurrentProduct() {
+        if (!currentProduct) return;
+        const ref = (currentProduct.slug || currentProduct.id || '').toString().trim();
+        if (!ref) return;
+
+        setReviewFormStatus('Loading reviews…', false);
+        let res;
+        try {
+          res = await fetch(`/api/reviews?product=${encodeURIComponent(ref)}`);
+        } catch {
+          setReviewFormStatus('Could not load reviews.', true);
+          return;
+        }
+        if (!res || !res.ok) {
+          const j = await res.json().catch(() => ({}));
+          setReviewFormStatus(j && j.error ? String(j.error) : 'Could not load reviews.', true);
+          return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        updateRatingUI(data && data.stats);
+        renderReviews(data && data.items);
+        setReviewFormStatus('', false);
+      }
+
+      function wireReviewForm() {
+        const form = document.getElementById('review-form');
+        if (!form) return;
+
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (!currentProduct) {
+            setReviewFormStatus('Select a product first.', true);
+            return;
+          }
+          const ref = (currentProduct.slug || currentProduct.id || '').toString().trim();
+          if (!ref) {
+            setReviewFormStatus('Missing product reference.', true);
+            return;
+          }
+
+          const fd = new FormData(form);
+          const rating = parseInt(String(fd.get('rating') || ''), 10);
+          const author = String(fd.get('author') || '').trim();
+          const comment = String(fd.get('comment') || '').trim();
+          if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+            setReviewFormStatus('Rating must be 1–5.', true);
+            return;
+          }
+
+          const btn = form.querySelector('button[type="submit"]');
+          if (btn) btn.disabled = true;
+          setReviewFormStatus('Submitting…', false);
+
+          let res;
+          try {
+            res = await fetch('/api/reviews', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ product: ref, rating, author, comment })
+            });
+          } catch {
+            if (btn) btn.disabled = false;
+            setReviewFormStatus('Could not submit review.', true);
+            return;
+          }
+
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            if (btn) btn.disabled = false;
+            setReviewFormStatus(j && j.error ? String(j.error) : 'Could not submit review.', true);
+            return;
+          }
+
+          // Clear rating + comment, keep author for convenience.
+          const ratingEl = document.getElementById('review-rating');
+          if (ratingEl) ratingEl.value = '';
+          const commentEl = document.getElementById('review-comment');
+          if (commentEl) commentEl.value = '';
+
+          setReviewFormStatus('Thanks! Your review was added.', false);
+          if (btn) btn.disabled = false;
+          await loadReviewsForCurrentProduct();
+        });
+      }
+
       function getQty() {
         const qtyEl = document.getElementById('quantity');
         return Math.max(1, parseInt((qtyEl && qtyEl.value) || '1', 10) || 1);
@@ -1567,6 +1728,9 @@
             });
           }
         }
+
+        // Reviews + average rating
+        await loadReviewsForCurrentProduct();
       }
 
       document.querySelector('button.product-cart-submit')?.addEventListener('click', (e) => {
@@ -1585,6 +1749,13 @@
 
       // Ensure the gallery works even if API hydration fails.
       initOrUpdateGallerySwipers();
+
+      // Reviews UI
+      wireReviewForm();
+      // Initialize empty stars on reviews tab.
+      ensureStars(document.getElementById('reviews-summary-stars'), 24);
+      // Header stars exist in HTML; set to zero initially.
+      setStarsFromAverage(document.getElementById('product-rating'), 0);
 
       // Keep existing template behavior; only hydrate from API when available.
       loadProductFromApi();
