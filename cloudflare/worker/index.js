@@ -249,7 +249,111 @@ async function handleApi(request, pathname) {
   if (request.method === 'GET'  && pathname === '/api/reviews')              return apiListReviews(request);
   if (request.method === 'POST' && pathname === '/api/reviews')              return apiCreateReview(request);
 
+  // Homepage content (shop)
+  if (request.method === 'GET'  && pathname === '/api/homepage')             return apiGetHomepage(request);
+  if (request.method === 'POST' && pathname === '/api/homepage')             return apiUpdateHomepage(request);
+
   return jsonResponse({ error: 'Not Found' }, 404, request);
+}
+
+// ---------- Homepage content APIs (shop) ----------
+
+function clampStr(s, maxLen) {
+  const v = String(s || '').trim();
+  if (!v) return '';
+  return v.length > maxLen ? v.slice(0, maxLen) : v;
+}
+
+function normalizeHomepagePayload(body) {
+  const billboardIn = body && typeof body.billboard === 'object' && body.billboard ? body.billboard : {};
+  const title = clampStr(billboardIn.title, 120);
+  const description = clampStr(billboardIn.description, 600);
+
+  const slidesIn = Array.isArray(body && body.slides) ? body.slides : [];
+  const slides = slidesIn.slice(0, 12).map(s => {
+    const image = clampStr(s && s.image, 800);
+    const stitle = clampStr(s && s.title, 120);
+    const text = clampStr(s && s.text, 400);
+    const href = clampStr(s && s.href, 800);
+    const linkLabel = clampStr(s && s.linkLabel, 60);
+    return { image, title: stitle, text, href, linkLabel };
+  }).filter(s => s.image || s.title || s.text || s.href || s.linkLabel);
+
+  return { billboard: { title, description }, slides };
+}
+
+function defaultHomepageContent() {
+  return {
+    billboard: {
+      title: 'New Collections',
+      description: 'Lorem ipsum dolor sit amet consectetur adipisicing elit. Saepe voluptas ut dolorum consequuntur, adipisci repellat! Eveniet commodi voluptatem voluptate, eum minima, in suscipit explicabo voluptatibus harum, quibusdam ex repellat eaque!'
+    },
+    slides: [
+      {
+        image: 'images/banner-image-6.jpg',
+        title: 'Soft leather jackets',
+        text: 'Scelerisque duis aliquam qui lorem ipsum dolor amet, consectetur adipiscing elit.',
+        href: 'index.html',
+        linkLabel: 'Discover Now'
+      }
+    ]
+  };
+}
+
+async function apiGetHomepage(request) {
+  try {
+    const row = await dbGet('select json, updated_at, updated_by from site_content where key = ?', 'homepage');
+    if (!row || !row.json) {
+      return jsonResponse({ ok: true, content: defaultHomepageContent(), updated_at: null }, 200, request);
+    }
+    let parsed = null;
+    try { parsed = JSON.parse(String(row.json)); } catch { parsed = null; }
+    const content = parsed && typeof parsed === 'object' ? parsed : defaultHomepageContent();
+    return jsonResponse({ ok: true, content, updated_at: row.updated_at || null, updated_by: row.updated_by || null }, 200, request);
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
+      return jsonResponse({ error: 'DB migration required: create site_content table (run sql/homepage_content_migration.sql)' }, 500, request);
+    }
+    throw e;
+  }
+}
+
+async function apiUpdateHomepage(request) {
+  const sess = await getSessionUser(request);
+  if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+  if (sess.user.role !== 'admin') return jsonResponse({ error: 'Forbidden' }, 403, request);
+
+  const body = await readJson(request);
+  const normalized = normalizeHomepagePayload(body);
+
+  // Require at least a title or one slide so the page isn't blank.
+  if (!normalized.billboard.title && !normalized.slides.length) {
+    return jsonResponse({ error: 'billboard.title or at least one slide required' }, 400, request);
+  }
+
+  const now = new Date().toISOString();
+  const payload = JSON.stringify(normalized);
+
+  try {
+    await dbRun(
+      `insert into site_content (key, json, updated_at, updated_by)
+       values (?, ?, ?, ?)
+       on conflict(key) do update set json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+      'homepage',
+      payload,
+      now,
+      sess.user.email || sess.user.id
+    );
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
+      return jsonResponse({ error: 'DB migration required: create site_content table (run sql/homepage_content_migration.sql)' }, 500, request);
+    }
+    throw e;
+  }
+
+  return jsonResponse({ ok: true, content: normalized, updated_at: now, updated_by: sess.user.email || sess.user.id }, 200, request);
 }
 
 function parseImageDataUrl(dataUrl) {

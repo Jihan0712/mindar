@@ -154,6 +154,45 @@
         </div>
       </div>
     </div>
+
+    <div class="row g-4 mt-1" id="homepageEditorRow" style="display:none">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
+            <span>Homepage (Admin)</span>
+            <div class="d-flex gap-2">
+              <button id="homeLoadBtn" class="btn btn-sm btn-outline-dark text-uppercase" type="button">Load</button>
+              <button id="homeSaveBtn" class="btn btn-sm btn-dark text-uppercase" type="button">Save</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12 col-lg-6">
+                <label class="form-label text-uppercase" for="homeBillboardTitle">Billboard Title</label>
+                <input id="homeBillboardTitle" class="form-control" type="text" placeholder="e.g. New Collections" />
+              </div>
+              <div class="col-12">
+                <label class="form-label text-uppercase" for="homeBillboardDesc">Billboard Description</label>
+                <textarea id="homeBillboardDesc" class="form-control" rows="2" placeholder="Short homepage intro..."></textarea>
+              </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h2 class="h6 text-uppercase m-0">Hero Slides</h2>
+              <button id="homeAddSlideBtn" class="btn btn-sm btn-outline-secondary text-uppercase" type="button">Add Slide</button>
+            </div>
+
+            <div id="homeSlides" class="vstack gap-3"></div>
+
+            <div class="form-text mt-3">
+              Public homepage reads from <code>/api/homepage</code>. Only admins can update.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
@@ -281,6 +320,10 @@
       const isAdmin = user.role === 'admin';
       el('brandGroup').style.display = isAdmin ? '' : 'none';
 
+      // Homepage editor is admin-only
+      const homepageRow = document.getElementById('homepageEditorRow');
+      if (homepageRow) homepageRow.style.display = isAdmin ? '' : 'none';
+
       el('logoutBtn').addEventListener('click', async () => {
         await auth.logout();
         location.href = '/login.html';
@@ -398,6 +441,135 @@
           return;
         }
       });
+
+      // --- Homepage editor wiring (admin only) ---
+      if (isAdmin) {
+        const home = {
+          billboard: { title: '', description: '' },
+          slides: []
+        };
+
+        function slideCardHtml(idx, s) {
+          const image = escapeHtml(s.image || '');
+          const title = escapeHtml(s.title || '');
+          const text = escapeHtml(s.text || '');
+          const href = escapeHtml(s.href || '');
+          const linkLabel = escapeHtml(s.linkLabel || '');
+
+          return `
+            <div class="card" data-slide-index="${idx}">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="text-uppercase" style="font-size: 13px; letter-spacing: .06em">Slide ${idx + 1}</div>
+                  <button class="btn btn-sm btn-outline-danger text-uppercase" type="button" data-action="remove-slide">Remove</button>
+                </div>
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label text-uppercase">Image URL</label>
+                    <input class="form-control" type="text" data-field="image" value="${image}" placeholder="images/banner-image-1.jpg or https://..." />
+                  </div>
+                  <div class="col-12 col-lg-6">
+                    <label class="form-label text-uppercase">Title</label>
+                    <input class="form-control" type="text" data-field="title" value="${title}" />
+                  </div>
+                  <div class="col-12 col-lg-6">
+                    <label class="form-label text-uppercase">Link URL</label>
+                    <input class="form-control" type="text" data-field="href" value="${href}" placeholder="index.html" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label text-uppercase">Text</label>
+                    <textarea class="form-control" rows="2" data-field="text">${text}</textarea>
+                  </div>
+                  <div class="col-12 col-lg-6">
+                    <label class="form-label text-uppercase">Link Label</label>
+                    <input class="form-control" type="text" data-field="linkLabel" value="${linkLabel}" placeholder="Discover Now" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        function renderHomeEditor() {
+          const titleEl = document.getElementById('homeBillboardTitle');
+          const descEl = document.getElementById('homeBillboardDesc');
+          if (titleEl) titleEl.value = home.billboard.title || '';
+          if (descEl) descEl.value = home.billboard.description || '';
+
+          const slidesEl = document.getElementById('homeSlides');
+          if (!slidesEl) return;
+          slidesEl.innerHTML = '';
+          if (!home.slides.length) {
+            slidesEl.innerHTML = '<div class="text-muted">No slides yet. Click Add Slide.</div>';
+            return;
+          }
+          slidesEl.innerHTML = home.slides.map((s, i) => slideCardHtml(i, s)).join('');
+        }
+
+        function readHomeFromEditor() {
+          const titleEl = document.getElementById('homeBillboardTitle');
+          const descEl = document.getElementById('homeBillboardDesc');
+          home.billboard.title = titleEl ? titleEl.value.trim() : '';
+          home.billboard.description = descEl ? descEl.value.trim() : '';
+
+          const slidesEl = document.getElementById('homeSlides');
+          const cards = slidesEl ? Array.from(slidesEl.querySelectorAll('[data-slide-index]')) : [];
+          const nextSlides = [];
+          for (const card of cards) {
+            const slide = {
+              image: (card.querySelector('[data-field="image"]')?.value || '').trim(),
+              title: (card.querySelector('[data-field="title"]')?.value || '').trim(),
+              text: (card.querySelector('[data-field="text"]')?.value || '').trim(),
+              href: (card.querySelector('[data-field="href"]')?.value || '').trim(),
+              linkLabel: (card.querySelector('[data-field="linkLabel"]')?.value || '').trim(),
+            };
+            nextSlides.push(slide);
+          }
+          home.slides = nextSlides;
+        }
+
+        async function loadHomepage() {
+          clearStatus();
+          const res = await apiFetch('/homepage');
+          const content = res && res.content ? res.content : null;
+          home.billboard = (content && content.billboard) ? content.billboard : { title: '', description: '' };
+          home.slides = Array.isArray(content && content.slides) ? content.slides : [];
+          renderHomeEditor();
+          showStatus('Homepage loaded.', 'success');
+        }
+
+        async function saveHomepage() {
+          clearStatus();
+          readHomeFromEditor();
+          await apiFetch('/homepage', { method: 'POST', body: home });
+          showStatus('Homepage saved.', 'success');
+        }
+
+        document.getElementById('homeAddSlideBtn')?.addEventListener('click', () => {
+          home.slides.push({ image: '', title: '', text: '', href: 'index.html', linkLabel: 'Discover Now' });
+          renderHomeEditor();
+        });
+
+        document.getElementById('homeLoadBtn')?.addEventListener('click', loadHomepage);
+        document.getElementById('homeSaveBtn')?.addEventListener('click', async () => {
+          try { await saveHomepage(); } catch (e) { showStatus(e.message || String(e), 'error'); }
+        });
+
+        document.getElementById('homeSlides')?.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('button[data-action="remove-slide"]');
+          if (!btn) return;
+          const card = btn.closest('[data-slide-index]');
+          if (!card) return;
+          const idx = parseInt(card.getAttribute('data-slide-index'), 10);
+          if (Number.isFinite(idx)) {
+            home.slides.splice(idx, 1);
+            renderHomeEditor();
+          }
+        });
+
+        // Load once on entry
+        try { await loadHomepage(); } catch (e) { showStatus('Homepage failed to load: ' + (e.message || e), 'error'); }
+      }
     })();
   </script>
 </body>
