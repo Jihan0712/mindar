@@ -245,6 +245,10 @@ async function handleApi(request, pathname) {
     const id = parseInt(pathname.split('/')[3], 10); return apiDeleteProduct(request, id);
   }
 
+  // Reviews (shop)
+  if (request.method === 'GET'  && pathname === '/api/reviews')              return apiListReviews(request);
+  if (request.method === 'POST' && pathname === '/api/reviews')              return apiCreateReview(request);
+
   return jsonResponse({ error: 'Not Found' }, 404, request);
 }
 
@@ -839,6 +843,143 @@ async function apiDeleteProduct(request, id) {
 
   await dbRun('delete from products where id = ?', id);
   return jsonResponse({ ok: true }, 200, request);
+}
+
+// ---------- Reviews APIs (shop) ----------
+
+function isDigits(s) {
+  return /^\d+$/.test(String(s || '').trim());
+}
+
+async function resolvePublishedProductByRef(ref) {
+  const raw = String(ref || '').trim();
+  if (!raw) return null;
+  if (isDigits(raw)) {
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    const row = await dbGet('select id, slug, is_published from products where id = ?', id);
+    if (!row || !row.is_published) return null;
+    return { id: Number(row.id), slug: row.slug || null };
+  }
+  const row = await dbGet('select id, slug, is_published from products where slug = ?', raw);
+  if (!row || !row.is_published) return null;
+  return { id: Number(row.id), slug: row.slug || raw };
+}
+
+async function apiListReviews(request) {
+  const url = new URL(request.url);
+  const ref = (url.searchParams.get('product') || url.searchParams.get('product_id') || url.searchParams.get('product_slug') || '').trim();
+  if (!ref) return jsonResponse({ error: 'product required' }, 400, request);
+
+  let product;
+  try {
+    product = await resolvePublishedProductByRef(ref);
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such table') && msg.includes('product_reviews')) {
+      return jsonResponse({ error: 'DB migration required: create product_reviews table' }, 500, request);
+    }
+    throw e;
+  }
+  if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
+
+  let items = [];
+  let statsRow = null;
+  try {
+    items = await dbAll(
+      'select id, rating, author, comment, created_at from product_reviews where product_id = ? order by created_at desc limit 50',
+      product.id
+    );
+    statsRow = await dbGet(
+      'select avg(rating) as average, count(*) as count from product_reviews where product_id = ?',
+      product.id
+    );
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such table') && msg.includes('product_reviews')) {
+      return jsonResponse({ error: 'DB migration required: create product_reviews table' }, 500, request);
+    }
+    throw e;
+  }
+
+  const avg = statsRow && statsRow.average != null ? Number(statsRow.average) : 0;
+  const count = statsRow && statsRow.count != null ? Number(statsRow.count) : 0;
+  return jsonResponse(
+    {
+      product,
+      stats: { average: Number.isFinite(avg) ? avg : 0, count: Number.isFinite(count) ? count : 0 },
+      items: (items || []).map(r => ({
+        id: r.id,
+        rating: Number(r.rating) || 0,
+        author: r.author || null,
+        comment: r.comment || null,
+        created_at: r.created_at || null,
+      })),
+    },
+    200,
+    request
+  );
+}
+
+async function apiCreateReview(request) {
+  const body = await readJson(request);
+  const ref = (body.product || body.product_id || body.product_slug || '').toString().trim();
+  if (!ref) return jsonResponse({ error: 'product required' }, 400, request);
+
+  const rating = parseInt(body.rating, 10);
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    return jsonResponse({ error: 'rating must be 1-5' }, 400, request);
+  }
+
+  const authorRaw = (body.author || '').toString().trim();
+  const commentRaw = (body.comment || '').toString().trim();
+  if (authorRaw.length > 60) return jsonResponse({ error: 'author too long' }, 400, request);
+  if (commentRaw.length > 1000) return jsonResponse({ error: 'comment too long' }, 400, request);
+  const author = authorRaw || null;
+  const comment = commentRaw || null;
+
+  let product;
+  try {
+    product = await resolvePublishedProductByRef(ref);
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such table') && msg.includes('product_reviews')) {
+      return jsonResponse({ error: 'DB migration required: create product_reviews table' }, 500, request);
+    }
+    throw e;
+  }
+  if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
+
+  try {
+    await dbRun(
+      'insert into product_reviews (product_id, product_slug, rating, author, comment) values (?, ?, ?, ?, ?)',
+      product.id,
+      product.slug,
+      rating,
+      author,
+      comment
+    );
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such table') && msg.includes('product_reviews')) {
+      return jsonResponse({ error: 'DB migration required: create product_reviews table' }, 500, request);
+    }
+    throw e;
+  }
+
+  const row = await dbGet(
+    'select id, rating, author, comment, created_at from product_reviews where rowid = last_insert_rowid()'
+  );
+  return jsonResponse(
+    {
+      ok: true,
+      item: row
+        ? { id: row.id, rating: Number(row.rating) || rating, author: row.author || null, comment: row.comment || null, created_at: row.created_at || null }
+        : null,
+    },
+    201,
+    request
+  );
 }
 
 // ---------- Targets APIs (admin + brand) ----------

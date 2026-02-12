@@ -86,3 +86,19 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_brand_published ON products(brand_id, is_published);
+
+-- ---------- Product Reviews (Shop) ----------
+
+CREATE TABLE IF NOT EXISTS product_reviews (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id   INTEGER NULL,
+  product_slug TEXT NULL,
+  rating       INTEGER NOT NULL,
+  author       TEXT NULL,
+  comment      TEXT NULL,
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_reviews_product_id ON product_reviews(product_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_product_slug ON product_reviews(product_slug, created_at);
