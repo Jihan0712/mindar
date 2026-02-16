@@ -214,9 +214,16 @@ async function handleRequest(request) {
 async function handleApi(request, pathname) {
   // Auth
   if (request.method === 'POST' && pathname === '/api/auth/bootstrap-admin') return apiBootstrapAdmin(request);
+  if (request.method === 'POST' && pathname === '/api/auth/register')        return apiRegister(request);
   if (request.method === 'POST' && pathname === '/api/auth/login')           return apiLogin(request);
   if (request.method === 'POST' && pathname === '/api/auth/logout')          return apiLogout(request);
   if (request.method === 'GET'  && pathname === '/api/auth/me')              return apiMe(request);
+
+  // Orders (shop)
+  if (request.method === 'POST' && pathname === '/api/orders')               return apiCreateOrder(request);
+
+  // Admin
+  if (request.method === 'POST' && pathname === '/api/admin/brand-users')    return apiAdminCreateBrandUser(request);
 
   // Targets
   if (request.method === 'GET'  && pathname === '/api/targets')              return apiListTargets(request);
@@ -471,11 +478,29 @@ function isPrivilegedRole(role) {
   return role === 'admin' || role === 'brand';
 }
 
+function isAdminRole(role) {
+  return role === 'admin';
+}
+
 async function requirePrivilegedSession(request) {
   const sess = await getSessionUser(request);
   if (!sess) return { error: jsonResponse({ error: 'Unauthorized' }, 401, request) };
   if (!isPrivilegedRole(sess.user.role)) return { error: jsonResponse({ error: 'Forbidden' }, 403, request) };
   return { sess };
+}
+
+async function requireAdminSession(request) {
+  const sess = await getSessionUser(request);
+  if (!sess) return { error: jsonResponse({ error: 'Unauthorized' }, 401, request) };
+  if (!isAdminRole(sess.user.role)) return { error: jsonResponse({ error: 'Forbidden' }, 403, request) };
+  return { sess };
+}
+
+function isValidEmail(email) {
+  const s = String(email || '').trim().toLowerCase();
+  if (!s) return false;
+  if (s.length > 254) return false;
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
 }
 
 async function getScopedBrandIds(sess) {
@@ -520,6 +545,28 @@ async function apiBootstrapAdmin(request) {
   return res;
 }
 
+async function apiRegister(request) {
+  const body = await readJson(request);
+  const email = (body.email || '').trim().toLowerCase();
+  const password = body.password || '';
+
+  if (!isValidEmail(email)) return jsonResponse({ error: 'Valid email required' }, 400, request);
+  if (!password || String(password).length < 8) return jsonResponse({ error: 'Password must be at least 8 characters' }, 400, request);
+
+  const existing = await dbGet('select id from users where email = ?', email);
+  if (existing) return jsonResponse({ error: 'Email already registered' }, 409, request);
+
+  const salt = randomId('salt_');
+  const hash = await hashPassword(password, salt);
+  const userId = randomId('usr_');
+  await dbRun('insert into users (id, email, password_hash, role) values (?, ?, ?, ?)', userId, email, hash, 'client');
+
+  const token = await createSession(userId);
+  const res = jsonResponse({ ok: true, user: { id: userId, email, role: 'client' } }, 201, request);
+  res.headers.append('Set-Cookie', buildSessionCookie(token, request));
+  return res;
+}
+
 async function apiLogin(request) {
   const body = await readJson(request);
   const email = (body.email || '').trim().toLowerCase();
@@ -553,6 +600,125 @@ async function apiLogout(request) {
 async function apiMe(request) {
   const sess = await getSessionUser(request);
   return jsonResponse({ user: sess ? sess.user : null }, 200, request);
+}
+
+// ---------- Orders APIs ----------
+
+function normalizeCartItem(raw) {
+  const o = raw && typeof raw === 'object' ? raw : {};
+  const id = o.id != null ? String(o.id).trim() : '';
+  const slug = o.slug != null ? String(o.slug).trim() : '';
+  const name = String(o.name || o.title || '').trim();
+  const qty = Math.max(1, Math.min(99, parseInt(o.qty, 10) || 0));
+  const price = Number(o.price);
+  const image = String(o.image || o.image_url || '').trim();
+
+  if (!name) return null;
+  if (!Number.isFinite(price) || price < 0) return null;
+  if (!qty) return null;
+
+  return { id: id || null, slug: slug || null, name, qty, price, image: image || null };
+}
+
+function computeOrderTotalCents(cartItems) {
+  let total = 0;
+  for (const it of cartItems) {
+    const line = Math.round(Number(it.price) * 100) * Number(it.qty);
+    if (!Number.isFinite(line) || line < 0) return null;
+    total += line;
+  }
+  if (!Number.isFinite(total) || total < 0) return null;
+  return Math.round(total);
+}
+
+async function apiCreateOrder(request) {
+  const body = await readJson(request);
+  const cartIn = Array.isArray(body.cart) ? body.cart : [];
+  const cart = cartIn.map(normalizeCartItem).filter(Boolean);
+  if (!cart.length) return jsonResponse({ error: 'cart is required' }, 400, request);
+
+  const customer = body.customer && typeof body.customer === 'object' ? body.customer : {};
+  const firstName = clampStr(customer.firstName, 80);
+  const lastName = clampStr(customer.lastName, 80);
+  const email = String(customer.email || '').trim().toLowerCase();
+  const address = clampStr(customer.address, 220);
+  const country = clampStr(customer.country, 80);
+  const state = clampStr(customer.state, 80);
+  const zip = clampStr(customer.zip, 20);
+  if (!firstName || !lastName) return jsonResponse({ error: 'firstName and lastName required' }, 400, request);
+  if (!isValidEmail(email)) return jsonResponse({ error: 'Valid email required' }, 400, request);
+  if (!address || !country || !state || !zip) return jsonResponse({ error: 'address, country, state, zip required' }, 400, request);
+
+  const currency = String(body.currency || 'USD').trim().toUpperCase() || 'USD';
+  const totalCents = computeOrderTotalCents(cart);
+  if (totalCents == null) return jsonResponse({ error: 'Invalid cart pricing' }, 400, request);
+
+  const sess = await getSessionUser(request);
+  const orderId = randomId('ord_');
+  const now = new Date().toISOString();
+
+  try {
+    await dbRun(
+      `insert into orders (id, user_id, email, first_name, last_name, address, country, state, zip, currency, total_cents, items_json, status, created_at)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      orderId,
+      sess?.user?.id || null,
+      email,
+      firstName,
+      lastName,
+      address,
+      country,
+      state,
+      zip,
+      currency,
+      totalCents,
+      JSON.stringify(cart),
+      'created',
+      now
+    );
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
+      return jsonResponse({ error: 'DB migration required: create orders table (run sql/orders_migration.sql)' }, 500, request);
+    }
+    throw e;
+  }
+
+  return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency }, 201, request);
+}
+
+// ---------- Admin APIs ----------
+
+async function apiAdminCreateBrandUser(request) {
+  const { sess, error } = await requireAdminSession(request);
+  if (error) return error;
+
+  const body = await readJson(request);
+  const email = (body.email || '').trim().toLowerCase();
+  const password = body.password || '';
+  const brandName = (body.brand || '').trim();
+
+  if (!brandName) return jsonResponse({ error: 'brand required' }, 400, request);
+  if (!isValidEmail(email)) return jsonResponse({ error: 'Valid email required' }, 400, request);
+  if (!password || String(password).length < 8) return jsonResponse({ error: 'Password must be at least 8 characters' }, 400, request);
+
+  const existing = await dbGet('select id from users where email = ?', email);
+  if (existing) return jsonResponse({ error: 'Email already exists' }, 409, request);
+
+  const brandId = await ensureBrandIdByName(brandName);
+  if (!brandId) return jsonResponse({ error: 'Invalid brand' }, 400, request);
+
+  const salt = randomId('salt_');
+  const hash = await hashPassword(password, salt);
+  const userId = randomId('usr_');
+  await dbRun('insert into users (id, email, password_hash, role) values (?, ?, ?, ?)', userId, email, hash, 'brand');
+  await dbRun('insert into brand_users (user_id, brand_id) values (?, ?)', userId, brandId);
+
+  return jsonResponse(
+    { ok: true, user: { id: userId, email, role: 'brand', brand: { id: brandId, name: brandName } }, created_by: sess.user.email || sess.user.id },
+    201,
+    request
+  );
 }
 
 // ---------- Products APIs ----------

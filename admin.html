@@ -98,6 +98,35 @@
             </button>
             
           </div>
+
+          <!-- Admin-only: Brand user provisioning (Worker-native) -->
+          <div id="brandUserProvision" class="mt-6 bg-white shadow rounded-lg p-6 space-y-3 hidden">
+            <div>
+              <h3 class="text-base font-semibold">Create Brand User</h3>
+              <p class="text-xs text-gray-500">Creates a brand-scoped login (email + temporary password) and assigns it to a brand.</p>
+            </div>
+
+            <div id="brandUserStatus" class="text-sm text-gray-600"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Brand name</label>
+                <input id="brandUserBrand" type="text" placeholder="e.g. Acme" class="w-full border rounded p-2" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">User email</label>
+                <input id="brandUserEmail" type="email" placeholder="brand.user@company.com" class="w-full border rounded p-2" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Temporary password</label>
+                <input id="brandUserPassword" type="text" placeholder="Min 8 chars" class="w-full border rounded p-2" />
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <button id="createBrandUserBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Create User</button>
+            </div>
+          </div>
         </section>
 
         <!-- List Section -->
@@ -736,6 +765,12 @@
           }
         } catch {}
 
+        // Admin-only: Brand user provisioning card
+        try {
+          const prov = document.getElementById('brandUserProvision');
+          if (prov) prov.classList.toggle('hidden', !isAdmin);
+        } catch {}
+
         // Load brand list via Worker targets (dedup client-side)
         // Product list comes from /api/products so AR uses the ecommerce catalog slugs.
         let targetItems = [];
@@ -834,6 +869,64 @@
           });
         }
       }
+
+      // Admin-only: create brand users (Worker-native)
+      (function bindBrandUserProvision() {
+        const btn = document.getElementById('createBrandUserBtn');
+        const status = document.getElementById('brandUserStatus');
+        const brandEl = document.getElementById('brandUserBrand');
+        const emailEl = document.getElementById('brandUserEmail');
+        const passEl = document.getElementById('brandUserPassword');
+
+        function setStatus(msg, isError = false) {
+          if (!status) return;
+          status.textContent = msg || '';
+          status.classList.toggle('text-red-600', !!isError);
+          status.classList.toggle('text-green-700', !isError && !!msg);
+          status.classList.toggle('text-gray-600', !msg);
+        }
+
+        btn?.addEventListener('click', async () => {
+          try {
+            setStatus('');
+            const brand = String(brandEl?.value || '').trim();
+            const email = String(emailEl?.value || '').trim();
+            const password = String(passEl?.value || '');
+            if (!brand || !email || !password) {
+              setStatus('Brand, email, and temporary password are required.', true);
+              return;
+            }
+            if (password.length < 8) {
+              setStatus('Temporary password must be at least 8 characters.', true);
+              return;
+            }
+
+            if (btn) {
+              btn.disabled = true;
+              btn.dataset.prevText = btn.textContent;
+              btn.textContent = 'Creating...';
+            }
+
+            const res = await fetch('/api/admin/brand-users', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ brand, email, password })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+            setStatus(`Created brand user: ${data?.user?.email || email} (brand: ${brand})`, false);
+            try { passEl.value = ''; } catch {}
+          } catch (e) {
+            setStatus(e?.message || String(e), true);
+          } finally {
+            if (btn) {
+              btn.disabled = false;
+              btn.textContent = btn.dataset.prevText || 'Create User';
+            }
+          }
+        });
+      })();
 
       // static property used as a lightweight "bind once" flag
       initAdminContext._filtersBound = false;

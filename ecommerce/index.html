@@ -321,7 +321,7 @@
                   <h2 class="display-1 text-uppercase mt-5 pt-5">Cripcrop style</h2>
                   <p class="caption">Tortor eget placerat arcu integer. Lectus fames egestas tincidunt aliquet vivamus nibh lorem nulla.</p>
                   <div class="btn-left btn-swiper">
-                    <a href="#" class="btn btn-light text-uppercase mt-3">Shop Collection</a>
+                    <a href="shop-sidebar.html" class="btn btn-light text-uppercase mt-3">Shop Collection</a>
                   </div>
                 </div>
               </div>
@@ -466,7 +466,7 @@
                 fringilla odio mi. Consequat pharetra at magna imperdiet cursus ac faucibus sit libero. Ultricies quam
                 nunc, lorem sit lorem urna, pretium aliquam ut. In vel, quis donec dolor id in. Pulvinar commodo mollis
                 diam sed facilisis at cursus imperdiet cursus ac faucibus sit faucibus sit libero.</p>
-              <a href="#" class="btn btn-dark text-uppercase mt-3">Shop Collection</a>
+              <a href="shop-sidebar.html" class="btn btn-dark text-uppercase mt-3">Shop Collection</a>
             </div>
           </div>
         </div>
@@ -478,7 +478,7 @@
     <div class="container">
       <div class="d-flex flex-wrap justify-content-between align-items-center mt-5 mb-3">
         <h4 class="text-uppercase">Best Selling Items</h4>
-        <a href="index.html" class="btn-link">View All Products</a>
+        <a href="shop-sidebar.html" class="btn-link">View All Products</a>
       </div>
       <div class="swiper product-swiper open-up" data-aos="zoom-out">
         <div class="swiper-wrapper d-flex">
@@ -941,7 +941,7 @@
                 <a href="about.html" class="item-anchor">About</a>
               </li>
               <li class="menu-item">
-                <a href="styles.html" class="item-anchor">Single item</a>
+                <a href="coming-soon.html?page=single-item" class="item-anchor">Single item</a>
               </li>
               <li class="menu-item">
                 <a href="contact.html" class="item-anchor">Contact</a>
@@ -957,16 +957,16 @@
                 <a href="order-tracking.html" class="item-anchor">Track Your Order</a>
               </li>
               <li class="menu-item">
-                <a href="#" class="item-anchor">Returns + Exchanges</a>
+                <a href="coming-soon.html?page=returns" class="item-anchor">Returns + Exchanges</a>
               </li>
               <li class="menu-item">
-                <a href="#" class="item-anchor">Shipping + Delivery</a>
+                <a href="coming-soon.html?page=shipping" class="item-anchor">Shipping + Delivery</a>
               </li>
               <li class="menu-item">
                 <a href="contact.html" class="item-anchor">Contact Us</a>
               </li>
               <li class="menu-item">
-                <a href="#" class="item-anchor">Find us easy</a>
+                <a href="coming-soon.html?page=find-us" class="item-anchor">Find us easy</a>
               </li>
               <li class="menu-item">
                 <a href="faqs.html" class="item-anchor">Faqs</a>
@@ -1036,13 +1036,15 @@
 
         const fallbackTitle = billboard && billboard.title ? String(billboard.title) : 'New Collections';
         const fallbackText = billboard && billboard.description ? String(billboard.description) : '';
-        const normalized = slides.length ? slides : [{ image: 'images/banner-large-image.jpg', title: fallbackTitle, text: fallbackText, href: '#', linkLabel: 'Shop Collection' }];
+        const fallbackHref = 'shop-sidebar.html';
+        const normalized = slides.length ? slides : [{ image: 'images/banner-large-image.jpg', title: fallbackTitle, text: fallbackText, href: fallbackHref, linkLabel: 'Shop Collection' }];
 
         slidesEl.innerHTML = normalized.map(s => {
           const image = (s.image || 'images/banner-large-image.jpg').toString();
           const title = (s.title || fallbackTitle).toString();
           const text = (s.text || fallbackText).toString();
-          const href = (s.href || '#').toString();
+          const hrefRaw = (s.href || '').toString().trim();
+          const href = hrefRaw && hrefRaw !== '#' ? hrefRaw : fallbackHref;
           const linkLabel = (s.linkLabel || 'Shop Collection').toString();
           return `
             <div class="swiper-slide d-flex align-items-center" style="background-image:url(${image});">

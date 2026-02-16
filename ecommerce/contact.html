@@ -206,33 +206,10 @@
                   <a class="nav-link dropdown-toggle" href="#" id="dropdownShop" data-bs-toggle="dropdown"
                     aria-haspopup="true" aria-expanded="false">Shop</a>
                   <ul class="dropdown-menu list-unstyled" aria-labelledby="dropdownShop">
-                    <li>
-                      <a href="shop-sidebar.html" class="dropdown-item item-anchor">Shop Sidebar</a>
-                    </li>
-                    <li>
-                      <a href="shop-three-column.html" class="dropdown-item item-anchor">Shop Three Column</a>
-                    </li>
-                    <li>
-                      <a href="index.html" class="dropdown-item item-anchor">Shop Three Column Wide</a>
-                    </li>
-                    <li>
-                      <a href="index.html" class="dropdown-item item-anchor">Shop Four Column</a>
-                    </li>
-                    <li>
-                      <a href="index.html" class="dropdown-item item-anchor">Shop Four Column Wide</a>
-                    </li>
-                    <li>
-                      <a href="shop-six-column.html" class="dropdown-item item-anchor">Shop Six Column</a>
-                    </li>
-                    <li>
-                      <a href="shop-six-column.html" class="dropdown-item item-anchor">Shop Six Column Wide</a>
-                    </li>
-                    <li>
-                      <a href="single-product.html" class="dropdown-item item-anchor">Single Product</a>
-                    </li>
-                    <li>
-                      <a href="single-product2.html" class="dropdown-item item-anchor">Single Product V2</a>
-                    </li>
+                    <li><a href="shop-sidebar.html" class="dropdown-item item-anchor">Shop Sidebar</a></li>
+                    <li><a href="shop-three-column.html" class="dropdown-item item-anchor">Shop Three Column</a></li>
+                    <li><a href="shop-six-column.html" class="dropdown-item item-anchor">Shop Six Column</a></li>
+                    <li><a href="single-product.html" class="dropdown-item item-anchor">Single Product</a></li>
                   </ul>
                 </li>
                 <li class="nav-item dropdown">
@@ -623,7 +600,7 @@
                 <a href="about.html" class="item-anchor">About</a>
               </li>
               <li class="menu-item">
-                <a href="blog.html" class="item-anchor">Services</a>
+                <a href="coming-soon.html?page=services" class="item-anchor">Services</a>
               </li>
               <li class="menu-item">
                 <a href="styles.html" class="item-anchor">Single item</a>
@@ -642,16 +619,16 @@
                 <a href="order-tracking.html" class="item-anchor">Track Your Orderss</a>
               </li>
               <li class="menu-item">
-                <a href="#" class="item-anchor">Returns + Exchanges</a>
+                <a href="coming-soon.html?page=returns" class="item-anchor">Returns + Exchanges</a>
               </li>
               <li class="menu-item">
-                <a href="#" class="item-anchor">Shipping + Delivery</a>
+                <a href="coming-soon.html?page=shipping" class="item-anchor">Shipping + Delivery</a>
               </li>
               <li class="menu-item">
                 <a href="contact.html" class="item-anchor">Contact Us</a>
               </li>
               <li class="menu-item">
-                <a href="#" class="item-anchor">Find us easy</a>
+                <a href="coming-soon.html?page=find-us" class="item-anchor">Find us easy</a>
               </li>
               <li class="menu-item">
                 <a href="faqs.html" class="item-anchor">Faqs</a>
@@ -736,6 +713,15 @@
             statusEl.innerHTML = '<div class="alert alert-success mb-0" role="status">Message saved (demo). No email is sent yet.</div>';
           }
           form.reset();
+        });
+      }
+
+      const newsletterForm = document.getElementById('form');
+      if (newsletterForm) {
+        newsletterForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          alert('Newsletter signup isn\'t implemented yet.');
+          newsletterForm.reset();
         });
       }
     })();

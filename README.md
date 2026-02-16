@@ -50,22 +50,22 @@ All browser calls are same-origin and must send cookies (`credentials: 'include'
 
 A reference D1 (SQLite) schema is included at [sql/d1_schema.sql](sql/d1_schema.sql).
 
-## Local development
+## Cloudflare-only testing (no local setup)
 
-The frontend is static; run any static server from the repo root.
+Because auth uses cookies, the UI and Worker API must be **same-origin**.
 
-PowerShell:
+Use Cloudflare Pages + Worker Routes:
 
-```powershell
-python -m http.server 8000
-```
+- In Cloudflare Dashboard → Workers → your worker → Settings → Routes
+	- Map your site host to the worker for: `/api*`, `/upload`, `/delete`, `/purge`
+- Ensure your Pages site is deployed (custom domain or `*.pages.dev`).
 
-Then open `http://localhost:8000/admin.html` or `http://localhost:8000/index.html`.
+Smoke test on the deployed origin:
 
-To manage products locally:
-
-- Sign in via `http://localhost:8000/login.html` (requires a Worker session on the same origin).
-- Open `http://localhost:8000/ecommerce/dashboard.html`.
+- Visit `https://<your-site>/api/auth/me` and confirm it returns `{ user: null }` when logged out
+- Log in at `https://<your-site>/login.html`
+- Open `https://<your-site>/ecommerce/dashboard.html` (admin/brand only)
+- Open `https://<your-site>/ecommerce/single-product.html?product=<slug>` and confirm product + reviews load
 
 ## Optional checkout API (local demo)
 

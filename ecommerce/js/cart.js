@@ -41,6 +41,28 @@
       document.querySelectorAll('.js-cart-count').forEach(el => el.textContent = Cart.count());
       if (totalEl) totalEl.textContent = Cart.currency(Cart.total());
       if (!list) return;
+
+      if (!list.dataset.cartUiBound) {
+        list.dataset.cartUiBound = '1';
+        list.addEventListener('input', (e) => {
+          const target = e.target;
+          if (!target || typeof target.getAttribute !== 'function') return;
+          const id = target.getAttribute('data-qty-for');
+          if (!id) return;
+          Cart.setQty(id, target.value);
+          CartUI.render();
+        });
+
+        list.addEventListener('click', (e) => {
+          const target = e.target;
+          if (!target || typeof target.getAttribute !== 'function') return;
+          const id = target.getAttribute('data-remove');
+          if (!id) return;
+          Cart.remove(id);
+          CartUI.render();
+        });
+      }
+
       list.innerHTML = items.length ? items.map(i => `
         <li class="list-group-item d-flex align-items-center justify-content-between gap-2">
           <img src="${i.image}" alt="${i.name}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;">
@@ -55,19 +77,6 @@
             <button class="btn btn-link text-danger p-0 small" data-remove="${i.id}">Remove</button>
           </div>
         </li>`).join('') : '<li class="list-group-item">Your cart is empty.</li>';
-
-      list.addEventListener('input', (e) => {
-        const id = e.target.getAttribute('data-qty-for');
-        if (!id) return;
-        Cart.setQty(id, e.target.value);
-        this.render();
-      });
-      list.addEventListener('click', (e) => {
-        const id = e.target.getAttribute('data-remove');
-        if (!id) return;
-        Cart.remove(id);
-        this.render();
-      });
     }
   };
 })();

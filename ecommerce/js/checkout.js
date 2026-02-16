@@ -46,10 +46,10 @@
     };
 
     const payload = { cart: items, total: Cart.total(), customer };
-    const API_BASE = window.MINDAR_API_BASE || 'http://localhost:8080';
+    const API_BASE = window.MINDAR_API_BASE || '';
     try {
       status('Placing order...', false);
-      const res = await fetch(`${API_BASE}/orders`, {
+      const res = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

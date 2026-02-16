@@ -38,8 +38,50 @@
     <script>
       const alertEl = document.getElementById('alert');
       const registerBtn = document.getElementById('registerBtn');
-      alertEl.textContent = 'Client self-registration has been disabled after migrating off the legacy system.';
-      registerBtn.disabled = true;
+
+      function setAlert(msg, isError = true) {
+        alertEl.textContent = msg || '';
+        alertEl.classList.toggle('text-red-600', !!isError);
+        alertEl.classList.toggle('text-green-700', !isError);
+      }
+
+      async function doRegister() {
+        try {
+          registerBtn.disabled = true;
+          registerBtn.textContent = 'Registering...';
+          setAlert('');
+
+          const email = document.getElementById('email').value.trim();
+          const password = document.getElementById('password').value;
+          const displayName = document.getElementById('displayName').value.trim();
+
+          if (!email || !password) {
+            setAlert('Email and password are required.');
+            return;
+          }
+
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email, password, displayName })
+          });
+
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data?.error || `Register failed (${res.status})`);
+
+          setAlert('Account created. Redirecting...', false);
+          // Client users typically go to the viewer; adjust if you prefer the shop.
+          window.location.href = '/index.html';
+        } catch (e) {
+          setAlert(e?.message || String(e));
+        } finally {
+          registerBtn.disabled = false;
+          registerBtn.textContent = 'Register';
+        }
+      }
+
+      registerBtn.addEventListener('click', doRegister);
     </script>
   </body>
 </html>
