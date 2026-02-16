@@ -16,7 +16,7 @@
     <div class="container-fluid">
       <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo" style="height:36px"></a>
       <div class="ms-auto">
-        <a href="index.html" class="text-uppercase mx-3">Shop</a>
+        <a href="shop-sidebar.html" class="text-uppercase mx-3">Shop</a>
         <a href="cart.html" class="text-uppercase mx-3">Cart (<span class="js-cart-count">0</span>)</a>
         <a href="checkout.html" class="text-uppercase mx-3">Checkout</a>
         <a id="navDashboard" href="dashboard.html" class="text-uppercase mx-3" style="display:none">Dashboard</a>
@@ -44,7 +44,7 @@
           <div class="text-muted" style="font-size: 14px">Role: <span id="userRole">—</span></div>
 
           <div class="d-flex flex-wrap gap-2 mt-4">
-            <a class="btn btn-outline-dark text-uppercase" href="index.html">Shop</a>
+            <a class="btn btn-outline-dark text-uppercase" href="shop-sidebar.html">Shop</a>
             <a class="btn btn-outline-dark text-uppercase" href="cart.html">Cart</a>
             <a class="btn btn-outline-dark text-uppercase" href="checkout.html">Checkout</a>
             <a class="btn btn-outline-dark text-uppercase" href="/admin.html">AR Dashboard</a>
@@ -74,6 +74,12 @@
       const me = await auth.me();
       const user = me && me.email ? me : null;
 
+      if (!user) {
+        const next = '/ecommerce/account.html';
+        location.href = `/login.html?next=${encodeURIComponent(next)}`;
+        return;
+      }
+
       if (loginEl) loginEl.style.display = user ? 'none' : '';
       if (logoutEl) logoutEl.style.display = user ? '' : 'none';
       if (logoutEl) logoutEl.addEventListener('click', async (e) => {
@@ -84,13 +90,6 @@
 
       const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
       if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
-
-      if (!user) {
-        if (statusEl) statusEl.style.display = 'none';
-        if (signedOutEl) signedOutEl.style.display = '';
-        if (signedInEl) signedInEl.style.display = 'none';
-        return;
-      }
 
       if (statusEl) statusEl.style.display = 'none';
       if (signedOutEl) signedOutEl.style.display = 'none';
