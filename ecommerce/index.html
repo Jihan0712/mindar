@@ -251,15 +251,7 @@
             <div class="offcanvas-body">
               <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-5 pe-3">
                 <li class="nav-item"><a class="nav-link active" href="index.html">Home</a></li>
-                <li class="nav-item dropdown">
-                  <a class="nav-link dropdown-toggle" href="#" id="dropdownShop" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Shop</a>
-                  <ul class="dropdown-menu list-unstyled" aria-labelledby="dropdownShop">
-                    <li><a href="shop-sidebar.html" class="dropdown-item item-anchor">Shop Sidebar</a></li>
-                    <li><a href="shop-three-column.html" class="dropdown-item item-anchor">Shop Three Column</a></li>
-                    <li><a href="shop-six-column.html" class="dropdown-item item-anchor">Shop Six Column</a></li>
-                    <li><a href="single-product.html" class="dropdown-item item-anchor">Single Product</a></li>
-                  </ul>
-                </li>
+                <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
                 <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
                 <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
                 <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
@@ -321,7 +313,7 @@
                   <h2 class="display-1 text-uppercase mt-5 pt-5">Cripcrop style</h2>
                   <p class="caption">Tortor eget placerat arcu integer. Lectus fames egestas tincidunt aliquet vivamus nibh lorem nulla.</p>
                   <div class="btn-left btn-swiper">
-                    <a href="shop-sidebar.html" class="btn btn-light text-uppercase mt-3">Shop Collection</a>
+                    <a href="shop.html" class="btn btn-light text-uppercase mt-3">Shop Collection</a>
                   </div>
                 </div>
               </div>
@@ -433,7 +425,7 @@
     <div class="container">
       <div class="d-flex flex-wrap justify-content-between align-items-center mt-5 mb-3">
         <h4 class="text-uppercase">Our New Arrivals</h4>
-        <a href="shop-sidebar.html" class="btn-link">View All Products</a>
+        <a href="shop.html" class="btn-link">View All Products</a>
       </div>
       <div id="liveCatalogStatus" class="text-muted mb-3" style="font-size: 14px">Loading products…</div>
       <div class="swiper product-swiper open-up" data-aos="zoom-out">
@@ -466,7 +458,7 @@
                 fringilla odio mi. Consequat pharetra at magna imperdiet cursus ac faucibus sit libero. Ultricies quam
                 nunc, lorem sit lorem urna, pretium aliquam ut. In vel, quis donec dolor id in. Pulvinar commodo mollis
                 diam sed facilisis at cursus imperdiet cursus ac faucibus sit faucibus sit libero.</p>
-              <a href="shop-sidebar.html" class="btn btn-dark text-uppercase mt-3">Shop Collection</a>
+              <a href="shop.html" class="btn btn-dark text-uppercase mt-3">Shop Collection</a>
             </div>
           </div>
         </div>
@@ -478,7 +470,7 @@
     <div class="container">
       <div class="d-flex flex-wrap justify-content-between align-items-center mt-5 mb-3">
         <h4 class="text-uppercase">Best Selling Items</h4>
-        <a href="shop-sidebar.html" class="btn-link">View All Products</a>
+        <a href="shop.html" class="btn-link">View All Products</a>
       </div>
       <div class="swiper product-swiper open-up" data-aos="zoom-out">
         <div class="swiper-wrapper d-flex">
@@ -1036,7 +1028,7 @@
 
         const fallbackTitle = billboard && billboard.title ? String(billboard.title) : 'New Collections';
         const fallbackText = billboard && billboard.description ? String(billboard.description) : '';
-        const fallbackHref = 'shop-sidebar.html';
+        const fallbackHref = 'shop.html';
         const normalized = slides.length ? slides : [{ image: 'images/banner-large-image.jpg', title: fallbackTitle, text: fallbackText, href: fallbackHref, linkLabel: 'Shop Collection' }];
 
         slidesEl.innerHTML = normalized.map(s => {
@@ -1153,7 +1145,7 @@
           const slug = (p.slug || '').toString();
           const price = moneyFromCents(p.price_cents, p.currency);
           const img = normalizeCatalogImageUrl((p.image_url || 'images/product-item-1.jpg').toString());
-          const href = slug ? `single-product.html?slug=${encodeURIComponent(slug)}` : 'single-product.html';
+          const href = slug ? `product.html?slug=${encodeURIComponent(slug)}` : 'product.html';
 
           return `
             <div class="swiper-slide">
