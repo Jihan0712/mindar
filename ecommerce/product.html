@@ -19,6 +19,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css">
   <link rel="stylesheet" type="text/css" href="style.css">
 
+  <!-- Worker Auth Client (shared session + role) -->
+  <script src="/assets/js/auth-worker.js?v=20260220"></script>
+
   <style>
     /* Center the large product image within the Swiper slide */
     .product-large-slider .swiper-slide {
@@ -299,6 +302,7 @@
                   </ul>
                 </li>
                 <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+                <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
                 <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
                 <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
                 <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
@@ -309,17 +313,20 @@
 
         <div class="col-auto">
           <ul class="list-unstyled d-flex">
+            <li class="d-none d-lg-block">
+              <a href="profile.html" class="text-uppercase mx-3">Profile</a>
+            </li>
             <li>
               <a href="wishlist.html" class="text-uppercase mx-3">Wishlist <span class="wishlist-count">(0)</span>
               </a>
             </li>
             <li>
               <a href="cart.html" class="text-uppercase mx-3" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart"
-                aria-controls="offcanvasCart">Cart <span class="cart-count js-cart-count">(0)</span>
+                aria-controls="offcanvasCart">Cart (<span class="js-cart-count">0</span>)
               </a>
             </li>
             <li>
-              <a href="#like" class="mx-2">
+              <a href="profile.html" class="mx-2">
                 <svg width="24" height="24" viewBox="0 0 24 24">
                   <use xlink:href="#user"></use>
                 </svg>
@@ -1215,6 +1222,34 @@
 
       loadProductFromApi();
       if (window.CartUI) CartUI.render();
+    })();
+  </script>
+
+  <script>
+    (async function(){
+      const loginEl = document.getElementById('navLogin');
+      const logoutEl = document.getElementById('navLogout');
+      const dashEl = document.getElementById('navDashboard');
+      if (!loginEl && !logoutEl && !dashEl) return;
+
+      try {
+        const me = await auth.me();
+        const user = me && me.email ? me : null;
+        const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
+        if (loginEl) loginEl.style.display = user ? 'none' : '';
+        if (logoutEl) logoutEl.style.display = user ? '' : 'none';
+        if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
+        if (logoutEl) logoutEl.addEventListener('click', async (e) => {
+          e.preventDefault();
+          await auth.logout();
+          location.reload();
+        });
+      } catch {
+        // If auth fails, keep Login visible and Logout/Dashboard hidden.
+        if (loginEl) loginEl.style.display = '';
+        if (logoutEl) logoutEl.style.display = 'none';
+        if (dashEl) dashEl.style.display = 'none';
+      }
     })();
   </script>
 </body>

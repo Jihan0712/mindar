@@ -17,8 +17,10 @@
       <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo" style="height:36px"></a>
       <div class="ms-auto">
         <a href="shop.html" class="text-uppercase mx-3">Shop</a>
+        <a href="cart.html" class="text-uppercase mx-3">Cart (<span class="js-cart-count">0</span>)</a>
         <a href="checkout.html" class="text-uppercase mx-3">Checkout</a>
-        <a href="account.html" class="text-uppercase mx-3">My Account</a>
+        <a href="profile.html" class="text-uppercase mx-3">Profile</a>
+        <a id="navDashboard" href="dashboard.html" class="text-uppercase mx-3" style="display:none">Dashboard</a>
         <a id="navLogin" href="/login.html" class="text-uppercase mx-3">Login</a>
         <a id="navLogout" href="#" class="text-uppercase mx-3" style="display:none">Logout</a>
       </div>
@@ -60,8 +62,11 @@
         try {
           const me = await auth.me();
           const user = me && me.email ? me : null;
+          const dashEl = document.getElementById('navDashboard');
+          const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
           if (loginEl) loginEl.style.display = user ? 'none' : '';
           if (logoutEl) logoutEl.style.display = user ? '' : 'none';
+          if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
           if (logoutEl) logoutEl.addEventListener('click', async (e) => {
             e.preventDefault();
             await auth.logout();
