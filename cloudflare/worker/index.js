@@ -218,6 +218,7 @@ async function handleApi(request, pathname) {
   if (request.method === 'POST' && pathname === '/api/auth/login')           return apiLogin(request);
   if (request.method === 'POST' && pathname === '/api/auth/logout')          return apiLogout(request);
   if (request.method === 'GET'  && pathname === '/api/auth/me')              return apiMe(request);
+  if (request.method === 'POST' && pathname === '/api/auth/change-password') return apiChangePassword(request);
 
   // Orders (shop)
   if (request.method === 'POST' && pathname === '/api/orders')               return apiCreateOrder(request);
@@ -600,6 +601,40 @@ async function apiLogout(request) {
 async function apiMe(request) {
   const sess = await getSessionUser(request);
   return jsonResponse({ user: sess ? sess.user : null }, 200, request);
+}
+
+async function apiChangePassword(request) {
+  const sess = await getSessionUser(request);
+  if (!sess?.user?.id) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+  const body = await readJson(request);
+  const currentPassword = body.currentPassword || '';
+  const newPassword = body.newPassword || '';
+
+  if (!currentPassword || !newPassword) {
+    return jsonResponse({ error: 'currentPassword and newPassword required' }, 400, request);
+  }
+  if (String(newPassword).length < 8) {
+    return jsonResponse({ error: 'Password must be at least 8 characters' }, 400, request);
+  }
+
+  const user = await dbGet('select id, password_hash from users where id = ?', sess.user.id);
+  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+  const ok = await verifyPassword(currentPassword, user.password_hash);
+  if (!ok) return jsonResponse({ error: 'Invalid current password' }, 401, request);
+
+  const salt = randomId('salt_');
+  const hash = await hashPassword(newPassword, salt);
+  await dbRun('update users set password_hash = ? where id = ?', hash, user.id);
+
+  // Rotate sessions for this user.
+  await dbRun('delete from sessions where user_id = ?', user.id);
+  const token = await createSession(user.id);
+
+  const res = jsonResponse({ ok: true }, 200, request);
+  res.headers.append('Set-Cookie', buildSessionCookie(token, request));
+  return res;
 }
 
 // ---------- Orders APIs ----------
@@ -1561,6 +1596,13 @@ async function apiViewerActive(request) {
 
 async function handleGet(request) {
   try {
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.get !== 'function') {
+      return new Response(
+        JSON.stringify({ error: 'R2 binding missing: ASSETS_BUCKET' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const url = new URL(request.url);
     let key = url.pathname.replace(/^\//, '');
     if (!key) return new Response('Not Found', { status: 404 });
@@ -1590,6 +1632,10 @@ async function handleGet(request) {
 
 async function handleUpload(request) {
   try {
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
+      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
+    }
+
     const form = await request.formData();
     const file = form.get('file');
     if (!file) return jsonResponse({ error: 'file required' }, 400, request);
@@ -1617,6 +1663,10 @@ async function handleUpload(request) {
 
 async function handleDelete(request) {
   try {
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.delete !== 'function') {
+      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
+    }
+
     const provided = request.headers.get('x-admin-key') || '';
     if (!provided || provided !== (typeof WORKER_DELETE_KEY === 'string' ? WORKER_DELETE_KEY : '')) {
       return jsonResponse({ error: 'unauthorized' }, 401, request);

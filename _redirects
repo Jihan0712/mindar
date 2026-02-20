@@ -1,1 +1,5 @@
 / /ecommerce/ 302
+/ecommerce/single-product.html /ecommerce/product.html 302
+/ecommerce/single-product2.html /ecommerce/product.html 302
+/ecommerce/single-product /ecommerce/product 302
+/ecommerce/single-product2 /ecommerce/product 302

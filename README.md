@@ -7,7 +7,7 @@ Static UI (admin + viewer + shop) hosted on Cloudflare Pages, with a same-origin
 - Viewer: [index.html](index.html)
 - Shop: [ecommerce/index.html](ecommerce/index.html)
 - Product Dashboard: [ecommerce/dashboard.html](ecommerce/dashboard.html)
-- Single Product: [ecommerce/single-product.html](ecommerce/single-product.html)
+- Product Page: [ecommerce/product.html](ecommerce/product.html)
 - Checkout: [ecommerce/checkout.html](ecommerce/checkout.html)
 - Worker source: [cloudflare/worker/index.js](cloudflare/worker/index.js)
 
@@ -41,7 +41,7 @@ See [cloudflare/worker/index.js](cloudflare/worker/index.js) for details.
 
 Shop pages that hydrate from the catalog:
 
-- [ecommerce/single-product.html](ecommerce/single-product.html) fetches `GET /api/products` and populates the product gallery + tabs (Description + Additional information) from the product record.
+- [ecommerce/product.html](ecommerce/product.html) fetches `GET /api/products` and populates the product gallery + tabs (Description + Additional information) from the product record.
 - [ecommerce/dashboard.html](ecommerce/dashboard.html) manages the product catalog for `admin`/`brand` roles and includes a “Store” link to preview the store page.
 
 All browser calls are same-origin and must send cookies (`credentials: 'include'`).
@@ -65,7 +65,7 @@ Smoke test on the deployed origin:
 - Visit `https://<your-site>/api/auth/me` and confirm it returns `{ user: null }` when logged out
 - Log in at `https://<your-site>/login.html`
 - Open `https://<your-site>/ecommerce/dashboard.html` (admin/brand only)
-- Open `https://<your-site>/ecommerce/single-product.html?product=<slug>` and confirm product + reviews load
+- Open `https://<your-site>/ecommerce/product.html?product=<slug>` and confirm product + reviews load
 
 ## Optional checkout API (local demo)
 

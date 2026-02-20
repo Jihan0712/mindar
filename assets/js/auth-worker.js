@@ -32,6 +32,13 @@
     async logout() {
       try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
     },
+    async changePassword(currentPassword, newPassword) {
+      await apiFetch('/auth/change-password', {
+        method: 'POST',
+        body: { currentPassword, newPassword }
+      });
+      return true;
+    },
     async requireRole(allowed = [], { redirectTo = '/login.html', next = location.pathname + location.search } = {}) {
       const user = await auth.me();
       if (!user) {

@@ -140,9 +140,8 @@ Goal: make each page in the shop nav “real” (not placeholders) and consisten
   - [ ] Verify “Continue to Checkout” carries the correct state
 
 - [ ] Checkout (`ecommerce/checkout.html`)
-  - [x] Decide order submission target (Worker `/api/*` vs local demo `backend/server.js`) and align the form
-  - [x] Confirm success/failure UX and post-checkout cart clearing
-    - Implemented Worker `POST /api/orders` and checkout now posts to it (see `sql/orders_migration.sql`).
+  - [ ] Decide order submission target (Worker `/api/*` vs local demo `backend/server.js`) and align the form
+  - [ ] Confirm success/failure UX and post-checkout cart clearing
 
 - [ ] Coming Soon (`ecommerce/coming-soon.html`)
   - [ ] If used as a placeholder for other pages, standardize query param usage (e.g. `?page=wishlist`) and visible title
@@ -181,7 +180,10 @@ Goal: make each page in the shop nav “real” (not placeholders) and consisten
     - `/api/auth/me` returns `{ user: null }` when logged out
     - `/login.html` can log in
     - `/ecommerce/index.html` loads
-    - `/ecommerce/single-product.html?product=<slug>` loads product + reviews
+    - `/ecommerce/product.html?product=<slug>` loads product + reviews
+    - (legacy) `/ecommerce/single-product.html?product=<slug>` redirects to `product.html`
+- [ ] Run automated smoke test script:
+  - `powershell -ExecutionPolicy Bypass -File scripts/verify-step10.ps1 -BaseUrl "https://<your-site>" -Email "admin@example.com" -Password "..." -ProductSlug "<existing-slug>"`
 - [ ] Upload .mind/video/image -> URLs resolve from R2
 - [ ] Create/activate target -> Viewer plays video
 - [ ] Delete target -> R2 assets deleted
@@ -202,9 +204,7 @@ Goal: Document and verify the real end-to-end paths users take through auth, das
 - [x] Manage product catalog in `/ecommerce/dashboard.html` (CRUD + publish + link AR target)
 - [x] Preview store product page from dashboard (`Store` link → `/ecommerce/single-product.html?product=<slug|id>`)
 - [ ] Replace/remove legacy invite/token UI in `/admin.html` (still references Supabase; invite-based registration pages are disabled)
-- [ ] Replace/remove legacy invite/token UI in `/admin.html` (still references Supabase; invite-based registration pages are disabled)
-- [x] Implement Worker-native user provisioning for `brand` users (invite flow or admin-create) and update the UI accordingly
-  - Implemented Worker `POST /api/admin/brand-users` and added an admin-only form in `/admin.html`.
+- [ ] Implement Worker-native user provisioning for `brand` users (invite flow or admin-create) and update the UI accordingly
 
 ### Shopper flow
 
@@ -214,15 +214,10 @@ Goal: Document and verify the real end-to-end paths users take through auth, das
   - Current state: client self-registration is disabled (`/register.html`, `/brand-register.html`, `/admin-register.html`)
   - Option A: keep shop anonymous + remove/adjust any “Sign up” UX
   - Option B: add Worker endpoint for client registration + enable signup
-- [x] Decide shopper account model
-  - Chosen: Option B (Worker client registration).
-  - Implemented `POST /api/auth/register` and enabled `/register.html`.
 - [ ] Verify cart behavior end-to-end (add/remove/update qty + cart count + totals across pages)
 - [ ] Checkout submission: align on a single backend
   - Current state: checkout uses demo `backend/server.js` (`POST /orders`) locally
   - Decide Worker `/api/*` order endpoint vs keeping local demo
-- [x] Checkout submission: align on a single backend
-  - Chosen: Worker `POST /api/orders` (D1-backed).
 - [x] Single product page hydrates from `/api/products`
   - Gallery Swiper scroller works after dynamic slide injection
   - Tabs: Description + Additional information populate from product record
