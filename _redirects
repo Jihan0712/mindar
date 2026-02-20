@@ -1,8 +1,10 @@
 / /ecommerce/ 302
 /ecommerce/single-product.html /ecommerce/product.html 302
 /ecommerce/single-product2.html /ecommerce/product.html 302
-/ecommerce/single-product /ecommerce/product 302
-/ecommerce/single-product2 /ecommerce/product 302
+/ecommerce/single-product /ecommerce/product.html 302
+/ecommerce/single-product2 /ecommerce/product.html 302
+/ecommerce/product /ecommerce/product.html 302
+/ecommerce/shop /ecommerce/shop.html 302
 /ecommerce/men /ecommerce/shop.html?category=Men 302
 /ecommerce/women /ecommerce/shop.html?category=Women 302
 /ecommerce/accessories /ecommerce/shop.html?category=Accessories 302
