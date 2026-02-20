@@ -57,8 +57,8 @@
 
   <div class="search-popup">
     <div class="search-popup-container">
-      <form role="search" method="get" class="form-group" action="index.html">
-        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" value="" name="s" />
+      <form role="search" method="get" class="form-group" action="shop">
+        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" value="" name="q" />
         <button type="submit" class="search-submit border-0 position-absolute bg-white" style="top: 15px;right: 15px;">
           <svg class="search" width="24" height="24"><use xlink:href="#search"></use></svg>
         </button>
@@ -189,12 +189,18 @@
   <main class="main-content py-5">
     <div class="container">
       <div class="row py-2">
-        <div class="col-md-9">
+        <div class="col-12 col-md-4 d-flex align-items-center">
           <span id="shopResultsLabel">Showing products…</span>
         </div>
-        <div class="col-md-3">
-          <select class="form-select border-0" aria-label="Default select example" disabled>
-            <option selected>Default Sorting</option>
+        <div class="col-12 col-md-5 mt-2 mt-md-0">
+          <input id="shopSearchInput" class="form-control" type="search" placeholder="Search products" aria-label="Search products" />
+        </div>
+        <div class="col-12 col-md-3 mt-2 mt-md-0">
+          <select id="shopSortSelect" class="form-select" aria-label="Sort products">
+            <option value="relevance">Relevance</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="popularity">Popularity</option>
           </select>
         </div>
       </div>
@@ -391,42 +397,193 @@
       return s;
     }
 
-    async function loadShopProducts() {
+    function toNum(v, fallback = 0) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function normText(s) {
+      return String(s || '').trim().toLowerCase();
+    }
+
+    function createdAtKey(p) {
+      const t = Date.parse(p && p.created_at ? String(p.created_at) : '');
+      if (Number.isFinite(t)) return t;
+      // Fall back to updated_at, then id.
+      const u = Date.parse(p && p.updated_at ? String(p.updated_at) : '');
+      if (Number.isFinite(u)) return u;
+      return toNum(p && p.id, 0);
+    }
+
+    function relevanceScore(p, q) {
+      const query = normText(q);
+      if (!query) return 0;
+
+      const title = normText(p && p.title);
+      const category = normText(p && p.category);
+      const brand = normText(p && p.brand);
+
+      const tokens = query.split(/\s+/).filter(Boolean);
+      let score = 0;
+
+      const scoreField = (field, weights) => {
+        if (!field) return;
+        if (field === query) score += weights.exact;
+        if (field.startsWith(query)) score += weights.prefix;
+        if (field.includes(query)) score += weights.contains;
+        for (const t of tokens) {
+          if (t.length < 2) continue;
+          if (field === t) score += weights.tokenExact;
+          else if (field.startsWith(t)) score += weights.tokenPrefix;
+          else if (field.includes(t)) score += weights.tokenContains;
+        }
+      };
+
+      scoreField(title, { exact: 120, prefix: 80, contains: 50, tokenExact: 40, tokenPrefix: 25, tokenContains: 12 });
+      scoreField(category, { exact: 70, prefix: 45, contains: 25, tokenExact: 18, tokenPrefix: 12, tokenContains: 6 });
+      scoreField(brand, { exact: 60, prefix: 35, contains: 20, tokenExact: 14, tokenPrefix: 10, tokenContains: 5 });
+
+      return score;
+    }
+
+    function matchesQuery(p, q) {
+      const query = normText(q);
+      if (!query) return true;
+      const title = normText(p && p.title);
+      const category = normText(p && p.category);
+      const brand = normText(p && p.brand);
+      return title.includes(query) || category.includes(query) || brand.includes(query);
+    }
+
+    function readShopStateFromUrl() {
+      const url = new URL(location.href);
+      const categoryRaw = (url.searchParams.get('category') || '').trim();
+      const q = (url.searchParams.get('q') || '').trim();
+      const sort = (url.searchParams.get('sort') || 'relevance').trim();
+      return { categoryRaw, category: categoryRaw.toLowerCase(), q, sort };
+    }
+
+    function updateShopUrlParams(next) {
+      const url = new URL(location.href);
+      if ('q' in next) {
+        const q = String(next.q || '').trim();
+        if (q) url.searchParams.set('q', q);
+        else url.searchParams.delete('q');
+      }
+      if ('sort' in next) {
+        const s = String(next.sort || '').trim();
+        if (s && s !== 'relevance') url.searchParams.set('sort', s);
+        else url.searchParams.delete('sort');
+      }
+      history.replaceState(null, '', url.toString());
+    }
+
+    let SHOP_ALL_ITEMS = null;
+    let SHOP_LOADING = null;
+
+    async function ensureShopProducts() {
+      if (Array.isArray(SHOP_ALL_ITEMS)) return SHOP_ALL_ITEMS;
+      if (SHOP_LOADING) return SHOP_LOADING;
+
+      SHOP_LOADING = (async () => {
+        const res = await fetch('/api/products', { credentials: 'include' });
+        if (!res.ok) throw new Error(`Products API error (${res.status})`);
+        const data = await res.json();
+        const items = Array.isArray(data && data.items) ? data.items : [];
+        SHOP_ALL_ITEMS = items;
+        SHOP_LOADING = null;
+        return items;
+      })();
+
+      return SHOP_LOADING;
+    }
+
+    function sortItems(items, sort, q) {
+      const s = (sort || 'relevance').toLowerCase();
+      const query = String(q || '').trim();
+
+      const list = items.slice();
+      if (s === 'price_asc') {
+        list.sort((a, b) => toNum(a && a.price_cents, 0) - toNum(b && b.price_cents, 0));
+        return list;
+      }
+      if (s === 'price_desc') {
+        list.sort((a, b) => toNum(b && b.price_cents, 0) - toNum(a && a.price_cents, 0));
+        return list;
+      }
+      if (s === 'popularity') {
+        // Popularity definition (per your choice): newest first.
+        list.sort((a, b) => createdAtKey(b) - createdAtKey(a));
+        return list;
+      }
+
+      // Relevance: only meaningful when query is present. Otherwise keep API order.
+      if (!query) return list;
+      list.sort((a, b) => {
+        const sa = relevanceScore(a, query);
+        const sb = relevanceScore(b, query);
+        if (sb !== sa) return sb - sa;
+        return createdAtKey(b) - createdAtKey(a);
+      });
+      return list;
+    }
+
+    function setShopControlsFromUrl() {
+      const { q, sort } = readShopStateFromUrl();
+      const searchEl = document.getElementById('shopSearchInput');
+      const sortEl = document.getElementById('shopSortSelect');
+      const popupSearchEl = document.getElementById('search-form');
+
+      if (searchEl && searchEl.value !== q) searchEl.value = q;
+      if (popupSearchEl && popupSearchEl.value !== q) popupSearchEl.value = q;
+
+      const allowed = ['relevance', 'price_asc', 'price_desc', 'popularity'];
+      const nextSort = allowed.includes(String(sort || '').toLowerCase()) ? String(sort).toLowerCase() : 'relevance';
+      if (sortEl) sortEl.value = nextSort;
+    }
+
+    async function renderShopProducts() {
       const gridEl = document.getElementById('shopProductsGrid');
       const statusEl = document.getElementById('shopStatus');
       const labelEl = document.getElementById('shopResultsLabel');
       const titleEl = document.getElementById('shopTitle');
       if (!gridEl) return;
 
-      const url = new URL(location.href);
-      const categoryFilterRaw = (url.searchParams.get('category') || '').trim();
-      const categoryFilter = categoryFilterRaw.toLowerCase();
+      const state = readShopStateFromUrl();
 
       if (titleEl) {
-        titleEl.textContent = categoryFilterRaw ? `Shop: ${categoryFilterRaw}` : 'Shop';
+        titleEl.textContent = state.categoryRaw ? `Shop: ${state.categoryRaw}` : 'Shop';
       }
 
       try {
-        const res = await fetch('/api/products', { credentials: 'include' });
-        if (!res.ok) throw new Error(`Products API error (${res.status})`);
-        const data = await res.json();
-        const items = Array.isArray(data && data.items) ? data.items : [];
+        if (statusEl) statusEl.textContent = 'Loading products…';
+        const items = await ensureShopProducts();
 
-        const filtered = categoryFilter
-          ? items.filter(p => (p && p.category != null ? String(p.category) : '').toLowerCase().includes(categoryFilter))
+        const categoryFiltered = state.category
+          ? items.filter(p => (p && p.category != null ? String(p.category) : '').toLowerCase().includes(state.category))
           : items;
 
-        if (filtered.length === 0) {
-          if (statusEl) statusEl.textContent = categoryFilterRaw ? `No products found for “${categoryFilterRaw}”.` : 'No published products yet.';
+        const searched = state.q
+          ? categoryFiltered.filter(p => matchesQuery(p, state.q))
+          : categoryFiltered;
+
+        const sorted = sortItems(searched, state.sort, state.q);
+
+        if (sorted.length === 0) {
+          if (statusEl) {
+            if (state.q) statusEl.textContent = `No products found for “${state.q}”.`;
+            else if (state.categoryRaw) statusEl.textContent = `No products found for “${state.categoryRaw}”.`;
+            else statusEl.textContent = 'No published products yet.';
+          }
           if (labelEl) labelEl.textContent = 'Showing 0 results';
           gridEl.innerHTML = '';
           return;
         }
 
         if (statusEl) statusEl.textContent = '';
-        if (labelEl) labelEl.textContent = `Showing 1–${Math.min(filtered.length, 12)} of ${filtered.length} results`;
+        if (labelEl) labelEl.textContent = `Showing 1–${Math.min(sorted.length, 12)} of ${sorted.length} results`;
 
-        gridEl.innerHTML = filtered.slice(0, 12).map(p => {
+        gridEl.innerHTML = sorted.slice(0, 12).map(p => {
           const title = (p.title || 'Product').toString();
           const slug = (p.slug || '').toString();
           const price = moneyFromCents(p.price_cents, p.currency);
@@ -463,6 +620,37 @@
       }
     }
 
+    function bindShopControls() {
+      const searchEl = document.getElementById('shopSearchInput');
+      const sortEl = document.getElementById('shopSortSelect');
+      setShopControlsFromUrl();
+
+      let t = null;
+      if (searchEl) {
+        searchEl.addEventListener('input', () => {
+          if (t) clearTimeout(t);
+          t = setTimeout(() => {
+            updateShopUrlParams({ q: searchEl.value });
+            setShopControlsFromUrl();
+            renderShopProducts();
+          }, 200);
+        });
+      }
+
+      if (sortEl) {
+        sortEl.addEventListener('change', () => {
+          updateShopUrlParams({ sort: sortEl.value });
+          setShopControlsFromUrl();
+          renderShopProducts();
+        });
+      }
+
+      window.addEventListener('popstate', () => {
+        setShopControlsFromUrl();
+        renderShopProducts();
+      });
+    }
+
     // Add-to-cart wiring for theme product cards
     function slugify(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
     document.addEventListener('click', function (e) {
@@ -488,7 +676,8 @@
       CartUI.render();
     });
 
-    loadShopProducts();
+    bindShopControls();
+    renderShopProducts();
     CartUI.render();
   </script>
 </body>
