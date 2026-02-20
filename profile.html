@@ -3,145 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Profile — INRL AR</title>
-
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Worker Auth Client -->
-    <script src="assets/js/auth-worker.js?v=20260130"></script>
+    <title>Profile</title>
+    <meta http-equiv="refresh" content="0; url=/ecommerce/profile.html" />
   </head>
-  <body class="bg-gray-100 text-gray-800 font-sans">
-    <div class="min-h-screen flex items-center justify-center p-6">
-      <div class="w-full max-w-xl">
-        <div class="flex items-center justify-between mb-4">
-          <h1 class="text-2xl font-bold">Profile</h1>
-          <div class="flex items-center gap-3">
-            <button id="goDashboardBtn" class="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 hidden">Dashboard</button>
-            <button id="logoutBtn" class="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-800">Logout</button>
-          </div>
-        </div>
-
-        <div class="bg-white shadow rounded-lg p-6">
-          <div class="flex items-start justify-between gap-3 mb-6">
-            <div>
-              <div class="text-sm text-gray-500">Signed in as</div>
-              <div class="font-medium" id="userEmail">—</div>
-              <div class="text-xs text-gray-500" id="userRole">—</div>
-            </div>
-          </div>
-
-          <h2 class="text-lg font-semibold mb-2">Change password</h2>
-          <p class="text-sm text-gray-500 mb-4">Enter your current password, then set a new one.</p>
-
-          <div id="status" class="text-sm mb-4"></div>
-
-          <form id="pwForm" class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium mb-1" for="currentPassword">Current password</label>
-              <input id="currentPassword" type="password" autocomplete="current-password" class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" required />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1" for="newPassword">New password</label>
-              <input id="newPassword" type="password" autocomplete="new-password" class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" minlength="8" required />
-              <p class="text-xs text-gray-500 mt-1">Minimum 8 characters.</p>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1" for="confirmPassword">Confirm new password</label>
-              <input id="confirmPassword" type="password" autocomplete="new-password" class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" minlength="8" required />
-            </div>
-
-            <div class="flex items-center justify-end gap-3">
-              <button id="submitBtn" type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">Update password</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-
+  <body>
     <script>
-      function setStatus(text, kind = 'info') {
-        const el = document.getElementById('status');
-        if (!el) return;
-        el.textContent = text || '';
-        el.className = 'text-sm mb-4 ' + (kind === 'error' ? 'text-red-600' : kind === 'success' ? 'text-green-700' : 'text-gray-600');
-      }
-
-      function setBusy(busy) {
-        const btn = document.getElementById('submitBtn');
-        if (!btn) return;
-        btn.disabled = !!busy;
-        btn.classList.toggle('opacity-60', !!busy);
-        btn.classList.toggle('cursor-not-allowed', !!busy);
-      }
-
-      (async function init() {
-        const user = await auth.requireRole([], { redirectTo: '/login.html', next: location.pathname + location.search });
-        if (!user) return;
-
-        const emailEl = document.getElementById('userEmail');
-        const roleEl = document.getElementById('userRole');
-        if (emailEl) emailEl.textContent = user.email || '—';
-        if (roleEl) roleEl.textContent = user.role ? `Role: ${user.role}` : '—';
-
-        const dashBtn = document.getElementById('goDashboardBtn');
-        if (dashBtn) {
-          dashBtn.classList.remove('hidden');
-          dashBtn.addEventListener('click', () => auth.redirectByRole(user));
-        }
-
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-          logoutBtn.addEventListener('click', async () => {
-            await auth.logout();
-            location.href = '/login.html';
-          });
-        }
-
-        const form = document.getElementById('pwForm');
-        form.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          setStatus('');
-
-          const currentPassword = document.getElementById('currentPassword').value || '';
-          const newPassword = document.getElementById('newPassword').value || '';
-          const confirmPassword = document.getElementById('confirmPassword').value || '';
-
-          if (!currentPassword || !newPassword) {
-            setStatus('Please fill out all fields.', 'error');
-            return;
-          }
-          if (newPassword.length < 8) {
-            setStatus('New password must be at least 8 characters.', 'error');
-            return;
-          }
-          if (newPassword !== confirmPassword) {
-            setStatus('New password and confirmation do not match.', 'error');
-            return;
-          }
-
-          try {
-            setBusy(true);
-            setStatus('Updating password…');
-
-            if (auth.changePassword) {
-              await auth.changePassword(currentPassword, newPassword);
-            } else {
-              await apiFetch('/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } });
-            }
-
-            document.getElementById('currentPassword').value = '';
-            document.getElementById('newPassword').value = '';
-            document.getElementById('confirmPassword').value = '';
-
-            setStatus('Password updated.', 'success');
-          } catch (err) {
-            setStatus(err && err.message ? err.message : 'Failed to update password.', 'error');
-          } finally {
-            setBusy(false);
-          }
-        });
+      (function(){
+        const next = (location.pathname || '') + (location.search || '') + (location.hash || '');
+        const url = new URL('/ecommerce/profile.html', location.origin);
+        if (next && next !== '/profile.html') url.searchParams.set('from', next);
+        location.replace(url.toString());
       })();
     </script>
   </body>
