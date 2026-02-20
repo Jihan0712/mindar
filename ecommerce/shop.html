@@ -175,7 +175,7 @@
     <div class="container">
       <div class="d-flex justify-content-between align-items-center">
         <div>
-          <h1 class="text-uppercase fs-3 mb-1">Shop Four Columns</h1>
+          <h1 id="shopTitle" class="text-uppercase fs-3 mb-1">Shop</h1>
           <div id="liveCatalogUser" class="text-muted" style="font-size: 14px">Checking sign-in…</div>
         </div>
         <nav class="breadcrumb mb-0">
@@ -395,7 +395,16 @@
       const gridEl = document.getElementById('shopProductsGrid');
       const statusEl = document.getElementById('shopStatus');
       const labelEl = document.getElementById('shopResultsLabel');
+      const titleEl = document.getElementById('shopTitle');
       if (!gridEl) return;
+
+      const url = new URL(location.href);
+      const categoryFilterRaw = (url.searchParams.get('category') || '').trim();
+      const categoryFilter = categoryFilterRaw.toLowerCase();
+
+      if (titleEl) {
+        titleEl.textContent = categoryFilterRaw ? `Shop: ${categoryFilterRaw}` : 'Shop';
+      }
 
       try {
         const res = await fetch('/api/products', { credentials: 'include' });
@@ -403,17 +412,21 @@
         const data = await res.json();
         const items = Array.isArray(data && data.items) ? data.items : [];
 
-        if (items.length === 0) {
-          if (statusEl) statusEl.textContent = 'No published products yet.';
+        const filtered = categoryFilter
+          ? items.filter(p => (p && p.category != null ? String(p.category) : '').toLowerCase().includes(categoryFilter))
+          : items;
+
+        if (filtered.length === 0) {
+          if (statusEl) statusEl.textContent = categoryFilterRaw ? `No products found for “${categoryFilterRaw}”.` : 'No published products yet.';
           if (labelEl) labelEl.textContent = 'Showing 0 results';
           gridEl.innerHTML = '';
           return;
         }
 
         if (statusEl) statusEl.textContent = '';
-        if (labelEl) labelEl.textContent = `Showing 1–${Math.min(items.length, 12)} of ${items.length} results`;
+        if (labelEl) labelEl.textContent = `Showing 1–${Math.min(filtered.length, 12)} of ${filtered.length} results`;
 
-        gridEl.innerHTML = items.slice(0, 12).map(p => {
+        gridEl.innerHTML = filtered.slice(0, 12).map(p => {
           const title = (p.title || 'Product').toString();
           const slug = (p.slug || '').toString();
           const price = moneyFromCents(p.price_cents, p.currency);

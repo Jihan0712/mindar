@@ -60,8 +60,24 @@
               </div>
 
               <div>
+                <label class="form-label text-uppercase" for="categoryPreset">Category Preset</label>
+                <select id="categoryPreset" class="form-select">
+                  <option value="">(custom)</option>
+                  <option value="Men">Men</option>
+                  <option value="Women">Women</option>
+                  <option value="Accessories">Accessories</option>
+                </select>
+                <div class="form-text">Use a preset to match shop pages (Men/Women/Accessories), or keep a custom category.</div>
+              </div>
+
+              <div>
                 <label class="form-label text-uppercase" for="categoryInput">Category</label>
-                <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women / Dresses" required />
+                <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
+                <datalist id="categoryDatalist">
+                  <option value="Men"></option>
+                  <option value="Women"></option>
+                  <option value="Accessories"></option>
+                </datalist>
               </div>
 
               <div>
@@ -200,6 +216,32 @@
   <script>
     const el = (id) => document.getElementById(id);
 
+    const CATEGORY_PRESETS = ['Men', 'Women', 'Accessories'];
+
+    function normalizeCategoryValue(v) {
+      return String(v || '').trim().toLowerCase();
+    }
+
+    function syncCategoryPresetFromInput() {
+      const presetEl = el('categoryPreset');
+      const inputEl = el('categoryInput');
+      if (!presetEl || !inputEl) return;
+
+      const v = normalizeCategoryValue(inputEl.value);
+      const matched = CATEGORY_PRESETS.find((c) => normalizeCategoryValue(c) === v);
+      presetEl.value = matched || '';
+    }
+
+    function applyCategoryPresetToInput() {
+      const presetEl = el('categoryPreset');
+      const inputEl = el('categoryInput');
+      if (!presetEl || !inputEl) return;
+
+      const preset = presetEl.value;
+      if (preset) inputEl.value = preset;
+      syncCategoryPresetFromInput();
+    }
+
     function showStatus(msg, type = 'info') {
       const s = el('status');
       s.className = 'alert border ' + (type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : 'alert-light');
@@ -239,6 +281,7 @@
       el('publishInput').checked = !!(p && p.is_published);
       el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
       el('saveBtn').textContent = p ? 'Update' : 'Create';
+      syncCategoryPresetFromInput();
     }
 
     function requireField(label, value) {
@@ -349,6 +392,15 @@
 
       el('resetBtn').addEventListener('click', () => setFormProduct(null, isAdmin));
       setFormProduct(null, isAdmin);
+
+      // Keep category preset + input in sync
+      const categoryPresetEl = el('categoryPreset');
+      const categoryInputEl = el('categoryInput');
+      if (categoryPresetEl && categoryInputEl) {
+        categoryPresetEl.addEventListener('change', applyCategoryPresetToInput);
+        categoryInputEl.addEventListener('input', syncCategoryPresetFromInput);
+        syncCategoryPresetFromInput();
+      }
 
       el('productForm').addEventListener('submit', async (ev) => {
         ev.preventDefault();
