@@ -534,7 +534,26 @@
           const price = moneyFromCents(p.price_cents, p.currency);
           const img = normalizeCatalogImageUrl((p.image_url || 'images/product-item-1.jpg').toString());
           const href = slug ? 'product.html?slug=' + encodeURIComponent(slug) : 'product.html';
-          return '<div class="swiper-slide"><div class="product-item image-zoom-effect link-effect"><div class="image-holder position-relative"><a href="' + escapeHtml(href) + '"><img src="' + escapeHtml(img) + '" alt="product" class="product-image img-fluid"></a><a href="wishlist.html" class="btn-icon btn-wishlist"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg></a><div class="product-content"><h5 class="element-title text-uppercase fs-5 mt-3"><a href="' + escapeHtml(href) + '">' + escapeHtml(title) + '</a></h5><a href="#" class="text-decoration-none" data-after="Add to cart"><span>' + escapeHtml(price) + '</span></a><div class="visually-hidden" data-sku="' + escapeHtml(slug) + '"></div></div></div></div></div>';
+          const cat = escapeHtml((p.category || '').toString());
+          return `<div class="swiper-slide">
+            <div style="border:1.5px solid rgba(245,245,240,.08);background:#212121;overflow:hidden;transition:border-color .25s,transform .25s" onmouseover="this.style.borderColor='rgba(0,237,10,.5)';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='rgba(245,245,240,.08)';this.style.transform=''">
+              <div style="position:relative;overflow:hidden;background:#1a1a1a">
+                <a href="${escapeHtml(href)}"><img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" style="width:100%;aspect-ratio:3/4;object-fit:cover;display:block"></a>
+                <div style="position:absolute;top:12px;left:12px;background:#00ED0A;color:#1C1C1C;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:4px 10px">NEW</div>
+                <a href="wishlist.html" style="position:absolute;top:10px;right:10px;width:34px;height:34px;background:rgba(28,28,28,.8);border:1.5px solid rgba(245,245,240,.15);display:flex;align-items:center;justify-content:center;color:#F5F5F0;text-decoration:none" onmouseover="this.style.borderColor='#00ED0A';this.style.color='#00ED0A'" onmouseout="this.style.borderColor='rgba(245,245,240,.15)';this.style.color='#F5F5F0'">
+                  <svg width="15" height="15" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg>
+                </a>
+              </div>
+              <div style="padding:14px 16px 18px">
+                ${cat ? `<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:rgba(245,245,240,.28);margin-bottom:6px">${cat}</div>` : ''}
+                <h6 style="font-family:'Averia Serif Libre',serif;font-size:17px;letter-spacing:-0.02em;color:#F5F5F0;margin:0 0 12px;line-height:1.2"><a href="${escapeHtml(href)}" style="color:inherit;text-decoration:none">${escapeHtml(title)}</a></h6>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <span style="font-size:15px;font-weight:600;color:#FEFD00;font-family:'Roboto Mono',monospace">${escapeHtml(price)}</span>
+                  <button onclick="if(typeof Cart!=='undefined'&&typeof CartUI!=='undefined'){Cart.add({id:'sku-${escapeHtml(slug)}',name:'${escapeHtml(title).replace(/'/g,"\\'")}',price:${Number(p.price_cents||0)/100},image:'${escapeHtml(img)}',qty:1});CartUI.render()}" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 14px;background:#00ED0A;color:#1C1C1C;border:none;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#FEFD00'" onmouseout="this.style.background='#00ED0A'">Add +</button>
+                </div>
+              </div>
+            </div>
+          </div>`;
         }).join('');
         requestAnimationFrame(() => {
           try { const swiperEl = document.querySelector('#new-arrival .swiper'); if (swiperEl && swiperEl.swiper) { if (swiperEl.swiper.params && swiperEl.swiper.params.loop) { swiperEl.swiper.loopDestroy(); swiperEl.swiper.loopCreate(); } swiperEl.swiper.update(); } } catch {}
