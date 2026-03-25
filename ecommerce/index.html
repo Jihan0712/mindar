@@ -14,6 +14,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+  <style>
+    .na-card{background:#212121;border:1.5px solid rgba(245,245,240,.08);overflow:hidden;transition:border-color .25s,transform .25s}
+    .na-card:hover{border-color:rgba(0,237,10,.5);transform:translateY(-4px)}
+    .na-img-wrap{position:relative;overflow:hidden;background:#1a1a1a}
+    .na-img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;transition:transform .3s}
+    .na-card:hover .na-img{transform:scale(1.04)}
+    .na-badge{position:absolute;top:12px;left:12px;background:#00ED0A;color:#1C1C1C;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:4px 10px;pointer-events:none}
+    .na-wish{position:absolute;top:10px;right:10px;width:34px;height:34px;background:rgba(28,28,28,.8);border:1.5px solid rgba(245,245,240,.15);display:flex;align-items:center;justify-content:center;color:#F5F5F0;text-decoration:none}
+    .na-wish:hover{border-color:#00ED0A;color:#00ED0A}
+    .na-body{padding:14px 16px 18px}
+    .na-cat{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:rgba(245,245,240,.28);margin-bottom:6px}
+    .na-title{font-family:'Averia Serif Libre',serif;font-size:17px;letter-spacing:-0.02em;color:#F5F5F0;margin:0 0 12px;line-height:1.2}
+    .na-title a{color:inherit;text-decoration:none}
+    .na-footer{display:flex;align-items:center;justify-content:space-between}
+    .na-price{font-size:15px;font-weight:600;color:#FEFD00;font-family:'Roboto Mono',monospace}
+    .na-add-btn{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 14px;background:#00ED0A;color:#1C1C1C;border:none;cursor:pointer;transition:background .15s}
+    .na-add-btn:hover{background:#FEFD00}
+  </style>
 </head>
 <body class="homepage">
 
@@ -529,51 +547,62 @@
         if (items.length === 0) { if (statusEl) statusEl.textContent = ''; return; }
         if (statusEl) statusEl.textContent = '';
         rowEl.innerHTML = items.slice(0, 12).map(p => {
-          const title = (p.title || 'Product').toString();
-          const slug = (p.slug || '').toString();
-          const price = moneyFromCents(p.price_cents, p.currency);
-          const img = normalizeCatalogImageUrl((p.image_url || 'images/product-item-1.jpg').toString());
-          const href = slug ? 'product.html?slug=' + encodeURIComponent(slug) : 'product.html';
+          const title = escapeHtml((p.title || 'Product').toString());
+          const slug = escapeHtml((p.slug || '').toString());
+          const price = escapeHtml(moneyFromCents(p.price_cents, p.currency));
+          const img = escapeHtml(normalizeCatalogImageUrl((p.image_url || 'images/product-item-1.jpg').toString()));
+          const href = escapeHtml(p.slug ? 'product.html?slug=' + encodeURIComponent(p.slug) : 'product.html');
           const cat = escapeHtml((p.category || '').toString());
-          return `<div class="swiper-slide">
-            <div style="border:1.5px solid rgba(245,245,240,.08);background:#212121;overflow:hidden;transition:border-color .25s,transform .25s" onmouseover="this.style.borderColor='rgba(0,237,10,.5)';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='rgba(245,245,240,.08)';this.style.transform=''">
-              <div style="position:relative;overflow:hidden;background:#1a1a1a">
-                <a href="${escapeHtml(href)}"><img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" style="width:100%;aspect-ratio:3/4;object-fit:cover;display:block"></a>
-                <div style="position:absolute;top:12px;left:12px;background:#00ED0A;color:#1C1C1C;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:4px 10px">NEW</div>
-                <a href="wishlist.html" style="position:absolute;top:10px;right:10px;width:34px;height:34px;background:rgba(28,28,28,.8);border:1.5px solid rgba(245,245,240,.15);display:flex;align-items:center;justify-content:center;color:#F5F5F0;text-decoration:none" onmouseover="this.style.borderColor='#00ED0A';this.style.color='#00ED0A'" onmouseout="this.style.borderColor='rgba(245,245,240,.15)';this.style.color='#F5F5F0'">
-                  <svg width="15" height="15" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg>
-                </a>
-              </div>
-              <div style="padding:14px 16px 18px">
-                ${cat ? `<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:rgba(245,245,240,.28);margin-bottom:6px">${cat}</div>` : ''}
-                <h6 style="font-family:'Averia Serif Libre',serif;font-size:17px;letter-spacing:-0.02em;color:#F5F5F0;margin:0 0 12px;line-height:1.2"><a href="${escapeHtml(href)}" style="color:inherit;text-decoration:none">${escapeHtml(title)}</a></h6>
-                <div style="display:flex;align-items:center;justify-content:space-between">
-                  <span style="font-size:15px;font-weight:600;color:#FEFD00;font-family:'Roboto Mono',monospace">${escapeHtml(price)}</span>
-                  <button onclick="if(typeof Cart!=='undefined'&&typeof CartUI!=='undefined'){Cart.add({id:'sku-${escapeHtml(slug)}',name:'${escapeHtml(title).replace(/'/g,"\\'")}',price:${Number(p.price_cents||0)/100},image:'${escapeHtml(img)}',qty:1});CartUI.render()}" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 14px;background:#00ED0A;color:#1C1C1C;border:none;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#FEFD00'" onmouseout="this.style.background='#00ED0A'">Add +</button>
-                </div>
-              </div>
-            </div>
-          </div>`;
+          const rawPrice = Number(p.price_cents||0)/100;
+          return '<div class="swiper-slide">'
+            + '<div class="na-card" data-slug="'+slug+'" data-name="'+title+'" data-price="'+rawPrice+'" data-img="'+img+'">'
+            + '<div class="na-img-wrap">'
+            + '<a href="'+href+'"><img src="'+img+'" alt="'+title+'" class="na-img"></a>'
+            + '<div class="na-badge">NEW</div>'
+            + '<a href="wishlist.html" class="na-wish"><svg width="15" height="15" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg></a>'
+            + '</div>'
+            + '<div class="na-body">'
+            + (cat ? '<div class="na-cat">'+cat+'</div>' : '')
+            + '<h6 class="na-title"><a href="'+href+'">'+title+'</a></h6>'
+            + '<div class="na-footer">'
+            + '<span class="na-price">'+price+'</span>'
+            + '<button class="na-add-btn" type="button">Add +</button>'
+            + '</div>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
         }).join('');
-        requestAnimationFrame(() => {
-          try { const swiperEl = document.querySelector('#new-arrival .swiper'); if (swiperEl && swiperEl.swiper) { if (swiperEl.swiper.params && swiperEl.swiper.params.loop) { swiperEl.swiper.loopDestroy(); swiperEl.swiper.loopCreate(); } swiperEl.swiper.update(); } } catch {}
-        });
+        // Destroy old swiper and reinit
+        try {
+          const swiperEl = document.querySelector('#new-arrival .swiper');
+          if (swiperEl && swiperEl.swiper) { swiperEl.swiper.destroy(true, true); }
+          if (typeof Swiper !== 'undefined') {
+            const sw = new Swiper(swiperEl, {slidesPerView:1.2,spaceBetween:16,breakpoints:{576:{slidesPerView:2,spaceBetween:20},992:{slidesPerView:3,spaceBetween:24},1200:{slidesPerView:4,spaceBetween:24}}});
+            const prevBtn = document.querySelector('.new-arrival-prev');
+            const nextBtn = document.querySelector('.new-arrival-next');
+            if (prevBtn) prevBtn.onclick = () => sw.slidePrev();
+            if (nextBtn) nextBtn.onclick = () => sw.slideNext();
+          }
+        } catch(err) { console.warn('Swiper reinit failed:', err); }
       } catch (e) { if (statusEl) statusEl.textContent = ''; console.warn('Live catalog failed:', e); }
     }
     loadLiveCatalog();
 
-    // Wire new arrival nav buttons to Swiper
-    setTimeout(function(){
-      var prevBtn = document.querySelector('.new-arrival-prev');
-      var nextBtn = document.querySelector('.new-arrival-next');
-      var swiperEl = document.querySelector('#new-arrival .swiper');
-      if (prevBtn && swiperEl) prevBtn.addEventListener('click', function(){ if(swiperEl.swiper) swiperEl.swiper.slidePrev(); });
-      if (nextBtn && swiperEl) nextBtn.addEventListener('click', function(){ if(swiperEl.swiper) swiperEl.swiper.slideNext(); });
-    }, 600);
+    // Wire new arrival nav buttons to Swiper — handled inside loadLiveCatalog after reinit
 
-    // Add-to-cart wiring
+    // Add-to-cart: na-card add button
     function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
     document.addEventListener('click', function(e){
+      var btn = e.target.closest('.na-add-btn');
+      if (btn) {
+        e.preventDefault();
+        var card = btn.closest('.na-card');
+        if (!card) return;
+        var id = 'sku-' + (card.dataset.slug || slugify(card.dataset.name || 'product'));
+        Cart.add({id: id, name: card.dataset.name || 'Product', price: parseFloat(card.dataset.price || '0'), image: card.dataset.img || '', qty: 1});
+        CartUI.render();
+        return;
+      }
       const a = e.target.closest('.product-item .product-content a');
       if (!a) return;
       const after = (a.getAttribute('data-after')||'').toLowerCase();
