@@ -37,8 +37,9 @@
   .product-large-slider{border:3px solid #333;box-shadow:6px 6px 0 rgba(0,237,10,.15);overflow:hidden}
   .product-large-slider .swiper-slide{aspect-ratio:1/1;overflow:hidden;background:#111}
   .product-large-slider .swiper-slide img{width:100%;height:100%;object-fit:cover;display:block}
-  .product-thumbnail-slider{margin-top:12px}
-  .product-thumbnail-slider .swiper-slide{aspect-ratio:1/1;overflow:hidden;background:#111;border:2px solid #333;cursor:pointer;opacity:.5;transition:opacity .2s,border-color .2s}
+  .product-thumbnail-slider{margin-top:12px;overflow:hidden}
+  .product-thumbnail-slider .swiper-wrapper{display:flex!important;flex-direction:row!important;gap:10px}
+  .product-thumbnail-slider .swiper-slide{flex:0 0 calc(25% - 8px)!important;width:calc(25% - 8px)!important;max-width:120px;aspect-ratio:1/1;overflow:hidden;background:#111;border:2px solid #333;cursor:pointer;opacity:.5;transition:opacity .2s,border-color .2s}
   .product-thumbnail-slider .swiper-slide-thumb-active,.product-thumbnail-slider .swiper-slide:hover{opacity:1;border-color:#00ED0A}
   .product-thumbnail-slider .swiper-slide img{width:100%;height:100%;object-fit:cover;display:block}
   /* Related product cards — match shop style */
