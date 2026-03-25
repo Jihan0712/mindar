@@ -34,14 +34,15 @@
   #footer h5{color:#F5F5F0}
   #footer .border-top{border-color:#333!important}
   /* Standardized gallery images */
-  .product-large-slider{border:3px solid #333;box-shadow:6px 6px 0 rgba(0,237,10,.15);overflow:hidden}
-  .product-large-slider .swiper-slide{aspect-ratio:1/1;overflow:hidden;background:#111}
-  .product-large-slider .swiper-slide img{width:100%;height:100%;object-fit:cover;display:block}
-  .product-thumbnail-slider{margin-top:12px;overflow:hidden;height:90px}
-  .product-thumbnail-slider .swiper-wrapper{height:90px!important}
-  .product-thumbnail-slider .swiper-slide{height:90px!important;overflow:hidden;background:#111;border:2px solid #333;cursor:pointer;opacity:.5;transition:opacity .2s,border-color .2s}
-  .product-thumbnail-slider .swiper-slide-thumb-active,.product-thumbnail-slider .swiper-slide:hover{opacity:1;border-color:#00ED0A}
-  .product-thumbnail-slider .swiper-slide img{width:100%;height:100%;object-fit:cover;display:block}
+  .product-main-image{border:3px solid #333;box-shadow:6px 6px 0 rgba(0,237,10,.15);overflow:hidden;aspect-ratio:1/1;background:#111}
+  .product-main-image img{width:100%;height:100%;object-fit:cover;display:block}
+  .product-thumbs{margin-top:12px;display:flex;gap:10px;flex-wrap:nowrap;overflow-x:auto}
+  .product-thumbs::-webkit-scrollbar{height:4px}
+  .product-thumbs::-webkit-scrollbar-track{background:#222}
+  .product-thumbs::-webkit-scrollbar-thumb{background:#444}
+  .product-thumb-item{flex:0 0 90px;width:90px;height:90px;overflow:hidden;background:#111;border:2px solid #333;cursor:pointer;opacity:.5;transition:opacity .2s,border-color .2s}
+  .product-thumb-item.active,.product-thumb-item:hover{opacity:1;border-color:#00ED0A}
+  .product-thumb-item img{width:100%;height:100%;object-fit:cover;display:block}
   /* Related product cards — match shop style */
   .related-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
   @media(max-width:991px){.related-grid{grid-template-columns:repeat(2,1fr)}}
@@ -139,12 +140,10 @@
       <div class="row g-5">
         <!-- Gallery -->
         <div class="col-lg-6">
-          <div class="product-large-slider swiper">
-            <div class="swiper-wrapper" id="gallery-main"></div>
+          <div class="product-main-image" id="gallery-main">
+            <img id="gallery-main-img" src="" alt="product">
           </div>
-          <div class="product-thumbnail-slider swiper">
-            <div class="swiper-wrapper" id="gallery-thumbs"></div>
-          </div>
+          <div class="product-thumbs" id="gallery-thumbs"></div>
         </div>
         <!-- Info -->
         <div class="col-lg-6">
@@ -276,14 +275,17 @@
       if(p.image_urls&&p.image_urls.length){images=p.image_urls.map(function(u){return normImg(u)})}
       else if(p.image_url){images=[normImg(p.image_url)]}
       else{images=['images/product-thumb-1.jpg']}
-      var mainWrap=document.getElementById('gallery-main');var thumbWrap=document.getElementById('gallery-thumbs');
-      if(mainWrap)mainWrap.innerHTML=images.map(function(u){return '<div class="swiper-slide"><img src="'+u+'" alt="product"></div>'}).join('');
-      if(thumbWrap)thumbWrap.innerHTML=images.map(function(u){return '<div class="swiper-slide"><img src="'+u+'" alt="thumb" style="cursor:pointer"></div>'}).join('');
-
-      // Reinit swipers with thumb linking
-      if(typeof Swiper!=='undefined'){
-        var thumbSwiper=new Swiper('.product-thumbnail-slider',{spaceBetween:10,slidesPerView:4,freeMode:true,watchSlidesProgress:true});
-        new Swiper('.product-large-slider',{spaceBetween:0,slidesPerView:1,loop:images.length>1,thumbs:{swiper:thumbSwiper}});
+      var mainImg=document.getElementById('gallery-main-img');var thumbWrap=document.getElementById('gallery-thumbs');
+      if(mainImg)mainImg.src=images[0]||'';
+      if(thumbWrap){
+        thumbWrap.innerHTML=images.map(function(u,i){return '<div class="product-thumb-item'+(i===0?' active':'')+'"><img src="'+u+'" alt="thumb"></div>'}).join('');
+        thumbWrap.querySelectorAll('.product-thumb-item').forEach(function(el,i){
+          el.addEventListener('click',function(){
+            if(mainImg)mainImg.src=images[i];
+            thumbWrap.querySelectorAll('.product-thumb-item').forEach(function(t){t.classList.remove('active')});
+            el.classList.add('active');
+          });
+        });
       }
 
       // Sizes
