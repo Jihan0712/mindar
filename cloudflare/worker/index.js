@@ -295,6 +295,10 @@ async function handleApi(request, pathname) {
   // Products (shop catalog)
   if (request.method === 'GET'  && pathname === '/api/product-image')        return apiGetProductImage(request);
   if (request.method === 'GET'  && pathname === '/api/products')             return apiListProducts(request);
+  if (request.method === 'GET' && /^\/api\/products\/[^\/]+$/.test(pathname)) {
+    const ref = decodeURIComponent(pathname.split('/')[3]);
+    return apiGetProduct(request, ref);
+  }
   if (request.method === 'POST' && pathname === '/api/products')             return apiCreateProduct(request);
   if (request.method === 'POST' && /^\/api\/products\/\d+$/.test(pathname)) {
     const id = parseInt(pathname.split('/')[3], 10); return apiUpdateProduct(request, id);
@@ -304,6 +308,14 @@ async function handleApi(request, pathname) {
   }
 
   // Reviews (shop)
+  {
+    const m = pathname.match(/^\/api\/products\/([^\/]+)\/reviews$/);
+    if (m) {
+      const ref = decodeURIComponent(m[1]);
+      if (request.method === 'GET') return apiListReviews(request, ref);
+      if (request.method === 'POST') return apiCreateReview(request, ref);
+    }
+  }
   if (request.method === 'GET'  && pathname === '/api/reviews')              return apiListReviews(request);
   if (request.method === 'POST' && pathname === '/api/reviews')              return apiCreateReview(request);
 
@@ -949,6 +961,49 @@ async function apiListProducts(request) {
   return jsonResponse({ items }, 200, request);
 }
 
+async function apiGetProduct(request, ref) {
+  const raw = String(ref || '').trim();
+  if (!raw) return jsonResponse({ error: 'Product reference required' }, 400, request);
+  const byId = isDigits(raw);
+  const whereClause = byId ? 'p.id = ?' : 'p.slug = ?';
+  const param = byId ? Number(raw) : raw;
+
+  let row;
+  try {
+    row = await dbGet(
+      `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
+              case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
+              p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
+       from products p left join brands b on b.id = p.brand_id
+       where ${whereClause}`, param
+    );
+  } catch (e) {
+    const msg = String(e || '');
+    if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
+      row = await dbGet(
+        `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
+                p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
+         from products p left join brands b on b.id = p.brand_id
+         where ${whereClause}`, param
+      );
+    } else { throw e; }
+  }
+  if (!row || !row.is_published) return jsonResponse({ error: 'Not found' }, 404, request);
+
+  const parsedImageUrls = parseImageUrlsFromRow(row.image_urls);
+  const firstUrl = firstImageUrl(row.image_url, parsedImageUrls || row.image_urls);
+  const computedImageUrl = firstUrl || ((row.has_image_data || 0) ? `/api/product-image?id=${encodeURIComponent(row.id)}&i=0` : null);
+  const product = {
+    id: row.id, title: row.title, slug: row.slug,
+    category: row.category || null, color: row.color || null, sizes: row.sizes || null,
+    description: row.description, price_cents: row.price_cents, currency: row.currency,
+    image_url: computedImageUrl, image_urls: parsedImageUrls,
+    is_published: !!row.is_published, ar_target_id: row.ar_target_id == null ? null : Number(row.ar_target_id),
+    brand: row.brand || null, created_at: row.created_at, updated_at: row.updated_at,
+  };
+  return jsonResponse({ product }, 200, request);
+}
+
 async function apiGetProductImage(request) {
   const url = new URL(request.url);
   const id = Number(url.searchParams.get('id'));
@@ -1270,9 +1325,9 @@ async function resolvePublishedProductByRef(ref) {
   return { id: Number(row.id), slug: row.slug || raw };
 }
 
-async function apiListReviews(request) {
+async function apiListReviews(request, refOverride) {
   const url = new URL(request.url);
-  const ref = (url.searchParams.get('product') || url.searchParams.get('product_id') || url.searchParams.get('product_slug') || '').trim();
+  const ref = refOverride || (url.searchParams.get('product') || url.searchParams.get('product_id') || url.searchParams.get('product_slug') || '').trim();
   if (!ref) return jsonResponse({ error: 'product required' }, 400, request);
 
   let product;
@@ -1325,9 +1380,9 @@ async function apiListReviews(request) {
   );
 }
 
-async function apiCreateReview(request) {
+async function apiCreateReview(request, refOverride) {
   const body = await readJson(request);
-  const ref = (body.product || body.product_id || body.product_slug || '').toString().trim();
+  const ref = refOverride || (body.product || body.product_id || body.product_slug || '').toString().trim();
   if (!ref) return jsonResponse({ error: 'product required' }, 400, request);
 
   const rating = parseInt(body.rating, 10);

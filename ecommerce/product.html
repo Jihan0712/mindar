@@ -12,6 +12,28 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  body{background:#1C1C1C;color:#F5F5F0}
+  .text-muted{color:rgba(245,245,240,.5)!important}
+  .nav-tabs{border-bottom-color:#333!important}
+  .nav-tabs .nav-link{color:rgba(245,245,240,.6);font-family:'Roboto Mono',monospace;text-transform:uppercase;font-size:13px;letter-spacing:.06em}
+  .nav-tabs .nav-link:hover{color:#F5F5F0;border-color:transparent}
+  .nav-tabs .nav-link.active{color:#1C1C1C;background:#00ED0A;border-color:#333 #333 transparent}
+  .form-control,.form-select{background:rgba(255,255,255,.05);border:2px solid #333;color:#F5F5F0;font-family:'Roboto Mono',monospace}
+  .form-control:focus,.form-select:focus{border-color:#00ED0A;box-shadow:none;background:rgba(255,255,255,.08);color:#F5F5F0}
+  .form-select option{background:#1C1C1C;color:#F5F5F0}
+  .btn-primary{background:#00ED0A;border-color:#00ED0A;color:#1C1C1C;font-family:'Roboto Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .btn-primary:hover{background:#00cc09;border-color:#00cc09;color:#1C1C1C}
+  .btn-outline-dark{border-color:#333;color:#F5F5F0;font-family:'Roboto Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:13px}
+  .btn-outline-dark:hover{background:#333;color:#00ED0A}
+  .product-title{font-family:'Roboto Mono',monospace;color:#F5F5F0}
+  .product-price .fs-2{color:#00ED0A}
+  #footer{background:#111;color:rgba(245,245,240,.5)}
+  #footer a{color:rgba(245,245,240,.5);text-decoration:none}
+  #footer a:hover{color:#00ED0A}
+  #footer h5{color:#F5F5F0}
+  #footer .border-top{border-color:#333!important}
+</style>
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
@@ -89,7 +111,7 @@
       <div class="row g-5">
         <!-- Gallery -->
         <div class="col-lg-6">
-          <div class="product-large-slider swiper" style="border:3px solid #1C1C1C;box-shadow:6px 6px 0 #1C1C1C">
+          <div class="product-large-slider swiper" style="border:3px solid #333;box-shadow:6px 6px 0 rgba(0,237,10,.15)">
             <div class="swiper-wrapper" id="gallery-main"></div>
           </div>
           <div class="product-thumbnail-slider swiper mt-3">
@@ -114,7 +136,7 @@
             <div class="swatch option-1 d-flex gap-2 mb-3" style="flex-wrap:wrap"></div>
             <div class="product-action d-flex align-items-center gap-3 mb-4">
               <div class="item-title" style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6"><span style="opacity:.6">Quantity: </span></div>
-              <div class="input-group" style="width:140px;border:3px solid #1C1C1C">
+              <div class="input-group" style="width:140px;border:3px solid #333">
                 <button class="btn border-0" type="button" id="qty-minus"><svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#minus"></use></svg></button>
                 <input type="number" class="form-control text-center border-0" id="quantity" value="1" min="1" max="99" style="max-width:50px">
                 <button class="btn border-0" type="button" id="qty-plus"><svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#plus"></use></svg></button>
@@ -130,11 +152,10 @@
     </div>
   </section>
 
-  <!-- Product Tabs -->
-  <section class="py-5" style="border-top:3px solid #1C1C1C">
+  <section class="py-5" style="border-top:3px solid #333">
     <div class="container">
       <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist" style="border-bottom:3px solid #1C1C1C">
+        <div class="nav nav-tabs" id="nav-tab" role="tablist" style="border-bottom:3px solid #333">
           <button class="nav-link active" id="nav-home-tab" data-bs-toggle="tab" data-bs-target="#nav-home" type="button" role="tab" aria-selected="true">Description</button>
           <button class="nav-link" id="nav-information-tab" data-bs-toggle="tab" data-bs-target="#nav-information" type="button" role="tab">Information</button>
           <button class="nav-link" id="nav-shipping-tab" data-bs-toggle="tab" data-bs-target="#nav-shipping" type="button" role="tab">Shipping</button>
@@ -148,7 +169,7 @@
         <div class="tab-pane fade" id="nav-review" role="tabpanel">
           <div class="row g-4">
             <div class="col-md-4">
-              <div style="border:3px solid #1C1C1C;padding:24px;background:#FEFD00;box-shadow:4px 4px 0 #1C1C1C">
+              <div style="border:3px solid #333;padding:24px;background:#FEFD00;box-shadow:4px 4px 0 rgba(0,237,10,.15)">
                 <div id="reviews-summary-stars" class="mb-2" style="font-size:24px;color:#1C1C1C"></div>
                 <p class="mb-0" style="font-size:14px"><span id="reviews-summary-average">0</span>/5 (<span id="reviews-summary-count">0</span> reviews)</p>
               </div>
@@ -156,7 +177,7 @@
             <div class="col-md-8">
               <div id="reviews-empty" class="text-muted mb-3">No reviews yet.</div>
               <div id="reviews-list" class="mb-4"></div>
-              <form id="review-form" style="border:3px solid #1C1C1C;padding:24px;box-shadow:4px 4px 0 #1C1C1C">
+              <form id="review-form" style="border:3px solid #333;padding:24px;box-shadow:4px 4px 0 rgba(0,237,10,.15)">
                 <h5 class="text-uppercase mb-3">Write a Review</h5>
                 <div class="mb-3"><label class="form-label">Rating</label><select id="review-rating" class="form-select" required><option value="">Choose…</option><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select></div>
                 <div class="mb-3"><label class="form-label">Name</label><input type="text" id="review-author" class="form-control" required></div>
@@ -171,8 +192,7 @@
     </div>
   </section>
 
-  <!-- Related Products -->
-  <section class="py-5" style="border-top:3px solid #1C1C1C">
+  <section class="py-5" style="border-top:3px solid #333">
     <div class="container">
       <h3 class="text-uppercase mb-4">Related Products</h3>
       <div class="product-carousel swiper">
@@ -234,7 +254,7 @@
       else{images=['images/product-thumb-1.jpg']}
       var mainWrap=document.getElementById('gallery-main');var thumbWrap=document.getElementById('gallery-thumbs');
       if(mainWrap)mainWrap.innerHTML=images.map(function(u){return '<div class="swiper-slide"><img src="'+u+'" class="img-fluid"></div>'}).join('');
-      if(thumbWrap)thumbWrap.innerHTML=images.map(function(u){return '<div class="swiper-slide"><img src="'+u+'" class="img-fluid" style="border:2px solid #1C1C1C;cursor:pointer"></div>'}).join('');
+      if(thumbWrap)thumbWrap.innerHTML=images.map(function(u){return '<div class="swiper-slide"><img src="'+u+'" class="img-fluid" style="border:2px solid #333;cursor:pointer"></div>'}).join('');
 
       // Reinit swipers
       if(typeof Swiper!=='undefined'){
@@ -245,12 +265,12 @@
       // Sizes
       var sizes=(p.sizes||'').toString().split(',').map(function(s){return s.trim()}).filter(Boolean);
       var swatchWrap=document.querySelector('.swatch.option-1');
-      if(swatchWrap&&sizes.length){swatchWrap.innerHTML='<span style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6;margin-right:8px">Size:</span>'+sizes.map(function(s,i){return '<label style="border:2px solid #1C1C1C;padding:6px 14px;cursor:pointer;font-size:13px;text-transform:uppercase;background:'+(i===0?'#FEFD00':'transparent')+'"><input type="radio" name="size" value="'+s+'" '+(i===0?'checked':'')+' style="display:none">'+s+'</label>'}).join('')}
-      if(swatchWrap){swatchWrap.addEventListener('click',function(e){var lbl=e.target.closest('label');if(!lbl)return;swatchWrap.querySelectorAll('label').forEach(function(l){l.style.background='transparent'});lbl.style.background='#FEFD00'})}
+      if(swatchWrap&&sizes.length){swatchWrap.innerHTML='<span style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6;margin-right:8px">Size:</span>'+sizes.map(function(s,i){return '<label style="border:2px solid #333;padding:6px 14px;cursor:pointer;font-size:13px;text-transform:uppercase;background:'+(i===0?'#FEFD00':'transparent')+';color:'+(i===0?'#1C1C1C':'#F5F5F0')+'"><input type="radio" name="size" value="'+s+'" '+(i===0?'checked':'')+' style="display:none">'+s+'</label>'}).join('')}
+      if(swatchWrap){swatchWrap.addEventListener('click',function(e){var lbl=e.target.closest('label');if(!lbl)return;swatchWrap.querySelectorAll('label').forEach(function(l){l.style.background='transparent';l.style.color='#F5F5F0'});lbl.style.background='#FEFD00';lbl.style.color='#1C1C1C'})}
 
       // Tags
       var tagWrap=document.querySelector('.cate-tag');
-      if(tagWrap&&p.category){tagWrap.innerHTML='<span class="tag-item" style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;border:2px solid #1C1C1C;padding:4px 12px">'+p.category+'</span>'}
+      if(tagWrap&&p.category){tagWrap.innerHTML='<span class="tag-item" style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;border:2px solid #333;padding:4px 12px;color:#F5F5F0">'+p.category+'</span>'}
 
       // Description
       var descEl=document.getElementById('desc-body');if(descEl)descEl.textContent=p.description||'No description available.';
@@ -285,14 +305,14 @@
     var avgEl=document.getElementById('reviews-summary-average');var countEl=document.getElementById('reviews-summary-count');var starsEl=document.getElementById('reviews-summary-stars');
     try{
       var res=await fetch('/api/products/'+encodeURIComponent(slug)+'/reviews',{credentials:'include'});
-      if(!res.ok)return;var data=await res.json();var reviews=data.reviews||[];
+      if(!res.ok)return;var data=await res.json();var reviews=data.items||[];
       if(!reviews.length){if(emptyEl)emptyEl.style.display='';if(starsEl)starsEl.innerHTML=renderStars(0);return}
       if(emptyEl)emptyEl.style.display='none';
       var sum=reviews.reduce(function(a,r){return a+(Number(r.rating)||0)},0);var avg=(sum/reviews.length).toFixed(1);
       if(avgEl)avgEl.textContent=avg;if(countEl)countEl.textContent=reviews.length;if(starsEl)starsEl.innerHTML=renderStars(Math.round(avg));
       var ratingEl=document.getElementById('product-rating');
       if(ratingEl){var rs=ratingEl.querySelector('.rating-stars');if(rs)rs.innerHTML=renderStars(Math.round(avg));var rc=document.getElementById('product-rating-count');if(rc)rc.textContent='('+reviews.length+' reviews)'}
-      if(listEl)listEl.innerHTML=reviews.map(function(r){return '<div style="border:2px solid #1C1C1C;padding:16px;margin-bottom:12px"><div class="d-flex justify-content-between align-items-center mb-2"><strong style="font-size:14px;text-transform:uppercase">'+((r.author||'Anonymous').replace(/</g,'&lt;'))+'</strong><span style="font-size:12px;opacity:.5">'+((r.created_at||'').toString().slice(0,10))+'</span></div><div class="mb-2">'+renderStars(r.rating||0)+'</div><p class="mb-0" style="font-size:14px">'+((r.comment||'').replace(/</g,'&lt;'))+'</p></div>'}).join('');
+      if(listEl)listEl.innerHTML=reviews.map(function(r){return '<div style="border:2px solid #333;padding:16px;margin-bottom:12px"><div class="d-flex justify-content-between align-items-center mb-2"><strong style="font-size:14px;text-transform:uppercase;color:#F5F5F0">'+((r.author||'Anonymous').replace(/</g,'&lt;'))+'</strong><span style="font-size:12px;opacity:.5">'+((r.created_at||'').toString().slice(0,10))+'</span></div><div class="mb-2">'+renderStars(r.rating||0)+'</div><p class="mb-0" style="font-size:14px">'+((r.comment||'').replace(/</g,'&lt;'))+'</p></div>'}).join('');
     }catch(e){}
   }
 
