@@ -207,6 +207,17 @@
                 <label class="form-label text-uppercase" for="homeBillboardTitle">Billboard Title</label>
                 <input id="homeBillboardTitle" class="form-control" type="text" placeholder="e.g. New Collections" />
               </div>
+              <div class="col-12 col-lg-6">
+                <label class="form-label text-uppercase">Billboard Image</label>
+                <div class="input-group">
+                  <input id="homeBillboardImage" class="form-control" type="text" placeholder="URL or upload →" />
+                  <label class="btn btn-outline-secondary text-uppercase" style="font-size:12px;cursor:pointer">
+                    Upload
+                    <input type="file" accept="image/*" data-home-upload="billboard-image" style="display:none">
+                  </label>
+                </div>
+                <img id="homeBillboardImagePreview" src="" alt="" style="display:none;margin-top:8px;max-height:80px;border:1px solid #dee2e6;object-fit:cover">
+              </div>
               <div class="col-12">
                 <label class="form-label text-uppercase" for="homeBillboardDesc">Billboard Description</label>
                 <textarea id="homeBillboardDesc" class="form-control" rows="2" placeholder="Short homepage intro..."></textarea>
@@ -622,8 +633,15 @@
                 </div>
                 <div class="row g-3">
                   <div class="col-12">
-                    <label class="form-label text-uppercase">Image URL</label>
-                    <input class="form-control" type="text" data-field="image" value="${image}" placeholder="images/banner-image-1.jpg or https://..." />
+                    <label class="form-label text-uppercase">Image</label>
+                    <div class="input-group">
+                      <input class="form-control" type="text" data-field="image" value="${image}" placeholder="images/banner-image-1.jpg or https://..." />
+                      <label class="btn btn-outline-secondary text-uppercase" style="font-size:12px;cursor:pointer">
+                        Upload
+                        <input type="file" accept="image/*" data-home-upload="slide-image" style="display:none">
+                      </label>
+                    </div>
+                    <img data-field="image-preview" src="${image}" alt="" style="${image ? '' : 'display:none;'}margin-top:6px;max-height:70px;border:1px solid #dee2e6;object-fit:cover">
                   </div>
                   <div class="col-12 col-lg-6">
                     <label class="form-label text-uppercase">Title</label>
@@ -652,6 +670,10 @@
           const descEl = document.getElementById('homeBillboardDesc');
           if (titleEl) titleEl.value = home.billboard.title || '';
           if (descEl) descEl.value = home.billboard.description || '';
+          const imgEl2 = document.getElementById('homeBillboardImage');
+          const prevEl2 = document.getElementById('homeBillboardImagePreview');
+          if (imgEl2) imgEl2.value = (home.billboard && home.billboard.image) || '';
+          if (prevEl2) { const bimg = (home.billboard && home.billboard.image) || ''; prevEl2.src = bimg; prevEl2.style.display = bimg ? '' : 'none'; }
 
           const slidesEl = document.getElementById('homeSlides');
           if (!slidesEl) return;
@@ -749,8 +771,10 @@
         function readHomeFromEditor() {
           const titleEl = document.getElementById('homeBillboardTitle');
           const descEl = document.getElementById('homeBillboardDesc');
+          const imgEl = document.getElementById('homeBillboardImage');
           home.billboard.title = titleEl ? titleEl.value.trim() : '';
           home.billboard.description = descEl ? descEl.value.trim() : '';
+          home.billboard.image = imgEl ? imgEl.value.trim() : '';
 
           const slidesEl = document.getElementById('homeSlides');
           const cards = slidesEl ? Array.from(slidesEl.querySelectorAll('[data-slide-index]')) : [];
@@ -852,7 +876,40 @@
           try { await saveHomepage(); } catch (e) { showStatus(e.message || String(e), 'error'); }
         });
 
-        document.getElementById('homeSlides')?.addEventListener('click', (ev) => {
+        // Homepage image upload handler (billboard + slides)
+        document.querySelector('#pane-homepage')?.addEventListener('change', async (ev) => {
+          const input = ev.target;
+          if (input.type !== 'file' || !input.dataset.homeUpload) return;
+          const file = input.files && input.files[0];
+          if (!file) return;
+          const uploadType = input.dataset.homeUpload; // 'billboard-image' or 'slide-image'
+          const label = input.closest('label');
+          const origText = label ? label.childNodes[0].textContent.trim() : '';
+          if (label) label.childNodes[0].textContent = ' Uploading…';
+          try {
+            const url = await uploadProductImage(file, 'homepage');
+            if (uploadType === 'billboard-image') {
+              const urlInput = document.getElementById('homeBillboardImage');
+              const prev = document.getElementById('homeBillboardImagePreview');
+              if (urlInput) urlInput.value = url;
+              if (prev) { prev.src = url; prev.style.display = ''; }
+            } else if (uploadType === 'slide-image') {
+              const card = input.closest('[data-slide-index]');
+              if (card) {
+                const urlInput = card.querySelector('[data-field="image"]');
+                const prev = card.querySelector('[data-field="image-preview"]');
+                if (urlInput) urlInput.value = url;
+                if (prev) { prev.src = url; prev.style.display = ''; }
+              }
+            }
+            showStatus('Image uploaded.', 'success');
+          } catch (e) {
+            showStatus('Upload failed: ' + (e.message || e), 'error');
+          } finally {
+            if (label) label.childNodes[0].textContent = ' Upload';
+            input.value = '';
+          }
+        });
           const btn = ev.target.closest('button[data-action="remove-slide"]');
           if (!btn) return;
           const card = btn.closest('[data-slide-index]');
