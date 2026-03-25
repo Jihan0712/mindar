@@ -102,6 +102,21 @@ DNS for `shop.inrl.co` (Dashboard-only)
 - [x] Remove legacy hosting directories
 - [x] Strip legacy SDK includes from HTML files
 
+## 14) Homepage CMS (admin dashboard)
+
+- [x] Dashboard tab UI — Products + Homepage Editor tabs (Bootstrap tab nav)
+- [x] Homepage Editor pane in `ecommerce/dashboard.html` with sections:
+  - Billboard (title + description)
+  - Hero slides (image/title/text/link/label + add/remove)
+  - Who We Are (label, headline, body, stats)
+  - Features (label, headline, 3 cards with title/body)
+  - Testimonials (quote/author/role, add/remove)
+  - Newsletter headline
+- [x] Worker `GET /api/homepage` returns full content (all sections)
+- [x] Worker `POST /api/homepage` now saves extended fields (`whoWeAre`, `features`, `testimonials`, `newsletter`)
+- [x] `ecommerce/index.html` `initHomepageCms()` populated from `/api/homepage` for all sections
+- [ ] Add `ecommerce/index.html` DOM population for `whoWeAre`, `features`, `testimonials`, `newsletter` sections (CMS-driven content rendering)
+
 ## 12) Ecommerce ↔ AR integration
 
 - [x] Connect the AR dashboard to the ecommerce side (product catalog → target linking)
@@ -168,7 +183,9 @@ Goal: make each page in the shop nav “real” (not placeholders) and consisten
 - [ ] Single Product (`ecommerce/single-product.html`)
   - [x] Fix product image gallery thumbnail scroller (Swiper re-init + mousewheel/drag)
   - [x] Populate product tabs from `/api/products` (Description + Additional information)
-  - [ ] Decide whether Shipping & Return / Reviews should be dynamic (requires new product fields + API)
+  - [x] Reviews: load + submit via `GET/POST /api/products/:slug/reviews`
+  - [x] Related products: load from `/api/products` filtered by category
+  - [ ] Decide whether Shipping & Return content should be CMS-managed
 
 ## 10) Verification
 
@@ -215,9 +232,9 @@ Goal: Document and verify the real end-to-end paths users take through auth, das
   - Option A: keep shop anonymous + remove/adjust any “Sign up” UX
   - Option B: add Worker endpoint for client registration + enable signup
 - [ ] Verify cart behavior end-to-end (add/remove/update qty + cart count + totals across pages)
-- [ ] Checkout submission: align on a single backend
-  - Current state: checkout uses demo `backend/server.js` (`POST /orders`) locally
-  - Decide Worker `/api/*` order endpoint vs keeping local demo
+- [x] Checkout submission: aligned to Worker `/api/orders`
+  - Fixed: `ecommerce/js/config.js` `MINDAR_API_BASE` changed from `http://localhost:8080` to `''` (same-origin)
+  - `checkout.js` already calls `${API_BASE}/api/orders`; cart is cleared on success
 - [x] Single product page hydrates from `/api/products`
   - Gallery Swiper scroller works after dynamic slide injection
   - Tabs: Description + Additional information populate from product record

@@ -23,6 +23,33 @@ function setEnvGlobals(env) {
 
 // ---------- CORS / JSON helpers ----------
 
+// Simple in-memory rate limiter (per Worker isolate; resets on cold start)
+const _rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX_AUTH = 10; // max login/register attempts per IP per minute
+const RATE_LIMIT_MAX_UPLOAD = 20; // max uploads per IP per minute
+
+function rateLimitCheck(key, maxAttempts) {
+  const now = Date.now();
+  let entry = _rateLimitMap.get(key);
+  if (!entry || now - entry.start > RATE_LIMIT_WINDOW_MS) {
+    entry = { start: now, count: 1 };
+    _rateLimitMap.set(key, entry);
+    // Garbage-collect old entries periodically
+    if (_rateLimitMap.size > 5000) {
+      for (const [k, v] of _rateLimitMap) { if (now - v.start > RATE_LIMIT_WINDOW_MS) _rateLimitMap.delete(k); }
+    }
+    return true;
+  }
+  entry.count++;
+  if (entry.count > maxAttempts) return false;
+  return true;
+}
+
+function getClientIP(request) {
+  return request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+}
+
 function getAllowedOrigins() {
   if (typeof ALLOWED_ORIGINS === 'string' && ALLOWED_ORIGINS.trim()) {
     return ALLOWED_ORIGINS.split(',').map(s => s.trim());
@@ -34,8 +61,12 @@ function buildCorsHeaders(req) {
   const h = new Headers();
   const allowed = getAllowedOrigins();
   const origin = req.headers.get('Origin');
-  if (allowed && origin && allowed.includes(origin)) h.set('Access-Control-Allow-Origin', origin);
-  else h.set('Access-Control-Allow-Origin', '*');
+  if (allowed && origin && allowed.includes(origin)) {
+    h.set('Access-Control-Allow-Origin', origin);
+    h.set('Access-Control-Allow-Credentials', 'true');
+  }
+  // If ALLOWED_ORIGINS is not configured or origin doesn't match, no ACAO header is set
+  // which will cause the browser to block cross-origin requests (secure default)
   h.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
   h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key, x-bootstrap-key');
   h.set('Vary', 'Origin');
@@ -45,6 +76,8 @@ function buildCorsHeaders(req) {
 function jsonResponse(body, status = 200, request = null) {
   const headers = request ? buildCorsHeaders(request) : new Headers();
   headers.set('Content-Type', 'application/json');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'DENY');
   return new Response(JSON.stringify(body), { status, headers });
 }
 
@@ -83,7 +116,23 @@ async function verifyPassword(password, stored) {
   if (!stored || !stored.includes('$')) return false;
   const [salt] = stored.split('$');
   const check = await hashPassword(password, salt);
-  return check === stored;
+  return timingSafeEqual(check, stored);
+}
+
+// Constant-time string comparison to prevent timing attacks
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  const enc = new TextEncoder();
+  const bufA = enc.encode(a);
+  const bufB = enc.encode(b);
+  // Use subtle.timingSafeEqual if available (Node-like), otherwise manual XOR
+  if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.timingSafeEqual === 'function') {
+    return crypto.subtle.timingSafeEqual(bufA, bufB);
+  }
+  let diff = 0;
+  for (let i = 0; i < bufA.length; i++) diff |= bufA[i] ^ bufB[i];
+  return diff === 0;
 }
 
 async function dbGet(sql, ...params) {
@@ -147,6 +196,7 @@ function buildSessionCookie(token, request) {
     `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
     'Path=/',
     `Expires=${exp}`,
+    'HttpOnly',
     'SameSite=Lax'
   ];
   if (url.protocol === 'https:') parts.push('Secure');
@@ -287,7 +337,42 @@ function normalizeHomepagePayload(body) {
     return { image, title: stitle, text, href, linkLabel };
   }).filter(s => s.image || s.title || s.text || s.href || s.linkLabel);
 
-  return { billboard: { title, description }, slides };
+  // Who We Are section
+  const whoIn = body && typeof body.whoWeAre === 'object' && body.whoWeAre ? body.whoWeAre : {};
+  const whoWeAre = {
+    label: clampStr(whoIn.label, 60),
+    headline: clampStr(whoIn.headline, 200),
+    body: clampStr(whoIn.body, 1200),
+    stats: clampStr(whoIn.stats, 400),
+  };
+
+  // Features section
+  const featIn = body && typeof body.features === 'object' && body.features ? body.features : {};
+  const featCardsIn = Array.isArray(featIn.cards) ? featIn.cards : [];
+  const features = {
+    label: clampStr(featIn.label, 60),
+    headline: clampStr(featIn.headline, 200),
+    cards: featCardsIn.slice(0, 6).map(c => ({
+      title: clampStr(c && c.title, 120),
+      body: clampStr(c && c.body, 400),
+    })),
+  };
+
+  // Testimonials section
+  const testimonialsIn = Array.isArray(body && body.testimonials) ? body.testimonials : [];
+  const testimonials = testimonialsIn.slice(0, 20).map(t => ({
+    quote: clampStr(t && t.quote, 600),
+    author: clampStr(t && t.author, 120),
+    role: clampStr(t && t.role, 120),
+  })).filter(t => t.quote || t.author);
+
+  // Newsletter section
+  const newsIn = body && typeof body.newsletter === 'object' && body.newsletter ? body.newsletter : {};
+  const newsletter = {
+    headline: clampStr(newsIn.headline, 200),
+  };
+
+  return { billboard: { title, description }, slides, whoWeAre, features, testimonials, newsletter };
 }
 
 function defaultHomepageContent() {
@@ -304,7 +389,11 @@ function defaultHomepageContent() {
         href: 'index.html',
         linkLabel: 'Discover Now'
       }
-    ]
+    ],
+    whoWeAre: { label: '', headline: '', body: '', stats: '' },
+    features: { label: '', headline: '', cards: [] },
+    testimonials: [],
+    newsletter: { headline: '' }
   };
 }
 
@@ -526,12 +615,14 @@ async function ensureBrandIdByName(brandName) {
 async function apiBootstrapAdmin(request) {
   const body = await readJson(request);
   const provided = request.headers.get('x-bootstrap-key') || '';
-  if (!BOOTSTRAP_ADMIN_KEY || provided !== BOOTSTRAP_ADMIN_KEY) {
+  if (!BOOTSTRAP_ADMIN_KEY || !timingSafeEqual(provided, BOOTSTRAP_ADMIN_KEY)) {
     return jsonResponse({ error: 'Unauthorized' }, 401, request);
   }
   const email = (body.email || '').trim().toLowerCase();
   const password = body.password || '';
   if (!email || !password) return jsonResponse({ error: 'email and password required' }, 400, request);
+  if (!isValidEmail(email)) return jsonResponse({ error: 'Valid email required' }, 400, request);
+  if (String(password).length < 8) return jsonResponse({ error: 'Password must be at least 8 characters' }, 400, request);
 
   const existing = await dbGet('select id from users where email = ?', email);
   if (existing) return jsonResponse({ error: 'admin already exists for this email' }, 400, request);
@@ -547,6 +638,10 @@ async function apiBootstrapAdmin(request) {
 }
 
 async function apiRegister(request) {
+  const ip = getClientIP(request);
+  if (!rateLimitCheck('register:' + ip, RATE_LIMIT_MAX_AUTH)) {
+    return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
+  }
   const body = await readJson(request);
   const email = (body.email || '').trim().toLowerCase();
   const password = body.password || '';
@@ -569,6 +664,10 @@ async function apiRegister(request) {
 }
 
 async function apiLogin(request) {
+  const ip = getClientIP(request);
+  if (!rateLimitCheck('login:' + ip, RATE_LIMIT_MAX_AUTH)) {
+    return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
+  }
   const body = await readJson(request);
   const email = (body.email || '').trim().toLowerCase();
   const password = body.password || '';
@@ -1630,8 +1729,25 @@ async function handleGet(request) {
   }
 }
 
+const UPLOAD_MAX_SIZE = 50 * 1024 * 1024; // 50 MB
+const UPLOAD_ALLOWED_TYPES = ['image/', 'video/', 'application/octet-stream', 'model/'];
+const UPLOAD_ALLOWED_PATHS = ['videos', 'images', 'minds', 'products'];
+
 async function handleUpload(request) {
   try {
+    // Auth: require admin or brand session
+    const sess = await getSessionUser(request);
+    if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (sess.user.role !== 'admin' && sess.user.role !== 'brand') {
+      return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+
+    // Rate limit
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('upload:' + ip, RATE_LIMIT_MAX_UPLOAD)) {
+      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
+    }
+
     if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
       return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
     }
@@ -1640,8 +1756,22 @@ async function handleUpload(request) {
     const file = form.get('file');
     if (!file) return jsonResponse({ error: 'file required' }, 400, request);
 
-    const path = (form.get('path') || 'videos').toString();
-    const filename = (form.get('filename') || (file.name || `${Date.now()}`)).toString();
+    // File size check
+    if (file.size && file.size > UPLOAD_MAX_SIZE) {
+      return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
+    }
+
+    // File type validation
+    const contentType = (file.type || 'application/octet-stream').toLowerCase();
+    if (!UPLOAD_ALLOWED_TYPES.some(t => contentType.startsWith(t))) {
+      return jsonResponse({ error: 'File type not allowed' }, 415, request);
+    }
+
+    // Sanitize path — only allow known subdirectories, strip traversal
+    const rawPath = (form.get('path') || 'videos').toString().replace(/[\\/\.]{2,}/g, '').replace(/^[\/]+|[\/]+$/g, '');
+    const path = UPLOAD_ALLOWED_PATHS.includes(rawPath) ? rawPath : 'videos';
+    const rawName = (form.get('filename') || (file.name || `${Date.now()}`)).toString();
+    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
     const key = `${path}/${Date.now()}-${filename}`;
 
     await ASSETS_BUCKET.put(key, file.stream(), {
@@ -1668,7 +1798,8 @@ async function handleDelete(request) {
     }
 
     const provided = request.headers.get('x-admin-key') || '';
-    if (!provided || provided !== (typeof WORKER_DELETE_KEY === 'string' ? WORKER_DELETE_KEY : '')) {
+    const expected = typeof WORKER_DELETE_KEY === 'string' ? WORKER_DELETE_KEY : '';
+    if (!provided || !expected || !timingSafeEqual(provided, expected)) {
       return jsonResponse({ error: 'unauthorized' }, 401, request);
     }
     const body = await readJson(request);
@@ -1698,6 +1829,11 @@ async function handleDelete(request) {
 
 async function handlePurge(request) {
   try {
+    // Auth: require admin session
+    const sess = await getSessionUser(request);
+    if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (sess.user.role !== 'admin') return jsonResponse({ error: 'Forbidden' }, 403, request);
+
     const body = await readJson(request);
     const urls = body.urls || [];
     if (!Array.isArray(urls) || !urls.length) return jsonResponse({ error: 'urls required' }, 400, request);

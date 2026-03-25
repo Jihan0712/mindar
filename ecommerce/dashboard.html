@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dashboard | MindAR Store</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="style.css">
 
@@ -39,8 +40,22 @@
       </div>
     </div>
 
+    <!-- Tab nav (Homepage tab shown by JS when admin) -->
+    <ul class="nav nav-tabs mb-4" id="dashTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active text-uppercase" id="tab-products" data-bs-toggle="tab" data-bs-target="#pane-products" type="button" role="tab">Products</button>
+      </li>
+      <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">
+        <button class="nav-link text-uppercase" id="tab-homepage" data-bs-toggle="tab" data-bs-target="#pane-homepage" type="button" role="tab">Homepage Editor</button>
+      </li>
+    </ul>
+
     <div id="status" class="alert alert-light border" role="status" style="display:none"></div>
 
+    <div class="tab-content">
+
+    <!-- PRODUCTS PANE -->
+    <div class="tab-pane fade show active" id="pane-products" role="tabpanel">
     <div class="row g-4">
       <div class="col-12 col-lg-5">
         <div class="card">
@@ -172,12 +187,15 @@
         </div>
       </div>
     </div>
+    </div><!-- /pane-products -->
 
-    <div class="row g-4 mt-1" id="homepageEditorRow" style="display:none">
+    <!-- HOMEPAGE PANE -->
+    <div class="tab-pane fade" id="pane-homepage" role="tabpanel">
+      <div class="row g-4">
       <div class="col-12">
         <div class="card">
           <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
-            <span>Homepage (Admin)</span>
+            <span>Homepage Editor</span>
             <div class="d-flex gap-2">
               <button id="homeLoadBtn" class="btn btn-sm btn-outline-dark text-uppercase" type="button">Load</button>
               <button id="homeSaveBtn" class="btn btn-sm btn-dark text-uppercase" type="button">Save</button>
@@ -204,13 +222,73 @@
 
             <div id="homeSlides" class="vstack gap-3"></div>
 
+            <hr class="my-4" />
+
+            <h2 class="h6 text-uppercase mb-3">Who We Are</h2>
+            <div class="row g-3">
+              <div class="col-12 col-lg-4">
+                <label class="form-label text-uppercase">Label</label>
+                <input id="homeWhoLabel" class="form-control" type="text" placeholder="Who We Are" />
+              </div>
+              <div class="col-12 col-lg-8">
+                <label class="form-label text-uppercase">Headline</label>
+                <input id="homeWhoHeadline" class="form-control" type="text" placeholder="Fashion meets digital identity" />
+              </div>
+              <div class="col-12">
+                <label class="form-label text-uppercase">Body Text</label>
+                <textarea id="homeWhoBody" class="form-control" rows="3" placeholder="Brand description..."></textarea>
+              </div>
+            </div>
+            <div class="row g-3 mt-1">
+              <div class="col-12">
+                <label class="form-label text-uppercase">Stats (up to 3, comma-separated as value:label pairs)</label>
+                <div id="homeWhoStats" class="vstack gap-2"></div>
+              </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <h2 class="h6 text-uppercase mb-3">What We Offer (Features)</h2>
+            <div class="row g-3">
+              <div class="col-12 col-lg-4">
+                <label class="form-label text-uppercase">Section Label</label>
+                <input id="homeFeaturesLabel" class="form-control" type="text" placeholder="The Experience" />
+              </div>
+              <div class="col-12 col-lg-8">
+                <label class="form-label text-uppercase">Section Headline</label>
+                <input id="homeFeaturesHeadline" class="form-control" type="text" placeholder="What makes us different" />
+              </div>
+            </div>
+            <div id="homeFeatureCards" class="row g-3 mt-1"></div>
+
+            <hr class="my-4" />
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h2 class="h6 text-uppercase m-0">Testimonials</h2>
+              <button id="homeAddTestimonialBtn" class="btn btn-sm btn-outline-secondary text-uppercase" type="button">Add</button>
+            </div>
+            <div id="homeTestimonials" class="vstack gap-3"></div>
+
+            <hr class="my-4" />
+
+            <h2 class="h6 text-uppercase mb-3">Newsletter</h2>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label text-uppercase">Headline <span class="text-muted fw-normal text-lowercase">(wrap *text* in asterisks for yellow highlight)</span></label>
+                <input id="homeNewsletterHeadline" class="form-control" type="text" placeholder="Stay in the *loop*" />
+              </div>
+            </div>
+
             <div class="form-text mt-3">
               Public homepage reads from <code>/api/homepage</code>. Only admins can update.
             </div>
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </div><!-- /pane-homepage -->
+
+    </div><!-- /tab-content -->
   </main>
 
   <script>
@@ -365,9 +443,9 @@
       const isAdmin = user.role === 'admin';
       el('brandGroup').style.display = isAdmin ? '' : 'none';
 
-      // Homepage editor is admin-only
-      const homepageRow = document.getElementById('homepageEditorRow');
-      if (homepageRow) homepageRow.style.display = isAdmin ? '' : 'none';
+      // Show Homepage tab for admins
+      const tabHomepageItem = document.getElementById('tab-homepage-item');
+      if (tabHomepageItem) tabHomepageItem.style.display = isAdmin ? '' : 'none';
 
       el('logoutBtn').addEventListener('click', async () => {
         await auth.logout();
@@ -500,7 +578,32 @@
       if (isAdmin) {
         const home = {
           billboard: { title: '', description: '' },
-          slides: []
+          slides: [],
+          whoWeAre: {
+            label: 'Who We Are',
+            headline: 'Fashion meets digital identity',
+            body: 'INRL is a neo-brutalist fashion label building at the intersection of physical garments and digital identity. We design bold, uncompromising pieces and pair them with augmented reality experiences that let you wear your story in both worlds.',
+            stats: [
+              { value: '50+', label: 'Products' },
+              { value: 'AR', label: 'Enabled' },
+              { value: '24/7', label: 'Digital Access' }
+            ]
+          },
+          features: {
+            label: 'The Experience',
+            headline: 'What makes us different',
+            items: [
+              { title: 'Bold Fashion', body: 'Uncompromising designs with brutalist aesthetics. Every piece is a statement that refuses to blend in.' },
+              { title: 'AR Experiences', body: 'Scan your garments to unlock augmented reality layers. Your clothes become a portal to digital content.' },
+              { title: 'Digital Identity', body: 'Own your digital presence. Each product comes with verifiable digital identity that bridges physical and virtual.' }
+            ]
+          },
+          testimonials: [
+            { quote: 'More than expected - crazy soft, flexible, and best fitted.', author: 'Casual Way' },
+            { quote: 'Best fitted white denim shirt, more than expected crazy soft.', author: 'Uptop' },
+            { quote: 'Absolutely love the brutalist aesthetic. Unique and bold.', author: 'Denim Craze' }
+          ],
+          newsletter: { headline: 'Stay in the *loop*' }
         };
 
         function slideCardHtml(idx, s) {
@@ -555,9 +658,92 @@
           slidesEl.innerHTML = '';
           if (!home.slides.length) {
             slidesEl.innerHTML = '<div class="text-muted">No slides yet. Click Add Slide.</div>';
-            return;
+          } else {
+            slidesEl.innerHTML = home.slides.map((s, i) => slideCardHtml(i, s)).join('');
           }
-          slidesEl.innerHTML = home.slides.map((s, i) => slideCardHtml(i, s)).join('');
+
+          // Who We Are
+          const wwa = home.whoWeAre || {};
+          const whoLabelEl = document.getElementById('homeWhoLabel');
+          const whoHeadEl = document.getElementById('homeWhoHeadline');
+          const whoBodyEl = document.getElementById('homeWhoBody');
+          if (whoLabelEl) whoLabelEl.value = wwa.label || '';
+          if (whoHeadEl) whoHeadEl.value = wwa.headline || '';
+          if (whoBodyEl) whoBodyEl.value = wwa.body || '';
+          const statsEl = document.getElementById('homeWhoStats');
+          if (statsEl) {
+            const stats = Array.isArray(wwa.stats) ? wwa.stats : [];
+            statsEl.innerHTML = stats.map((st, i) => `
+              <div class="row g-2 align-items-center" data-stat-index="${i}">
+                <div class="col-3"><input class="form-control form-control-sm" type="text" data-stat-field="value" value="${escapeHtml(st.value || '')}" placeholder="50+" /></div>
+                <div class="col-5"><input class="form-control form-control-sm" type="text" data-stat-field="label" value="${escapeHtml(st.label || '')}" placeholder="Products" /></div>
+                <div class="col-4 d-flex gap-1">
+                  ${i > 0 ? '' : ''}<button class="btn btn-sm btn-outline-danger" type="button" data-stat-action="remove">Remove</button>
+                </div>
+              </div>`).join('') + (stats.length < 4 ? `<button id="homeAddStatBtn" class="btn btn-sm btn-outline-secondary text-uppercase mt-1" type="button">+ Add Stat</button>` : '');
+          }
+
+          // Features
+          const feat = home.features || {};
+          const flabelEl = document.getElementById('homeFeaturesLabel');
+          const fheadEl = document.getElementById('homeFeaturesHeadline');
+          if (flabelEl) flabelEl.value = feat.label || '';
+          if (fheadEl) fheadEl.value = feat.headline || '';
+          const featCards = document.getElementById('homeFeatureCards');
+          if (featCards) {
+            const items = Array.isArray(feat.items) ? feat.items : [];
+            featCards.innerHTML = items.slice(0, 3).map((item, i) => `
+              <div class="col-12 col-lg-4" data-feature-index="${i}">
+                <div class="card">
+                  <div class="card-body">
+                    <div class="text-uppercase mb-2" style="font-size:12px;opacity:.6">Feature ${i + 1}</div>
+                    <div class="mb-2">
+                      <label class="form-label text-uppercase">Title</label>
+                      <input class="form-control" type="text" data-feat-field="title" value="${escapeHtml(item.title || '')}" />
+                    </div>
+                    <div>
+                      <label class="form-label text-uppercase">Body</label>
+                      <textarea class="form-control" rows="3" data-feat-field="body">${escapeHtml(item.body || '')}</textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>`).join('');
+          }
+
+          // Testimonials
+          const testEl = document.getElementById('homeTestimonials');
+          if (testEl) {
+            const tItems = Array.isArray(home.testimonials) ? home.testimonials : [];
+            testEl.innerHTML = tItems.length ? tItems.map((t, i) => `
+              <div class="card" data-testimonial-index="${i}">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="text-uppercase" style="font-size:12px;opacity:.6">Testimonial ${i + 1}</div>
+                    <button class="btn btn-sm btn-outline-danger" type="button" data-test-action="remove">Remove</button>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label text-uppercase">Quote</label>
+                    <textarea class="form-control" rows="2" data-test-field="quote">${escapeHtml(t.quote || '')}</textarea>
+                  </div>
+                  <div>
+                    <label class="form-label text-uppercase">Author</label>
+                    <input class="form-control" type="text" data-test-field="author" value="${escapeHtml(t.author || '')}" />
+                  </div>
+                </div>
+              </div>`).join('') : '<div class="text-muted">No testimonials yet. Click Add.</div>';
+          }
+
+          // Newsletter
+          const nlEl = document.getElementById('homeNewsletterHeadline');
+          if (nlEl) nlEl.value = (home.newsletter && home.newsletter.headline) || '';
+
+          // Wire add-stat button (rendered inline)
+          const addStatBtn = document.getElementById('homeAddStatBtn');
+          if (addStatBtn) addStatBtn.addEventListener('click', () => {
+            if (!home.whoWeAre) home.whoWeAre = {};
+            if (!Array.isArray(home.whoWeAre.stats)) home.whoWeAre.stats = [];
+            if (home.whoWeAre.stats.length < 4) { home.whoWeAre.stats.push({ value: '', label: '' }); renderHomeEditor(); }
+          });
         }
 
         function readHomeFromEditor() {
@@ -580,6 +766,53 @@
             nextSlides.push(slide);
           }
           home.slides = nextSlides;
+
+          // Who We Are
+          if (!home.whoWeAre) home.whoWeAre = {};
+          const whoLabelEl = document.getElementById('homeWhoLabel');
+          const whoHeadEl = document.getElementById('homeWhoHeadline');
+          const whoBodyEl = document.getElementById('homeWhoBody');
+          if (whoLabelEl) home.whoWeAre.label = whoLabelEl.value.trim();
+          if (whoHeadEl) home.whoWeAre.headline = whoHeadEl.value.trim();
+          if (whoBodyEl) home.whoWeAre.body = whoBodyEl.value.trim();
+          const statsEl = document.getElementById('homeWhoStats');
+          if (statsEl) {
+            const statRows = Array.from(statsEl.querySelectorAll('[data-stat-index]'));
+            home.whoWeAre.stats = statRows.map(row => ({
+              value: (row.querySelector('[data-stat-field="value"]')?.value || '').trim(),
+              label: (row.querySelector('[data-stat-field="label"]')?.value || '').trim()
+            }));
+          }
+
+          // Features
+          if (!home.features) home.features = {};
+          const flabelEl = document.getElementById('homeFeaturesLabel');
+          const fheadEl = document.getElementById('homeFeaturesHeadline');
+          if (flabelEl) home.features.label = flabelEl.value.trim();
+          if (fheadEl) home.features.headline = fheadEl.value.trim();
+          const featCards = document.getElementById('homeFeatureCards');
+          if (featCards) {
+            const featDivs = Array.from(featCards.querySelectorAll('[data-feature-index]'));
+            home.features.items = featDivs.map(div => ({
+              title: (div.querySelector('[data-feat-field="title"]')?.value || '').trim(),
+              body: (div.querySelector('[data-feat-field="body"]')?.value || '').trim()
+            }));
+          }
+
+          // Testimonials
+          const testEl = document.getElementById('homeTestimonials');
+          if (testEl) {
+            const testDivs = Array.from(testEl.querySelectorAll('[data-testimonial-index]'));
+            home.testimonials = testDivs.map(div => ({
+              quote: (div.querySelector('[data-test-field="quote"]')?.value || '').trim(),
+              author: (div.querySelector('[data-test-field="author"]')?.value || '').trim()
+            }));
+          }
+
+          // Newsletter
+          const nlEl = document.getElementById('homeNewsletterHeadline');
+          if (!home.newsletter) home.newsletter = {};
+          if (nlEl) home.newsletter.headline = nlEl.value.trim();
         }
 
         async function loadHomepage() {
@@ -588,6 +821,10 @@
           const content = res && res.content ? res.content : null;
           home.billboard = (content && content.billboard) ? content.billboard : { title: '', description: '' };
           home.slides = Array.isArray(content && content.slides) ? content.slides : [];
+          home.whoWeAre = (content && content.whoWeAre) ? content.whoWeAre : home.whoWeAre;
+          home.features = (content && content.features) ? content.features : home.features;
+          home.testimonials = Array.isArray(content && content.testimonials) ? content.testimonials : home.testimonials;
+          home.newsletter = (content && content.newsletter) ? content.newsletter : home.newsletter;
           renderHomeEditor();
           showStatus('Homepage loaded.', 'success');
         }
@@ -601,6 +838,12 @@
 
         document.getElementById('homeAddSlideBtn')?.addEventListener('click', () => {
           home.slides.push({ image: '', title: '', text: '', href: 'index.html', linkLabel: 'Discover Now' });
+          renderHomeEditor();
+        });
+
+        document.getElementById('homeAddTestimonialBtn')?.addEventListener('click', () => {
+          if (!Array.isArray(home.testimonials)) home.testimonials = [];
+          home.testimonials.push({ quote: '', author: '' });
           renderHomeEditor();
         });
 
@@ -621,8 +864,38 @@
           }
         });
 
-        // Load once on entry
-        try { await loadHomepage(); } catch (e) { showStatus('Homepage failed to load: ' + (e.message || e), 'error'); }
+        document.getElementById('homeWhoStats')?.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('button[data-stat-action="remove"]');
+          if (!btn) return;
+          const row = btn.closest('[data-stat-index]');
+          if (!row) return;
+          const idx = parseInt(row.getAttribute('data-stat-index'), 10);
+          if (Number.isFinite(idx) && Array.isArray(home.whoWeAre && home.whoWeAre.stats)) {
+            home.whoWeAre.stats.splice(idx, 1);
+            renderHomeEditor();
+          }
+        });
+
+        document.getElementById('homeTestimonials')?.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('button[data-test-action="remove"]');
+          if (!btn) return;
+          const card = btn.closest('[data-testimonial-index]');
+          if (!card) return;
+          const idx = parseInt(card.getAttribute('data-testimonial-index'), 10);
+          if (Number.isFinite(idx) && Array.isArray(home.testimonials)) {
+            home.testimonials.splice(idx, 1);
+            renderHomeEditor();
+          }
+        });
+
+        // Wire tab click to load homepage data on first visit
+        let homepageLoaded = false;
+        document.getElementById('tab-homepage')?.addEventListener('shown.bs.tab', async () => {
+          if (!homepageLoaded) {
+            homepageLoaded = true;
+            try { await loadHomepage(); } catch (e) { showStatus('Homepage failed to load: ' + (e.message || e), 'error'); }
+          }
+        });
       }
     })();
   </script>

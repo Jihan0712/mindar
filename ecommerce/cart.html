@@ -1,89 +1,99 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+  <title>Cart — INRL</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cart | MindAR Store</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="style.css">
-
-  <!-- Worker Auth Client (shared session + role) -->
-  <script src="/assets/js/auth-worker.js?v=20260206"></script>
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg bg-light text-uppercase fs-6 p-3 border-bottom align-items-center">
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
+    <symbol id="search" viewBox="0 0 24 24"><path fill="currentColor" d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z"/></symbol>
+  </defs></svg>
+
+  <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
+
+  <div class="search-popup">
+    <div class="search-popup-container">
+      <form role="search" method="get" class="search-popup-form">
+        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" name="s">
+        <button type="submit" class="search-submit border-0 position-absolute bg-transparent" style="top:15px;right:15px"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></button>
+      </form>
+    </div>
+  </div>
+
+  <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo" style="height:36px"></a>
-      <div class="ms-auto">
-        <a href="shop.html" class="text-uppercase mx-3">Shop</a>
-        <a href="cart.html" class="text-uppercase mx-3">Cart (<span class="js-cart-count">0</span>)</a>
-        <a href="checkout.html" class="text-uppercase mx-3">Checkout</a>
-        <a href="profile.html" class="text-uppercase mx-3">Profile</a>
-        <a id="navDashboard" href="dashboard.html" class="text-uppercase mx-3" style="display:none">Dashboard</a>
-        <a id="navLogin" href="/login.html" class="text-uppercase mx-3">Login</a>
-        <a id="navLogout" href="#" class="text-uppercase mx-3" style="display:none">Logout</a>
+      <a class="navbar-brand" href="index.html" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;letter-spacing:-0.04em;line-height:1">[inrl]</a>
+      <div class="d-flex align-items-center gap-3 order-lg-last">
+        <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Cart (<span class="js-cart-count">0</span>)</a>
+        <a href="#search" class="search-button text-white"><svg width="22" height="22" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></a>
+      </div>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"><span class="navbar-toggler-icon"></span></button>
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar">
+        <div class="offcanvas-header"><h5 class="offcanvas-title">Menu</h5><button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+        <div class="offcanvas-body">
+          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
+            <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+            <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
+          </ul>
+        </div>
       </div>
     </div>
   </nav>
 
-  <main class="container py-5" style="max-width: 960px">
-    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
-      <div>
-        <h1 class="text-uppercase mb-1">Cart</h1>
-        <div class="text-muted" style="font-size: 14px">Items in cart: <span id="cart-count">0</span></div>
+  <section class="py-5" style="margin-top:76px">
+    <div class="container">
+      <h1 class="text-uppercase mb-2">Your Cart <span class="badge bg-primary" id="cart-count">0</span></h1>
+      <div id="cart-list" class="mb-4"></div>
+      <div class="d-flex justify-content-between align-items-center p-3 mb-4" style="border:3px solid #1C1C1C;background:#FEFD00;box-shadow:4px 4px 0 #1C1C1C">
+        <strong class="text-uppercase">Total</strong>
+        <strong class="fs-4" id="cart-total">$0.00</strong>
       </div>
-      <div class="d-flex gap-2">
-        <a class="btn btn-outline-dark text-uppercase" href="shop.html">Continue Shopping</a>
-        <a class="btn btn-dark text-uppercase" href="checkout.html">Checkout</a>
+      <div class="d-flex gap-3 flex-wrap">
+        <a href="checkout.html" class="btn btn-primary btn-lg text-uppercase">Proceed to Checkout</a>
+        <button id="clearCart" class="btn btn-outline-dark btn-lg text-uppercase">Clear Cart</button>
+        <a href="shop.html" class="btn btn-outline-dark btn-lg text-uppercase">Continue Shopping</a>
       </div>
     </div>
+  </section>
 
-    <ul id="cart-list" class="list-group mb-3"></ul>
-
-    <div class="d-flex justify-content-between align-items-center mt-3">
-      <strong>Total</strong>
-      <strong id="cart-total">$0.00</strong>
+  <footer id="footer">
+    <div class="container">
+      <div class="row py-5">
+        <div class="col-md-3 col-sm-6 mb-4">
+          <div style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;display:inline-block;letter-spacing:-0.04em;margin-bottom:16px">[inrl]</div>
+          <p>Next-gen digital identity and fashion.</p>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Quick Links</h5><ul class="list-unstyled"><li class="mb-2"><a href="index.html">Home</a></li><li class="mb-2"><a href="shop.html">Shop</a></li><li class="mb-2"><a href="about.html">About</a></li><li class="mb-2"><a href="contact.html">Contact</a></li></ul></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Help & Info</h5><ul class="list-unstyled"><li class="mb-2"><a href="order-tracking.html">Track Order</a></li><li class="mb-2"><a href="faqs.html">FAQs</a></li><li class="mb-2"><a href="contact.html">Contact Us</a></li></ul></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Contact</h5><p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p></div>
+      </div>
+      <div class="border-top py-3"><p class="text-center mb-0" style="font-size:12px;opacity:.35">&copy; 2026 INRL. All rights reserved.</p></div>
     </div>
+  </footer>
 
-    <div class="d-flex justify-content-end mt-3">
-      <button id="clearCart" class="btn btn-link text-danger text-uppercase">Clear cart</button>
-    </div>
-  </main>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="js/jquery.min.js"></script>
+  <script src="js/plugins.js"></script>
+  <script src="js/SmoothScroll.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+  <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
   <script>
-    (function(){
-      // Auth-aware nav
-      (async function(){
-        const loginEl = document.getElementById('navLogin');
-        const logoutEl = document.getElementById('navLogout');
-        try {
-          const me = await auth.me();
-          const user = me && me.email ? me : null;
-          const dashEl = document.getElementById('navDashboard');
-          const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
-          if (loginEl) loginEl.style.display = user ? 'none' : '';
-          if (logoutEl) logoutEl.style.display = user ? '' : 'none';
-          if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
-          if (logoutEl) logoutEl.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await auth.logout();
-            location.reload();
-          });
-        } catch {}
-      })();
-
-      try { CartUI.render(); } catch {}
-
-      const clearBtn = document.getElementById('clearCart');
-      clearBtn?.addEventListener('click', (e) => {
-        e.preventDefault();
-        Cart.clear();
-        CartUI.render();
-      });
-    })();
+  (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');try{var me=await auth.me();var user=me&&me.email?me:null;if(loginEl)loginEl.style.display=user?'none':'';var canDash=user&&(user.role==='admin'||user.role==='brand');if(dashEl)dashEl.style.display=canDash?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){}})();
+  CartUI.render();
+  document.getElementById('clearCart').addEventListener('click',function(){Cart.clear();CartUI.render()});
   </script>
 </body>
 </html>

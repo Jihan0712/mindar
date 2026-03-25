@@ -1,1257 +1,328 @@
-
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <title>INRL view product</title>
+  <title>Product — INRL</title>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="format-detection" content="telephone=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="author" content="inrl">
-  <meta name="keywords" content="ecommerce,fashion,store">
-  <meta name="description" content="Bootstrap 5 Fashion Store HTML CSS Template">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
-    integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
   <link rel="stylesheet" type="text/css" href="style.css">
-
-  <!-- Worker Auth Client (shared session + role) -->
-  <script src="/assets/js/auth-worker.js?v=20260220"></script>
-
-  <style>
-    /* Center the large product image within the Swiper slide */
-    .product-large-slider .swiper-slide {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1.5rem;
-    }
-
-    .product-large-slider .image-zoom {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      cursor: zoom-in;
-    }
-
-    .product-large-slider img.img-fluid {
-      margin-left: auto;
-      margin-right: auto;
-      transition: transform 180ms ease;
-      transform-origin: center center;
-      will-change: transform;
-      max-width: 100%;
-      height: auto;
-    }
-
-    .product-large-slider .image-zoom:hover img.img-fluid {
-      transform: scale(1.2);
-    }
-
-    /* Add a little breathing room like the template preview */
-    @media (min-width: 992px) {
-      .product-large-slider .swiper-slide {
-        padding: 2rem;
-      }
-    }
-  </style>
-
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Marcellus&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
 </head>
-
-<body class="homepage">
-  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
-    <defs>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="instagram" viewBox="0 0 15 15">
-        <path fill="none" stroke="currentColor"
-          d="M11 3.5h1M4.5.5h6a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-6a4 4 0 0 1-4-4v-6a4 4 0 0 1 4-4Zm3 10a3 3 0 1 1 0-6a3 3 0 0 1 0 6Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="facebook" viewBox="0 0 15 15">
-        <path fill="none" stroke="currentColor"
-          d="M7.5 14.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Zm0 0v-8a2 2 0 0 1 2-2h.5m-5 4h5" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="twitter" viewBox="0 0 15 15">
-        <path fill="currentColor"
-          d="m14.478 1.5l.5-.033a.5.5 0 0 0-.871-.301l.371.334Zm-.498 2.959a.5.5 0 1 0-1 0h1Zm-6.49.082h-.5h.5Zm0 .959h.5h-.5Zm-6.99 7V12a.5.5 0 0 0-.278.916L.5 12.5Zm.998-11l.469-.175a.5.5 0 0 0-.916-.048l.447.223Zm3.994 9l.354.353a.5.5 0 0 0-.195-.827l-.159.474Zm7.224-8.027l-.37.336l.18.199l.265-.04l-.075-.495Zm1.264-.94c.051.778.003 1.25-.123 1.606c-.122.345-.336.629-.723 1l.692.722c.438-.42.776-.832.974-1.388c.193-.546.232-1.178.177-2.006l-.998.066Zm0 3.654V4.46h-1v.728h1Zm-6.99-.646V5.5h1v-.959h-1Zm0 .959V6h1v-.5h-1ZM10.525 1a3.539 3.539 0 0 0-3.537 3.541h1A2.539 2.539 0 0 1 10.526 2V1Zm2.454 4.187C12.98 9.503 9.487 13 5.18 13v1c4.86 0 8.8-3.946 8.8-8.813h-1ZM1.03 1.675C1.574 3.127 3.614 6 7.49 6V5C4.174 5 2.421 2.54 1.966 1.325l-.937.35Zm.021-.398C.004 3.373-.157 5.407.604 7.139c.759 1.727 2.392 3.055 4.73 3.835l.317-.948c-2.155-.72-3.518-1.892-4.132-3.29c-.612-1.393-.523-3.11.427-5.013l-.895-.446Zm4.087 8.87C4.536 10.75 2.726 12 .5 12v1c2.566 0 4.617-1.416 5.346-2.147l-.708-.706Zm7.949-8.009A3.445 3.445 0 0 0 10.526 1v1c.721 0 1.37.311 1.82.809l.74-.671Zm-.296.83a3.513 3.513 0 0 0 2.06-1.134l-.744-.668a2.514 2.514 0 0 1-1.466.813l.15.989ZM.222 12.916C1.863 14.01 3.583 14 5.18 14v-1c-1.63 0-3.048-.011-4.402-.916l-.556.832Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="pinterest" viewBox="0 0 15 15">
-        <path fill="none" stroke="currentColor"
-          d="m4.5 13.5l3-7m-3.236 3a2.989 2.989 0 0 1-.764-2V7A3.5 3.5 0 0 1 7 3.5h1A3.5 3.5 0 0 1 11.5 7v.5a3 3 0 0 1-3 3a2.081 2.081 0 0 1-1.974-1.423L6.5 9m1 5.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="youtube" viewBox="0 0 15 15">
-        <path fill="currentColor"
-          d="m1.61 12.738l-.104.489l.105-.489Zm11.78 0l.104.489l-.105-.489Zm0-10.476l.104-.489l-.105.489Zm-11.78 0l.106.489l-.105-.489ZM6.5 5.5l.277-.416A.5.5 0 0 0 6 5.5h.5Zm0 4H6a.5.5 0 0 0 .777.416L6.5 9.5Zm3-2l.277.416a.5.5 0 0 0 0-.832L9.5 7.5ZM0 3.636v7.728h1V3.636H0Zm15 7.728V3.636h-1v7.728h1ZM1.506 13.227c3.951.847 8.037.847 11.988 0l-.21-.978a27.605 27.605 0 0 1-11.568 0l-.21.978ZM13.494 1.773a28.606 28.606 0 0 0-11.988 0l.21.978a27.607 27.607 0 0 1 11.568 0l.21-.978ZM15 3.636c0-.898-.628-1.675-1.506-1.863l-.21.978c.418.09.716.458.716.885h1Zm-1 7.728a.905.905 0 0 1-.716.885l.21.978A1.905 1.905 0 0 0 15 11.364h-1Zm-14 0c0 .898.628 1.675 1.506 1.863l.21-.978A.905.905 0 0 1 1 11.364H0Zm1-7.728c0-.427.298-.796.716-.885l-.21-.978A1.905 1.905 0 0 0 0 3.636h1ZM6 5.5v4h1v-4H6Zm.777 4.416l3-2l-.554-.832l-3 2l.554.832Zm3-2.832l-3-2l-.554.832l3 2l.554-.832Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="dribble" viewBox="0 0 15 15">
-        <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-          d="M4.839 1.024c3.346 4.041 5.096 7.922 5.704 12.782M.533 6.82c5.985-.138 9.402-1.083 11.97-4.216M2.7 12.594c3.221-4.902 7.171-5.65 11.755-4.293M14.5 7.5a7 7 0 1 0-14 0a7 7 0 0 0 14 0Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="calendar" viewBox="0 0 24 24">
-        <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-          <rect width="20" height="18" x="2" y="4" rx="4" />
-          <path d="M8 2v4m8-4v4M2 10h20" />
-        </g>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="shopping-bag" viewBox="0 0 24 24">
-        <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-          <path
-            d="M3.977 9.84A2 2 0 0 1 5.971 8h12.058a2 2 0 0 1 1.994 1.84l.803 10A2 2 0 0 1 18.833 22H5.167a2 2 0 0 1-1.993-2.16l.803-10Z" />
-          <path d="M16 11V6a4 4 0 0 0-4-4v0a4 4 0 0 0-4 4v5" />
-        </g>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="gift" viewBox="0 0 24 24">
-        <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-          <rect width="18" height="14" x="3" y="8" rx="2" />
-          <path d="M12 5a3 3 0 1 0-3 3m6 0a3 3 0 1 0-3-3m0 0v17m9-7H3" />
-        </g>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="arrow-cycle" viewBox="0 0 24 24">
-        <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-          <path
-            d="M22 12c0 6-4.39 10-9.806 10C7.792 22 4.24 19.665 3 16m-1-4C2 6 6.39 2 11.806 2C16.209 2 19.76 4.335 21 8" />
-          <path d="m7 17l-4-1l-1 4M17 7l4 1l1-4" />
-        </g>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="link" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M12 19a1 1 0 1 0-1-1a1 1 0 0 0 1 1Zm5 0a1 1 0 1 0-1-1a1 1 0 0 0 1 1Zm0-4a1 1 0 1 0-1-1a1 1 0 0 0 1 1Zm-5 0a1 1 0 1 0-1-1a1 1 0 0 0 1 1Zm7-12h-1V2a1 1 0 0 0-2 0v1H8V2a1 1 0 0 0-2 0v1H5a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3Zm1 17a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9h16Zm0-11H4V6a1 1 0 0 1 1-1h1v1a1 1 0 0 0 2 0V5h8v1a1 1 0 0 0 2 0V5h1a1 1 0 0 1 1 1ZM7 15a1 1 0 1 0-1-1a1 1 0 0 0 1 1Zm0 4a1 1 0 1 0-1-1a1 1 0 0 0 1 1Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="arrow-left" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M17 11H9.41l3.3-3.29a1 1 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33a1 1 0 0 0 0 .76a1 1 0 0 0 .21.33l5 5a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.42L9.41 13H17a1 1 0 0 0 0-2Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="arrow-right" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M17.92 11.62a1 1 0 0 0-.21-.33l-5-5a1 1 0 0 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1 1 0 0 0 0 1.42a1 1 0 0 0 1.42 0l5-5a1 1 0 0 0 .21-.33a1 1 0 0 0 0-.76Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="category" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M19 5.5h-6.28l-.32-1a3 3 0 0 0-2.84-2H5a3 3 0 0 0-3 3v13a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-10a3 3 0 0 0-3-3Zm1 13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1h4.56a1 1 0 0 1 .95.68l.54 1.64a1 1 0 0 0 .95.68h7a1 1 0 0 1 1 1Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="calendar" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M19 4h-2V3a1 1 0 0 0-2 0v1H9V3a1 1 0 0 0-2 0v1H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Zm1 15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7h16Zm0-9H4V7a1 1 0 0 1 1-1h2v1a1 1 0 0 0 2 0V6h6v1a1 1 0 0 0 2 0V6h2a1 1 0 0 1 1 1Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="heart" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M20.16 4.61A6.27 6.27 0 0 0 12 4a6.27 6.27 0 0 0-8.16 9.48l7.45 7.45a1 1 0 0 0 1.42 0l7.45-7.45a6.27 6.27 0 0 0 0-8.87Zm-1.41 7.46L12 18.81l-6.75-6.74a4.28 4.28 0 0 1 3-7.3a4.25 4.25 0 0 1 3 1.25a1 1 0 0 0 1.42 0a4.27 4.27 0 0 1 6 6.05Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="plus" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M19 11h-6V5a1 1 0 0 0-2 0v6H5a1 1 0 0 0 0 2h6v6a1 1 0 0 0 2 0v-6h6a1 1 0 0 0 0-2Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="minus" viewBox="0 0 24 24">
-        <path fill="currentColor" d="M19 11H5a1 1 0 0 0 0 2h14a1 1 0 0 0 0-2Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="cart" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M8.5 19a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 8.5 19ZM19 16H7a1 1 0 0 1 0-2h8.491a3.013 3.013 0 0 0 2.885-2.176l1.585-5.55A1 1 0 0 0 19 5H6.74a3.007 3.007 0 0 0-2.82-2H3a1 1 0 0 0 0 2h.921a1.005 1.005 0 0 1 .962.725l.155.545v.005l1.641 5.742A3 3 0 0 0 7 18h12a1 1 0 0 0 0-2Zm-1.326-9l-1.22 4.274a1.005 1.005 0 0 1-.963.726H8.754l-.255-.892L7.326 7ZM16.5 19a1.5 1.5 0 1 0 1.5 1.5a1.5 1.5 0 0 0-1.5-1.5Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="check" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M18.71 7.21a1 1 0 0 0-1.42 0l-7.45 7.46l-3.13-3.14A1 1 0 1 0 5.29 13l3.84 3.84a1 1 0 0 0 1.42 0l8.16-8.16a1 1 0 0 0 0-1.47Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="trash" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M10 18a1 1 0 0 0 1-1v-6a1 1 0 0 0-2 0v6a1 1 0 0 0 1 1ZM20 6h-4V5a3 3 0 0 0-3-3h-2a3 3 0 0 0-3 3v1H4a1 1 0 0 0 0 2h1v11a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8h1a1 1 0 0 0 0-2ZM10 5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1h-4Zm7 14a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8h10Zm-3-1a1 1 0 0 0 1-1v-6a1 1 0 0 0-2 0v6a1 1 0 0 0 1 1Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="star-outline" viewBox="0 0 15 15">
-        <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-          d="M7.5 9.804L5.337 11l.413-2.533L4 6.674l2.418-.37L7.5 4l1.082 2.304l2.418.37l-1.75 1.793L9.663 11L7.5 9.804Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="star-solid" viewBox="0 0 15 15">
-        <path fill="currentColor"
-          d="M7.953 3.788a.5.5 0 0 0-.906 0L6.08 5.85l-2.154.33a.5.5 0 0 0-.283.843l1.574 1.613l-.373 2.284a.5.5 0 0 0 .736.518l1.92-1.063l1.921 1.063a.5.5 0 0 0 .736-.519l-.373-2.283l1.574-1.613a.5.5 0 0 0-.283-.844L8.921 5.85l-.968-2.062Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="search" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="user" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="M15.71 12.71a6 6 0 1 0-7.42 0a10 10 0 0 0-6.22 8.18a1 1 0 0 0 2 .22a8 8 0 0 1 15.9 0a1 1 0 0 0 1 .89h.11a1 1 0 0 0 .88-1.1a10 10 0 0 0-6.25-8.19ZM12 12a4 4 0 1 1 4-4a4 4 0 0 1-4 4Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="close" viewBox="0 0 15 15">
-        <path fill="currentColor"
-          d="M7.953 3.788a.5.5 0 0 0-.906 0L6.08 5.85l-2.154.33a.5.5 0 0 0-.283.843l1.574 1.613l-.373 2.284a.5.5 0 0 0 .736.518l1.92-1.063l1.921 1.063a.5.5 0 0 0 .736-.519l-.373-2.283l1.574-1.613a.5.5 0 0 0-.283-.844L8.921 5.85l-.968-2.062Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="angle-right" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="m14.83 11.29l-4.24-4.24a1 1 0 0 0-1.42 0a1 1 0 0 0 0 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29l4.24-4.24a1 1 0 0 0 0-1.42Z" />
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="angle-left" viewBox="0 0 24 24">
-        <path fill="currentColor"
-          d="m11.29 12l3.54-3.54a1 1 0 0 0 0-1.41a1 1 0 0 0-1.42 0l-4.24 4.24a1 1 0 0 0 0 1.42L13.41 17a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29a1 1 0 0 0 0-1.41Z" />
-      </symbol>
-    </defs>
-  </svg>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
+    <symbol id="heart" viewBox="0 0 24 24"><path fill="currentColor" d="M20.16 4.61A6.27 6.27 0 0 0 12 4a6.27 6.27 0 0 0-8.16 9.48l7.45 7.45a1 1 0 0 0 1.42 0l7.45-7.45a6.27 6.27 0 0 0 0-8.87Zm-1.41 7.46L12 18.81l-6.75-6.74a4.28 4.28 0 0 1 3-7.3a4.25 4.25 0 0 1 3 1.25a1 1 0 0 0 1.42 0a4.27 4.27 0 0 1 6 6.05Z"/></symbol>
+    <symbol id="cart" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 19a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 8.5 19ZM19 16H7a1 1 0 0 1 0-2h8.491a3.013 3.013 0 0 0 2.885-2.176l1.585-5.55A1 1 0 0 0 19 5H6.74a3.007 3.007 0 0 0-2.82-2H3a1 1 0 0 0 0 2h.921a1.005 1.005 0 0 1 .962.725l.155.545v.005l1.641 5.742A3 3 0 0 0 7 18h12a1 1 0 0 0 0-2Zm-1.326-9l-1.22 4.274a1.005 1.005 0 0 1-.963.726H8.754l-.255-.892L7.326 7ZM16.5 19a1.5 1.5 0 1 0 1.5 1.5a1.5 1.5 0 0 0-1.5-1.5Z"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><path fill="currentColor" d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z"/></symbol>
+    <symbol id="star-outline" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.5 9.804L5.337 11l.413-2.533L4 6.674l2.418-.37L7.5 4l1.082 2.304l2.418.37l-1.75 1.793L9.663 11L7.5 9.804Z"/></symbol>
+    <symbol id="star-solid" viewBox="0 0 15 15"><path fill="currentColor" d="M7.953 3.788a.5.5 0 0 0-.906 0L6.08 5.85l-2.154.33a.5.5 0 0 0-.283.843l1.574 1.613l-.373 2.284a.5.5 0 0 0 .736.518l1.92-1.063l1.921 1.063a.5.5 0 0 0 .736-.519l-.373-2.283l1.574-1.613a.5.5 0 0 0-.283-.844L8.921 5.85l-.968-2.062Z"/></symbol>
+    <symbol id="angle-left" viewBox="0 0 24 24"><path fill="currentColor" d="m11.29 12l3.54-3.54a1 1 0 0 0 0-1.41a1 1 0 0 0-1.42 0l-4.24 4.24a1 1 0 0 0 0 1.42L13.41 17a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29a1 1 0 0 0 0-1.41Z"/></symbol>
+    <symbol id="angle-right" viewBox="0 0 24 24"><path fill="currentColor" d="m14.83 11.29l-4.24-4.24a1 1 0 0 0-1.42 0a1 1 0 0 0 0 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29l4.24-4.24a1 1 0 0 0 0-1.42Z"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11H13V5a1 1 0 0 0-2 0v6H5a1 1 0 0 0 0 2h6v6a1 1 0 0 0 2 0V13h6a1 1 0 0 0 0-2Z"/></symbol>
+    <symbol id="minus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11H5a1 1 0 0 0 0 2h14a1 1 0 0 0 0-2Z"/></symbol>
+    <symbol id="facebook" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M7.5 14.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Zm0 0v-8a2 2 0 0 1 2-2h.5m-5 4h5"/></symbol>
+    <symbol id="twitter" viewBox="0 0 15 15"><path fill="currentColor" d="m14.478 1.5l.5-.033a.5.5 0 0 0-.871-.301l.371.334Z"/></symbol>
+    <symbol id="instagram" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M11 3.5h1M4.5.5h6a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-6a4 4 0 0 1-4-4v-6a4 4 0 0 1 4-4Zm3 10a3 3 0 1 1 0-6a3 3 0 0 1 0 6Z"/></symbol>
+    <symbol id="youtube" viewBox="0 0 15 15"><path fill="currentColor" d="M6.5 5.5l.277-.416A.5.5 0 0 0 6 5.5h.5Zm0 4H6a.5.5 0 0 0 .777.416L6.5 9.5Zm3-2l.277.416a.5.5 0 0 0 0-.832L9.5 7.5Z"/></symbol>
+  </defs></svg>
 
   <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
 
   <div class="search-popup">
     <div class="search-popup-container">
-
-      <form role="search" method="get" class="form-group" action="index.html">
-        <input type="search" id="search-form" class="form-control border-0 border-bottom"
-          placeholder="Type and press enter" value="" name="s">
-        <button type="submit" class="search-submit border-0 position-absolute bg-white"
-          style="top: 15px;right: 15px;"><svg class="search" width="24" height="24">
-            <use xlink:href="#search"></use>
-          </svg></button>
+      <form role="search" method="get" class="search-popup-form">
+        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" name="s">
+        <button type="submit" class="search-submit border-0 position-absolute bg-transparent" style="top:15px;right:15px"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></button>
       </form>
-
       <h5 class="cat-list-title">Browse Categories</h5>
-
       <ul class="cat-list">
-        <li class="cat-list-item">
-          <a href="#" title="Jackets">Jackets</a>
-        </li>
-        <li class="cat-list-item">
-          <a href="#" title="T-shirts">T-shirts</a>
-        </li>
-        <li class="cat-list-item">
-          <a href="#" title="Handbags">Handbags</a>
-        </li>
-        <li class="cat-list-item">
-          <a href="#" title="Accessories">Accessories</a>
-        </li>
-        <li class="cat-list-item">
-          <a href="#" title="Cosmetics">Cosmetics</a>
-        </li>
-        <li class="cat-list-item">
-          <a href="#" title="Dresses">Dresses</a>
-        </li>
-        <li class="cat-list-item">
-          <a href="#" title="Jumpsuits">Jumpsuits</a>
-        </li>
+        <li class="cat-list-item"><a href="shop.html?category=Men">Men</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Women">Women</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Accessories">Accessories</a></li>
       </ul>
-
     </div>
   </div>
 
   <div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="offcanvasCart">
-    <div class="offcanvas-header justify-content-center">
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
+    <div class="offcanvas-header justify-content-center"><button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
     <div class="offcanvas-body">
-      <div class="order-md-last">
-        <h4 class="d-flex justify-content-between align-items-center mb-3">
-          <span class="text-primary">Your cart</span>
-          <span class="badge bg-primary rounded-pill" id="cart-count">0</span>
-        </h4>
-        <ul class="list-group mb-3" id="cart-list"></ul>
-
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <span>Total (USD)</span>
-          <strong id="cart-total">$0.00</strong>
-        </div>
-
-        <a class="w-100 btn btn-primary btn-lg" href="checkout.html">Continue to checkout</a>
-      </div>
+      <h4 class="d-flex justify-content-between align-items-center mb-3"><span>Your cart</span><span class="badge bg-primary rounded-pill" id="cart-count">0</span></h4>
+      <ul id="cart-list" class="list-group mb-3"></ul>
+      <div class="d-flex justify-content-between align-items-center mb-3"><strong>Total</strong><strong id="cart-total">$0.00</strong></div>
+      <a class="w-100 btn btn-primary btn-lg" href="checkout.html">Checkout</a>
     </div>
   </div>
 
-  <nav class="navbar navbar-expand-lg navbar-light text-uppercase fs-6 p-3 border-bottom align-items-center">
+  <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <div class="row justify-content-between align-items-center w-100">
-
-        <div class="col-auto">
-          <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo"></a>
-        </div>
-
-        <div class="col-auto">
-          <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"
-            aria-controls="offcanvasNavbar">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-
-          <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
-            <div class="offcanvas-header">
-              <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Menu</h5>
-              <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-            </div>
-
-            <div class="offcanvas-body">
-              <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-5 pe-3">
-                <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
-                <li class="nav-item dropdown">
-                  <a class="nav-link dropdown-toggle" href="#" id="dropdownPages" data-bs-toggle="dropdown" aria-haspopup="true"
-                    aria-expanded="false">Pages</a>
-                  <ul class="dropdown-menu list-unstyled" aria-labelledby="dropdownPages">
-                    <li><a href="about.html" class="dropdown-item item-anchor">About</a></li>
-                    <li><a href="cart.html" class="dropdown-item item-anchor">Cart</a></li>
-                    <li><a href="checkout.html" class="dropdown-item item-anchor">Checkout</a></li>
-                    <li><a href="coming-soon.html" class="dropdown-item item-anchor">Coming Soon</a></li>
-                    <li><a href="contact.html" class="dropdown-item item-anchor">Contact</a></li>
-                    <li><a href="error.html" class="dropdown-item item-anchor">Error Page</a></li>
-                    <li><a href="faqs.html" class="dropdown-item item-anchor">FAQs</a></li>
-                    <li><a href="account.html" class="dropdown-item item-anchor">My Account</a></li>
-                    <li><a href="order-tracking.html" class="dropdown-item item-anchor">Order Tracking</a></li>
-                    <li><a href="wishlist.html" class="dropdown-item item-anchor">Wishlist</a></li>
-                  </ul>
-                </li>
-                <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
-                <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-                <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
-                <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-auto">
-          <ul class="list-unstyled d-flex">
-            <li class="d-none d-lg-block">
-              <a href="profile.html" class="text-uppercase mx-3">Profile</a>
-            </li>
-            <li>
-              <a href="wishlist.html" class="text-uppercase mx-3">Wishlist <span class="wishlist-count">(0)</span>
-              </a>
-            </li>
-            <li>
-              <a href="cart.html" class="text-uppercase mx-3" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart"
-                aria-controls="offcanvasCart">Cart (<span class="js-cart-count">0</span>)
-              </a>
-            </li>
-            <li>
-              <a href="profile.html" class="mx-2">
-                <svg width="24" height="24" viewBox="0 0 24 24">
-                  <use xlink:href="#user"></use>
-                </svg>
-              </a>
-            </li>
-            <li class="search-box mx-2">
-              <a href="#search" class="search-button">
-                <svg width="24" height="24" viewBox="0 0 24 24">
-                  <use xlink:href="#search"></use>
-                </svg>
-              </a>
-            </li>
+      <a class="navbar-brand" href="index.html" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;letter-spacing:-0.04em;line-height:1">[inrl]</a>
+      <div class="d-flex align-items-center gap-3 order-lg-last">
+        <a href="wishlist.html" class="d-none d-lg-inline text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Wishlist</a>
+        <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
+        <a href="#search" class="search-button text-white"><svg width="22" height="22" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></a>
+      </div>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"><span class="navbar-toggler-icon"></span></button>
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar">
+        <div class="offcanvas-header"><h5 class="offcanvas-title">Menu</h5><button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+        <div class="offcanvas-body">
+          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
+            <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+            <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
           </ul>
         </div>
-
       </div>
-
     </div>
   </nav>
 
-  <main class="main-content mt-5">
+  <!-- Product Detail -->
+  <section id="product-detail" class="py-5" style="margin-top:76px">
     <div class="container">
-      <nav class="breadcrumb">
-        <a class="breadcrumb-item" href="index.html">Home</a>
-        <a class="breadcrumb-item" href="shop.html">Shop</a>
-        <span class="breadcrumb-item active" aria-current="page">Product</span>
-      </nav>
+      <div class="row g-5">
+        <!-- Gallery -->
+        <div class="col-lg-6">
+          <div class="product-large-slider swiper" style="border:3px solid #1C1C1C;box-shadow:6px 6px 0 #1C1C1C">
+            <div class="swiper-wrapper" id="gallery-main"></div>
+          </div>
+          <div class="product-thumbnail-slider swiper mt-3">
+            <div class="swiper-wrapper" id="gallery-thumbs"></div>
+          </div>
+        </div>
+        <!-- Info -->
+        <div class="col-lg-6">
+          <div class="product-info py-3">
+            <h2 class="product-title text-uppercase display-6">Loading…</h2>
+            <div class="d-flex align-items-center gap-3 mb-3" id="product-rating">
+              <div class="rating-stars"></div>
+              <span id="product-rating-count" class="text-muted" style="font-size:13px"></span>
+            </div>
+            <div class="product-price mb-3">
+              <span class="fs-2 fw-bold"></span>
+            </div>
+            <div class="color-toggle d-flex gap-2 mb-3">
+              <div class="item-title"><span style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6">Category: </span><span></span></div>
+            </div>
+            <div class="cate-tag d-flex gap-2 mb-3" style="flex-wrap:wrap"></div>
+            <div class="swatch option-1 d-flex gap-2 mb-3" style="flex-wrap:wrap"></div>
+            <div class="product-action d-flex align-items-center gap-3 mb-4">
+              <div class="item-title" style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6"><span style="opacity:.6">Quantity: </span></div>
+              <div class="input-group" style="width:140px;border:3px solid #1C1C1C">
+                <button class="btn border-0" type="button" id="qty-minus"><svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#minus"></use></svg></button>
+                <input type="number" class="form-control text-center border-0" id="quantity" value="1" min="1" max="99" style="max-width:50px">
+                <button class="btn border-0" type="button" id="qty-plus"><svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#plus"></use></svg></button>
+              </div>
+            </div>
+            <button type="button" id="add-to-cart" class="btn btn-primary btn-lg text-uppercase w-100 mb-3 product-cart-submit" disabled>Add to cart</button>
+            <div class="d-flex gap-3">
+              <a href="wishlist.html" class="btn btn-outline-dark text-uppercase flex-fill">Wishlist</a>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+  </section>
 
-    <section id="product-detail" class="single-product py-5 no-padding-top">
-      <div class="container">
-        <div class="row g-5">
-          <div class="col-md-7">
-            <div class="row flex-column-reverse flex-lg-row">
-              <div class="col-md-12 col-lg-3">
-                <div class="swiper product-thumbnail-slider">
-                  <div class="swiper-wrapper">
-                    <div class="swiper-slide"><img src="images/product-thumbnail-1.jpg" alt="" class="thumb-image img-fluid"></div>
-                    <div class="swiper-slide"><img src="images/product-thumbnail-2.jpg" alt="" class="thumb-image img-fluid"></div>
-                    <div class="swiper-slide"><img src="images/product-thumbnail-3.jpg" alt="" class="thumb-image img-fluid"></div>
-                    <div class="swiper-slide"><img src="images/product-thumbnail-4.jpg" alt="" class="thumb-image img-fluid"></div>
-                    <div class="swiper-slide"><img src="images/product-thumbnail-5.jpg" alt="" class="thumb-image img-fluid"></div>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-12 col-lg-9">
-                <div class="swiper product-large-slider">
-                  <div class="swiper-wrapper">
-                    <div class="swiper-slide"><div class="image-zoom" data-scale="2.5" data-image="images/product-large-1.jpg"><img
-                          src="images/product-large-1.jpg" alt="product-large" class="img-fluid"></div></div>
-                    <div class="swiper-slide"><div class="image-zoom" data-scale="2.5" data-image="images/product-large-2.jpg"><img
-                          src="images/product-large-2.jpg" alt="product-large" class="img-fluid"></div></div>
-                    <div class="swiper-slide"><div class="image-zoom" data-scale="2.5" data-image="images/product-large-3.jpg"><img
-                          src="images/product-large-3.jpg" alt="product-large" class="img-fluid"></div></div>
-                    <div class="swiper-slide"><div class="image-zoom" data-scale="2.5" data-image="images/product-large-4.jpg"><img
-                          src="images/product-large-4.jpg" alt="product-large" class="img-fluid"></div></div>
-                    <div class="swiper-slide"><div class="image-zoom" data-scale="2.5" data-image="images/product-large-5.jpg"><img
-                          src="images/product-large-5.jpg" alt="product-large" class="img-fluid"></div></div>
-                  </div>
-                  <div class="swiper-pagination"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-5">
-            <div class="product-info">
-              <div class="element-header">
-                <h2 itemprop="name" class="product-title text-uppercase">Handmade crop sweater</h2>
-                <div class="rating-container d-flex align-items-center" id="product-rating">
-                  <div class="rating" data-star="1"><svg width="32" height="32"><use xlink:href="#star-outline"></use></svg></div>
-                  <div class="rating" data-star="2"><svg width="32" height="32"><use xlink:href="#star-outline"></use></svg></div>
-                  <div class="rating" data-star="3"><svg width="32" height="32"><use xlink:href="#star-outline"></use></svg></div>
-                  <div class="rating" data-star="4"><svg width="32" height="32"><use xlink:href="#star-outline"></use></svg></div>
-                  <div class="rating" data-star="5"><svg width="32" height="32"><use xlink:href="#star-outline"></use></svg></div>
-                  <span class="rating-count" id="product-rating-count">(0.0)</span>
-                </div>
-              </div>
-              <div class="product-price">
-                <span class="fs-2">$54.00</span>
-                <del>$54.00</del>
-              </div>
-              <p>Tristique ullamcorper nunc egestas non. Justo, cum feugiat imperdiet nulla molestie ac vulputate scelerisque amet.</p>
-              <div class="color-product-options mt-4">
-                <div class="color-toggle" data-option-index="0">
-                  <div class="item-title">Color: <span>Green</span></div>
-                  <div class="color-item" data-val="YellowGreen" title="YellowGreen"><span class="color-inner" style="background-color: #A5BC73"></span></div>
-                  <div class="color-item" data-val="Beige" title="Beige"><span class="color-inner" style="background-color: #D4BB96"></span></div>
-                  <div class="color-item" data-val="Red" title="Red"><span class="color-inner" style="background-color: #CA7A7A"></span></div>
-                </div>
-              </div>
-              <div class="swatch d-flex flex-wrap option-1 mt-4" data-option-index="1">
-                <div class="item-title">Size:</div>
-                <div data-value="S" class="swatch-element"><input class="swatch-input hide" id="small-size" data-var="s" type="radio" name="option-1" value="S">
-                  <label class="swatch-label square-only" for="small-size">S</label></div>
-                <div data-value="M" class="swatch-element"><input class="swatch-input hide" id="medium-size" data-var="m" type="radio" name="option-1" value="M">
-                  <label class="swatch-label square-only" for="medium-size">M</label></div>
-                <div data-value="L" class="swatch-element"><input class="swatch-input hide" id="large-size" data-var="l" type="radio" name="option-1" value="L">
-                  <label class="swatch-label square-only" for="large-size">L</label></div>
-              </div>
-              <div class="product-action mt-4">
-                <div class="item-title">3 in stock</div>
-                <div class="product-quantity d-flex flex-wrap">
-                  <div class="input-group product-qty me-3" style="max-width: 150px;">
-                    <span class="input-group-btn">
-                      <button type="button" class="quantity-left-minus btn btn-light btn-number" data-type="minus" data-field="">
-                        <svg width="16" height="16"><use xlink:href="#minus"></use></svg>
-                      </button>
-                    </span>
-                    <input type="text" id="quantity" name="quantity" class="form-control input-number text-center" value="1" min="1" max="100">
-                    <span class="input-group-btn">
-                      <button type="button" class="quantity-right-plus btn btn-light btn-number" data-type="plus" data-field="">
-                        <svg width="16" height="16"><use xlink:href="#plus"></use></svg>
-                      </button>
-                    </span>
-                  </div>
-                  <button type="submit" name="add" id="add-to-cart" class="btn btn-dark product-cart-submit btn-lg text-uppercase me-3">
-                    <span id="add-to-cart">Add to cart</span>
-                  </button>
-                  <button href="#" class="btn btn-dark wish-list-button bg-dark">
-                    <svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg>
-                  </button>
-                  <div class="cate-links d-flex flex-column mt-4">
-                    <div class="cate-tag d-flex mb-3"><div>Category:</div><div class="tag-item d-flex"><a href="#"> Women</a>, <a href="#"> Dresses</a>, <a href="#"> Yellow</a></div></div>
-                    <div class="social-links d-flex align-items-center gap-2 mb-3">
-                      <div> Share:</div>
-                      <ul class="list-unstyled d-flex gap-2 m-0 lh-1">
-                        <li><a href="#" class="text-secondary p-0"><svg width="18" height="18"><use xlink:href="#facebook"></use></svg></a></li>
-                        <li><a href="#" class="text-secondary p-0"><svg width="18" height="18"><use xlink:href="#twitter"></use></svg></a></li>
-                        <li><a href="#" class="text-secondary p-0"><svg width="18" height="18"><use xlink:href="#youtube"></use></svg></a></li>
-                        <li><a href="#" class="text-secondary p-0"><svg width="18" height="18"><use xlink:href="#pinterest"></use></svg></a></li>
-                        <li><a href="#" class="text-secondary p-0"><svg width="18" height="18"><use xlink:href="#instagram"></use></svg></a></li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="product-tabs mt-5">
-      <div class="container">
-        <div class="row">
-          <div class="tabs-listing">
-            <nav>
-              <div class="nav nav-tabs d-flex justify-content-center" id="nav-tab" role="tablist">
-                <button class="nav-link active text-uppercase px-5 py-3" id="nav-home-tab" data-bs-toggle="tab" data-bs-target="#nav-home"
-                  type="button" role="tab" aria-controls="nav-home" aria-selected="true">Description</button>
-                <button class="nav-link text-uppercase px-5 py-3" id="nav-information-tab" data-bs-toggle="tab" data-bs-target="#nav-information"
-                  type="button" role="tab" aria-controls="nav-information" aria-selected="false">Additional information</button>
-                <button class="nav-link text-uppercase px-5 py-3" id="nav-shipping-tab" data-bs-toggle="tab" data-bs-target="#nav-shipping"
-                  type="button" role="tab" aria-controls="nav-shipping" aria-selected="false">Shipping & Return</button>
-                <button class="nav-link text-uppercase px-5 py-3" id="nav-review-tab" data-bs-toggle="tab" data-bs-target="#nav-review"
-                  type="button" role="tab" aria-controls="nav-review" aria-selected="false">Reviews</button>
-              </div>
-            </nav>
-            <div class="tab-content py-5" id="nav-tabContent">
-              <div class="tab-pane fade show active" id="nav-home" role="tabpanel" aria-labelledby="nav-home-tab">
-                <h5>Product Description</h5>
-                <p>—</p>
-              </div>
-              <div class="tab-pane fade" id="nav-information" role="tabpanel" aria-labelledby="nav-information-tab">
-                <h5>Additional Information</h5>
-                <p>—</p>
-              </div>
-              <div class="tab-pane fade" id="nav-shipping" role="tabpanel" aria-labelledby="nav-shipping-tab">
-                <h5>Returns Policy</h5>
-                <p>—</p>
-              </div>
-              <div class="tab-pane fade" id="nav-review" role="tabpanel" aria-labelledby="nav-review-tab">
-                <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
-                  <div class="rating-container d-flex align-items-center" id="reviews-summary-stars"></div>
-                  <div class="text-muted"><span id="reviews-summary-average">0.0</span> / 5 (<span id="reviews-summary-count">0</span> reviews)</div>
-                </div>
-
-                <form id="review-form" class="row g-3 mb-4">
-                  <div class="col-md-3">
-                    <label class="form-label" for="review-rating">Rating</label>
-                    <select id="review-rating" name="rating" class="form-select" required>
-                      <option value="" selected disabled>Select…</option>
-                      <option value="5">5 - Excellent</option>
-                      <option value="4">4 - Good</option>
-                      <option value="3">3 - OK</option>
-                      <option value="2">2 - Poor</option>
-                      <option value="1">1 - Bad</option>
-                    </select>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label" for="review-author">Name (optional)</label>
-                    <input id="review-author" name="author" class="form-control" maxlength="60" placeholder="Your name">
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label" for="review-comment">Comment (optional)</label>
-                    <textarea id="review-comment" name="comment" class="form-control" rows="4" maxlength="1000" placeholder="Write your review..."></textarea>
-                  </div>
-                  <div class="col-12 d-flex flex-wrap align-items-center gap-3">
-                    <button type="submit" class="btn btn-dark text-uppercase">Submit review</button>
-                    <div id="review-form-status" class="text-muted small"></div>
-                  </div>
-                </form>
-
-                <div id="reviews-empty" class="text-muted" style="display:none;">No reviews yet.</div>
-                <div id="reviews-list" class="review-box review-style1"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="related-products" class="related-products product-carousel py-5 position-relative open-up" data-aos="zoom-out">
-      <div class="container">
-        <div class="d-flex flex-wrap justify-content-between align-items-center mt-5 mb-3">
-          <h4 class="text-uppercase">You May Also Like</h4>
-          <a href="shop.html" class="btn-link">View All Products</a>
-        </div>
-        <div class="swiper product-swiper overflow-hidden">
-          <div class="swiper-wrapper d-flex">
-            <div class="swiper-slide">
-              <div class="product-item image-zoom-effect link-effect">
-                <div class="image-holder">
-                  <a href="product.html"><img src="images/product-thumb-18.jpg" alt="product" class="product-image img-fluid"></a>
-                  <a href="wishlist.html" class="btn-icon btn-wishlist"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg></a>
-                  <div class="product-content">
-                    <h5 class="text-uppercase fs-5 mt-3"><a href="product.html">Dark florish onepiece</a></h5>
-                    <a href="cart.html" class="text-decoration-none" data-after="Add to cart"><span>$95.00</span></a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="swiper-pagination"></div>
-        </div>
-        <div class="icon-arrow icon-arrow-left"><svg width="50" height="50" viewBox="0 0 24 24"><use xlink:href="#angle-left"></use></svg></div>
-        <div class="icon-arrow icon-arrow-right"><svg width="50" height="50" viewBox="0 0 24 24"><use xlink:href="#angle-right"></use></svg></div>
-      </div>
-    </section>
-
-  </main>
-
-  <footer id="footer" class="mt-5">
+  <!-- Product Tabs -->
+  <section class="py-5" style="border-top:3px solid #1C1C1C">
     <div class="container">
-      <div class="row d-flex flex-wrap justify-content-between py-5">
-        <div class="col-md-3 col-sm-6">
-          <div class="footer-menu footer-menu-001">
-            <div class="footer-intro mb-4">
-              <a href="index.html"><img src="images/main-logo.png" alt="logo"></a>
+      <nav>
+        <div class="nav nav-tabs" id="nav-tab" role="tablist" style="border-bottom:3px solid #1C1C1C">
+          <button class="nav-link active" id="nav-home-tab" data-bs-toggle="tab" data-bs-target="#nav-home" type="button" role="tab" aria-selected="true">Description</button>
+          <button class="nav-link" id="nav-information-tab" data-bs-toggle="tab" data-bs-target="#nav-information" type="button" role="tab">Information</button>
+          <button class="nav-link" id="nav-shipping-tab" data-bs-toggle="tab" data-bs-target="#nav-shipping" type="button" role="tab">Shipping</button>
+          <button class="nav-link" id="nav-review-tab" data-bs-toggle="tab" data-bs-target="#nav-review" type="button" role="tab">Reviews</button>
+        </div>
+      </nav>
+      <div class="tab-content py-4" id="nav-tabContent">
+        <div class="tab-pane fade show active" id="nav-home" role="tabpanel"><p id="desc-body" class="text-muted">No description available.</p></div>
+        <div class="tab-pane fade" id="nav-information" role="tabpanel"><p class="text-muted">No additional information available.</p></div>
+        <div class="tab-pane fade" id="nav-shipping" role="tabpanel"><p class="text-muted">Free shipping on orders over $100. Standard delivery 3-5 business days.</p></div>
+        <div class="tab-pane fade" id="nav-review" role="tabpanel">
+          <div class="row g-4">
+            <div class="col-md-4">
+              <div style="border:3px solid #1C1C1C;padding:24px;background:#FEFD00;box-shadow:4px 4px 0 #1C1C1C">
+                <div id="reviews-summary-stars" class="mb-2" style="font-size:24px;color:#1C1C1C"></div>
+                <p class="mb-0" style="font-size:14px"><span id="reviews-summary-average">0</span>/5 (<span id="reviews-summary-count">0</span> reviews)</p>
+              </div>
             </div>
-            <p>Gravida massa volutpat aenean odio. Amet, turpis erat nullam fringilla elementum diam in.</p>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-          <div class="footer-menu footer-menu-002">
-            <h5 class="widget-title text-uppercase mb-4">Quick Links</h5>
-            <ul class="menu-list list-unstyled text-uppercase border-animation-left fs-6">
-              <li class="menu-item"><a href="index.html" class="item-anchor">Home</a></li>
-              <li class="menu-item"><a href="about.html" class="item-anchor">About</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=services" class="item-anchor">Services</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=single-item" class="item-anchor">Single item</a></li>
-              <li class="menu-item"><a href="contact.html" class="item-anchor">Contact</a></li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-          <div class="footer-menu footer-menu-003">
-            <h5 class="widget-title text-uppercase mb-4">Help & Info</h5>
-            <ul class="menu-list list-unstyled text-uppercase border-animation-left fs-6">
-              <li class="menu-item"><a href="order-tracking.html" class="item-anchor">Track Your Order</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=returns" class="item-anchor">Returns + Exchanges</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=shipping" class="item-anchor">Shipping + Delivery</a></li>
-              <li class="menu-item"><a href="contact.html" class="item-anchor">Contact Us</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=find-us" class="item-anchor">Find us easy</a></li>
-              <li class="menu-item"><a href="faqs.html" class="item-anchor">Faqs</a></li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-          <div class="footer-menu footer-menu-004 border-animation-left">
-            <h5 class="widget-title text-uppercase mb-4">Contact Us</h5>
-            <p>Do you have any questions or suggestions? <a href="mailto:contact@yourcompany.com" class="item-anchor">contact@yourcompany.com</a></p>
+            <div class="col-md-8">
+              <div id="reviews-empty" class="text-muted mb-3">No reviews yet.</div>
+              <div id="reviews-list" class="mb-4"></div>
+              <form id="review-form" style="border:3px solid #1C1C1C;padding:24px;box-shadow:4px 4px 0 #1C1C1C">
+                <h5 class="text-uppercase mb-3">Write a Review</h5>
+                <div class="mb-3"><label class="form-label">Rating</label><select id="review-rating" class="form-select" required><option value="">Choose…</option><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select></div>
+                <div class="mb-3"><label class="form-label">Name</label><input type="text" id="review-author" class="form-control" required></div>
+                <div class="mb-3"><label class="form-label">Comment</label><textarea id="review-comment" class="form-control" rows="3" required></textarea></div>
+                <div id="review-form-status" class="text-muted mb-2" style="font-size:13px"></div>
+                <button type="submit" class="btn btn-primary text-uppercase">Submit Review</button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- Related Products -->
+  <section class="py-5" style="border-top:3px solid #1C1C1C">
+    <div class="container">
+      <h3 class="text-uppercase mb-4">Related Products</h3>
+      <div class="product-carousel swiper">
+        <div class="swiper-wrapper" id="related-products"></div>
+        <div class="icon-arrow icon-arrow-left"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#angle-left"></use></svg></div>
+        <div class="icon-arrow icon-arrow-right"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#angle-right"></use></svg></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer id="footer">
+    <div class="container">
+      <div class="row py-5">
+        <div class="col-md-3 col-sm-6 mb-4">
+          <div style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;display:inline-block;letter-spacing:-0.04em;margin-bottom:16px">[inrl]</div>
+          <p>Next-gen digital identity and fashion.</p>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Quick Links</h5><ul class="list-unstyled"><li class="mb-2"><a href="index.html">Home</a></li><li class="mb-2"><a href="shop.html">Shop</a></li><li class="mb-2"><a href="about.html">About</a></li><li class="mb-2"><a href="contact.html">Contact</a></li></ul></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Help & Info</h5><ul class="list-unstyled"><li class="mb-2"><a href="order-tracking.html">Track Order</a></li><li class="mb-2"><a href="faqs.html">FAQs</a></li><li class="mb-2"><a href="contact.html">Contact Us</a></li></ul></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Contact</h5><p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p></div>
+      </div>
+      <div class="border-top py-3"><p class="text-center mb-0" style="font-size:12px;opacity:.35">&copy; 2026 INRL. All rights reserved.</p></div>
     </div>
   </footer>
 
   <script src="js/jquery.min.js"></script>
   <script src="js/plugins.js"></script>
   <script src="js/SmoothScroll.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
   <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
-
   <script>
-    (function () {
-      let currentProduct = null;
+  (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');try{var me=await auth.me();var user=me&&me.email?me:null;if(loginEl)loginEl.style.display=user?'none':'';var canDash=user&&(user.role==='admin'||user.role==='brand');if(dashEl)dashEl.style.display=canDash?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){}})();
 
-      function getParam(name) {
-        try {
-          return new URLSearchParams(window.location.search).get(name) || '';
-        } catch {
-          return '';
-        }
+  function moneyFromCents(c,cur){var a=Number(c||0)/100;var s=(cur||'USD')==='USD'?'$':'';return s+a.toFixed(2)}
+  function normImg(u){var s=String(u||'');if(!s)return s;if(s.startsWith('data:')||s.startsWith('http')||s.startsWith('/api/')||s.startsWith('/ecommerce/'))return s;if(s.startsWith('/images/'))return s.replace(/^\/images\//,'images/');return s}
+  function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+
+  function renderStars(rating,max){max=max||5;var html='';for(var i=1;i<=max;i++){html+='<svg width="15" height="15" viewBox="0 0 15 15"><use xlink:href="'+(i<=Math.round(rating)?'#star-solid':'#star-outline')+'"></use></svg>'}return html}
+
+  (async function loadProduct(){
+    var slug=(new URLSearchParams(location.search)).get('slug');if(!slug)slug=(new URLSearchParams(location.search)).get('id');
+    if(!slug){document.querySelector('.product-title').textContent='Product not found';return}
+    try{
+      var res=await fetch('/api/products/'+encodeURIComponent(slug),{credentials:'include'});
+      if(!res.ok)throw new Error('API '+res.status);var data=await res.json();var p=data.product||data;
+
+      document.title=(p.title||'Product')+' — INRL';
+      document.querySelector('.product-title').textContent=p.title||'Product';
+      document.querySelector('.product-price .fs-2').textContent=moneyFromCents(p.price_cents,p.currency);
+      var catSpan=document.querySelector('.color-toggle .item-title span:last-child');if(catSpan)catSpan.textContent=p.category||'';
+
+      // Gallery
+      var images=[];
+      if(p.image_urls&&p.image_urls.length){images=p.image_urls.map(function(u){return normImg(u)})}
+      else if(p.image_url){images=[normImg(p.image_url)]}
+      else{images=['images/product-thumb-1.jpg']}
+      var mainWrap=document.getElementById('gallery-main');var thumbWrap=document.getElementById('gallery-thumbs');
+      if(mainWrap)mainWrap.innerHTML=images.map(function(u){return '<div class="swiper-slide"><img src="'+u+'" class="img-fluid"></div>'}).join('');
+      if(thumbWrap)thumbWrap.innerHTML=images.map(function(u){return '<div class="swiper-slide"><img src="'+u+'" class="img-fluid" style="border:2px solid #1C1C1C;cursor:pointer"></div>'}).join('');
+
+      // Reinit swipers
+      if(typeof Swiper!=='undefined'){
+        new Swiper('.product-large-slider',{spaceBetween:0,slidesPerView:1,loop:images.length>1});
+        new Swiper('.product-thumbnail-slider',{spaceBetween:8,slidesPerView:4,freeMode:true,watchSlidesProgress:true});
       }
 
-      function moneyFromCents(cents, currency) {
-        const amt = (Number(cents || 0) / 100);
-        const sym = (currency || 'USD') === 'USD' ? '$' : '';
-        return `${sym}${amt.toFixed(2)}`;
-      }
-
-      function normalizeAssetUrl(url) {
-        const u = (url || '').toString().trim();
-        if (!u) return '';
-        if (/^https?:\/\//i.test(u)) return u;
-
-        if (u.startsWith('/ecommerce/')) return u;
-        if (u.startsWith('/')) return u.replace(/^\/+/, '');
-        return u;
-      }
-
-      function parseImageUrlsField(v) {
-        if (!v) return [];
-        if (Array.isArray(v)) return v.map(x => String(x || '').trim()).filter(Boolean);
-        const s = String(v || '').trim();
-        if (!s) return [];
-        try {
-          const j = JSON.parse(s);
-          if (Array.isArray(j)) return j.map(x => String(x || '').trim()).filter(Boolean);
-        } catch { }
-        return [s];
-      }
-
-      function parseSizesString(value) {
-        const raw = String(value || '').trim();
-        if (!raw) return [];
-        const parts = raw
-          .split(/[,|\n\t\r ]+/g)
-          .map(s => s.trim())
-          .filter(Boolean);
-        const uniq = [];
-        const seen = new Set();
-        for (const p of parts) {
-          const k = p.toUpperCase();
-          if (seen.has(k)) continue;
-          seen.add(k);
-          uniq.push(p);
-        }
-        return uniq;
-      }
-
-      function getProductImages(product) {
-        const fromList = parseImageUrlsField(product && product.image_urls).slice(0, 5).map(normalizeAssetUrl).filter(Boolean);
-        if (fromList.length) return fromList;
-        const single = normalizeAssetUrl(product && product.image_url);
-        return single ? [single] : [];
-      }
-
-      function ensureHeading(pane, defaultTitle) {
-        if (!pane) return null;
-        let h = pane.querySelector('h5');
-        if (!h) {
-          h = document.createElement('h5');
-          h.textContent = defaultTitle;
-          pane.prepend(h);
-        }
-        return h;
-      }
-
-      function clearPaneKeepHeading(pane, headingText) {
-        if (!pane) return null;
-        const existing = ensureHeading(pane, headingText);
-        const h = existing ? existing.cloneNode(true) : null;
-        pane.innerHTML = '';
-        if (h) pane.appendChild(h);
-        return h;
-      }
-
-      function renderDescriptionPane(description) {
-        const pane = document.getElementById('nav-home');
-        if (!pane) return;
-        clearPaneKeepHeading(pane, 'Product Description');
-
-        const text = String(description || '').trim();
-        if (!text) {
-          const p = document.createElement('p');
-          p.textContent = '—';
-          pane.appendChild(p);
-          return;
-        }
-
-        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        const bullets = [];
-        const para = [];
-        for (const line of lines) {
-          const m = line.match(/^((?:-|\*|•)|(?:\d+\.))\s+(.*)$/);
-          if (m) bullets.push(m[2].trim());
-          else para.push(line);
-        }
-
-        if (para.length) {
-          const p = document.createElement('p');
-          p.textContent = para.join(' ');
-          pane.appendChild(p);
-        }
-        if (bullets.length) {
-          const ul = document.createElement('ul');
-          bullets.forEach(b => {
-            const li = document.createElement('li');
-            li.textContent = b;
-            ul.appendChild(li);
-          });
-          pane.appendChild(ul);
-        }
-      }
-
-      function renderAdditionalInfoPane(product, sizesArr) {
-        const pane = document.getElementById('nav-information');
-        if (!pane) return;
-        clearPaneKeepHeading(pane, 'Additional Information');
-
-        const rows = [
-          { label: 'Brand', value: product && product.brand },
-          { label: 'Category', value: product && product.category },
-          { label: 'Color', value: product && product.color },
-          { label: 'Sizes', value: Array.isArray(sizesArr) && sizesArr.length ? sizesArr.join(', ') : (product && product.sizes) },
-          { label: 'SKU', value: (product && (product.slug || product.id)) ? String(product.slug || product.id) : '' },
-        ].filter(r => String(r.value || '').trim());
-
-        if (!rows.length) {
-          const p = document.createElement('p');
-          p.textContent = '—';
-          pane.appendChild(p);
-          return;
-        }
-
-        const ul = document.createElement('ul');
-        ul.className = 'list-unstyled';
-        rows.forEach(r => {
-          const li = document.createElement('li');
-          const strong = document.createElement('strong');
-          strong.textContent = `${r.label}: `;
-          li.appendChild(strong);
-          li.appendChild(document.createTextNode(String(r.value).trim()));
-          ul.appendChild(li);
-        });
-        pane.appendChild(ul);
-      }
-
-      function initOrUpdateGallerySwipers() {
-        const thumbsEl = document.querySelector('.product-thumbnail-slider');
-        const largeEl = document.querySelector('.product-large-slider');
-        if (!thumbsEl || !largeEl) return;
-        if (!window.Swiper) return;
-
-        try { thumbsEl.swiper && thumbsEl.swiper.destroy(true, true); } catch { }
-        try { largeEl.swiper && largeEl.swiper.destroy(true, true); } catch { }
-
-        const thumbs = new Swiper(thumbsEl, {
-          spaceBetween: 10,
-          slidesPerView: 5,
-          freeMode: true,
-          watchSlidesProgress: true,
-          grabCursor: true,
-          mousewheel: { forceToAxis: true, releaseOnEdges: true },
-          direction: 'vertical',
-          breakpoints: {
-            0: { direction: 'horizontal', slidesPerView: 4 },
-            992: { direction: 'vertical', slidesPerView: 5 },
-          },
-          observer: true,
-          observeParents: true,
-        });
-
-        const large = new Swiper(largeEl, {
-          spaceBetween: 10,
-          effect: 'fade',
-          grabCursor: true,
-          pagination: {
-            el: largeEl.querySelector('.swiper-pagination'),
-            clickable: true,
-          },
-          thumbs: { swiper: thumbs },
-          observer: true,
-          observeParents: true,
-        });
-
-        requestAnimationFrame(() => {
-          try { thumbs.update(); } catch { }
-          try { large.update(); } catch { }
-        });
-      }
-
-      function clamp(n, min, max) {
-        const x = Number(n);
-        if (!Number.isFinite(x)) return min;
-        return Math.min(max, Math.max(min, x));
-      }
-
-      function ensureStars(container, sizePx) {
-        if (!container) return;
-        const existing = container.querySelectorAll('[data-star]');
-        if (existing && existing.length >= 5) return;
-
-        container.innerHTML = '';
-        for (let i = 1; i <= 5; i++) {
-          const wrap = document.createElement('div');
-          wrap.className = 'rating';
-          wrap.setAttribute('data-star', String(i));
-
-          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-          svg.setAttribute('width', String(sizePx || 24));
-          svg.setAttribute('height', String(sizePx || 24));
-
-          const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-          use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '#star-outline');
-
-          svg.appendChild(use);
-          wrap.appendChild(svg);
-          container.appendChild(wrap);
-        }
-      }
-
-      function setStarsFromAverage(container, average) {
-        if (!container) return;
-        const avg = clamp(average, 0, 5);
-        const filled = Math.floor(avg + 1e-9);
-        const stars = Array.from(container.querySelectorAll('[data-star]'));
-        stars.forEach((node, idx) => {
-          const i = idx + 1;
-          const use = node.querySelector('use');
-          if (!use) return;
-          use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', i <= filled ? '#star-solid' : '#star-outline');
-        });
-      }
-
-      function updateRatingUI(stats) {
-        const avg = stats && stats.average != null ? Number(stats.average) : 0;
-        const count = stats && stats.count != null ? Number(stats.count) : 0;
-
-        const headerStars = document.getElementById('product-rating');
-        if (headerStars) setStarsFromAverage(headerStars, avg);
-        const headerCount = document.getElementById('product-rating-count');
-        if (headerCount) headerCount.textContent = `(${(Number.isFinite(avg) ? avg : 0).toFixed(1)})`;
-
-        const sumStars = document.getElementById('reviews-summary-stars');
-        if (sumStars) {
-          ensureStars(sumStars, 24);
-          setStarsFromAverage(sumStars, avg);
-        }
-        const avgEl = document.getElementById('reviews-summary-average');
-        if (avgEl) avgEl.textContent = (Number.isFinite(avg) ? avg : 0).toFixed(1);
-        const countEl = document.getElementById('reviews-summary-count');
-        if (countEl) countEl.textContent = String(Number.isFinite(count) ? count : 0);
-      }
-
-      function formatReviewDate(iso) {
-        const s = String(iso || '').trim();
-        if (!s) return '';
-        const d = new Date(s);
-        if (Number.isNaN(d.getTime())) return s;
-        return d.toLocaleDateString();
-      }
-
-      function renderReviews(items) {
-        const list = document.getElementById('reviews-list');
-        const empty = document.getElementById('reviews-empty');
-        if (!list || !empty) return;
-
-        list.innerHTML = '';
-        const arr = Array.isArray(items) ? items : [];
-        empty.style.display = arr.length ? 'none' : '';
-
-        arr.forEach(r => {
-          const item = document.createElement('div');
-          item.className = 'review-item d-flex mb-4';
-
-          const row = document.createElement('div');
-          row.className = 'row g-2 w-100';
-
-          const col = document.createElement('div');
-          col.className = 'col-12';
-
-          const content = document.createElement('div');
-          content.className = 'review-content';
-
-          const top = document.createElement('div');
-          top.className = 'd-flex flex-wrap align-items-center gap-3';
-
-          const stars = document.createElement('div');
-          stars.className = 'rating-container d-flex align-items-center';
-          ensureStars(stars, 20);
-          setStarsFromAverage(stars, Number(r && r.rating));
-          top.appendChild(stars);
-
-          const header = document.createElement('div');
-          header.className = 'review-header';
-          const author = document.createElement('span');
-          author.className = 'author-name';
-          author.textContent = (r && r.author) ? String(r.author) : 'Anonymous';
-          const date = document.createElement('span');
-          date.className = 'review-date';
-          const dt = formatReviewDate(r && r.created_at);
-          date.textContent = dt ? `– ${dt}` : '';
-          header.appendChild(author);
-          header.appendChild(document.createTextNode(' '));
-          header.appendChild(date);
-          top.appendChild(header);
-
-          content.appendChild(top);
-
-          const comment = document.createElement('p');
-          const c = (r && r.comment) ? String(r.comment).trim() : '';
-          comment.textContent = c || '—';
-          content.appendChild(comment);
-
-          col.appendChild(content);
-          row.appendChild(col);
-          item.appendChild(row);
-          list.appendChild(item);
-        });
-      }
-
-      function setReviewFormStatus(message, isError) {
-        const el = document.getElementById('review-form-status');
-        if (!el) return;
-        el.textContent = String(message || '');
-        el.className = isError ? 'text-danger small' : 'text-muted small';
-      }
-
-      async function loadReviewsForCurrentProduct() {
-        if (!currentProduct) return;
-        const ref = (currentProduct.slug || currentProduct.id || '').toString().trim();
-        if (!ref) return;
-
-        setReviewFormStatus('Loading reviews…', false);
-        let res;
-        try {
-          res = await fetch(`/api/reviews?product=${encodeURIComponent(ref)}`);
-        } catch {
-          setReviewFormStatus('Could not load reviews.', true);
-          return;
-        }
-        if (!res || !res.ok) {
-          const j = await res.json().catch(() => ({}));
-          setReviewFormStatus(j && j.error ? String(j.error) : 'Could not load reviews.', true);
-          return;
-        }
-
-        const data = await res.json().catch(() => ({}));
-        updateRatingUI(data && data.stats);
-        renderReviews(data && data.items);
-        setReviewFormStatus('', false);
-      }
-
-      function wireReviewForm() {
-        const form = document.getElementById('review-form');
-        if (!form) return;
-
-        form.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          if (!currentProduct) {
-            setReviewFormStatus('Select a product first.', true);
-            return;
-          }
-          const ref = (currentProduct.slug || currentProduct.id || '').toString().trim();
-          if (!ref) {
-            setReviewFormStatus('Missing product reference.', true);
-            return;
-          }
-
-          const fd = new FormData(form);
-          const rating = parseInt(String(fd.get('rating') || ''), 10);
-          const author = String(fd.get('author') || '').trim();
-          const comment = String(fd.get('comment') || '').trim();
-          if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-            setReviewFormStatus('Rating must be 1–5.', true);
-            return;
-          }
-
-          const btn = form.querySelector('button[type="submit"]');
-          if (btn) btn.disabled = true;
-          setReviewFormStatus('Submitting…', false);
-
-          let res;
-          try {
-            res = await fetch('/api/reviews', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ product: ref, rating, author, comment })
-            });
-          } catch {
-            if (btn) btn.disabled = false;
-            setReviewFormStatus('Could not submit review.', true);
-            return;
-          }
-
-          const j = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            if (btn) btn.disabled = false;
-            setReviewFormStatus(j && j.error ? String(j.error) : 'Could not submit review.', true);
-            return;
-          }
-
-          const ratingEl = document.getElementById('review-rating');
-          if (ratingEl) ratingEl.value = '';
-          const commentEl = document.getElementById('review-comment');
-          if (commentEl) commentEl.value = '';
-
-          setReviewFormStatus('Thanks! Your review was added.', false);
-          if (btn) btn.disabled = false;
-          await loadReviewsForCurrentProduct();
-        });
-      }
-
-      function getQty() {
-        const qtyEl = document.getElementById('quantity');
-        return Math.max(1, parseInt((qtyEl && qtyEl.value) || '1', 10) || 1);
-      }
-
-      async function loadProductFromApi() {
-        const slug = (getParam('slug') || getParam('product') || '').toString();
-        if (!slug) {
-          window.location.replace('shop.html');
-          return;
-        }
-
-        let res;
-        try {
-          res = await fetch('/api/products', { credentials: 'include' });
-        } catch {
-          window.location.replace('shop.html');
-          return;
-        }
-        if (!res || !res.ok) {
-          window.location.replace('shop.html');
-          return;
-        }
-
-        let data;
-        try {
-          data = await res.json();
-        } catch {
-          window.location.replace('shop.html');
-          return;
-        }
-
-        const items = Array.isArray(data && data.items) ? data.items : [];
-        if (items.length === 0) {
-          window.location.replace('shop.html');
-          return;
-        }
-
-        const product = items.find(p => (p && (p.slug || '').toString() === slug) || (p && (p.id || '').toString() === slug)) || null;
-        if (!product) {
-          window.location.replace('shop.html');
-          return;
-        }
-
-        currentProduct = product;
-
-        const title = (product.title || '').toString() || 'Product';
-        const images = getProductImages(product);
-        const imageUrl = images[0] || '';
-        const priceText = moneyFromCents(product.price_cents, product.currency);
-        const description = (product.description || '').toString();
-        const color = (product.color || '').toString().trim();
-        const category = (product.category || '').toString().trim();
-        const sizes = parseSizesString(product.sizes);
-
-        const stockVal = (product.stock ?? product.stock_count ?? product.quantity ?? null);
-        const stockNum = stockVal == null || stockVal === '' ? null : Number(stockVal);
-        const hasStockNumber = stockNum != null && Number.isFinite(stockNum) && stockNum >= 0;
-
-        document.title = `${title} | MindAR Store`;
-
-        const titleEl = document.querySelector('.product-title');
-        if (titleEl) titleEl.textContent = title;
-
-        const priceEl = document.querySelector('.product-price .fs-2');
-        if (priceEl) priceEl.textContent = priceText;
-        const delEl = document.querySelector('.product-price del');
-        if (delEl) delEl.style.display = 'none';
-
-        const priceWrap = document.querySelector('.product-price');
-        let descEl = null;
-        if (priceWrap) {
-          let n = priceWrap.nextElementSibling;
-          while (n && n.tagName !== 'P') n = n.nextElementSibling;
-          descEl = n;
-        }
-        if (descEl && description) descEl.textContent = description;
-
-        renderDescriptionPane(description);
-        renderAdditionalInfoPane(product, sizes);
-
-        const colorTextEl = document.querySelector('.color-toggle .item-title span');
-        if (colorTextEl) colorTextEl.textContent = color || '—';
-
-        const catWrap = document.querySelector('.cate-tag .tag-item');
-        if (catWrap) {
-          catWrap.innerHTML = '';
-          if (category) {
-            const a = document.createElement('a');
-            a.href = '#';
-            a.textContent = category;
-            catWrap.appendChild(a);
-          } else {
-            catWrap.textContent = '—';
-          }
-        }
-
-        const swatch = document.querySelector('.swatch.option-1');
-        if (swatch) {
-          const titleEl = swatch.querySelector('.item-title');
-          swatch.innerHTML = '';
-          if (titleEl) swatch.appendChild(titleEl);
-
-          if (sizes.length) {
-            sizes.forEach((sz, i) => {
-              const id = `size-${i}-${sz.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-              const el = document.createElement('div');
-              el.className = 'swatch-element';
-              el.setAttribute('data-value', sz);
-
-              const input = document.createElement('input');
-              input.className = 'swatch-input hide';
-              input.id = id;
-              input.type = 'radio';
-              input.name = 'option-1';
-              input.value = sz;
-              if (i === 0) input.checked = true;
-
-              const label = document.createElement('label');
-              label.className = 'swatch-label square-only';
-              label.setAttribute('for', id);
-              label.textContent = sz;
-
-              el.appendChild(input);
-              el.appendChild(label);
-              swatch.appendChild(el);
-            });
-          } else {
-            const empty = document.createElement('div');
-            empty.className = 'ms-2';
-            empty.textContent = '—';
-            swatch.appendChild(empty);
-          }
-        }
-
-        const stockEl = document.querySelector('.product-action .item-title');
-        if (stockEl) {
-          if (hasStockNumber) stockEl.textContent = `${stockNum} in stock`;
-          else stockEl.style.display = 'none';
-        }
-
-        if (imageUrl) {
-          const thumbWrap = document.querySelector('.product-thumbnail-slider .swiper-wrapper');
-          const largeWrap = document.querySelector('.product-large-slider .swiper-wrapper');
-          if (thumbWrap && largeWrap) {
-            const slides = (images.length ? images : [imageUrl]).slice(0, 5);
-            thumbWrap.innerHTML = slides.map(u => `\r\n              <div class="swiper-slide">\r\n                <img src="${u}" alt="${title}" class="thumb-image img-fluid">\r\n              </div>\r\n            `).join('');
-            largeWrap.innerHTML = slides.map(u => `\r\n              <div class="swiper-slide">\r\n                <div class="image-zoom" data-scale="2.5" data-image="${u}"><img src="${u}" alt="${title}" class="img-fluid"></div>\r\n              </div>\r\n            `).join('');
-            requestAnimationFrame(initOrUpdateGallerySwipers);
-          }
-        }
-
-        await loadReviewsForCurrentProduct();
-      }
-
-      document.querySelector('button.product-cart-submit')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (!currentProduct || !window.Cart) return;
-
-        const qty = getQty();
-        const price = Number(currentProduct.price_cents || 0) / 100;
-        const id = currentProduct.slug ? ('sku-' + currentProduct.slug) : ('sku-' + String(currentProduct.id || 'product'));
-        const name = (currentProduct.title || 'Product').toString();
-        const image = ((getProductImages(currentProduct)[0]) || (currentProduct.image_url || '')).toString();
-
-        Cart.add({ id, name, price, image, qty });
-        if (window.CartUI) CartUI.render();
+      // Sizes
+      var sizes=(p.sizes||'').toString().split(',').map(function(s){return s.trim()}).filter(Boolean);
+      var swatchWrap=document.querySelector('.swatch.option-1');
+      if(swatchWrap&&sizes.length){swatchWrap.innerHTML='<span style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6;margin-right:8px">Size:</span>'+sizes.map(function(s,i){return '<label style="border:2px solid #1C1C1C;padding:6px 14px;cursor:pointer;font-size:13px;text-transform:uppercase;background:'+(i===0?'#FEFD00':'transparent')+'"><input type="radio" name="size" value="'+s+'" '+(i===0?'checked':'')+' style="display:none">'+s+'</label>'}).join('')}
+      if(swatchWrap){swatchWrap.addEventListener('click',function(e){var lbl=e.target.closest('label');if(!lbl)return;swatchWrap.querySelectorAll('label').forEach(function(l){l.style.background='transparent'});lbl.style.background='#FEFD00'})}
+
+      // Tags
+      var tagWrap=document.querySelector('.cate-tag');
+      if(tagWrap&&p.category){tagWrap.innerHTML='<span class="tag-item" style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;border:2px solid #1C1C1C;padding:4px 12px">'+p.category+'</span>'}
+
+      // Description
+      var descEl=document.getElementById('desc-body');if(descEl)descEl.textContent=p.description||'No description available.';
+
+      // Enable add to cart
+      var addBtn=document.getElementById('add-to-cart');if(addBtn)addBtn.disabled=false;
+
+      // Qty buttons
+      var qtyInput=document.getElementById('quantity');
+      document.getElementById('qty-minus').addEventListener('click',function(){var v=parseInt(qtyInput.value)||1;if(v>1)qtyInput.value=v-1});
+      document.getElementById('qty-plus').addEventListener('click',function(){var v=parseInt(qtyInput.value)||1;if(v<99)qtyInput.value=v+1});
+
+      // Add to cart
+      addBtn.addEventListener('click',function(){
+        var qty=parseInt(qtyInput.value)||1;var sizeEl=document.querySelector('.swatch.option-1 input:checked');var size=sizeEl?sizeEl.value:'';
+        var id='sku-'+(p.slug||p.id||'product')+(size?'-'+size:'');
+        Cart.add({id:id,name:(p.title||'Product')+(size?' ('+size+')':''),price:Number(p.price_cents||0)/100,image:images[0]||'',qty:qty});
+        CartUI.render();
       });
 
-      initOrUpdateGallerySwipers();
-      wireReviewForm();
-      ensureStars(document.getElementById('reviews-summary-stars'), 24);
-      setStarsFromAverage(document.getElementById('product-rating'), 0);
+      // Load reviews
+      loadReviews(p.slug||slug);
 
-      loadProductFromApi();
-      if (window.CartUI) CartUI.render();
-    })();
-  </script>
+      // Load related
+      loadRelated(p.category,p.slug||slug);
 
-  <script>
-    (async function(){
-      const loginEl = document.getElementById('navLogin');
-      const logoutEl = document.getElementById('navLogout');
-      const dashEl = document.getElementById('navDashboard');
-      if (!loginEl && !logoutEl && !dashEl) return;
+    }catch(e){document.querySelector('.product-title').textContent='Product not found';console.warn('Product load error:',e)}
+  })();
 
-      try {
-        const me = await auth.me();
-        const user = me && me.email ? me : null;
-        const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
-        if (loginEl) loginEl.style.display = user ? 'none' : '';
-        if (logoutEl) logoutEl.style.display = user ? '' : 'none';
-        if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
-        if (logoutEl) logoutEl.addEventListener('click', async (e) => {
-          e.preventDefault();
-          await auth.logout();
-          location.reload();
-        });
-      } catch {
-        // If auth fails, keep Login visible and Logout/Dashboard hidden.
-        if (loginEl) loginEl.style.display = '';
-        if (logoutEl) logoutEl.style.display = 'none';
-        if (dashEl) dashEl.style.display = 'none';
-      }
-    })();
+  async function loadReviews(slug){
+    var listEl=document.getElementById('reviews-list');var emptyEl=document.getElementById('reviews-empty');
+    var avgEl=document.getElementById('reviews-summary-average');var countEl=document.getElementById('reviews-summary-count');var starsEl=document.getElementById('reviews-summary-stars');
+    try{
+      var res=await fetch('/api/products/'+encodeURIComponent(slug)+'/reviews',{credentials:'include'});
+      if(!res.ok)return;var data=await res.json();var reviews=data.reviews||[];
+      if(!reviews.length){if(emptyEl)emptyEl.style.display='';if(starsEl)starsEl.innerHTML=renderStars(0);return}
+      if(emptyEl)emptyEl.style.display='none';
+      var sum=reviews.reduce(function(a,r){return a+(Number(r.rating)||0)},0);var avg=(sum/reviews.length).toFixed(1);
+      if(avgEl)avgEl.textContent=avg;if(countEl)countEl.textContent=reviews.length;if(starsEl)starsEl.innerHTML=renderStars(Math.round(avg));
+      var ratingEl=document.getElementById('product-rating');
+      if(ratingEl){var rs=ratingEl.querySelector('.rating-stars');if(rs)rs.innerHTML=renderStars(Math.round(avg));var rc=document.getElementById('product-rating-count');if(rc)rc.textContent='('+reviews.length+' reviews)'}
+      if(listEl)listEl.innerHTML=reviews.map(function(r){return '<div style="border:2px solid #1C1C1C;padding:16px;margin-bottom:12px"><div class="d-flex justify-content-between align-items-center mb-2"><strong style="font-size:14px;text-transform:uppercase">'+((r.author||'Anonymous').replace(/</g,'&lt;'))+'</strong><span style="font-size:12px;opacity:.5">'+((r.created_at||'').toString().slice(0,10))+'</span></div><div class="mb-2">'+renderStars(r.rating||0)+'</div><p class="mb-0" style="font-size:14px">'+((r.comment||'').replace(/</g,'&lt;'))+'</p></div>'}).join('');
+    }catch(e){}
+  }
+
+  document.getElementById('review-form').addEventListener('submit',async function(e){
+    e.preventDefault();var statusEl=document.getElementById('review-form-status');
+    var slug=(new URLSearchParams(location.search)).get('slug')||(new URLSearchParams(location.search)).get('id');
+    var rating=document.getElementById('review-rating').value;var author=document.getElementById('review-author').value.trim();var comment=document.getElementById('review-comment').value.trim();
+    if(!rating||!author||!comment){if(statusEl)statusEl.textContent='Please fill all fields.';return}
+    try{
+      if(statusEl)statusEl.textContent='Submitting…';
+      var res=await fetch('/api/products/'+encodeURIComponent(slug)+'/reviews',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({rating:Number(rating),author:author,comment:comment})});
+      if(!res.ok){var err=await res.json().catch(function(){return{}});throw new Error(err.error||'Failed')}
+      if(statusEl)statusEl.textContent='Review submitted!';e.target.reset();loadReviews(slug);
+    }catch(err){if(statusEl)statusEl.textContent='Error: '+err.message}
+  });
+
+  async function loadRelated(category,currentSlug){
+    var wrap=document.getElementById('related-products');if(!wrap)return;
+    try{
+      var res=await fetch('/api/products',{credentials:'include'});if(!res.ok)return;var data=await res.json();var items=Array.isArray(data.items)?data.items:[];
+      var related=items.filter(function(p){return(p.slug||p.id)!==currentSlug}).slice(0,8);
+      if(!related.length){wrap.closest('section').style.display='none';return}
+      wrap.innerHTML=related.map(function(p){
+        var img=normImg((p.image_url||'images/product-thumb-1.jpg').toString());var href=p.slug?'product.html?slug='+encodeURIComponent(p.slug):'product.html';var price=moneyFromCents(p.price_cents,p.currency);
+        return '<div class="swiper-slide"><div class="product-item image-zoom-effect link-effect"><div class="image-holder position-relative"><a href="'+escapeHtml(href)+'"><img src="'+escapeHtml(img)+'" alt="product" class="product-image img-fluid"></a><a href="wishlist.html" class="btn-icon btn-wishlist" onclick="return false"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg></a><div class="product-content"><h5 class="element-title text-uppercase fs-5 mt-3"><a href="'+escapeHtml(href)+'">'+escapeHtml(p.title||'Product')+'</a></h5><a href="#" class="text-decoration-none" data-after="Add to cart"><span>'+escapeHtml(price)+'</span></a></div></div></div></div>';
+      }).join('');
+    }catch(e){}
+  }
+
+  CartUI.render();
   </script>
 </body>
-
 </html>

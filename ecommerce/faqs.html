@@ -1,67 +1,412 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <title>FAQs &mdash; INRL</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FAQs | MindAR Store</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Frequently asked questions about INRL — orders, shipping, AR, and returns.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="style.css">
-
-  <!-- Worker Auth Client (shared session + role) -->
-  <script src="/assets/js/auth-worker.js?v=20260206"></script>
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+  <style>
+    /* FAQ accordion custom styles */
+    .faq-item { border-bottom: 1.5px solid rgba(245,245,240,.08); }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-btn {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding: 22px 0;
+      cursor: pointer;
+      text-align: left;
+      gap: 16px;
+    }
+    .faq-btn:hover .faq-q { color: #00ED0A; }
+    .faq-q {
+      font-family: 'Averia Serif Libre', serif;
+      font-size: 18px;
+      color: #F5F5F0;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+      transition: color .15s;
+    }
+    .faq-icon {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border: 1.5px solid rgba(245,245,240,.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #F5F5F0;
+      font-size: 18px;
+      line-height: 1;
+      transition: background .15s, border-color .15s, color .15s, transform .2s;
+    }
+    .faq-btn[aria-expanded="true"] .faq-icon {
+      background: #00ED0A;
+      border-color: #00ED0A;
+      color: #1C1C1C;
+      transform: rotate(45deg);
+    }
+    .faq-answer {
+      font-size: 14px;
+      line-height: 1.8;
+      color: rgba(245,245,240,.5);
+      padding-bottom: 22px;
+      max-width: 680px;
+    }
+  </style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg bg-light text-uppercase fs-6 p-3 border-bottom align-items-center">
+
+  <!-- SVG SPRITE -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
+    <symbol id="search" viewBox="0 0 24 24"><path fill="currentColor" d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z"/></symbol>
+    <symbol id="facebook" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M7.5 14.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Zm0 0v-8a2 2 0 0 1 2-2h.5m-5 4h5"/></symbol>
+    <symbol id="twitter" viewBox="0 0 15 15"><path fill="currentColor" d="m14.478 1.5l.5-.033a.5.5 0 0 0-.871-.301l.371.334Zm-.498 2.959a.5.5 0 1 0-1 0h1Zm-6.49.082h-.5h.5Zm0 .959h.5h-.5Zm-6.99 7V12a.5.5 0 0 0-.278.916L.5 12.5Zm.998-11l.469-.175a.5.5 0 0 0-.916-.048l.447.223Zm3.994 9l.354.353a.5.5 0 0 0-.195-.827l-.159.474Z"/></symbol>
+    <symbol id="youtube" viewBox="0 0 15 15"><path fill="currentColor" d="m1.61 12.738l-.104.489l.105-.489Zm11.78 0l.104.489l-.105-.489Zm0-10.476l.104-.489l-.105.489Zm-11.78 0l.106.489l-.105-.489ZM6.5 5.5l.277-.416A.5.5 0 0 0 6 5.5h.5Zm0 4H6a.5.5 0 0 0 .777.416L6.5 9.5Zm3-2l.277.416a.5.5 0 0 0 0-.832L9.5 7.5Z"/></symbol>
+    <symbol id="instagram" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M11 3.5h1M4.5.5h6a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-6a4 4 0 0 1-4-4v-6a4 4 0 0 1 4-4Zm3 10a3 3 0 1 1 0-6a3 3 0 0 1 0 6Z"/></symbol>
+  </defs></svg>
+
+  <!-- SEARCH POPUP -->
+  <div class="search-popup">
+    <div class="search-popup-container">
+      <form role="search" method="get" class="search-popup-form">
+        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" name="s">
+        <button type="submit" class="search-submit border-0 position-absolute bg-transparent" style="top:15px;right:15px"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></button>
+      </form>
+      <h5 class="cat-list-title">Browse Categories</h5>
+      <ul class="cat-list">
+        <li class="cat-list-item"><a href="shop.html?category=Men">Men</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Women">Women</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Accessories">Accessories</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- CART OFFCANVAS -->
+  <div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="offcanvasCart" aria-labelledby="My Cart">
+    <div class="offcanvas-header justify-content-center">
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="order-md-last">
+        <h4 class="d-flex justify-content-between align-items-center mb-3">
+          <span>Your cart</span>
+          <span class="badge bg-primary rounded-pill" id="cart-count">0</span>
+        </h4>
+        <ul id="cart-list" class="list-group mb-3"></ul>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <strong>Total (USD)</strong>
+          <strong id="cart-total">$0.00</strong>
+        </div>
+        <a class="w-100 btn btn-primary btn-lg" href="checkout.html">Continue to Checkout</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo" style="height:36px"></a>
-      <div class="ms-auto">
-        <a href="shop.html" class="text-uppercase mx-3">Shop</a>
-        <a href="cart.html" class="text-uppercase mx-3">Cart (<span class="js-cart-count">0</span>)</a>
-        <a href="checkout.html" class="text-uppercase mx-3">Checkout</a>
-        <a href="profile.html" class="text-uppercase mx-3">Profile</a>
-        <a id="navDashboard" href="dashboard.html" class="text-uppercase mx-3" style="display:none">Dashboard</a>
-        <a id="navLogin" href="/login.html" class="text-uppercase mx-3">Login</a>
-        <a id="navLogout" href="#" class="text-uppercase mx-3" style="display:none">Logout</a>
+      <a class="navbar-brand" href="index.html" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;letter-spacing:-0.04em;line-height:1">[inrl]</a>
+      <div class="d-flex align-items-center gap-3 order-lg-last">
+        <a href="wishlist.html" class="d-none d-lg-inline text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Wishlist</a>
+        <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
+        <a href="#search" class="search-button text-white"><svg width="22" height="22" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></a>
+      </div>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+        <div class="offcanvas-header">
+          <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Menu</h5>
+          <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
+            <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
+            <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+            <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
+          </ul>
+        </div>
       </div>
     </div>
   </nav>
 
-  <main class="container py-5" style="max-width: 760px">
-    <h1 class="text-uppercase mb-3">FAQs</h1>
-    <p class="text-muted">This page isn’t ready yet.</p>
-    <div class="d-flex gap-2 mt-4">
-      <a class="btn btn-dark text-uppercase" href="shop.html">Back to Shop</a>
-      <a class="btn btn-outline-dark text-uppercase" href="checkout.html">Go to Checkout</a>
+  <!-- PAGE HERO -->
+  <section style="background:#1C1C1C;padding:160px 0 80px;border-bottom:3px solid #00ED0A">
+    <div class="container">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.28em;color:#00ED0A;margin-bottom:18px">&mdash;&nbsp;Help Center</div>
+      <h1 style="font-family:'Averia Serif Libre',serif;font-size:clamp(52px,7vw,96px);line-height:.9;letter-spacing:-0.05em;color:#F5F5F0;margin-bottom:24px">Frequently<br><span style="color:#FEFD00">asked questions.</span></h1>
+      <p style="font-size:15px;line-height:1.7;color:rgba(245,245,240,.5);max-width:480px">Can't find your answer? <a href="contact.html" style="color:#00ED0A;text-decoration:none;border-bottom:1px solid rgba(0,237,10,.4)">Contact us directly</a> and we'll get back to you within 24 hours.</p>
     </div>
-  </main>
+  </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <!-- MAIN FAQ CONTENT -->
+  <section style="background:#1C1C1C;padding:80px 0">
+    <div class="container">
+      <div class="row g-5">
+
+        <!-- LEFT: FAQ ACCORDION -->
+        <div class="col-lg-8">
+
+          <!-- SECTION: ORDERING -->
+          <div style="margin-bottom:56px">
+            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;padding:10px 0;border-top:3px solid #00ED0A;margin-bottom:8px">Ordering</div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">How do I place an order?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Browse our shop, add items to your cart, and proceed to checkout. You can pay by card or supported digital payment methods. Once your order is confirmed, you'll receive an email with your order details and tracking info.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">Can I modify or cancel my order after placing it?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Orders can be modified or cancelled within 1 hour of placement. After that, your order enters processing and changes are no longer possible. Contact us immediately at <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a> if you need to make a change.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">Do I need an account to order?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">No account is required to purchase. However, creating an account lets you track orders, save your wishlist, and access your order history from any device.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">What currencies do you accept?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">All prices are listed in USD. We accept major credit cards and debit cards. Currency conversion, if needed, is handled by your payment provider at the point of checkout.</div>
+            </div>
+          </div>
+
+          <!-- SECTION: SHIPPING -->
+          <div style="margin-bottom:56px">
+            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;padding:10px 0;border-top:3px solid #00ED0A;margin-bottom:8px">Shipping</div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">Where do you ship?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">We ship to most countries worldwide. Shipping availability and rates are displayed at checkout based on your delivery address. Some remote locations may have limited carrier options.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">How long does delivery take?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Standard delivery takes 5&ndash;10 business days depending on your location. Express options (2&ndash;4 business days) are available at checkout for most destinations. All orders are dispatched within 1&ndash;2 business days of payment confirmation.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">How do I track my order?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Once your order ships, you'll receive a tracking number by email. You can also visit our <a href="order-tracking.html" style="color:#00ED0A">Order Tracking</a> page and enter your order ID to see the latest status.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">Is shipping free?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Free standard shipping is available on orders over $150 to most destinations. The exact threshold and applicable regions are shown at checkout.</div>
+            </div>
+          </div>
+
+          <!-- SECTION: AR & DIGITAL IDENTITY -->
+          <div style="margin-bottom:56px">
+            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;padding:10px 0;border-top:3px solid #00ED0A;margin-bottom:8px">AR &amp; Digital Identity</div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">What is the AR feature on INRL garments?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Each INRL garment contains a unique AR marker printed or embedded into the design. When you point a phone camera at it, an augmented reality experience launches directly in your browser &mdash; no app download required. The AR layer can include animations, your personal digital identity card, or brand-specific content.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">Do I need a special app to use the AR?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">No app is needed. INRL uses web-based AR (powered by MindAR technology), which runs directly in any modern mobile browser. Just open your camera or scan the QR on your garment tag to launch the experience instantly.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">Can I customize my AR digital identity?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Yes. Create an INRL account and visit your Profile page to customize your digital identity card. Changes are reflected live &mdash; anyone who scans your garment will see your updated identity layer.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">Does the AR work after washing?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Yes. The AR marker is screen-printed using durable, wash-resistant inks. We recommend following the care label instructions (cold wash, air dry) to maintain the marker's quality over time. The digital content is stored permanently in the cloud and is not affected by wear.</div>
+            </div>
+          </div>
+
+          <!-- SECTION: RETURNS & EXCHANGES -->
+          <div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;padding:10px 0;border-top:3px solid #00ED0A;margin-bottom:8px">Returns &amp; Exchanges</div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">What is your return policy?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">We accept returns within 30 days of delivery for unworn, unwashed items with original tags attached. Sale items and items marked as final sale are not eligible for return. To initiate a return, email us at <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a> with your order number.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">How do I exchange for a different size?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Contact us within 30 days of receiving your order. We'll arrange a return of the original item and ship your new size once we confirm stock availability. Exchanges are subject to availability at the time of the request.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">When will I receive my refund?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">Refunds are processed within 5&ndash;7 business days after we receive and inspect your returned item. The credit will appear on your original payment method. Processing time varies by your bank or card issuer.</div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
+                <span class="faq-q">My item arrived damaged. What do I do?</span>
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-answer" style="display:none">We're sorry to hear that. Email us at <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a> within 7 days of receiving your order, including your order number and photos of the damage. We'll arrange a replacement or full refund immediately at no cost to you.</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT: STICKY CONTACT CARD -->
+        <div class="col-lg-4">
+          <div style="position:sticky;top:100px">
+            <div style="border:3px solid rgba(245,245,240,.08);padding:36px;margin-bottom:24px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;margin-bottom:16px">Still need help?</div>
+              <h5 style="font-family:'Averia Serif Libre',serif;font-size:22px;color:#F5F5F0;letter-spacing:-0.03em;margin-bottom:12px">Talk to us directly</h5>
+              <p style="font-size:14px;color:rgba(245,245,240,.45);line-height:1.7;margin-bottom:24px">Our team responds to all enquiries within 24 hours on business days.</p>
+              <a href="contact.html" style="display:block;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:14px 20px;background:#00ED0A;color:#1C1C1C;text-decoration:none;border:3px solid #1C1C1C;box-shadow:4px 4px 0 rgba(0,237,10,.25);transition:transform .12s,box-shadow .12s;margin-bottom:12px" onmouseover="this.style.transform='translate(-2px,-2px)';this.style.boxShadow='6px 6px 0 rgba(0,237,10,.25)'" onmouseout="this.style.transform='';this.style.boxShadow='4px 4px 0 rgba(0,237,10,.25)'">Contact Support</a>
+              <a href="mailto:contact@inrl.com" style="display:block;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:14px 20px;border:1.5px solid rgba(245,245,240,.15);background:transparent;color:rgba(245,245,240,.6);text-decoration:none;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='rgba(245,245,240,.4)';this.style.color='#F5F5F0'" onmouseout="this.style.borderColor='rgba(245,245,240,.15)';this.style.color='rgba(245,245,240,.6)'">contact@inrl.com</a>
+            </div>
+            <div style="border:3px solid rgba(245,245,240,.08);padding:28px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:rgba(245,245,240,.3);margin-bottom:12px">Quick links</div>
+              <ul style="list-style:none;padding:0;margin:0">
+                <li style="padding:8px 0;border-bottom:1px solid rgba(245,245,240,.06)"><a href="order-tracking.html" style="font-size:13px;color:rgba(245,245,240,.5);text-decoration:none;transition:color .15s" onmouseover="this.style.color='#00ED0A'" onmouseout="this.style.color='rgba(245,245,240,.5)'">Track Your Order &rarr;</a></li>
+                <li style="padding:8px 0;border-bottom:1px solid rgba(245,245,240,.06)"><a href="shop.html" style="font-size:13px;color:rgba(245,245,240,.5);text-decoration:none;transition:color .15s" onmouseover="this.style.color='#00ED0A'" onmouseout="this.style.color='rgba(245,245,240,.5)'">Browse the Shop &rarr;</a></li>
+                <li style="padding:8px 0;border-bottom:1px solid rgba(245,245,240,.06)"><a href="profile.html" style="font-size:13px;color:rgba(245,245,240,.5);text-decoration:none;transition:color .15s" onmouseover="this.style.color='#00ED0A'" onmouseout="this.style.color='rgba(245,245,240,.5)'">My Profile &rarr;</a></li>
+                <li style="padding:8px 0"><a href="about.html" style="font-size:13px;color:rgba(245,245,240,.5);text-decoration:none;transition:color .15s" onmouseover="this.style.color='#00ED0A'" onmouseout="this.style.color='rgba(245,245,240,.5)'">About INRL &rarr;</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer id="footer">
+    <div class="container">
+      <div class="row py-5">
+        <div class="col-md-3 col-sm-6 mb-4">
+          <div style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;display:inline-block;letter-spacing:-0.04em;margin-bottom:16px">[inrl]</div>
+          <p>Next-gen digital identity and fashion. Bold design, no compromise.</p>
+          <div class="d-flex gap-3 mt-3">
+            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:none;stroke:rgba(255,255,255,.5)"><use xlink:href="#facebook"></use></svg></a>
+            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:rgba(255,255,255,.5)"><use xlink:href="#twitter"></use></svg></a>
+            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:rgba(255,255,255,.5)"><use xlink:href="#youtube"></use></svg></a>
+            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:none;stroke:rgba(255,255,255,.5)"><use xlink:href="#instagram"></use></svg></a>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Quick Links</h5>
+          <ul class="list-unstyled border-animation-left">
+            <li class="mb-2"><a href="index.html" class="item-anchor">Home</a></li>
+            <li class="mb-2"><a href="shop.html" class="item-anchor">Shop</a></li>
+            <li class="mb-2"><a href="about.html" class="item-anchor">About</a></li>
+            <li class="mb-2"><a href="contact.html" class="item-anchor">Contact</a></li>
+          </ul>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Help &amp; Info</h5>
+          <ul class="list-unstyled border-animation-left">
+            <li class="mb-2"><a href="order-tracking.html" class="item-anchor">Track Your Order</a></li>
+            <li class="mb-2"><a href="faqs.html" class="item-anchor">FAQs</a></li>
+            <li class="mb-2"><a href="contact.html" class="item-anchor">Contact Us</a></li>
+          </ul>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Contact</h5>
+          <p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p>
+          <p><a href="tel:+43720115278">+43 720 11 52 78</a></p>
+        </div>
+      </div>
+      <div class="border-top py-3">
+        <p class="text-center mb-0" style="font-size:12px;opacity:.35">&copy; 2026 INRL. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/jquery.min.js"></script>
+  <script src="js/plugins.js"></script>
+  <script src="js/SmoothScroll.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+  <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
   <script>
-    (function(){
-      // Auth-aware nav
-      (async function(){
-        const loginEl = document.getElementById('navLogin');
-        const logoutEl = document.getElementById('navLogout');
-        try {
-          const me = await auth.me();
-          const user = me && me.email ? me : null;
-          const dashEl = document.getElementById('navDashboard');
-          const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
-          if (loginEl) loginEl.style.display = user ? 'none' : '';
-          if (logoutEl) logoutEl.style.display = user ? '' : 'none';
-          if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
-          if (logoutEl) logoutEl.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await auth.logout();
-            location.reload();
-          });
-        } catch {}
-      })();
+    function toggleFaq(btn) {
+      var expanded = btn.getAttribute('aria-expanded') === 'true';
+      // Close all
+      document.querySelectorAll('.faq-btn').forEach(function(b) {
+        b.setAttribute('aria-expanded', 'false');
+        var ans = b.nextElementSibling;
+        if (ans) ans.style.display = 'none';
+      });
+      // Open clicked if it was closed
+      if (!expanded) {
+        btn.setAttribute('aria-expanded', 'true');
+        var answer = btn.nextElementSibling;
+        if (answer) answer.style.display = 'block';
+      }
+    }
 
-      try { CartUI.render(); } catch {}
+    (async function(){
+      const loginEl  = document.getElementById('navLogin');
+      const dashEl   = document.getElementById('navDashboard');
+      const logoutEl = document.getElementById('navLogout');
+      try {
+        const me = await auth.me();
+        const user = me && me.email ? me : null;
+        if (logoutEl) {
+          logoutEl.style.display = user ? '' : 'none';
+          logoutEl.addEventListener('click', async (e) => { e.preventDefault(); await auth.logout(); location.reload(); });
+        }
+        if (loginEl) loginEl.style.display = user ? 'none' : '';
+        const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
+        if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
+      } catch {}
     })();
+    try { CartUI.render(); } catch {}
   </script>
 </body>
 </html>

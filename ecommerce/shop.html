@@ -1,333 +1,188 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Shop | MindAR Store</title>
+  <title>Shop — INRL</title>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="format-detection" content="telephone=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="keywords" content="ecommerce,store">
-  <meta name="description" content="Shop products.">
-
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
   <link rel="stylesheet" type="text/css" href="style.css">
-
-  <!-- Worker Auth Client (shared session + role with AR dashboards) -->
-  <script src="/assets/js/auth-worker.js?v=20260218"></script>
-
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Marcellus&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  body{background:#1C1C1C}
+  .shop-card{border:3px solid #333;overflow:hidden;box-shadow:6px 6px 0 rgba(0,237,10,.15);transition:transform .15s,box-shadow .15s}
+  .shop-card:hover{transform:translate(-3px,-3px);box-shadow:9px 9px 0 #00ED0A}
+  .shop-card-title{background:#1C1C1C;border-bottom:3px solid #333;padding:14px 18px;font-family:'Roboto Mono',monospace;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#F5F5F0}
+  .shop-card-image{display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden;background:#E8E8E3}
+  .shop-card-image img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+  .shop-card:hover .shop-card-image img{transform:scale(1.05)}
+  .shop-card-footer{display:grid;grid-template-columns:1fr 1fr;border-top:3px solid #333}
+  .shop-card-price{background:#00ED0A;padding:14px 18px;font-family:'Roboto Mono',monospace;font-size:16px;font-weight:700;color:#1C1C1C;display:flex;align-items:center}
+  .shop-card-buy{background:#1C1C1C;padding:14px 18px;font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#F5F5F0;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;border-left:3px solid #333;transition:background .15s,color .15s}
+  .shop-card-buy:hover{background:#222;color:#00ED0A}
+  #shopSearchInput,#shopSortSelect{background:rgba(255,255,255,.05);border:3px solid #333;color:#F5F5F0;font-family:'Roboto Mono',monospace}
+  #shopSearchInput::placeholder{color:rgba(245,245,240,.3)}
+  #shopSearchInput:focus,#shopSortSelect:focus{border-color:#00ED0A;box-shadow:none;background:rgba(255,255,255,.08);color:#F5F5F0}
+  #shopSortSelect option{background:#1C1C1C;color:#F5F5F0}
+</style>
 </head>
-
-<body class="homepage">
-  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
-    <defs>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="instagram" viewBox="0 0 15 15">
-        <path fill="none" stroke="currentColor" d="M11 3.5h1M4.5.5h6a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-6a4 4 0 0 1-4-4v-6a4 4 0 0 1 4-4Zm3 10a3 3 0 1 1 0-6a3 3 0 0 1 0 6Z"/>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="facebook" viewBox="0 0 15 15">
-        <path fill="none" stroke="currentColor" d="M7.5 14.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Zm0 0v-8a2 2 0 0 1 2-2h.5m-5 4h5"/>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="twitter" viewBox="0 0 15 15">
-        <path fill="currentColor" d="m14.478 1.5l.5-.033a.5.5 0 0 0-.871-.301l.371.334Zm-.498 2.959a.5.5 0 1 0-1 0h1Zm-6.49.082h-.5h.5Zm0 .959h.5h-.5Zm-6.99 7V12a.5.5 0 0 0-.278.916L.5 12.5Zm.998-11l.469-.175a.5.5 0 0 0-.916-.048l.447.223Zm3.994 9l.354.353a.5.5 0 0 0-.195-.827l-.159.474Zm7.224-8.027l-.37.336l.18.199l.265-.04l-.075-.495Zm1.264-.94c.051.778.003 1.25-.123 1.606c-.122.345-.336.629-.723 1l.692.722c.438-.42.776-.832.974-1.388c.193-.546.232-1.178.177-2.006l-.998.066Zm0 3.654V4.46h-1v.728h1Zm-6.99-.646V5.5h1v-.959h-1Zm0 .959V6h1v-.5h-1ZM10.525 1a3.539 3.539 0 0 0-3.537 3.541h1A2.539 2.539 0 0 1 10.526 2V1Zm2.454 4.187C12.98 9.503 9.487 13 5.18 13v1c4.86 0 8.8-3.946 8.8-8.813h-1ZM1.03 1.675C1.574 3.127 3.614 6 7.49 6V5C4.174 5 2.421 2.54 1.966 1.325l-.937.35Zm.021-.398C.004 3.373-.157 5.407.604 7.139c.759 1.727 2.392 3.055 4.73 3.835l.317-.948c-2.155-.72-3.518-1.892-4.132-3.29c-.612-1.393-.523-3.11.427-5.013l-.895-.446Zm4.087 8.87C4.536 10.75 2.726 12 .5 12v1c2.566 0 4.617-1.416 5.346-2.147l-.708-.706Zm7.949-8.009A3.445 3.445 0 0 0 10.526 1v1c.721 0 1.37.311 1.82.809l.74-.671Zm-.296.83a3.513 3.513 0 0 0 2.06-1.134l-.744-.668a2.514 2.514 0 0 1-1.466.813l.15.989ZM.222 12.916C1.863 14.01 3.583 14 5.18 14v-1c-1.63 0-3.048-.011-4.402-.916l-.556.832Z"/>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="pinterest" viewBox="0 0 15 15">
-        <path fill="none" stroke="currentColor" d="m4.5 13.5l3-7m-3.236 3a2.989 2.989 0 0 1-.764-2V7A3.5 3.5 0 0 1 7 3.5h1A3.5 3.5 0 0 1 11.5 7v.5a3 3 0 0 1-3 3a2.081 2.081 0 0 1-1.974-1.423L6.5 9m1 5.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Z"/>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="youtube" viewBox="0 0 15 15">
-        <path fill="currentColor" d="m1.61 12.738l-.104.489l.105-.489Zm11.78 0l.104.489l-.105-.489Zm0-10.476l.104-.489l-.105.489Zm-11.78 0l.106.489l-.105-.489ZM6.5 5.5l.277-.416A.5.5 0 0 0 6 5.5h.5Zm0 4H6a.5.5 0 0 0 .777.416L6.5 9.5Zm3-2l.277.416a.5.5 0 0 0 0-.832L9.5 7.5ZM0 3.636v7.728h1V3.636H0Zm15 7.728V3.636h-1v7.728h1ZM1.506 13.227c3.951.847 8.037.847 11.988 0l-.21-.978a27.605 27.605 0 0 1-11.568 0l-.21.978ZM13.494 1.773a28.606 28.606 0 0 0-11.988 0l.21.978a27.607 27.607 0 0 1 11.568 0l.21-.978ZM15 3.636c0-.898-.628-1.675-1.506-1.863l-.21.978c.418.09.716.458.716.885h1Zm-1 7.728a.905.905 0 0 1-.716.885l.21.978A1.905 1.905 0 0 0 15 11.364h-1Zm-14 0c0 .898.628 1.675 1.506 1.863l.21-.978A.905.905 0 0 1 1 11.364H0Zm1-7.728c0-.427.298-.796.716-.885l-.21-.978A1.905 1.905 0 0 0 0 3.636h1ZM6 5.5v4h1v-4H6Zm.777 4.416l3-2l-.554-.832l-3 2l.554.832Zm3-2.832l-3-2l-.554.832l3 2l.554-.832Z"/>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="heart" viewBox="0 0 24 24">
-        <path fill="currentColor" d="M20.16 4.61A6.27 6.27 0 0 0 12 4a6.27 6.27 0 0 0-8.16 9.48l7.45 7.45a1 1 0 0 0 1.42 0l7.45-7.45a6.27 6.27 0 0 0 0-8.87Zm-1.41 7.46L12 18.81l-6.75-6.74a4.28 4.28 0 0 1 3-7.3a4.25 4.25 0 0 1 3 1.25a1 1 0 0 0 1.42 0a4.27 4.27 0 0 1 6 6.05Z"/>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="cart" viewBox="0 0 24 24">
-        <path fill="currentColor" d="M8.5 19a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 8.5 19ZM19 16H7a1 1 0 0 1 0-2h8.491a3.013 3.013 0 0 0 2.885-2.176l1.585-5.55A1 1 0 0 0 19 5H6.74a3.007 3 0 0 0-2.82-2H3a1 1 0 0 0 0 2h.921a1.005 1.005 0 0 1 .962.725l.155.545v.005l1.641 5.742A3 3 0 0 0 7 18h12a1 1 0 0 0 0-2Zm-1.326-9l-1.22 4.274a1.005 1.005 0 0 1-.963.726H8.754l-.255-.892L7.326 7ZM16.5 19a1.5 1.5 0 1 0 1.5 1.5a1.5 1.5 0 0 0-1.5-1.5Z"/>
-      </symbol>
-      <symbol xmlns="http://www.w3.org/2000/svg" id="search" viewBox="0 0 24 24">
-        <path fill="currentColor" d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z"/>
-      </symbol>
-    </defs>
-  </svg>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
+    <symbol id="heart" viewBox="0 0 24 24"><path fill="currentColor" d="M20.16 4.61A6.27 6.27 0 0 0 12 4a6.27 6.27 0 0 0-8.16 9.48l7.45 7.45a1 1 0 0 0 1.42 0l7.45-7.45a6.27 6.27 0 0 0 0-8.87Zm-1.41 7.46L12 18.81l-6.75-6.74a4.28 4.28 0 0 1 3-7.3a4.25 4.25 0 0 1 3 1.25a1 1 0 0 0 1.42 0a4.27 4.27 0 0 1 6 6.05Z"/></symbol>
+    <symbol id="cart" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 19a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 8.5 19ZM19 16H7a1 1 0 0 1 0-2h8.491a3.013 3.013 0 0 0 2.885-2.176l1.585-5.55A1 1 0 0 0 19 5H6.74a3.007 3.007 0 0 0-2.82-2H3a1 1 0 0 0 0 2h.921a1.005 1.005 0 0 1 .962.725l.155.545v.005l1.641 5.742A3 3 0 0 0 7 18h12a1 1 0 0 0 0-2Zm-1.326-9l-1.22 4.274a1.005 1.005 0 0 1-.963.726H8.754l-.255-.892L7.326 7ZM16.5 19a1.5 1.5 0 1 0 1.5 1.5a1.5 1.5 0 0 0-1.5-1.5Z"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><path fill="currentColor" d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z"/></symbol>
+    <symbol id="star-outline" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.5 9.804L5.337 11l.413-2.533L4 6.674l2.418-.37L7.5 4l1.082 2.304l2.418.37l-1.75 1.793L9.663 11L7.5 9.804Z"/></symbol>
+    <symbol id="star-solid" viewBox="0 0 15 15"><path fill="currentColor" d="M7.953 3.788a.5.5 0 0 0-.906 0L6.08 5.85l-2.154.33a.5.5 0 0 0-.283.843l1.574 1.613l-.373 2.284a.5.5 0 0 0 .736.518l1.92-1.063l1.921 1.063a.5.5 0 0 0 .736-.519l-.373-2.283l1.574-1.613a.5.5 0 0 0-.283-.844L8.921 5.85l-.968-2.062Z"/></symbol>
+    <symbol id="angle-left" viewBox="0 0 24 24"><path fill="currentColor" d="m11.29 12l3.54-3.54a1 1 0 0 0 0-1.41a1 1 0 0 0-1.42 0l-4.24 4.24a1 1 0 0 0 0 1.42L13.41 17a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29a1 1 0 0 0 0-1.41Z"/></symbol>
+    <symbol id="angle-right" viewBox="0 0 24 24"><path fill="currentColor" d="m14.83 11.29l-4.24-4.24a1 1 0 0 0-1.42 0a1 1 0 0 0 0 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29l4.24-4.24a1 1 0 0 0 0-1.42Z"/></symbol>
+    <symbol id="facebook" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M7.5 14.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Zm0 0v-8a2 2 0 0 1 2-2h.5m-5 4h5"/></symbol>
+    <symbol id="twitter" viewBox="0 0 15 15"><path fill="currentColor" d="m14.478 1.5l.5-.033a.5.5 0 0 0-.871-.301l.371.334Zm-.498 2.959a.5.5 0 1 0-1 0h1Zm-6.49.082h-.5h.5Zm0 .959h.5h-.5Zm-6.99 7V12a.5.5 0 0 0-.278.916L.5 12.5Zm.998-11l.469-.175a.5.5 0 0 0-.916-.048l.447.223Zm3.994 9l.354.353a.5.5 0 0 0-.195-.827l-.159.474Z"/></symbol>
+    <symbol id="youtube" viewBox="0 0 15 15"><path fill="currentColor" d="M6.5 5.5l.277-.416A.5.5 0 0 0 6 5.5h.5Zm0 4H6a.5.5 0 0 0 .777.416L6.5 9.5Zm3-2l.277.416a.5.5 0 0 0 0-.832L9.5 7.5ZM6 5.5v4h1v-4H6Zm.777 4.416l3-2l-.554-.832l-3 2l.554.832Zm3-2.832l-3-2l-.554.832l3 2l.554-.832Z"/></symbol>
+    <symbol id="instagram" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M11 3.5h1M4.5.5h6a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-6a4 4 0 0 1-4-4v-6a4 4 0 0 1 4-4Zm3 10a3 3 0 1 1 0-6a3 3 0 0 1 0 6Z"/></symbol>
+  </defs></svg>
 
   <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
 
+  <!-- Search Popup -->
   <div class="search-popup">
     <div class="search-popup-container">
-      <form role="search" method="get" class="form-group" action="shop">
-        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" value="" name="q" />
-        <button type="submit" class="search-submit border-0 position-absolute bg-white" style="top: 15px;right: 15px;">
-          <svg class="search" width="24" height="24"><use xlink:href="#search"></use></svg>
-        </button>
+      <form role="search" method="get" class="search-popup-form">
+        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" name="s">
+        <button type="submit" class="search-submit border-0 position-absolute bg-transparent" style="top:15px;right:15px"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></button>
       </form>
-
       <h5 class="cat-list-title">Browse Categories</h5>
       <ul class="cat-list">
-        <li class="cat-list-item"><a href="#" title="Jackets">Jackets</a></li>
-        <li class="cat-list-item"><a href="#" title="T-shirts">T-shirts</a></li>
-        <li class="cat-list-item"><a href="#" title="Handbags">Handbags</a></li>
-        <li class="cat-list-item"><a href="#" title="Accessories">Accessories</a></li>
-        <li class="cat-list-item"><a href="#" title="Cosmetics">Cosmetics</a></li>
-        <li class="cat-list-item"><a href="#" title="Dresses">Dresses</a></li>
-        <li class="cat-list-item"><a href="#" title="Jumpsuits">Jumpsuits</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Men">Men</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Women">Women</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Accessories">Accessories</a></li>
       </ul>
     </div>
   </div>
 
+  <!-- Cart Offcanvas -->
   <div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="offcanvasCart">
     <div class="offcanvas-header justify-content-center">
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body">
-      <div class="order-md-last">
-        <h4 class="d-flex justify-content-between align-items-center mb-3">
-          <span class="text-primary">Your cart</span>
-          <span class="badge bg-primary rounded-pill" id="cart-count">0</span>
-        </h4>
-        <ul id="cart-list" class="list-group mb-3"></ul>
-        <div class="list-group-item d-flex justify-content-between" style="border:0;padding-left:0;padding-right:0">
-          <span>Total (USD)</span>
-          <strong id="cart-total">$0.00</strong>
-        </div>
-        <a class="w-100 btn btn-primary btn-lg" href="checkout.html">Continue to checkout</a>
-      </div>
+      <h4 class="d-flex justify-content-between align-items-center mb-3"><span>Your cart</span><span class="badge bg-primary rounded-pill" id="cart-count">0</span></h4>
+      <ul id="cart-list" class="list-group mb-3"></ul>
+      <div class="d-flex justify-content-between align-items-center mb-3"><strong>Total</strong><strong id="cart-total">$0.00</strong></div>
+      <a class="w-100 btn btn-primary btn-lg" href="checkout.html">Checkout</a>
     </div>
   </div>
 
-  <nav class="navbar navbar-expand-lg text-uppercase fs-6 p-3 border-bottom align-items-center">
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <div class="row justify-content-between align-items-center w-100">
-        <div class="col-auto">
-          <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo" style="height:36px"></a>
-        </div>
-
-        <div class="col-auto">
-          <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-
-          <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
-            <div class="offcanvas-header">
-              <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Menu</h5>
-              <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-            </div>
-
-            <div class="offcanvas-body">
-              <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-5 pe-3">
-                <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
-                <li class="nav-item"><a class="nav-link active" href="shop.html">Shop</a></li>
-                <li class="nav-item dropdown">
-                  <a class="nav-link dropdown-toggle" href="#" id="dropdownPages" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Pages</a>
-                  <ul class="dropdown-menu list-unstyled" aria-labelledby="dropdownPages">
-                    <li><a href="about.html" class="dropdown-item item-anchor">About</a></li>
-                    <li><a href="cart.html" class="dropdown-item item-anchor">Cart</a></li>
-                    <li><a href="checkout.html" class="dropdown-item item-anchor">Checkout</a></li>
-                    <li><a href="coming-soon.html" class="dropdown-item item-anchor">Coming Soon</a></li>
-                    <li><a href="contact.html" class="dropdown-item item-anchor">Contact</a></li>
-                    <li><a href="error.html" class="dropdown-item item-anchor">Error</a></li>
-                    <li><a href="faqs.html" class="dropdown-item item-anchor">FAQs</a></li>
-                    <li><a href="account.html" class="dropdown-item item-anchor">My Account</a></li>
-                    <li><a href="order-tracking.html" class="dropdown-item item-anchor">Order Tracking</a></li>
-                    <li><a href="wishlist.html" class="dropdown-item item-anchor">Wishlist</a></li>
-                  </ul>
-                </li>
-                <li class="nav-item"><a class="nav-link" href="coming-soon.html?page=blog">Blog</a></li>
-                <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
-                <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-                <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
-                <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-3 col-lg-auto">
-          <ul class="list-unstyled d-flex m-0">
-            <li class="d-none d-lg-block">
-              <a href="profile.html" class="text-uppercase mx-3">Profile</a>
-            </li>
-            <li class="d-none d-lg-block">
-              <a href="wishlist.html" class="text-uppercase mx-3">Wishlist <span class="wishlist-count">(0)</span></a>
-            </li>
-            <li class="d-none d-lg-block">
-              <a href="#" class="text-uppercase mx-3" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart" aria-controls="offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
-            </li>
-            <li class="d-lg-none">
-              <a href="wishlist.html" class="mx-2"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg></a>
-            </li>
-            <li class="d-lg-none">
-              <a href="#" class="mx-2" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart" aria-controls="offcanvasCart"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#cart"></use></svg></a>
-            </li>
-            <li class="search-box mx-2">
-              <a href="#search" class="search-button"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></a>
-            </li>
+      <a class="navbar-brand" href="index.html" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;letter-spacing:-0.04em;line-height:1">[inrl]</a>
+      <div class="d-flex align-items-center gap-3 order-lg-last">
+        <a href="wishlist.html" class="d-none d-lg-inline text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Wishlist</a>
+        <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
+        <a href="#search" class="search-button text-white"><svg width="22" height="22" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></a>
+      </div>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"><span class="navbar-toggler-icon"></span></button>
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+        <div class="offcanvas-header"><h5 class="offcanvas-title" id="offcanvasNavbarLabel">Menu</h5><button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+        <div class="offcanvas-body">
+          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+            <li class="nav-item"><a class="nav-link active" href="shop.html">Shop</a></li>
+            <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+            <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
           </ul>
         </div>
       </div>
     </div>
   </nav>
 
-  <section class="pt-3 border-bottom">
-    <div class="container">
-      <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <h1 id="shopTitle" class="text-uppercase fs-3 mb-1">Shop</h1>
-          <div id="liveCatalogUser" class="text-muted" style="font-size: 14px">Checking sign-in…</div>
-        </div>
-        <nav class="breadcrumb mb-0">
-          <a class="breadcrumb-item" href="index.html">Home</a>
-          <span class="breadcrumb-item active" aria-current="page">Shop</span>
-        </nav>
-      </div>
+  <!-- Page Header -->
+  <div class="page-header text-white py-5" style="margin-top:76px">
+    <div class="container pt-4">
+      <h1 id="shopTitle" class="text-uppercase mb-2" style="color:#F5F5F0">Shop</h1>
+      <p id="liveCatalogUser" class="mb-0" style="font-size:13px;opacity:.5"></p>
     </div>
-  </section>
+  </div>
 
-  <main class="main-content py-5">
+  <!-- Shop Controls + Grid -->
+  <section class="py-5" style="background:#1C1C1C">
     <div class="container">
-      <div class="row py-2">
-        <div class="col-12 col-md-4 d-flex align-items-center">
-          <span id="shopResultsLabel">Showing products…</span>
+      <!-- Static Example Card -->
+      <div class="mb-5">
+<!-- <h5 class="text-uppercase mb-3" style="color:#00ED0A;font-size:11px;font-weight:700;letter-spacing:.2em">Card Preview</h5>
+        --> <div class="row">
+          <div class="col-md-3 col-sm-6 mb-4">
+            <div class="shop-card">
+              <div class="shop-card-title">Genesis BLK</div>
+              <a href="product.html" class="shop-card-image"><img src="images/product-item-1.jpg" alt="Genesis BLK"></a>
+              <div class="shop-card-footer">
+                <div class="shop-card-price">$ 299</div>
+                <a href="#" class="shop-card-buy" data-sku="genesis-blk">BUY NOW ↗</a>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="col-12 col-md-5 mt-2 mt-md-0">
-          <input id="shopSearchInput" class="form-control" type="search" placeholder="Search products" aria-label="Search products" />
+      </div>
+
+      <div class="row mb-4 g-3 align-items-center">
+        <div class="col-md-5">
+          <input type="text" id="shopSearchInput" class="form-control" placeholder="Search products…">
         </div>
-        <div class="col-12 col-md-3 mt-2 mt-md-0">
-          <select id="shopSortSelect" class="form-select" aria-label="Sort products">
-            <option value="relevance">Relevance</option>
+        <div class="col-md-3">
+          <select id="shopSortSelect" class="form-select">
+            <option value="relevance">Sort by Relevance</option>
             <option value="price_asc">Price: Low to High</option>
             <option value="price_desc">Price: High to Low</option>
             <option value="popularity">Popularity</option>
           </select>
         </div>
-      </div>
-
-      <div id="shopStatus" class="text-muted mb-3" style="font-size: 14px">Loading products…</div>
-
-      <div id="shopProductsGrid" class="row"></div>
-
-      <nav aria-label="Page navigation" class="d-flex justify-content-center mt-5">
-        <ul class="pagination">
-          <li class="page-item disabled"><a class="page-link" href="#" aria-label="Previous">Previous</a></li>
-          <li class="page-item active" aria-current="page"><a class="page-link" href="#">1</a></li>
-          <li class="page-item disabled"><a class="page-link" href="#" aria-label="Next">Next</a></li>
-        </ul>
-      </nav>
-    </div>
-  </main>
-
-  <section class="newsletter bg-light" style="background: url(images/pattern-bg.png) no-repeat;">
-    <div class="container">
-      <div class="row justify-content-center">
-        <div class="col-md-8 py-5 my-5">
-          <div class="subscribe-header text-center pb-3">
-            <h3 class="section-title text-uppercase">Sign Up for our newsletter</h3>
-          </div>
-          <form id="newsletter-form" class="d-flex flex-wrap gap-2">
-            <input type="text" name="email" placeholder="Your Email Addresss" class="form-control form-control-lg">
-            <button class="btn btn-dark btn-lg text-uppercase w-100" type="submit">Sign Up</button>
-          </form>
+        <div class="col-md-4 text-md-end">
+          <span id="shopResultsLabel" style="font-size:13px;color:rgba(245,245,240,.4)"></span>
         </div>
       </div>
+      <div id="shopStatus" class="mb-3" style="font-size:14px;color:rgba(245,245,240,.5)">Loading products…</div>
+      <div class="row" id="shopProductsGrid"></div>
     </div>
   </section>
 
-  <section class="instagram py-5">
-    <div class="container">
-      <div class="row g-3">
-        <h6 class="element-title text-center">Follow us on Instagram</h6>
-        <div class="col-6 col-sm-4 col-md-2"><div class="insta-item"><a href="#" onclick="return false"><img src="images/insta-item1.jpg" alt="instagram" class="insta-image img-fluid"></a></div></div>
-        <div class="col-6 col-sm-4 col-md-2"><div class="insta-item"><a href="#" onclick="return false"><img src="images/insta-item2.jpg" alt="instagram" class="insta-image img-fluid"></a></div></div>
-        <div class="col-6 col-sm-4 col-md-2"><div class="insta-item"><a href="#" onclick="return false"><img src="images/insta-item3.jpg" alt="instagram" class="insta-image img-fluid"></a></div></div>
-        <div class="col-6 col-sm-4 col-md-2"><div class="insta-item"><a href="#" onclick="return false"><img src="images/insta-item4.jpg" alt="instagram" class="insta-image img-fluid"></a></div></div>
-        <div class="col-6 col-sm-4 col-md-2"><div class="insta-item"><a href="#" onclick="return false"><img src="images/insta-item5.jpg" alt="instagram" class="insta-image img-fluid"></a></div></div>
-        <div class="col-6 col-sm-4 col-md-2"><div class="insta-item"><a href="#" onclick="return false"><img src="images/insta-item6.jpg" alt="instagram" class="insta-image img-fluid"></a></div></div>
-      </div>
-    </div>
+  <!-- Newsletter -->
+  <section style="background:#1C1C1C;padding:60px 56px;display:flex;align-items:center;justify-content:space-between;gap:40px;flex-wrap:wrap;border-top:3px solid #1C1C1C">
+    <h2 style="font-family:'Averia Serif Libre',serif;font-size:clamp(30px,4vw,48px);color:#F5F5F0;line-height:1;letter-spacing:-0.04em;margin:0">Stay in the <span style="color:#FEFD00">loop</span></h2>
+    <form id="newsletter-form" style="display:flex;gap:0;flex-wrap:wrap">
+      <input type="email" name="email" placeholder="your@email.com" required style="font-family:'Roboto Mono',monospace;font-size:14px;padding:14px 20px;border:3px solid #F5F5F0;background:transparent;color:#F5F5F0;outline:none;width:260px">
+      <button type="submit" style="font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:14px 24px;background:#FEFD00;color:#1C1C1C;border:3px solid #F5F5F0;border-left:none;cursor:pointer">Sign Up</button>
+    </form>
   </section>
 
-  <footer id="footer" class="mt-5">
+  <!-- Footer -->
+  <footer id="footer">
     <div class="container">
-      <div class="row d-flex flex-wrap justify-content-between py-5">
-        <div class="col-md-3 col-sm-6">
-          <div class="footer-menu footer-menu-001">
-            <div class="footer-intro mb-4">
-              <a href="index.html"><img src="images/main-logo.png" alt="logo"></a>
-            </div>
-            <p>Browse products, add to cart, and checkout with your order details.</p>
-            <div class="social-links">
-              <ul class="list-unstyled d-flex flex-wrap gap-3">
-                <li><a href="#" class="text-secondary" onclick="return false"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#facebook"></use></svg></a></li>
-                <li><a href="#" class="text-secondary" onclick="return false"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#twitter"></use></svg></a></li>
-                <li><a href="#" class="text-secondary" onclick="return false"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#youtube"></use></svg></a></li>
-                <li><a href="#" class="text-secondary" onclick="return false"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#pinterest"></use></svg></a></li>
-                <li><a href="#" class="text-secondary" onclick="return false"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#instagram"></use></svg></a></li>
-              </ul>
-            </div>
-          </div>
+      <div class="row py-5">
+        <div class="col-md-3 col-sm-6 mb-4">
+          <div style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;display:inline-block;letter-spacing:-0.04em;margin-bottom:16px">[inrl]</div>
+          <p>Next-gen digital identity and fashion.</p>
         </div>
-
-        <div class="col-md-3 col-sm-6">
-          <div class="footer-menu footer-menu-002">
-            <h5 class="widget-title text-uppercase mb-4">Quick Links</h5>
-            <ul class="menu-list list-unstyled text-uppercase border-animation-left fs-6">
-              <li class="menu-item"><a href="index.html" class="item-anchor">Home</a></li>
-              <li class="menu-item"><a href="about.html" class="item-anchor">About</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=services" class="item-anchor">Services</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=single-item" class="item-anchor">Single item</a></li>
-              <li class="menu-item"><a href="contact.html" class="item-anchor">Contact</a></li>
-            </ul>
-          </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Quick Links</h5>
+          <ul class="list-unstyled"><li class="mb-2"><a href="index.html">Home</a></li><li class="mb-2"><a href="shop.html">Shop</a></li><li class="mb-2"><a href="about.html">About</a></li><li class="mb-2"><a href="contact.html">Contact</a></li></ul>
         </div>
-
-        <div class="col-md-3 col-sm-6">
-          <div class="footer-menu footer-menu-003">
-            <h5 class="widget-title text-uppercase mb-4">Help &amp; Info</h5>
-            <ul class="menu-list list-unstyled text-uppercase border-animation-left fs-6">
-              <li class="menu-item"><a href="order-tracking.html" class="item-anchor">Track Your Order</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=returns" class="item-anchor">Returns + Exchanges</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=shipping" class="item-anchor">Shipping + Delivery</a></li>
-              <li class="menu-item"><a href="contact.html" class="item-anchor">Contact Us</a></li>
-              <li class="menu-item"><a href="coming-soon.html?page=find-us" class="item-anchor">Find us easy</a></li>
-              <li class="menu-item"><a href="faqs.html" class="item-anchor">Faqs</a></li>
-            </ul>
-          </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Help & Info</h5>
+          <ul class="list-unstyled"><li class="mb-2"><a href="order-tracking.html">Track Order</a></li><li class="mb-2"><a href="faqs.html">FAQs</a></li><li class="mb-2"><a href="contact.html">Contact Us</a></li></ul>
         </div>
-
-        <div class="col-md-3 col-sm-6">
-          <div class="footer-menu footer-menu-004 border-animation-left">
-            <h5 class="widget-title text-uppercase mb-4">Contact Us</h5>
-            <p>Do you have any questions or suggestions? <a href="mailto:contact@yourcompany.com" class="item-anchor">contact@yourcompany.com</a></p>
-            <p>Do you need support? Give us a call. <a href="tel:+43720115278" class="item-anchor">+43 720 115 278</a></p>
-          </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Contact</h5>
+          <p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p>
         </div>
       </div>
-    </div>
-
-    <div class="border-top py-4">
-      <div class="container">
-        <div class="row">
-          <div class="col-md-6 d-flex flex-wrap">
-            <div class="shipping">
-              <span>We ship with:</span>
-              <img src="images/arct-icon.png" alt="icon">
-              <img src="images/dhl-logo.png" alt="icon">
-            </div>
-            <div class="payment-option">
-              <span>Payment Option:</span>
-              <img src="images/visa-card.png" alt="card">
-              <img src="images/paypal-card.png" alt="card">
-              <img src="images/master-card.png" alt="card">
-            </div>
-          </div>
-          <div class="col-md-6 text-end">
-            <p>© Copyright 2026 MindAR. All rights reserved.</p>
-          </div>
-        </div>
-      </div>
+      <div class="border-top py-3"><p class="text-center mb-0" style="font-size:12px;opacity:.35">&copy; 2026 INRL. All rights reserved.</p></div>
     </div>
   </footer>
 
@@ -338,347 +193,80 @@
   <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
   <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
-
   <script>
-    // Newsletter demo submit
-    (function(){
-      const f = document.getElementById('newsletter-form');
-      if (!f) return;
-      f.addEventListener('submit', function(e){
-        e.preventDefault();
-        alert('Thanks! Newsletter signup is a demo.');
-        try { f.reset(); } catch {}
-      });
-    })();
+    (function(){var f=document.getElementById('newsletter-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();alert('Thanks! Newsletter signup is a demo.');try{f.reset()}catch{}})})();
+    (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');var userEl=document.getElementById('liveCatalogUser');try{var me=await auth.me();var user=me&&me.email?me:null;if(userEl)userEl.textContent=user?'Signed in as '+user.email+' ('+user.role+')':'Not signed in';if(loginEl)loginEl.style.display=user?'none':'';var canDashboard=user&&(user.role==='admin'||user.role==='brand');if(dashEl)dashEl.style.display=canDashboard?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){if(userEl)userEl.textContent='Not signed in'}})();
 
-    // --- Auth-aware navbar (shared Worker cookie session) ---
-    (async function initAuthNav() {
-      const loginEl = document.getElementById('navLogin');
-      const dashEl = document.getElementById('navDashboard');
-      const logoutEl = document.getElementById('navLogout');
-      const userEl = document.getElementById('liveCatalogUser');
-      try {
-        const me = await auth.me();
-        const user = me && me.email ? me : null;
+    function moneyFromCents(cents,currency){var amt=(Number(cents||0)/100);var sym=(currency||'USD')==='USD'?'$':'';return sym+amt.toFixed(2)}
+    function normalizeCatalogImageUrl(u){var s=(u||'').toString();if(!s)return s;if(s.startsWith('data:'))return s;if(s.startsWith('http://')||s.startsWith('https://'))return s;if(s.startsWith('/api/'))return s;if(s.startsWith('/ecommerce/'))return s;if(s.startsWith('/images/'))return s.replace(/^\/images\//,'images/');return s}
+    function toNum(v,fallback){var n=Number(v);return Number.isFinite(n)?n:(fallback||0)}
+    function normText(s){return String(s||'').trim().toLowerCase()}
+    function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+    function createdAtKey(p){var t=Date.parse(p&&p.created_at?String(p.created_at):'');if(Number.isFinite(t))return t;var u=Date.parse(p&&p.updated_at?String(p.updated_at):'');if(Number.isFinite(u))return u;return toNum(p&&p.id,0)}
 
-        if (userEl) userEl.textContent = user ? `Signed in as ${user.email} (${user.role})` : 'Not signed in';
-        if (loginEl) loginEl.style.display = user ? 'none' : '';
-
-        const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
-        if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
-
-        if (logoutEl) {
-          logoutEl.style.display = user ? '' : 'none';
-          logoutEl.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await auth.logout();
-            location.reload();
-          });
-        }
-      } catch {
-        if (userEl) userEl.textContent = 'Not signed in';
-      }
-    })();
-
-    function moneyFromCents(cents, currency) {
-      const amt = (Number(cents || 0) / 100);
-      const sym = (currency || 'USD') === 'USD' ? '$' : '';
-      return `${sym}${amt.toFixed(2)}`;
-    }
-
-    function normalizeCatalogImageUrl(u){
-      const s = (u || '').toString();
-      if (!s) return s;
-      if (s.startsWith('data:')) return s;
-      if (s.startsWith('http://') || s.startsWith('https://')) return s;
-      if (s.startsWith('/api/')) return s;
-      if (s.startsWith('/ecommerce/')) return s;
-      if (s.startsWith('/images/')) return s.replace(/^\/images\//, 'images/');
-      return s;
-    }
-
-    function toNum(v, fallback = 0) {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : fallback;
-    }
-
-    function normText(s) {
-      return String(s || '').trim().toLowerCase();
-    }
-
-    function createdAtKey(p) {
-      const t = Date.parse(p && p.created_at ? String(p.created_at) : '');
-      if (Number.isFinite(t)) return t;
-      // Fall back to updated_at, then id.
-      const u = Date.parse(p && p.updated_at ? String(p.updated_at) : '');
-      if (Number.isFinite(u)) return u;
-      return toNum(p && p.id, 0);
-    }
-
-    function relevanceScore(p, q) {
-      const query = normText(q);
-      if (!query) return 0;
-
-      const title = normText(p && p.title);
-      const category = normText(p && p.category);
-      const brand = normText(p && p.brand);
-
-      const tokens = query.split(/\s+/).filter(Boolean);
-      let score = 0;
-
-      const scoreField = (field, weights) => {
-        if (!field) return;
-        if (field === query) score += weights.exact;
-        if (field.startsWith(query)) score += weights.prefix;
-        if (field.includes(query)) score += weights.contains;
-        for (const t of tokens) {
-          if (t.length < 2) continue;
-          if (field === t) score += weights.tokenExact;
-          else if (field.startsWith(t)) score += weights.tokenPrefix;
-          else if (field.includes(t)) score += weights.tokenContains;
-        }
-      };
-
-      scoreField(title, { exact: 120, prefix: 80, contains: 50, tokenExact: 40, tokenPrefix: 25, tokenContains: 12 });
-      scoreField(category, { exact: 70, prefix: 45, contains: 25, tokenExact: 18, tokenPrefix: 12, tokenContains: 6 });
-      scoreField(brand, { exact: 60, prefix: 35, contains: 20, tokenExact: 14, tokenPrefix: 10, tokenContains: 5 });
-
+    function relevanceScore(p,q){
+      var query=normText(q);if(!query)return 0;
+      var title=normText(p&&p.title);var category=normText(p&&p.category);var brand=normText(p&&p.brand);
+      var tokens=query.split(/\s+/).filter(Boolean);var score=0;
+      function scoreField(field,w){if(!field)return;if(field===query)score+=w.exact;if(field.startsWith(query))score+=w.prefix;if(field.includes(query))score+=w.contains;for(var i=0;i<tokens.length;i++){var t=tokens[i];if(t.length<2)continue;if(field===t)score+=w.tokenExact;else if(field.startsWith(t))score+=w.tokenPrefix;else if(field.includes(t))score+=w.tokenContains}}
+      scoreField(title,{exact:120,prefix:80,contains:50,tokenExact:40,tokenPrefix:25,tokenContains:12});
+      scoreField(category,{exact:70,prefix:45,contains:25,tokenExact:18,tokenPrefix:12,tokenContains:6});
+      scoreField(brand,{exact:60,prefix:35,contains:20,tokenExact:14,tokenPrefix:10,tokenContains:5});
       return score;
     }
+    function matchesQuery(p,q){var query=normText(q);if(!query)return true;var title=normText(p&&p.title);var category=normText(p&&p.category);var brand=normText(p&&p.brand);return title.includes(query)||category.includes(query)||brand.includes(query)}
+    function readShopStateFromUrl(){var url=new URL(location.href);var categoryRaw=(url.searchParams.get('category')||'').trim();var q=(url.searchParams.get('q')||'').trim();var sort=(url.searchParams.get('sort')||'relevance').trim();return{categoryRaw:categoryRaw,category:categoryRaw.toLowerCase(),q:q,sort:sort}}
+    function updateShopUrlParams(next){var url=new URL(location.href);if('q' in next){var q=String(next.q||'').trim();if(q)url.searchParams.set('q',q);else url.searchParams.delete('q')}if('sort' in next){var s=String(next.sort||'').trim();if(s&&s!=='relevance')url.searchParams.set('sort',s);else url.searchParams.delete('sort')}history.replaceState(null,'',url.toString())}
 
-    function matchesQuery(p, q) {
-      const query = normText(q);
-      if (!query) return true;
-      const title = normText(p && p.title);
-      const category = normText(p && p.category);
-      const brand = normText(p && p.brand);
-      return title.includes(query) || category.includes(query) || brand.includes(query);
-    }
+    var SHOP_ALL_ITEMS=null;var SHOP_LOADING=null;
+    async function ensureShopProducts(){if(Array.isArray(SHOP_ALL_ITEMS))return SHOP_ALL_ITEMS;if(SHOP_LOADING)return SHOP_LOADING;SHOP_LOADING=(async function(){var res=await fetch('/api/products',{credentials:'include'});if(!res.ok)throw new Error('Products API error ('+res.status+')');var data=await res.json();var items=Array.isArray(data&&data.items)?data.items:[];SHOP_ALL_ITEMS=items;SHOP_LOADING=null;return items})();return SHOP_LOADING}
 
-    function readShopStateFromUrl() {
-      const url = new URL(location.href);
-      const categoryRaw = (url.searchParams.get('category') || '').trim();
-      const q = (url.searchParams.get('q') || '').trim();
-      const sort = (url.searchParams.get('sort') || 'relevance').trim();
-      return { categoryRaw, category: categoryRaw.toLowerCase(), q, sort };
-    }
+    function sortItems(items,sort,q){var s=(sort||'relevance').toLowerCase();var query=String(q||'').trim();var list=items.slice();if(s==='price_asc'){list.sort(function(a,b){return toNum(a&&a.price_cents,0)-toNum(b&&b.price_cents,0)});return list}if(s==='price_desc'){list.sort(function(a,b){return toNum(b&&b.price_cents,0)-toNum(a&&a.price_cents,0)});return list}if(s==='popularity'){list.sort(function(a,b){return createdAtKey(b)-createdAtKey(a)});return list}if(!query)return list;list.sort(function(a,b){var sa=relevanceScore(a,query);var sb=relevanceScore(b,query);if(sb!==sa)return sb-sa;return createdAtKey(b)-createdAtKey(a)});return list}
 
-    function updateShopUrlParams(next) {
-      const url = new URL(location.href);
-      if ('q' in next) {
-        const q = String(next.q || '').trim();
-        if (q) url.searchParams.set('q', q);
-        else url.searchParams.delete('q');
-      }
-      if ('sort' in next) {
-        const s = String(next.sort || '').trim();
-        if (s && s !== 'relevance') url.searchParams.set('sort', s);
-        else url.searchParams.delete('sort');
-      }
-      history.replaceState(null, '', url.toString());
-    }
+    function setShopControlsFromUrl(){var state=readShopStateFromUrl();var searchEl=document.getElementById('shopSearchInput');var sortEl=document.getElementById('shopSortSelect');var popupSearchEl=document.getElementById('search-form');if(searchEl&&searchEl.value!==state.q)searchEl.value=state.q;if(popupSearchEl&&popupSearchEl.value!==state.q)popupSearchEl.value=state.q;var allowed=['relevance','price_asc','price_desc','popularity'];var nextSort=allowed.includes(String(state.sort||'').toLowerCase())?String(state.sort).toLowerCase():'relevance';if(sortEl)sortEl.value=nextSort}
 
-    let SHOP_ALL_ITEMS = null;
-    let SHOP_LOADING = null;
-
-    async function ensureShopProducts() {
-      if (Array.isArray(SHOP_ALL_ITEMS)) return SHOP_ALL_ITEMS;
-      if (SHOP_LOADING) return SHOP_LOADING;
-
-      SHOP_LOADING = (async () => {
-        const res = await fetch('/api/products', { credentials: 'include' });
-        if (!res.ok) throw new Error(`Products API error (${res.status})`);
-        const data = await res.json();
-        const items = Array.isArray(data && data.items) ? data.items : [];
-        SHOP_ALL_ITEMS = items;
-        SHOP_LOADING = null;
-        return items;
-      })();
-
-      return SHOP_LOADING;
-    }
-
-    function sortItems(items, sort, q) {
-      const s = (sort || 'relevance').toLowerCase();
-      const query = String(q || '').trim();
-
-      const list = items.slice();
-      if (s === 'price_asc') {
-        list.sort((a, b) => toNum(a && a.price_cents, 0) - toNum(b && b.price_cents, 0));
-        return list;
-      }
-      if (s === 'price_desc') {
-        list.sort((a, b) => toNum(b && b.price_cents, 0) - toNum(a && a.price_cents, 0));
-        return list;
-      }
-      if (s === 'popularity') {
-        // Popularity definition (per your choice): newest first.
-        list.sort((a, b) => createdAtKey(b) - createdAtKey(a));
-        return list;
-      }
-
-      // Relevance: only meaningful when query is present. Otherwise keep API order.
-      if (!query) return list;
-      list.sort((a, b) => {
-        const sa = relevanceScore(a, query);
-        const sb = relevanceScore(b, query);
-        if (sb !== sa) return sb - sa;
-        return createdAtKey(b) - createdAtKey(a);
-      });
-      return list;
-    }
-
-    function setShopControlsFromUrl() {
-      const { q, sort } = readShopStateFromUrl();
-      const searchEl = document.getElementById('shopSearchInput');
-      const sortEl = document.getElementById('shopSortSelect');
-      const popupSearchEl = document.getElementById('search-form');
-
-      if (searchEl && searchEl.value !== q) searchEl.value = q;
-      if (popupSearchEl && popupSearchEl.value !== q) popupSearchEl.value = q;
-
-      const allowed = ['relevance', 'price_asc', 'price_desc', 'popularity'];
-      const nextSort = allowed.includes(String(sort || '').toLowerCase()) ? String(sort).toLowerCase() : 'relevance';
-      if (sortEl) sortEl.value = nextSort;
-    }
-
-    async function renderShopProducts() {
-      const gridEl = document.getElementById('shopProductsGrid');
-      const statusEl = document.getElementById('shopStatus');
-      const labelEl = document.getElementById('shopResultsLabel');
-      const titleEl = document.getElementById('shopTitle');
-      if (!gridEl) return;
-
-      const state = readShopStateFromUrl();
-
-      if (titleEl) {
-        titleEl.textContent = state.categoryRaw ? `Shop: ${state.categoryRaw}` : 'Shop';
-      }
-
-      try {
-        if (statusEl) statusEl.textContent = 'Loading products…';
-        const items = await ensureShopProducts();
-
-        const categoryFiltered = state.category
-          ? items.filter(p => (p && p.category != null ? String(p.category) : '').toLowerCase().includes(state.category))
-          : items;
-
-        const searched = state.q
-          ? categoryFiltered.filter(p => matchesQuery(p, state.q))
-          : categoryFiltered;
-
-        const sorted = sortItems(searched, state.sort, state.q);
-
-        if (sorted.length === 0) {
-          if (statusEl) {
-            if (state.q) statusEl.textContent = `No products found for “${state.q}”.`;
-            else if (state.categoryRaw) statusEl.textContent = `No products found for “${state.categoryRaw}”.`;
-            else statusEl.textContent = 'No published products yet.';
-          }
-          if (labelEl) labelEl.textContent = 'Showing 0 results';
-          gridEl.innerHTML = '';
-          return;
-        }
-
-        if (statusEl) statusEl.textContent = '';
-        if (labelEl) labelEl.textContent = `Showing 1–${Math.min(sorted.length, 12)} of ${sorted.length} results`;
-
-        gridEl.innerHTML = sorted.slice(0, 12).map(p => {
-          const title = (p.title || 'Product').toString();
-          const slug = (p.slug || '').toString();
-          const price = moneyFromCents(p.price_cents, p.currency);
-          const img = normalizeCatalogImageUrl((p.image_url || 'images/product-thumb-1.jpg').toString());
-          const viewer = (p.viewer_url || '').toString();
-          const href = slug ? `product.html?slug=${encodeURIComponent(slug)}` : 'product.html';
-
-          return `
-            <div class="col-md-3 mb-3 product-item link-effect">
-              <div class="image-holder position-relative">
-                <a href="${href}">
-                  <img src="${img}" alt="product" class="product-image img-fluid">
-                </a>
-                <a href="wishlist.html" class="btn-icon btn-wishlist" onclick="return false">
-                  <svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg>
-                </a>
-                <div class="product-content">
-                  <h5 class="element-title text-uppercase fs-5 mt-3">
-                    <a href="${href}">${title}</a>
-                  </h5>
-                  <a href="#" class="text-decoration-none" data-after="Add to cart"><span>${price}</span></a>
-                  ${viewer ? `<div style="font-size: 13px" class="mt-1"><a href="${viewer}" class="text-decoration-none">View in AR</a></div>` : ''}
-                  <div class="visually-hidden" data-sku="${slug}"></div>
-                </div>
-              </div>
-            </div>
-          `;
+    async function renderShopProducts(){
+      var gridEl=document.getElementById('shopProductsGrid');var statusEl=document.getElementById('shopStatus');var labelEl=document.getElementById('shopResultsLabel');var titleEl=document.getElementById('shopTitle');
+      if(!gridEl)return;var state=readShopStateFromUrl();
+      if(titleEl)titleEl.textContent=state.categoryRaw?'Shop: '+state.categoryRaw:'Shop';
+      try{
+        if(statusEl)statusEl.textContent='Loading products…';var items=await ensureShopProducts();
+        var categoryFiltered=state.category?items.filter(function(p){return(p&&p.category!=null?String(p.category):'').toLowerCase().includes(state.category)}):items;
+        var searched=state.q?categoryFiltered.filter(function(p){return matchesQuery(p,state.q)}):categoryFiltered;
+        var sorted=sortItems(searched,state.sort,state.q);
+        if(sorted.length===0){if(statusEl){if(state.q)statusEl.textContent='No products found for "'+state.q+'".';else if(state.categoryRaw)statusEl.textContent='No products found for "'+state.categoryRaw+'".';else statusEl.textContent='No published products yet.'}if(labelEl)labelEl.textContent='Showing 0 results';gridEl.innerHTML='';return}
+        if(statusEl)statusEl.textContent='';if(labelEl)labelEl.textContent='Showing 1\u2013'+Math.min(sorted.length,12)+' of '+sorted.length+' results';
+        gridEl.innerHTML=sorted.slice(0,12).map(function(p){
+          var title=escapeHtml((p.title||'Product').toString());var slug=encodeURIComponent((p.slug||'').toString());var price=escapeHtml(moneyFromCents(p.price_cents,p.currency));
+          var img=escapeHtml(normalizeCatalogImageUrl((p.image_url||'images/product-thumb-1.jpg').toString()));
+          var viewer=(p.viewer_url||'').toString();var href=slug?'product.html?slug='+slug:'product.html';
+          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><div class="shop-card-title">'+title+'</div><a href="'+escapeHtml(href)+'" class="shop-card-image"><img src="'+img+'" alt="'+title+'"></a><div class="shop-card-footer"><div class="shop-card-price">'+price+'</div><a href="#" class="shop-card-buy" data-sku="'+escapeHtml((p.slug||'').toString())+'">BUY NOW ↗</a></div></div></div>';
         }).join('');
-      } catch (e) {
-        if (statusEl) statusEl.textContent = 'Failed to load products.';
-        if (labelEl) labelEl.textContent = '';
-        gridEl.innerHTML = '';
-        console.warn('Shop products failed:', e);
-      }
+      }catch(e){if(statusEl)statusEl.textContent='Failed to load products.';if(labelEl)labelEl.textContent='';gridEl.innerHTML='';console.warn('Shop products failed:',e)}
     }
 
-    function bindShopControls() {
-      const searchEl = document.getElementById('shopSearchInput');
-      const sortEl = document.getElementById('shopSortSelect');
-      setShopControlsFromUrl();
-
-      let t = null;
-      if (searchEl) {
-        searchEl.addEventListener('input', () => {
-          if (t) clearTimeout(t);
-          t = setTimeout(() => {
-            updateShopUrlParams({ q: searchEl.value });
-            setShopControlsFromUrl();
-            renderShopProducts();
-          }, 200);
-        });
-      }
-
-      if (sortEl) {
-        sortEl.addEventListener('change', () => {
-          updateShopUrlParams({ sort: sortEl.value });
-          setShopControlsFromUrl();
-          renderShopProducts();
-        });
-      }
-
-      window.addEventListener('popstate', () => {
-        setShopControlsFromUrl();
-        renderShopProducts();
-      });
+    function bindShopControls(){
+      var searchEl=document.getElementById('shopSearchInput');var sortEl=document.getElementById('shopSortSelect');setShopControlsFromUrl();var t=null;
+      if(searchEl)searchEl.addEventListener('input',function(){if(t)clearTimeout(t);t=setTimeout(function(){updateShopUrlParams({q:searchEl.value});setShopControlsFromUrl();renderShopProducts()},200)});
+      if(sortEl)sortEl.addEventListener('change',function(){updateShopUrlParams({sort:sortEl.value});setShopControlsFromUrl();renderShopProducts()});
+      window.addEventListener('popstate',function(){setShopControlsFromUrl();renderShopProducts()});
     }
 
-    // Add-to-cart wiring for theme product cards
-    function slugify(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
-    document.addEventListener('click', function (e) {
-      const a = e.target.closest('.product-item .product-content a');
-      if (!a) return;
-      const after = (a.getAttribute('data-after') || '').toLowerCase();
-      if (!after.includes('add')) return;
-      e.preventDefault();
-
-      const itemEl = a.closest('.product-item');
-      const imgEl = itemEl && itemEl.querySelector('img.product-image');
-      const nameEl = itemEl && itemEl.querySelector('.product-content h5 a');
-      const priceText = (a.textContent || '').replace(/[^0-9.]/g, '');
-      const price = parseFloat(priceText || '0');
-      const name = nameEl ? nameEl.textContent.trim() : 'Product';
-
-      const skuEl = itemEl && itemEl.querySelector('[data-sku]');
-      const sku = skuEl ? (skuEl.getAttribute('data-sku') || '').trim() : '';
-      const id = sku ? ('sku-' + sku) : ('sku-' + slugify(name));
-      const image = imgEl ? imgEl.getAttribute('src') : '';
-
-      Cart.add({ id, name, price, image, qty: 1 });
-      CartUI.render();
+    function slugify(s){return(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')}
+    document.addEventListener('click',function(e){
+      var btn=e.target.closest('.shop-card-buy');if(!btn)return;e.preventDefault();
+      var card=btn.closest('.shop-card');if(!card)return;
+      var name=(card.querySelector('.shop-card-title')||{}).textContent||'Product';
+      var priceEl=card.querySelector('.shop-card-price');
+      var priceText=priceEl?(priceEl.textContent||'').replace(/[^0-9.]/g,''):'0';
+      var price=parseFloat(priceText||'0');
+      var imgEl=card.querySelector('.shop-card-image img');
+      var image=imgEl?imgEl.getAttribute('src'):'';
+      var sku=(btn.getAttribute('data-sku')||'').trim();
+      var id=sku?('sku-'+sku):('sku-'+slugify(name));
+      Cart.add({id:id,name:name,price:price,image:image,qty:1});CartUI.render();
     });
-
-    bindShopControls();
-    renderShopProducts();
-    CartUI.render();
+    bindShopControls();renderShopProducts();CartUI.render();
   </script>
 </body>
 </html>

@@ -1,109 +1,78 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+  <title>Account — INRL</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>My Account | MindAR Store</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="style.css">
-
-  <!-- Worker Auth Client (shared session + role) -->
-  <script src="/assets/js/auth-worker.js?v=20260206"></script>
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg bg-light text-uppercase fs-6 p-3 border-bottom align-items-center">
+  <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo" style="height:36px"></a>
-      <div class="ms-auto">
-        <a href="shop.html" class="text-uppercase mx-3">Shop</a>
-        <a href="cart.html" class="text-uppercase mx-3">Cart (<span class="js-cart-count">0</span>)</a>
-        <a href="checkout.html" class="text-uppercase mx-3">Checkout</a>
-        <a href="profile.html" class="text-uppercase mx-3">Profile</a>
-        <a id="navDashboard" href="dashboard.html" class="text-uppercase mx-3" style="display:none">Dashboard</a>
-        <a id="navLogin" href="/login.html" class="text-uppercase mx-3">Login</a>
-        <a id="navLogout" href="#" class="text-uppercase mx-3" style="display:none">Logout</a>
+      <a class="navbar-brand" href="index.html" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;letter-spacing:-0.04em;line-height:1">[inrl]</a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"><span class="navbar-toggler-icon"></span></button>
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar">
+        <div class="offcanvas-header"><h5 class="offcanvas-title">Menu</h5><button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+        <div class="offcanvas-body">
+          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
+            <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+          </ul>
+        </div>
       </div>
     </div>
   </nav>
 
-  <main class="container py-5" style="max-width: 760px">
-    <h1 class="text-uppercase mb-3">My Account</h1>
-
-    <div id="status" class="alert alert-light border" role="status">Loading…</div>
-
-    <div id="signedOut" style="display:none">
-      <p class="text-muted">You’re not signed in.</p>
-      <a class="btn btn-dark text-uppercase" href="/login.html">Sign in</a>
-    </div>
-
-    <div id="signedIn" style="display:none">
-      <div class="card">
-        <div class="card-body">
-          <div class="text-muted" style="font-size: 14px">Signed in as</div>
-          <div class="fw-semibold" id="userEmail">—</div>
-          <div class="text-muted" style="font-size: 14px">Role: <span id="userRole">—</span></div>
-
-          <div class="d-flex flex-wrap gap-2 mt-4">
-            <a class="btn btn-outline-dark text-uppercase" href="shop.html">Shop</a>
-            <a class="btn btn-outline-dark text-uppercase" href="cart.html">Cart</a>
-            <a class="btn btn-outline-dark text-uppercase" href="checkout.html">Checkout</a>
-            <a class="btn btn-outline-dark text-uppercase" href="profile.html">Profile</a>
-            <a class="btn btn-outline-dark text-uppercase" href="/admin.html">AR Dashboard</a>
-            <button id="logoutBtn" class="btn btn-dark text-uppercase">Logout</button>
-          </div>
+  <section class="py-5" style="margin-top:76px">
+    <div class="container" style="max-width:600px">
+      <h1 class="text-uppercase mb-4">Account</h1>
+      <div id="status" class="mb-3" style="font-size:14px">Checking authentication…</div>
+      <div id="signedIn" style="display:none">
+        <div style="border:3px solid #1C1C1C;padding:24px;box-shadow:4px 4px 0 #1C1C1C;margin-bottom:24px">
+          <p class="mb-2"><strong>Email:</strong> <span id="userEmail"></span></p>
+          <p class="mb-3"><strong>Role:</strong> <span id="userRole"></span></p>
+          <button id="logoutBtn" class="btn btn-outline-dark text-uppercase">Logout</button>
         </div>
       </div>
+      <div id="signedOut" style="display:none">
+        <p>You are not signed in.</p>
+        <a href="/login.html" class="btn btn-primary text-uppercase">Login</a>
+      </div>
     </div>
-  </main>
+  </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-  <script src="js/cart.js"></script>
+  <footer id="footer">
+    <div class="container">
+      <div class="row py-5">
+        <div class="col-md-3 col-sm-6 mb-4"><div style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;display:inline-block;letter-spacing:-0.04em;margin-bottom:16px">[inrl]</div><p>Next-gen digital identity and fashion.</p></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Quick Links</h5><ul class="list-unstyled"><li class="mb-2"><a href="index.html">Home</a></li><li class="mb-2"><a href="shop.html">Shop</a></li></ul></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Help & Info</h5><ul class="list-unstyled"><li class="mb-2"><a href="faqs.html">FAQs</a></li><li class="mb-2"><a href="contact.html">Contact Us</a></li></ul></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Contact</h5><p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p></div>
+      </div>
+      <div class="border-top py-3"><p class="text-center mb-0" style="font-size:12px;opacity:.35">&copy; 2026 INRL. All rights reserved.</p></div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
   <script>
-    (async function(){
-      try { CartUI.render(); } catch {}
-
-      const statusEl = document.getElementById('status');
-      const signedOutEl = document.getElementById('signedOut');
-      const signedInEl = document.getElementById('signedIn');
-      const emailEl = document.getElementById('userEmail');
-      const roleEl = document.getElementById('userRole');
-      const dashEl = document.getElementById('navDashboard');
-      const loginEl = document.getElementById('navLogin');
-      const logoutEl = document.getElementById('navLogout');
-      const logoutBtn = document.getElementById('logoutBtn');
-
-      const me = await auth.me();
-      const user = me && me.email ? me : null;
-
-      if (!user) {
-        const next = '/ecommerce/account.html';
-        location.href = `/login.html?next=${encodeURIComponent(next)}`;
-        return;
-      }
-
-      if (loginEl) loginEl.style.display = user ? 'none' : '';
-      if (logoutEl) logoutEl.style.display = user ? '' : 'none';
-      if (logoutEl) logoutEl.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await auth.logout();
-        location.reload();
-      });
-
-      const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
-      if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
-
-      if (statusEl) statusEl.style.display = 'none';
-      if (signedOutEl) signedOutEl.style.display = 'none';
-      if (signedInEl) signedInEl.style.display = '';
-      if (emailEl) emailEl.textContent = user.email || '—';
-      if (roleEl) roleEl.textContent = user.role || '—';
-
-      logoutBtn?.addEventListener('click', async () => {
-        await auth.logout();
-        location.reload();
-      });
-    })();
+  (async function(){
+    var statusEl=document.getElementById('status');var signedIn=document.getElementById('signedIn');var signedOut=document.getElementById('signedOut');
+    var emailEl=document.getElementById('userEmail');var roleEl=document.getElementById('userRole');var logoutBtn=document.getElementById('logoutBtn');
+    try{
+      var me=await auth.me();var user=me&&me.email?me:null;
+      if(!user){statusEl.textContent='';signedOut.style.display='';return}
+      statusEl.textContent='';signedIn.style.display='';
+      emailEl.textContent=user.email;roleEl.textContent=user.role||'user';
+      logoutBtn.addEventListener('click',async function(){await auth.logout();location.reload()});
+    }catch(e){statusEl.textContent='';signedOut.style.display=''}
+  })();
   </script>
 </body>
 </html>
