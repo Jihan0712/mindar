@@ -136,8 +136,9 @@
   </nav>
 
   <!-- HERO: Full-screen intro — fully CMS-driven via /api/homepage -->
+  <!-- NOTE: deliberately NOT using .slideshow class so script.min.js doesn't auto-init it -->
   <section class="text-white">
-    <div class="slideshow slide-in" id="heroSlideshow" style="height:100vh">
+    <div class="hero-swiper slide-in" id="heroSlideshow" style="height:100vh;overflow:hidden">
       <div class="swiper-wrapper" id="homeHeroSlides">
         <!-- Slides injected by initHomepageCms() from /api/homepage -->
         <div class="swiper-slide d-flex align-items-center" style="background:#1C1C1C">
@@ -403,11 +404,18 @@
   <script src="js/cart.js"></script>
   <script>
     // --- Homepage CMS ---
+    // Hero swiper CSS (mirrors .slideshow rules since we removed that class to prevent script.min.js auto-init)
+    (function(){
+      const s = document.createElement('style');
+      s.textContent = '#heroSlideshow .swiper-slide{background-position:center;background-origin:padding-box;background-repeat:no-repeat;background-size:cover;transition:background-size 1s ease-in-out}';
+      document.head.appendChild(s);
+    })();
     function safeText(s){ return (s || '').toString().replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
     async function initHomepageCms(){
       const slidesEl = document.getElementById('homeHeroSlides');
       const heroEl = document.getElementById('heroSlideshow');
       if (!slidesEl || !heroEl) return;
+      let heroSwiper = null;
       try {
         const res = await fetch('/api/homepage', { credentials: 'include' });
         if (!res.ok) throw new Error('Homepage API error ' + res.status);
@@ -422,11 +430,6 @@
         const fallbackHref = 'shop.html';
         const normalized = slides.length ? slides : [{ image: (billboard && billboard.image) || 'images/banner-large-image.jpg', title: fallbackTitle, text: fallbackText, href: fallbackHref, linkLabel: 'Shop Collection' }];
 
-        // Destroy existing Swiper before replacing slides (loop mode creates clones that break innerHTML swap)
-        if (heroEl.swiper) {
-          try { heroEl.swiper.destroy(true, true); } catch {}
-        }
-
         slidesEl.innerHTML = normalized.map(s => {
           const image = (s.image || 'images/banner-large-image.jpg').toString();
           const title = (s.title || fallbackTitle).toString();
@@ -437,21 +440,17 @@
           return '<div class="swiper-slide d-flex align-items-center" style="background-image:url(' + image + ')"><div class="banner-content w-100"><div class="container"><div class="row"><div class="col-md-6 offset-md-6"><h2 class="display-1 text-uppercase mt-5 pt-5">' + safeText(title) + '</h2><p class="caption">' + safeText(text) + '</p><div class="btn-left btn-swiper"><a href="' + safeText(href) + '" class="btn btn-primary text-uppercase mt-3">' + safeText(linkLabel) + '</a></div></div></div></div></div></div>';
         }).join('');
 
-        // Reinit Swiper with same options as script.min.js uses for .slideshow
-        requestAnimationFrame(() => {
-          try {
-            if (typeof Swiper !== 'undefined') {
-              new Swiper(heroEl, {
-                slidesPerView: 1,
-                spaceBetween: 0,
-                speed: 1000,
-                loop: normalized.length > 1,
-                navigation: { nextEl: '.icon-arrow-right', prevEl: '.icon-arrow-left' },
-                pagination: { el: heroEl.querySelector('.swiper-pagination'), clickable: true },
-              });
-            }
-          } catch(e) { console.warn('Swiper hero reinit failed:', e); }
-        });
+        // Init hero Swiper fresh — script.min.js never touches this element
+        if (typeof Swiper !== 'undefined') {
+          heroSwiper = new Swiper(heroEl, {
+            slidesPerView: 1,
+            spaceBetween: 0,
+            speed: 1000,
+            loop: normalized.length > 1,
+            navigation: { nextEl: '.icon-arrow-right', prevEl: '.icon-arrow-left' },
+            pagination: { el: heroEl.querySelector('.swiper-pagination'), clickable: true },
+          });
+        }
 
         // --- Who We Are ---
         const wwa = content && content.whoWeAre ? content.whoWeAre : null;
@@ -505,9 +504,9 @@
       } catch (e) {
         console.warn('Homepage CMS load failed:', e);
         // Show a default slide so the hero isn't a blank black screen
-        if (slidesEl && !slidesEl.querySelector('.swiper-slide[style*="background-image"]')) {
+        if (slidesEl) {
           slidesEl.innerHTML = '<div class="swiper-slide d-flex align-items-center" style="background-image:url(images/banner-large-image.jpg)"><div class="banner-content w-100"><div class="container"><div class="row"><div class="col-md-6 offset-md-6"><h2 class="display-1 text-uppercase mt-5 pt-5">New Collection</h2><p class="caption">Discover the latest in neo-brutalist fashion.</p><div class="btn-left btn-swiper"><a href="shop.html" class="btn btn-primary text-uppercase mt-3">Shop Collection</a></div></div></div></div></div></div>';
-          requestAnimationFrame(() => { try { if (typeof Swiper !== 'undefined' && heroEl) new Swiper(heroEl, { slidesPerView: 1, speed: 1000, loop: false }); } catch {} });
+          try { if (typeof Swiper !== 'undefined' && heroEl) new Swiper(heroEl, { slidesPerView: 1, speed: 1000, loop: false }); } catch {}
         }
       }
     }
