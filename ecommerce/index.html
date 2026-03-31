@@ -621,8 +621,8 @@
         e.preventDefault();
         var card = btn.closest('.na-card');
         if (!card) return;
-        var id = 'sku-' + (card.dataset.slug || slugify(card.dataset.name || 'product'));
-        Cart.add({id: id, name: card.dataset.name || 'Product', price: parseFloat(card.dataset.price || '0'), image: card.dataset.img || '', qty: 1});
+        var cardId = 'sku-' + (card.dataset.slug || slugify(card.dataset.name || 'product'));
+        Cart.add({id: cardId, name: card.dataset.name || 'Product', price: parseFloat(card.dataset.price || '0'), image: card.dataset.img || '', qty: 1});
         CartUI.render();
         return;
       }
