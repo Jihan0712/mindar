@@ -910,7 +910,7 @@
           const origText = label ? label.childNodes[0].textContent.trim() : '';
           if (label) label.childNodes[0].textContent = ' Uploading…';
           try {
-            const url = await uploadProductImage(file, 'homepage');
+            const url = await uploadProductImage(file, 'banners');
             if (uploadType === 'billboard-image') {
               const urlInput = document.getElementById('homeBillboardImage');
               const prev = document.getElementById('homeBillboardImagePreview');

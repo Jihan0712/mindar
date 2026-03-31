@@ -398,25 +398,26 @@ function normalizeHomepagePayload(body) {
 }
 
 function defaultHomepageContent() {
-  return {
+  return normalizeHomepagePayload({
     billboard: {
       title: 'New Collections',
-      description: 'Lorem ipsum dolor sit amet consectetur adipisicing elit. Saepe voluptas ut dolorum consequuntur, adipisci repellat! Eveniet commodi voluptatem voluptate, eum minima, in suscipit explicabo voluptatibus harum, quibusdam ex repellat eaque!'
+      description: 'Discover the latest in neo-brutalist fashion and digital identity.',
+      image: ''
     },
     slides: [
       {
-        image: 'images/banner-image-6.jpg',
-        title: 'Soft leather jackets',
-        text: 'Scelerisque duis aliquam qui lorem ipsum dolor amet, consectetur adipiscing elit.',
-        href: 'index.html',
-        linkLabel: 'Discover Now'
+        image: 'images/banner-large-image.jpg',
+        title: 'New Collection',
+        text: 'Discover the latest in neo-brutalist fashion and digital identity.',
+        href: 'shop.html',
+        linkLabel: 'Shop Collection'
       }
     ],
-    whoWeAre: { label: '', headline: '', body: '', stats: '' },
-    features: { label: '', headline: '', cards: [] },
+    whoWeAre: { label: 'Who We Are', headline: 'Fashion meets digital identity', body: '', stats: [] },
+    features: { label: 'The Experience', headline: 'What makes us different', items: [] },
     testimonials: [],
     newsletter: { headline: '' }
-  };
+  });
 }
 
 async function apiGetHomepage(request) {
@@ -427,7 +428,9 @@ async function apiGetHomepage(request) {
     }
     let parsed = null;
     try { parsed = JSON.parse(String(row.json)); } catch { parsed = null; }
-    const content = parsed && typeof parsed === 'object' ? parsed : defaultHomepageContent();
+    // Always normalize on read so old data (cards/string-stats) is transparently migrated for the frontend
+    const rawContent = parsed && typeof parsed === 'object' ? parsed : null;
+    const content = rawContent ? normalizeHomepagePayload(rawContent) : defaultHomepageContent();
     return jsonResponse({ ok: true, content, updated_at: row.updated_at || null, updated_by: row.updated_by || null }, 200, request);
   } catch (e) {
     const msg = String(e || '');
@@ -1796,7 +1799,7 @@ async function handleGet(request) {
 
 const UPLOAD_MAX_SIZE = 50 * 1024 * 1024; // 50 MB
 const UPLOAD_ALLOWED_TYPES = ['image/', 'video/', 'application/octet-stream', 'model/'];
-const UPLOAD_ALLOWED_PATHS = ['videos', 'images', 'minds', 'products'];
+const UPLOAD_ALLOWED_PATHS = ['videos', 'images', 'minds', 'products', 'homepage', 'banners'];
 
 async function handleUpload(request) {
   try {
@@ -1834,7 +1837,7 @@ async function handleUpload(request) {
 
     // Sanitize path — only allow known subdirectories, strip traversal
     const rawPath = (form.get('path') || 'videos').toString().replace(/[\\/\.]{2,}/g, '').replace(/^[\/]+|[\/]+$/g, '');
-    const path = UPLOAD_ALLOWED_PATHS.includes(rawPath) ? rawPath : 'videos';
+    const path = UPLOAD_ALLOWED_PATHS.includes(rawPath) ? rawPath : 'images';
     const rawName = (form.get('filename') || (file.name || `${Date.now()}`)).toString();
     const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
     const key = `${path}/${Date.now()}-${filename}`;
