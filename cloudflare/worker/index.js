@@ -1844,6 +1844,12 @@ async function handleUpload(request) {
     let assetsDomain = (typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '') || '';
     assetsDomain = assetsDomain.replace(/\/$/, '');
     if (assetsDomain && !/^https?:\/\//i.test(assetsDomain)) assetsDomain = 'https://' + assetsDomain;
+    // If ASSETS_DOMAIN is not configured, fall back to the Worker's own origin so the
+    // returned URL is always an absolute URL that routes back through this Worker (which
+    // can serve arbitrary R2 keys via handleGet).
+    if (!assetsDomain) {
+      try { assetsDomain = new URL(request.url).origin; } catch {}
+    }
     const publicUrl = `${assetsDomain}/${key}`;
 
     const headers = buildCorsHeaders(request);

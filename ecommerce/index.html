@@ -441,7 +441,10 @@
       if (!slidesEl || !heroEl) return;
       try {
         const res = await fetch('/api/homepage', { credentials: 'include' });
-        if (!res.ok) return; // keep default slides on API error
+        if (!res.ok) {
+          console.warn('Homepage CMS: API returned', res.status, res.statusText);
+          return; // keep default slides on API error
+        }
         const data = await res.json().catch(() => null);
         const content = data && data.content ? data.content : null;
 
@@ -475,7 +478,9 @@
             const hrefRaw = (s.href || '').toString().trim();
             const href = hrefRaw && hrefRaw !== '#' ? hrefRaw : 'shop.html';
             const linkLabel = (s.linkLabel || 'Shop Collection').toString();
-            return '<div class="swiper-slide d-flex align-items-center" style="background-image:url(' + image + ')"><div class="banner-content w-100"><div class="container"><div class="row"><div class="col-md-6 offset-md-6"><h2 class="display-1 text-uppercase mt-5 pt-5">' + safeText(title) + '</h2><p class="caption">' + safeText(text) + '</p><div class="btn-left btn-swiper"><a href="' + safeText(href) + '" class="btn btn-primary text-uppercase mt-3">' + safeText(linkLabel) + '</a></div></div></div></div></div></div>';
+            // Quote the url() value — prevents CSS breakage if the URL contains special characters
+            const safeImgUrl = image.replace(/'/g, '%27');
+            return '<div class="swiper-slide d-flex align-items-center" style="background-image:url(\'' + safeImgUrl + '\')"><div class="banner-content w-100"><div class="container"><div class="row"><div class="col-md-6 offset-md-6"><h2 class="display-1 text-uppercase mt-5 pt-5">' + safeText(title) + '</h2><p class="caption">' + safeText(text) + '</p><div class="btn-left btn-swiper"><a href="' + safeText(href) + '" class="btn btn-primary text-uppercase mt-3">' + safeText(linkLabel) + '</a></div></div></div></div></div></div>';
           }).join('');
           heroSwiper = new Swiper(heroEl, {
             slidesPerView: 1,
@@ -494,9 +499,9 @@
           const headlineEl = document.getElementById('home-who-headline');
           const bodyEl = document.getElementById('home-who-body');
           const statsEl = document.getElementById('home-who-stats');
-          if (labelEl && wwa.label) labelEl.textContent = wwa.label;
-          if (headlineEl && wwa.headline) headlineEl.textContent = wwa.headline;
-          if (bodyEl && wwa.body) bodyEl.textContent = wwa.body;
+          if (labelEl) labelEl.textContent = wwa.label || '';
+          if (headlineEl) headlineEl.textContent = wwa.headline || '';
+          if (bodyEl) bodyEl.textContent = wwa.body || '';
           if (statsEl && Array.isArray(wwa.stats) && wwa.stats.length) {
             statsEl.innerHTML = wwa.stats.map(st => '<div><div style="font-family:\'Averia Serif Libre\',serif;font-size:48px;color:#F5F5F0;line-height:1;letter-spacing:-0.04em">' + safeText(st.value || '') + '</div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:rgba(245,245,240,.4);margin-top:4px">' + safeText(st.label || '') + '</div></div>').join('');
           }
@@ -507,14 +512,14 @@
         if (feat) {
           const flabelEl = document.getElementById('home-features-label');
           const fheadEl = document.getElementById('home-features-headline');
-          if (flabelEl && feat.label) flabelEl.textContent = feat.label;
-          if (fheadEl && feat.headline) fheadEl.textContent = feat.headline;
+          if (flabelEl) flabelEl.textContent = feat.label || '';
+          if (fheadEl) fheadEl.textContent = feat.headline || '';
           if (Array.isArray(feat.items)) {
             feat.items.slice(0, 3).forEach((item, i) => {
               const titleEl = document.getElementById('home-feature-' + i + '-title');
               const bodyEl = document.getElementById('home-feature-' + i + '-body');
-              if (titleEl && item.title) titleEl.textContent = item.title;
-              if (bodyEl && item.body) bodyEl.textContent = item.body;
+              if (titleEl) titleEl.textContent = item.title || '';
+              if (bodyEl) bodyEl.textContent = item.body || '';
             });
           }
         }
@@ -537,7 +542,7 @@
         }
 
       } catch (e) {
-        console.warn('Homepage CMS load failed:', e);
+        console.warn('Homepage CMS load failed:', e && (e.message || String(e)));
         // Default slides already showing — nothing extra needed
       }
     }
