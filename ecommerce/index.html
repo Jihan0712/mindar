@@ -419,12 +419,15 @@
       const heroEl = document.getElementById('heroSlideshow');
       if (!slidesEl || !heroEl) return;
       try {
+        console.log('[CMS] Fetching /api/homepage...');
         const res = await fetch('/api/homepage', { credentials: 'include' });
+        console.log('[CMS] Response status:', res.status);
         if (!res.ok) {
           console.warn('Homepage CMS: API returned', res.status, res.statusText);
-          return; // keep default slides on API error
+          return;
         }
         const data = await res.json().catch(() => null);
+        console.log('[CMS] Data received:', JSON.stringify(data && data.content && { slides: data.content.slides, billboard: data.content.billboard }));
         const content = data && data.content ? data.content : null;
 
         // --- Hero slides ---
@@ -437,17 +440,20 @@
         // Build slide list: use CMS slides, or billboard as single slide, or keep defaults
         let normalized;
         if (slides.length) {
+          console.log('[CMS] Using', slides.length, 'CMS slide(s). Images:', slides.map(s => s.image));
           normalized = slides;
         } else if (fallbackTitle || fallbackImage) {
           normalized = [{ image: fallbackImage || 'ecommerce/images/post-large-image1.jpg', title: fallbackTitle || 'New Collection', text: fallbackText || '', href: 'shop.html', linkLabel: 'Shop Collection' }];
         } else {
-          normalized = null; // no CMS data — keep default slides
+          console.log('[CMS] No slides and no billboard — keeping defaults.');
+          normalized = null;
         }
 
         if (normalized) {
-          // Destroy existing Swiper (script.min.js inited .slideshow), replace slides, reinit
+          console.log('[CMS] Replacing hero with', normalized.length, 'slide(s)...');
           const existingSwiper = heroEl.swiper;
-          if (existingSwiper) { try { existingSwiper.destroy(true, true); } catch {} }
+          console.log('[CMS] Existing Swiper found:', !!existingSwiper);
+          if (existingSwiper) { try { existingSwiper.destroy(true, true); } catch(err) { console.warn('[CMS] Swiper destroy error:', err); } }
           slidesEl.innerHTML = normalized.map(s => {
             const image = (s.image || 'images/banner-image-1.jpg').toString();
             const title = (s.title || 'New Collection').toString();
@@ -545,7 +551,7 @@
       } catch (e) {}
     })();
 
-    initHomepageCms();
+    window.addEventListener('load', () => { initHomepageCms(); });
 
     // --- Live catalog ---
     function moneyFromCents(cents, currency){ const amt = (Number(cents || 0) / 100); const sym = (currency || 'USD') === 'USD' ? '$' : ''; return sym + amt.toFixed(2); }
