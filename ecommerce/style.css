@@ -436,53 +436,21 @@ a {
   overflow: hidden;
 }
 /* Force Swiper internals to fill the container height */
-.slideshow,
 .slideshow .swiper-wrapper,
 .slideshow .swiper-slide {
-  height: 100%;
+  height: 100vh;
 }
 .slideshow .swiper-slide {
   position: relative;
   overflow: hidden;
-  background-position: center;
-  background-origin: padding-box;
-  background-repeat: no-repeat;
-  background-size: cover;
-  transition: background-size 1s ease-in-out;
 }
-/* Hero slide image fills the slide */
-.slideshow .swiper-slide > img.hero-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
-  z-index: 0;
-}
-.slideshow .swiper-slide > .hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,.45);
-  z-index: 1;
-}
-.slideshow .swiper-slide > .banner-content {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-}
-/* Mobile: content centered, smaller padding */
+/* Mobile hero text adjustments */
 @media (max-width: 767px) {
-  .slideshow .swiper-slide > .banner-content .col-md-6 {
+  .slideshow .swiper-slide .banner-content h2 {
+    font-size: clamp(2rem, 9vw, 3.5rem) !important;
+  }
+  .slideshow .swiper-slide .banner-content .col-12 {
     text-align: center;
-  }
-  .slideshow .swiper-slide > .banner-content h2 {
-    font-size: clamp(2.2rem, 10vw, 4rem) !important;
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-  }
-  .slideshow .swiper-slide > .banner-content p {
-    font-size: 0.95rem;
   }
 }
 
