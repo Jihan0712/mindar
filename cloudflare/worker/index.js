@@ -449,11 +449,6 @@ async function apiUpdateHomepage(request) {
   const body = await readJson(request);
   const normalized = normalizeHomepagePayload(body);
 
-  // Require at least a title or one slide so the page isn't blank.
-  if (!normalized.billboard.title && !normalized.slides.length) {
-    return jsonResponse({ error: 'billboard.title or at least one slide required' }, 400, request);
-  }
-
   const now = new Date().toISOString();
   const payload = JSON.stringify(normalized);
 
