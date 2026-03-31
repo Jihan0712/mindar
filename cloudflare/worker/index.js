@@ -338,6 +338,7 @@ function normalizeHomepagePayload(body) {
   const billboardIn = body && typeof body.billboard === 'object' && body.billboard ? body.billboard : {};
   const title = clampStr(billboardIn.title, 120);
   const description = clampStr(billboardIn.description, 600);
+  const billboardImage = clampStr(billboardIn.image, 800);
 
   const slidesIn = Array.isArray(body && body.slides) ? body.slides : [];
   const slides = slidesIn.slice(0, 12).map(s => {
@@ -351,20 +352,29 @@ function normalizeHomepagePayload(body) {
 
   // Who We Are section
   const whoIn = body && typeof body.whoWeAre === 'object' && body.whoWeAre ? body.whoWeAre : {};
+  // stats: accept array [{value,label}] or legacy string
+  let statsIn = whoIn.stats;
+  if (typeof statsIn === 'string') {
+    // legacy: ignore or keep as empty
+    statsIn = [];
+  }
   const whoWeAre = {
     label: clampStr(whoIn.label, 60),
     headline: clampStr(whoIn.headline, 200),
     body: clampStr(whoIn.body, 1200),
-    stats: clampStr(whoIn.stats, 400),
+    stats: Array.isArray(statsIn) ? statsIn.slice(0, 4).map(s => ({
+      value: clampStr(s && s.value, 40),
+      label: clampStr(s && s.label, 80),
+    })) : [],
   };
 
-  // Features section
+  // Features section — accept both 'items' and 'cards' key names
   const featIn = body && typeof body.features === 'object' && body.features ? body.features : {};
-  const featCardsIn = Array.isArray(featIn.cards) ? featIn.cards : [];
+  const featItemsIn = Array.isArray(featIn.items) ? featIn.items : (Array.isArray(featIn.cards) ? featIn.cards : []);
   const features = {
     label: clampStr(featIn.label, 60),
     headline: clampStr(featIn.headline, 200),
-    cards: featCardsIn.slice(0, 6).map(c => ({
+    items: featItemsIn.slice(0, 6).map(c => ({
       title: clampStr(c && c.title, 120),
       body: clampStr(c && c.body, 400),
     })),
@@ -384,7 +394,7 @@ function normalizeHomepagePayload(body) {
     headline: clampStr(newsIn.headline, 200),
   };
 
-  return { billboard: { title, description }, slides, whoWeAre, features, testimonials, newsletter };
+  return { billboard: { title, description, image: billboardImage }, slides, whoWeAre, features, testimonials, newsletter };
 }
 
 function defaultHomepageContent() {

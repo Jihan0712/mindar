@@ -437,7 +437,7 @@
         const fallbackTitle = billboard && billboard.title ? String(billboard.title) : 'New Collections';
         const fallbackText = billboard && billboard.description ? String(billboard.description) : '';
         const fallbackHref = 'shop.html';
-        const normalized = slides.length ? slides : [{ image: 'images/banner-large-image.jpg', title: fallbackTitle, text: fallbackText, href: fallbackHref, linkLabel: 'Shop Collection' }];
+        const normalized = slides.length ? slides : [{ image: (billboard && billboard.image) || 'images/banner-large-image.jpg', title: fallbackTitle, text: fallbackText, href: fallbackHref, linkLabel: 'Shop Collection' }];
         slidesEl.innerHTML = normalized.map(s => {
           const image = (s.image || 'images/banner-large-image.jpg').toString();
           const title = (s.title || fallbackTitle).toString();
