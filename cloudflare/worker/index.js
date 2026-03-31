@@ -211,7 +211,10 @@ function clearSessionCookie() {
 function keyFromPublicUrl(u) {
   try {
     const url = new URL(u);
-    return url.pathname.replace(/^\/+/, '').split('?')[0].split('#')[0];
+    let p = url.pathname.replace(/^\/+/, '').split('?')[0].split('#')[0];
+    // Strip /api/r2/ prefix — new upload URL format routes through Worker API path
+    if (p.startsWith('api/r2/')) p = p.slice('api/r2/'.length);
+    return p;
   } catch {
     let s = String(u || '');
     // Remove configured ASSETS_DOMAIN prefix if present in any form
@@ -322,6 +325,12 @@ async function handleApi(request, pathname) {
   // Homepage content (shop)
   if (request.method === 'GET'  && pathname === '/api/homepage')             return apiGetHomepage(request);
   if (request.method === 'POST' && pathname === '/api/homepage')             return apiUpdateHomepage(request);
+
+  // R2 asset proxy — /api/r2/<key> routes through Worker regardless of Cloudflare route config
+  if (request.method === 'GET' && pathname.startsWith('/api/r2/')) {
+    const key = pathname.slice('/api/r2/'.length).replace(/^\/+/, '');
+    return handleR2Asset(request, key);
+  }
 
   return jsonResponse({ error: 'Not Found' }, 404, request);
 }
@@ -1756,6 +1765,25 @@ async function apiViewerActive(request) {
 
 // ---------- Existing R2 handlers (unchanged from your current worker) ----------
 
+async function handleR2Asset(request, key) {
+  try {
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.get !== 'function') {
+      return new Response('R2 binding missing', { status: 500 });
+    }
+    if (!key) return new Response('Not Found', { status: 404 });
+    const obj = await ASSETS_BUCKET.get(key);
+    if (!obj || !obj.body) return new Response('Not Found', { status: 404 });
+    const headers = new Headers();
+    const ct = (obj.httpMetadata && obj.httpMetadata.contentType) || 'application/octet-stream';
+    headers.set('Content-Type', ct);
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    headers.set('Access-Control-Allow-Origin', '*');
+    return new Response(obj.body, { status: 200, headers });
+  } catch (e) {
+    return new Response(String(e), { status: 500 });
+  }
+}
+
 async function handleGet(request) {
   try {
     if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.get !== 'function') {
@@ -1844,13 +1872,16 @@ async function handleUpload(request) {
     let assetsDomain = (typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '') || '';
     assetsDomain = assetsDomain.replace(/\/$/, '');
     if (assetsDomain && !/^https?:\/\//i.test(assetsDomain)) assetsDomain = 'https://' + assetsDomain;
-    // If ASSETS_DOMAIN is not configured, fall back to the Worker's own origin so the
-    // returned URL is always an absolute URL that routes back through this Worker (which
-    // can serve arbitrary R2 keys via handleGet).
-    if (!assetsDomain) {
-      try { assetsDomain = new URL(request.url).origin; } catch {}
+    // Route images through /api/r2/<key> — this path is always handled by the Worker
+    // (via the /api/* Worker Route) regardless of how Cloudflare Pages routes are configured.
+    // If ASSETS_DOMAIN is configured (e.g. an R2 public bucket), use it directly instead.
+    let publicUrl;
+    if (assetsDomain) {
+      publicUrl = `${assetsDomain}/${key}`;
+    } else {
+      const origin = new URL(request.url).origin;
+      publicUrl = `${origin}/api/r2/${key}`;
     }
-    const publicUrl = `${assetsDomain}/${key}`;
 
     const headers = buildCorsHeaders(request);
     headers.set('Content-Type', 'application/json');

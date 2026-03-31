@@ -139,8 +139,10 @@
   <section class="text-white">
     <div class="slideshow slide-in" id="heroSlideshow" style="height:100vh">
       <div class="swiper-wrapper" id="homeHeroSlides">
-        <div class="swiper-slide d-flex align-items-center" style="background-image:url('images/banner-large-image.jpg')">
-          <div class="banner-content w-100">
+        <div class="swiper-slide d-flex align-items-center" style="position:relative;overflow:hidden">
+          <img src="images/banner-large-image.jpg" alt="Banner" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0">
+          <div style="position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:1"></div>
+          <div class="banner-content w-100" style="position:relative;z-index:2">
             <div class="container">
               <div class="row">
                 <div class="col-md-6 offset-md-6">
@@ -453,9 +455,12 @@
             const hrefRaw = (s.href || '').toString().trim();
             const href = hrefRaw && hrefRaw !== '#' ? hrefRaw : 'shop.html';
             const linkLabel = (s.linkLabel || 'Shop Collection').toString();
-            // Quote the url() value — prevents CSS breakage if the URL contains special characters
-            const safeImgUrl = image.replace(/'/g, '%27');
-            return '<div class="swiper-slide d-flex align-items-center" style="background-image:url(\'' + safeImgUrl + '\')"><div class="banner-content w-100"><div class="container"><div class="row"><div class="col-md-6 offset-md-6"><h2 class="display-1 text-uppercase mt-5 pt-5">' + safeText(title) + '</h2><p class="caption">' + safeText(text) + '</p><div class="btn-left btn-swiper"><a href="' + safeText(href) + '" class="btn btn-light text-uppercase mt-3">' + safeText(linkLabel) + '</a></div></div></div></div></div></div>';
+            const safeImgUrl = image.replace(/"/g, '%22');
+            return '<div class="swiper-slide d-flex align-items-center" style="position:relative;overflow:hidden">' +
+              '<img src="' + safeImgUrl + '" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0">' +
+              '<div style="position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:1"></div>' +
+              '<div class="banner-content w-100" style="position:relative;z-index:2"><div class="container"><div class="row"><div class="col-md-6 offset-md-6"><h2 class="display-1 text-uppercase mt-5 pt-5">' + safeText(title) + '</h2><p class="caption">' + safeText(text) + '</p><div class="btn-left btn-swiper"><a href="' + safeText(href) + '" class="btn btn-light text-uppercase mt-3">' + safeText(linkLabel) + '</a></div></div></div></div></div>' +
+              '</div>';
           }).join('');
           new Swiper(heroEl, {
             slidesPerView: 1,

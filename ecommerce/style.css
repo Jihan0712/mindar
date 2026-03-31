@@ -434,7 +434,11 @@ a {
 .slideshow {
   overflow: hidden;
 }
+.slideshow .swiper-wrapper {
+  height: 100%;
+}
 .slideshow .swiper-slide {
+  height: 100%;
   background-position: center;
   background-origin: padding-box;
   background-repeat: no-repeat;
