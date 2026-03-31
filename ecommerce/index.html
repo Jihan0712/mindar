@@ -135,20 +135,19 @@
     </div>
   </nav>
 
-  <!-- HERO: Full-screen intro — CMS-driven, defaults shown immediately -->
-  <!-- NOT using .slideshow class — script.min.js auto-inits that class; we manage this ourselves -->
+  <!-- HERO: Full-screen banner — script.min.js auto-inits .slideshow; CMS overrides content async -->
   <section class="text-white">
-    <div class="hero-swiper slide-in" id="heroSlideshow" style="height:100vh;overflow:hidden">
+    <div class="slideshow slide-in" id="heroSlideshow" style="height:100vh">
       <div class="swiper-wrapper" id="homeHeroSlides">
-        <div class="swiper-slide d-flex align-items-center" style="background-image:url(images/banner-large-image.jpg)">
+        <div class="swiper-slide d-flex align-items-center" style="background-image:url('images/banner-large-image.jpg')">
           <div class="banner-content w-100">
             <div class="container">
               <div class="row">
                 <div class="col-md-6 offset-md-6">
-                  <h2 class="display-1 text-uppercase mt-5 pt-5" id="hero-default-title">New Collection</h2>
-                  <p class="caption" id="hero-default-text">Discover the latest in neo-brutalist fashion and digital identity.</p>
+                  <h2 class="display-1 text-uppercase mt-5 pt-5">New Collection</h2>
+                  <p class="caption">Discover the latest in neo-brutalist fashion and digital identity.</p>
                   <div class="btn-left btn-swiper">
-                    <a href="shop.html" class="btn btn-primary text-uppercase mt-3">Shop Collection</a>
+                    <a href="shop.html" class="btn btn-light text-uppercase mt-3">Shop Collection</a>
                   </div>
                 </div>
               </div>
@@ -158,6 +157,8 @@
       </div>
       <div class="swiper-pagination"></div>
     </div>
+    <div class="icon-arrow icon-arrow-left text-white"><svg width="50" height="50" viewBox="0 0 24 24"><use xlink:href="#angle-left"></use></svg></div>
+    <div class="icon-arrow icon-arrow-right text-white"><svg width="50" height="50" viewBox="0 0 24 24"><use xlink:href="#angle-right"></use></svg></div>
   </section>
 
   <!-- WHAT WE DO: Dark intro section -->
@@ -407,33 +408,9 @@
   <script src="js/cart.js"></script>
   <script>
     // --- Homepage CMS ---
-    // CSS for hero slides — mirrors .slideshow rules (we use .hero-swiper to avoid script.min.js auto-init)
-    (function(){
-      const s = document.createElement('style');
-      s.textContent = [
-        '#heroSlideshow{overflow:hidden}',
-        '#heroSlideshow .swiper-slide{background-position:center;background-repeat:no-repeat;background-size:cover;transition:background-size 1s ease-in-out}',
-      ].join('');
-      document.head.appendChild(s);
-    })();
+    // .slideshow CSS is in style.css; script.min.js handles default Swiper init on .slideshow
 
     function safeText(s){ return (s || '').toString().replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
-
-    // Init hero Swiper immediately so default slides display correctly
-    let heroSwiper = null;
-    (function(){
-      const heroEl = document.getElementById('heroSlideshow');
-      if (heroEl && typeof Swiper !== 'undefined') {
-        heroSwiper = new Swiper(heroEl, {
-          slidesPerView: 1,
-          spaceBetween: 0,
-          speed: 1000,
-          loop: false,
-          navigation: { nextEl: '.icon-arrow-right', prevEl: '.icon-arrow-left' },
-          pagination: { el: heroEl.querySelector('.swiper-pagination'), clickable: true },
-        });
-      }
-    })();
 
     async function initHomepageCms(){
       const slidesEl = document.getElementById('homeHeroSlides');
@@ -462,15 +439,13 @@
         } else if (fallbackTitle || fallbackImage) {
           normalized = [{ image: fallbackImage || 'images/banner-large-image.jpg', title: fallbackTitle || 'New Collection', text: fallbackText || '', href: 'shop.html', linkLabel: 'Shop Collection' }];
         } else {
-          // No CMS data saved yet — update only text if available, keep default slide image
-          if (fallbackTitle) document.getElementById('hero-default-title') && (document.getElementById('hero-default-title').textContent = fallbackTitle);
-          if (fallbackText) document.getElementById('hero-default-text') && (document.getElementById('hero-default-text').textContent = fallbackText);
-          normalized = null;
+          normalized = null; // no CMS data — keep default slides
         }
 
         if (normalized) {
-          // Destroy existing Swiper, replace slides, reinit
-          if (heroSwiper) { try { heroSwiper.destroy(true, true); } catch {} heroSwiper = null; }
+          // Destroy existing Swiper (script.min.js inited .slideshow), replace slides, reinit
+          const existingSwiper = heroEl.swiper;
+          if (existingSwiper) { try { existingSwiper.destroy(true, true); } catch {} }
           slidesEl.innerHTML = normalized.map(s => {
             const image = (s.image || 'images/banner-large-image.jpg').toString();
             const title = (s.title || 'New Collection').toString();
@@ -480,9 +455,9 @@
             const linkLabel = (s.linkLabel || 'Shop Collection').toString();
             // Quote the url() value — prevents CSS breakage if the URL contains special characters
             const safeImgUrl = image.replace(/'/g, '%27');
-            return '<div class="swiper-slide d-flex align-items-center" style="background-image:url(\'' + safeImgUrl + '\')"><div class="banner-content w-100"><div class="container"><div class="row"><div class="col-md-6 offset-md-6"><h2 class="display-1 text-uppercase mt-5 pt-5">' + safeText(title) + '</h2><p class="caption">' + safeText(text) + '</p><div class="btn-left btn-swiper"><a href="' + safeText(href) + '" class="btn btn-primary text-uppercase mt-3">' + safeText(linkLabel) + '</a></div></div></div></div></div></div>';
+            return '<div class="swiper-slide d-flex align-items-center" style="background-image:url(\'' + safeImgUrl + '\')"><div class="banner-content w-100"><div class="container"><div class="row"><div class="col-md-6 offset-md-6"><h2 class="display-1 text-uppercase mt-5 pt-5">' + safeText(title) + '</h2><p class="caption">' + safeText(text) + '</p><div class="btn-left btn-swiper"><a href="' + safeText(href) + '" class="btn btn-light text-uppercase mt-3">' + safeText(linkLabel) + '</a></div></div></div></div></div></div>';
           }).join('');
-          heroSwiper = new Swiper(heroEl, {
+          new Swiper(heroEl, {
             slidesPerView: 1,
             spaceBetween: 0,
             speed: 1000,
