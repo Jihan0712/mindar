@@ -139,7 +139,8 @@
   <section class="text-white" style="display:block;height:100vh;position:relative">
     <div class="slideshow slide-in" id="heroSlideshow" style="height:100vh;position:relative">
       <div class="swiper-wrapper" id="homeHeroSlides">
-        <div class="swiper-slide" style="position:relative;overflow:hidden;height:100vh;display:flex;align-items:center;background-image:url('images/banner-image-1.jpg');background-size:cover;background-position:center center">
+        <div class="swiper-slide" style="position:relative;overflow:hidden;height:100vh;display:flex;align-items:center">
+          <img src="images/banner-image-1.jpg" alt="Banner" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center center;z-index:0;display:block">
           <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1"></div>
           <div class="banner-content w-100" style="position:relative;z-index:2">
             <div class="container">
@@ -461,7 +462,8 @@
             const href = hrefRaw && hrefRaw !== '#' ? hrefRaw : 'shop.html';
             const linkLabel = (s.linkLabel || 'Shop Collection').toString();
             const safeImgUrl = image.replace(/"/g, '%22');
-            return '<div class="swiper-slide" style="position:relative;overflow:hidden;height:100vh;display:flex;align-items:center;background-image:url(' + JSON.stringify(safeImgUrl) + ');background-size:cover;background-position:center center">' +
+            return '<div class="swiper-slide" style="position:relative;overflow:hidden;height:100vh;display:flex;align-items:center">' +
+              '<img src="' + safeImgUrl + '" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center center;z-index:0;display:block">' +
               '<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1"></div>' +
               '<div class="banner-content w-100" style="position:relative;z-index:2"><div class="container"><div class="row"><div class="col-12 col-md-7 col-lg-6 offset-md-5 offset-lg-6"><h2 class="display-1 text-uppercase" style="margin-top:0">' + safeText(title) + '</h2><p class="caption">' + safeText(text) + '</p><div class="btn-left btn-swiper"><a href="' + safeText(href) + '" class="btn btn-light text-uppercase mt-3">' + safeText(linkLabel) + '</a></div></div></div></div></div>' +
               '</div>';

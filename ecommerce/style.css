@@ -440,10 +440,6 @@ a {
 .slideshow .swiper-slide {
   height: 100vh;
 }
-/* Prevent Swiper GPU compositing from blurring the bg image */
-.slideshow .swiper-wrapper {
-  will-change: auto;
-}
 .slideshow .swiper-slide {
   position: relative;
   overflow: hidden;
