@@ -68,7 +68,7 @@
   <!-- NAVBAR -->
   <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <a class="navbar-brand" href="index.html" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;letter-spacing:-0.04em;line-height:1">[inrl]</a>
+      <a class="navbar-brand" href="index.html" ><img src="images/main-logo.png" alt="INRL" style="height:36px"></a>
       <div class="d-flex align-items-center gap-3 order-lg-last">
         <a href="wishlist.html" class="d-none d-lg-inline text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Wishlist</a>
         <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
@@ -89,7 +89,7 @@
             <li class="nav-item"><a class="nav-link active" href="about.html">About</a></li>
             <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
             <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-            <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="login.html">Login</a></li>
             <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
           </ul>
@@ -254,7 +254,7 @@
     <div class="container">
       <div class="row py-5">
         <div class="col-md-3 col-sm-6 mb-4">
-          <div style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;display:inline-block;letter-spacing:-0.04em;margin-bottom:16px">[inrl]</div>
+          <div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:36px"></div>
           <p>Next-gen digital identity and fashion. Bold design, no compromise.</p>
           <div class="d-flex gap-3 mt-3">
             <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:none;stroke:rgba(255,255,255,.5)"><use xlink:href="#facebook"></use></svg></a>
@@ -311,7 +311,7 @@
           logoutEl.addEventListener('click', async (e) => { e.preventDefault(); await auth.logout(); location.reload(); });
         }
         if (loginEl) loginEl.style.display = user ? 'none' : '';
-        const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
+        const canDashboard = user && user.role === 'admin';
         if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
       } catch {}
     })();

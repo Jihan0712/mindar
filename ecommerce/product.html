@@ -1,7 +1,7 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Product — INRL</title>
+  <title>Product � INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
@@ -43,7 +43,7 @@
   .product-thumb-item{flex:0 0 90px;width:90px;height:90px;overflow:hidden;background:#111;border:2px solid #333;cursor:pointer;opacity:.5;transition:opacity .2s,border-color .2s}
   .product-thumb-item.active,.product-thumb-item:hover{opacity:1;border-color:#00ED0A}
   .product-thumb-item img{width:100%;height:100%;object-fit:cover;display:block}
-  /* Related product cards — match shop style */
+  /* Related product cards � match shop style */
   .related-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
   @media(max-width:991px){.related-grid{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:575px){.related-grid{grid-template-columns:1fr}}
@@ -110,7 +110,7 @@
 
   <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <a class="navbar-brand" href="index.html" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;letter-spacing:-0.04em;line-height:1">[inrl]</a>
+      <a class="navbar-brand" href="index.html" ><img src="images/main-logo.png" alt="INRL" style="height:36px"></a>
       <div class="d-flex align-items-center gap-3 order-lg-last">
         <a href="wishlist.html" class="d-none d-lg-inline text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Wishlist</a>
         <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
@@ -125,7 +125,7 @@
             <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
             <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
             <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-            <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="login.html">Login</a></li>
             <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
           </ul>
@@ -148,7 +148,7 @@
         <!-- Info -->
         <div class="col-lg-6">
           <div class="product-info py-3">
-            <h2 class="product-title text-uppercase display-6">Loading…</h2>
+            <h2 class="product-title text-uppercase display-6">Loading�</h2>
             <div class="d-flex align-items-center gap-3 mb-3" id="product-rating">
               <div class="rating-stars"></div>
               <span id="product-rating-count" class="text-muted" style="font-size:13px"></span>
@@ -206,7 +206,7 @@
               <div id="reviews-list" class="mb-4"></div>
               <form id="review-form" style="border:3px solid #333;padding:24px;box-shadow:4px 4px 0 rgba(0,237,10,.15)">
                 <h5 class="text-uppercase mb-3">Write a Review</h5>
-                <div class="mb-3"><label class="form-label">Rating</label><select id="review-rating" class="form-select" required><option value="">Choose…</option><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select></div>
+                <div class="mb-3"><label class="form-label">Rating</label><select id="review-rating" class="form-select" required><option value="">Choose�</option><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select></div>
                 <div class="mb-3"><label class="form-label">Name</label><input type="text" id="review-author" class="form-control" required></div>
                 <div class="mb-3"><label class="form-label">Comment</label><textarea id="review-comment" class="form-control" rows="3" required></textarea></div>
                 <div id="review-form-status" class="text-muted mb-2" style="font-size:13px"></div>
@@ -231,7 +231,7 @@
     <div class="container">
       <div class="row py-5">
         <div class="col-md-3 col-sm-6 mb-4">
-          <div style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;display:inline-block;letter-spacing:-0.04em;margin-bottom:16px">[inrl]</div>
+          <div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:36px"></div>
           <p>Next-gen digital identity and fashion.</p>
         </div>
         <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Quick Links</h5><ul class="list-unstyled"><li class="mb-2"><a href="index.html">Home</a></li><li class="mb-2"><a href="shop.html">Shop</a></li><li class="mb-2"><a href="about.html">About</a></li><li class="mb-2"><a href="contact.html">Contact</a></li></ul></div>
@@ -250,7 +250,7 @@
   <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
   <script>
-  (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');try{var me=await auth.me();var user=me&&me.email?me:null;if(loginEl)loginEl.style.display=user?'none':'';var canDash=user&&(user.role==='admin'||user.role==='brand');if(dashEl)dashEl.style.display=canDash?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){}})();
+  (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');try{var me=await auth.me();var user=me&&me.email?me:null;if(loginEl)loginEl.style.display=user?'none':'';var canDash=user&&user.role==='admin';if(dashEl)dashEl.style.display=canDash?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){}})();
 
   function moneyFromCents(c,cur){var a=Number(c||0)/100;var s=(cur||'USD')==='USD'?'$':'';return s+a.toFixed(2)}
   function normImg(u){var s=String(u||'');if(!s)return s;if(s.startsWith('data:')||s.startsWith('http')||s.startsWith('/api/')||s.startsWith('/ecommerce/'))return s;if(s.startsWith('/images/'))return s.replace(/^\/images\//,'images/');return s}
@@ -265,7 +265,7 @@
       var res=await fetch('/api/products/'+encodeURIComponent(slug),{credentials:'include'});
       if(!res.ok)throw new Error('API '+res.status);var data=await res.json();var p=data.product||data;
 
-      document.title=(p.title||'Product')+' — INRL';
+      document.title=(p.title||'Product')+' � INRL';
       document.querySelector('.product-title').textContent=p.title||'Product';
       document.querySelector('.product-price .fs-2').textContent=moneyFromCents(p.price_cents,p.currency);
       var catSpan=document.querySelector('.color-toggle .item-title span:last-child');if(catSpan)catSpan.textContent=p.category||'';
@@ -348,7 +348,7 @@
     var rating=document.getElementById('review-rating').value;var author=document.getElementById('review-author').value.trim();var comment=document.getElementById('review-comment').value.trim();
     if(!rating||!author||!comment){if(statusEl)statusEl.textContent='Please fill all fields.';return}
     try{
-      if(statusEl)statusEl.textContent='Submitting…';
+      if(statusEl)statusEl.textContent='Submitting�';
       var res=await fetch('/api/products/'+encodeURIComponent(slug)+'/reviews',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({rating:Number(rating),author:author,comment:comment})});
       if(!res.ok){var err=await res.json().catch(function(){return{}});throw new Error(err.error||'Failed')}
       if(statusEl)statusEl.textContent='Review submitted!';e.target.reset();loadReviews(slug);
@@ -365,7 +365,7 @@
       if(!related.length){wrap.closest('section').style.display='none';return}
       wrap.innerHTML=related.map(function(p){
         var img=escapeHtml(normImg((p.image_url||'images/product-thumb-1.jpg').toString()));var href=p.slug?'product.html?slug='+encodeURIComponent(p.slug):'product.html';var price=moneyFromCents(p.price_cents,p.currency);
-        return '<div class="rel-card"><div class="rel-card-title">'+escapeHtml(p.title||'Product')+'</div><a href="'+escapeHtml(href)+'" class="rel-card-image"><img src="'+img+'" alt="'+escapeHtml(p.title||'Product')+'"></a><div class="rel-card-footer"><div class="rel-card-price">'+escapeHtml(price)+'</div><a href="'+escapeHtml(href)+'" class="rel-card-link">VIEW ↗</a></div></div>';
+        return '<div class="rel-card"><div class="rel-card-title">'+escapeHtml(p.title||'Product')+'</div><a href="'+escapeHtml(href)+'" class="rel-card-image"><img src="'+img+'" alt="'+escapeHtml(p.title||'Product')+'"></a><div class="rel-card-footer"><div class="rel-card-price">'+escapeHtml(price)+'</div><a href="'+escapeHtml(href)+'" class="rel-card-link">VIEW ?</a></div></div>';
       }).join('');
     }catch(e){}
   }

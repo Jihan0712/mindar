@@ -26,11 +26,15 @@
     async me() {
       try {
         const data = await apiFetch('/auth/me');
-        return data && data.user ? data.user : null;
+        const user = data && data.user ? data.user : null;
+        if (user && user.id) localStorage.setItem('mindar_uid', String(user.id));
+        else localStorage.removeItem('mindar_uid');
+        return user;
       } catch { return null; }
     },
     async logout() {
       try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
+      localStorage.removeItem('mindar_uid');
     },
     async changePassword(currentPassword, newPassword) {
       await apiFetch('/auth/change-password', {

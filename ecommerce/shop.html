@@ -1,7 +1,7 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Shop — INRL</title>
+  <title>Shop � INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
@@ -79,7 +79,7 @@
   <!-- Navbar -->
   <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <a class="navbar-brand" href="index.html" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;letter-spacing:-0.04em;line-height:1">[inrl]</a>
+      <a class="navbar-brand" href="index.html" ><img src="images/main-logo.png" alt="INRL" style="height:36px"></a>
       <div class="d-flex align-items-center gap-3 order-lg-last">
         <a href="wishlist.html" class="d-none d-lg-inline text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Wishlist</a>
         <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
@@ -94,7 +94,7 @@
             <li class="nav-item"><a class="nav-link active" href="shop.html">Shop</a></li>
             <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
             <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-            <li class="nav-item"><a class="nav-link" id="navLogin" href="/login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="login.html">Login</a></li>
             <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
           </ul>
@@ -124,7 +124,7 @@
               <a href="product.html" class="shop-card-image"><img src="images/product-item-1.jpg" alt="Genesis BLK"></a>
               <div class="shop-card-footer">
                 <div class="shop-card-price">$ 299</div>
-                <a href="#" class="shop-card-buy" data-sku="genesis-blk">BUY NOW ↗</a>
+                <a href="#" class="shop-card-buy" data-sku="genesis-blk">BUY NOW ?</a>
               </div>
             </div>
           </div>
@@ -133,7 +133,7 @@
 
       <div class="row mb-4 g-3 align-items-center">
         <div class="col-md-5">
-          <input type="text" id="shopSearchInput" class="form-control" placeholder="Search products…">
+          <input type="text" id="shopSearchInput" class="form-control" placeholder="Search products�">
         </div>
         <div class="col-md-3">
           <select id="shopSortSelect" class="form-select">
@@ -147,7 +147,7 @@
           <span id="shopResultsLabel" style="font-size:13px;color:rgba(245,245,240,.4)"></span>
         </div>
       </div>
-      <div id="shopStatus" class="mb-3" style="font-size:14px;color:rgba(245,245,240,.5)">Loading products…</div>
+      <div id="shopStatus" class="mb-3" style="font-size:14px;color:rgba(245,245,240,.5)">Loading products�</div>
       <div class="row" id="shopProductsGrid"></div>
     </div>
   </section>
@@ -166,7 +166,7 @@
     <div class="container">
       <div class="row py-5">
         <div class="col-md-3 col-sm-6 mb-4">
-          <div style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#00ED0A;border:3px solid #00ED0A;padding:2px 12px;display:inline-block;letter-spacing:-0.04em;margin-bottom:16px">[inrl]</div>
+          <div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:36px"></div>
           <p>Next-gen digital identity and fashion.</p>
         </div>
         <div class="col-md-3 col-sm-6 mb-4">
@@ -195,7 +195,7 @@
   <script src="js/cart.js"></script>
   <script>
     (function(){var f=document.getElementById('newsletter-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();alert('Thanks! Newsletter signup is a demo.');try{f.reset()}catch{}})})();
-    (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');var userEl=document.getElementById('liveCatalogUser');try{var me=await auth.me();var user=me&&me.email?me:null;if(userEl)userEl.textContent=user?'Signed in as '+user.email+' ('+user.role+')':'Not signed in';if(loginEl)loginEl.style.display=user?'none':'';var canDashboard=user&&(user.role==='admin'||user.role==='brand');if(dashEl)dashEl.style.display=canDashboard?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){if(userEl)userEl.textContent='Not signed in'}})();
+    (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');var userEl=document.getElementById('liveCatalogUser');try{var me=await auth.me();var user=me&&me.email?me:null;if(userEl)userEl.textContent=user?'Signed in as '+user.email+' ('+user.role+')':'Not signed in';if(loginEl)loginEl.style.display=user?'none':'';var canDashboard=user&&user.role==='admin';if(dashEl)dashEl.style.display=canDashboard?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){if(userEl)userEl.textContent='Not signed in'}})();
 
     function moneyFromCents(cents,currency){var amt=(Number(cents||0)/100);var sym=(currency||'USD')==='USD'?'$':'';return sym+amt.toFixed(2)}
     function normalizeCatalogImageUrl(u){var s=(u||'').toString();if(!s)return s;if(s.startsWith('data:'))return s;if(s.startsWith('http://')||s.startsWith('https://'))return s;if(s.startsWith('/api/'))return s;if(s.startsWith('/ecommerce/'))return s;if(s.startsWith('/images/'))return s.replace(/^\/images\//,'images/');return s}
@@ -230,7 +230,7 @@
       if(!gridEl)return;var state=readShopStateFromUrl();
       if(titleEl)titleEl.textContent=state.categoryRaw?'Shop: '+state.categoryRaw:'Shop';
       try{
-        if(statusEl)statusEl.textContent='Loading products…';var items=await ensureShopProducts();
+        if(statusEl)statusEl.textContent='Loading products�';var items=await ensureShopProducts();
         var categoryFiltered=state.category?items.filter(function(p){return(p&&p.category!=null?String(p.category):'').toLowerCase().includes(state.category)}):items;
         var searched=state.q?categoryFiltered.filter(function(p){return matchesQuery(p,state.q)}):categoryFiltered;
         var sorted=sortItems(searched,state.sort,state.q);
@@ -240,7 +240,7 @@
           var title=escapeHtml((p.title||'Product').toString());var slug=encodeURIComponent((p.slug||'').toString());var price=escapeHtml(moneyFromCents(p.price_cents,p.currency));
           var img=escapeHtml(normalizeCatalogImageUrl((p.image_url||'images/product-thumb-1.jpg').toString()));
           var viewer=(p.viewer_url||'').toString();var href=slug?'product.html?slug='+slug:'product.html';
-          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><div class="shop-card-title">'+title+'</div><a href="'+escapeHtml(href)+'" class="shop-card-image"><img src="'+img+'" alt="'+title+'"></a><div class="shop-card-footer"><div class="shop-card-price">'+price+'</div><a href="#" class="shop-card-buy" data-sku="'+escapeHtml((p.slug||'').toString())+'">BUY NOW ↗</a></div></div></div>';
+          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><div class="shop-card-title">'+title+'</div><a href="'+escapeHtml(href)+'" class="shop-card-image"><img src="'+img+'" alt="'+title+'"></a><div class="shop-card-footer"><div class="shop-card-price">'+price+'</div><a href="#" class="shop-card-buy" data-sku="'+escapeHtml((p.slug||'').toString())+'">BUY NOW ?</a></div></div></div>';
         }).join('');
       }catch(e){if(statusEl)statusEl.textContent='Failed to load products.';if(labelEl)labelEl.textContent='';gridEl.innerHTML='';console.warn('Shop products failed:',e)}
     }

@@ -1,11 +1,16 @@
-/* Simple cart manager using localStorage */
+/* Simple cart + wishlist manager using localStorage.
+   Cart and wishlist are scoped per user — auth-worker.js writes
+   'mindar_uid' to localStorage after login and clears it on logout. */
 (function(){
-  const KEY = 'mindar_cart_v1';
+  const UID_STORE = 'mindar_uid';
+
+  function cartKey()  { const u = localStorage.getItem(UID_STORE); return u ? 'mindar_cart_v1_' + u : 'mindar_cart_v1'; }
+  function wishKey()  { const u = localStorage.getItem(UID_STORE); return u ? 'mindar_wish_v1_' + u : 'mindar_wish_v1'; }
 
   const load = () => {
-    try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(cartKey()) || '[]'); } catch { return []; }
   };
-  const save = (items) => localStorage.setItem(KEY, JSON.stringify(items));
+  const save = (items) => localStorage.setItem(cartKey(), JSON.stringify(items));
 
   const upsert = (items, item) => {
     const i = items.findIndex(x => x.id === item.id);
@@ -78,5 +83,19 @@
           </div>
         </li>`).join('') : '<li class="list-group-item">Your cart is empty.</li>';
     }
+  };
+
+  /* Per-user Wishlist */
+  const wload = () => { try { return JSON.parse(localStorage.getItem(wishKey()) || '[]'); } catch { return []; } };
+  const wsave = (items) => localStorage.setItem(wishKey(), JSON.stringify(items));
+
+  window.Wishlist = {
+    list()       { return wload(); },
+    count()      { return wload().length; },
+    has(id)      { return wload().some(x => x.id === String(id)); },
+    add(item)    { const items = wload(); const id = String(item.id); if (!items.some(x => x.id === id)) { items.push({ ...item, id }); wsave(items); } },
+    remove(id)   { wsave(wload().filter(x => x.id !== String(id))); },
+    toggle(item) { const id = String(item.id); if (this.has(id)) { this.remove(id); return false; } this.add(item); return true; },
+    clear()      { wsave([]); },
   };
 })();
