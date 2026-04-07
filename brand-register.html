@@ -1,46 +1,69 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>INRL AR — Brand Registration</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="assets/js/auth-worker.js?v=20260130"></script>
-  </head>
-  <body class="min-h-screen bg-gray-100 flex items-center justify-center">
-    <div class="w-full max-w-lg bg-white rounded shadow p-6">
-      <h1 class="text-2xl font-bold mb-4">Brand Registration</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brand Account — INRL AR</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-900 text-white flex items-center justify-center p-6">
+  <div class="w-full max-w-lg">
 
-      <div id="alert" class="text-sm text-red-600 mb-3"></div>
-
-      <div id="inviteInfo" class="mb-4 text-sm text-gray-700">Loading invitation...</div>
-
-      <label class="block text-sm">Email (from invite)</label>
-      <input id="email" type="email" class="w-full border rounded p-2 mb-3 bg-gray-100" readonly />
-
-      <label class="block text-sm">Password</label>
-      <input id="password" type="password" class="w-full border rounded p-2 mb-3" />
-
-      <label class="block text-sm">Full name</label>
-      <input id="fullName" type="text" class="w-full border rounded p-2 mb-3" />
-
-      <label class="block text-sm">Brand (from invite)</label>
-      <input id="brand" type="text" class="w-full border rounded p-2 mb-3 bg-gray-100" readonly />
-
-      <div class="flex gap-2 mb-2">
-        <button id="registerBtn" class="flex-1 bg-blue-600 text-white rounded p-2">Register as Brand</button>
-        <a href="/login.html" class="flex-1 inline-flex items-center justify-center bg-gray-200 rounded p-2">Already have an account?</a>
-      </div>
+    <div class="text-center mb-8">
+      <div class="inline-block text-2xl font-bold border-2 border-green-400 text-green-400 px-4 py-1 tracking-tight">[inrl]</div>
     </div>
 
-    <script>
-      const inviteInfoEl = document.getElementById('inviteInfo');
-      const registerBtn = document.getElementById('registerBtn');
-      const alertEl = document.getElementById('alert');
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-8 shadow-2xl">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-xl">&#127991;</div>
+        <div>
+          <h1 class="text-xl font-bold">Brand Account Access</h1>
+          <p class="text-sm text-gray-400">How brand accounts are created</p>
+        </div>
+      </div>
 
-      inviteInfoEl.textContent = 'Brand invite registration has been disabled after migrating off the legacy system.';
-      alertEl.textContent = 'Please contact an admin to create your account in the new system.';
-      registerBtn.disabled = true;
-    </script>
-  </body>
+      <div class="space-y-4 mb-6">
+
+        <div class="bg-gray-700/50 rounded-lg p-4">
+          <h2 class="font-semibold text-sm text-green-400 uppercase tracking-wider mb-2">How to get a brand account</h2>
+          <ol class="text-sm text-gray-300 space-y-1 list-decimal list-inside">
+            <li>Contact the INRL administrator</li>
+            <li>Provide your brand name and login email</li>
+            <li>The admin creates your account in the dashboard</li>
+            <li>You receive login credentials to use below</li>
+          </ol>
+        </div>
+
+        <div class="bg-blue-900/30 border border-blue-700/50 rounded-lg p-4">
+          <h2 class="font-semibold text-sm text-blue-300 uppercase tracking-wider mb-2">Already have credentials?</h2>
+          <p class="text-sm text-gray-300 mb-3">Sign in with the email and password provided by the admin. You'll be taken to the brand AR dashboard.</p>
+          <a href="/login.html" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+            Sign in to your brand account &rarr;
+          </a>
+        </div>
+
+        <div class="bg-gray-700/30 rounded-lg p-4">
+          <h2 class="font-semibold text-sm text-gray-300 uppercase tracking-wider mb-2">What brand accounts can do</h2>
+          <ul class="text-sm text-gray-400 space-y-1">
+            <li>&#10003; Upload and manage AR targets</li>
+            <li>&#10003; Link products to AR experiences</li>
+            <li>&#10003; Access the brand AR dashboard</li>
+            <li>&#10007; Cannot access other brands' data</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <p class="text-xs text-gray-500 text-center">
+        Self-registration for brand accounts is disabled for security reasons.<br>
+        Contact <a href="mailto:contact@inrl.com" class="text-blue-400 hover:underline">contact@inrl.com</a> to request access.
+      </p>
+    </div>
+
+    <div class="text-center mt-6">
+      <a href="/login.html" class="text-sm text-gray-400 hover:text-white">&larr; Back to login</a>
+    </div>
+
+  </div>
+</body>
 </html>
