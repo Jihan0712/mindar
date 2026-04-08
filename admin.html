@@ -59,94 +59,68 @@
         </div>
         <!-- Upload Section -->
         <section id="uploadSection">
-          <h2 class="text-xl font-semibold mb-4">Upload a New AR Target</h2>
-          <div class="bg-white shadow rounded-lg p-6 space-y-4">
+          <h2 class="text-xl font-semibold mb-4">Upload AR Target</h2>
+          <div class="bg-white shadow rounded-lg p-6 space-y-6">
+
+            <!-- Step 1: Target Info -->
             <div>
-              <label class="block text-sm font-medium mb-1">Target Name</label>
-              <input id="name" type="text" placeholder="Target name"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Product (optional)</label>
-              <input id="productInput" type="text" placeholder="Product identifier (e.g. SKU or slug)"
-                class="w-full border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-              <datalist id="productOptions"></datalist>
-              <p class="text-xs text-gray-400 mt-1">Tip: use a product <span class="font-mono">slug</span> from the ecommerce catalog for clean AR linking.</p>
+              <div class="flex items-center gap-2 mb-3">
+                <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                <h3 class="font-medium text-gray-800">Target Info</h3>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pl-8">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Name <span class="text-red-500">*</span></label>
+                  <input id="name" type="text" placeholder="e.g. Summer Campaign Poster"
+                    class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Product <span class="text-gray-400 font-normal">(optional)</span></label>
+                  <input id="productInput" type="text" placeholder="Product slug or SKU" list="productOptions"
+                    class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <datalist id="productOptions"></datalist>
+                  <p class="text-xs text-gray-400 mt-1">Use a <span class="font-mono">slug</span> from the ecommerce catalog for AR linking.</p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label class="block text-sm font-medium mb-1">Marker Image(s) (.jpg/.png)</label>
-              <div class="flex gap-2">
-                <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" multiple class="flex-1 border p-2 rounded-md" />
-                <div class="flex gap-2">
-                  <button id="serverCompile" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">
-                    Compile on Server
+            <!-- Step 2: Marker Image -->
+            <div class="border-t pt-5">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">2</span>
+                <h3 class="font-medium text-gray-800">Marker Image(s)</h3>
+              </div>
+              <div class="pl-8 space-y-3">
+                <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" multiple
+                  class="block w-full border border-gray-300 rounded-lg p-2 text-sm" />
+                <p id="markerFilesInfo" class="text-xs text-gray-500"></p>
+                <div class="flex items-center gap-3">
+                  <button id="serverCompile" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+                    Compile Marker
                   </button>
+                  <p id="compileStatus" class="text-sm text-gray-500"></p>
                 </div>
-              </div>
-              <p id="markerFilesInfo" class="text-xs text-gray-500 mt-1"></p>
-              <p id="compileStatus" class="text-sm text-gray-500 mt-1"></p>
-              <p class="text-xs text-gray-400">Tip: large images will be resized to 1024px max to speed up compilation.</p>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium mb-1">.mp4 Video</label>
-              <input id="videoFile" type="file" accept="video/mp4" class="w-full" />
-            </div>
-
-            <button id="upload" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">
-              Upload
-            </button>
-            
-          </div>
-
-          <!-- Admin-only: Brand user provisioning (Worker-native) -->
-          <div id="brandUserProvision" class="mt-6 bg-white shadow rounded-lg p-6 space-y-4 hidden">
-            <div>
-              <h3 class="text-base font-semibold">Create Brand User</h3>
-              <p class="text-xs text-gray-500">Creates a brand-scoped login and assigns it to a brand. Share the credentials securely with the brand owner — the password is shown only once.</p>
-            </div>
-
-            <div id="brandUserStatus" class="text-sm"></div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Brand name</label>
-                <input id="brandUserBrand" type="text" placeholder="e.g. Acme" class="w-full border rounded p-2" autocomplete="off" />
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">User email</label>
-                <input id="brandUserEmail" type="email" placeholder="brand@company.com" class="w-full border rounded p-2" autocomplete="off" />
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Temporary password</label>
-                <div class="flex gap-1">
-                  <div class="relative flex-1">
-                    <input id="brandUserPassword" type="password" placeholder="Min 8 chars" class="w-full border rounded p-2 pr-9" autocomplete="new-password" />
-                    <button type="button" id="brandPwToggle" title="Show/hide password" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none">&#128065;</button>
-                  </div>
-                  <button type="button" id="brandPwGenerate" title="Generate a secure random password" class="px-2 py-1 bg-gray-100 border rounded hover:bg-gray-200 text-xs whitespace-nowrap">Generate</button>
-                </div>
+                <p class="text-xs text-gray-400">Images are auto-resized to 1024px. Supports multiple images for multi-target sets.</p>
               </div>
             </div>
 
-            <div class="flex gap-2">
-              <button id="createBrandUserBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Create User</button>
+            <!-- Step 3: AR Content -->
+            <div class="border-t pt-5">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">3</span>
+                <h3 class="font-medium text-gray-800">AR Content</h3>
+              </div>
+              <div class="pl-8">
+                <label class="block text-sm font-medium mb-1">Video file (.mp4) <span class="text-red-500">*</span></label>
+                <input id="videoFile" type="file" accept="video/mp4"
+                  class="block w-full border border-gray-300 rounded-lg p-2 text-sm" />
+              </div>
             </div>
 
-            <!-- Credentials card — shown only after successful creation -->
-            <div id="brandUserCredentials" class="hidden p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div class="flex items-start justify-between gap-3">
-                <div class="text-sm space-y-1">
-                  <div class="font-semibold text-green-800 mb-2">&#10003; Brand user created — share these credentials securely</div>
-                  <div class="text-gray-700">Brand: <span id="credsBrand" class="font-mono font-semibold"></span></div>
-                  <div class="text-gray-700">Email: <span id="credsEmail" class="font-mono font-semibold"></span></div>
-                  <div class="text-gray-700">Temporary password: <span id="credsPassword" class="font-mono font-semibold"></span></div>
-                  <div class="text-gray-700">Login at: <a id="credsLoginUrl" href="/login.html" class="text-indigo-600 underline text-xs"></a></div>
-                </div>
-                <button id="copyCredsBtn" class="shrink-0 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700">Copy</button>
-              </div>
-              <p class="text-xs text-gray-500 mt-2">&#9888;&#65039; This password is shown only once. Ask the user to change it after first login.</p>
+            <div class="border-t pt-4">
+              <button id="upload" class="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-medium">
+                Upload Target
+              </button>
             </div>
           </div>
         </section>
@@ -219,153 +193,85 @@
 
         <!-- Admin Section (visible to admins only) -->
         <section id="adminSection" class="hidden">
-          <h2 class="text-xl font-semibold mb-4">Admin Tools</h2>
+          <h2 class="text-xl font-semibold mb-6">Admin Dashboard</h2>
           <div class="grid gap-6 md:grid-cols-2">
+
             <!-- Overview stats -->
             <div class="bg-white shadow rounded-lg overflow-hidden">
-              <div class="p-4 border-b">
-                <h3 class="font-medium">Overview</h3>
-                <p class="text-xs text-gray-500">Quick stats for accounts plus pending brand invites and admin tokens.</p>
+              <div class="flex items-center justify-between p-4 border-b">
+                <div>
+                  <h3 class="font-medium">Overview</h3>
+                  <p class="text-xs text-gray-500">Computed from AR target data in real time.</p>
+                </div>
+                <button id="refreshAdminStats" class="px-3 py-1.5 text-xs bg-gray-200 hover:bg-gray-300 rounded font-medium">Refresh</button>
               </div>
               <div class="p-4">
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                  <div class="p-3 rounded bg-gray-50">
-                    <div class="text-gray-500">Brand accounts</div>
-                    <div id="brandCount" class="text-xl font-semibold">—</div>
+                <div class="grid grid-cols-3 gap-3">
+                  <div class="p-3 rounded bg-gray-50 text-center">
+                    <div class="text-gray-500 text-xs mb-1">Total Targets</div>
+                    <div id="statTotalTargets" class="text-2xl font-bold text-gray-800">—</div>
                   </div>
-                  <div class="p-3 rounded bg-gray-50">
-                    <div class="text-gray-500">Admin accounts</div>
-                    <div id="adminCount" class="text-xl font-semibold">—</div>
+                  <div class="p-3 rounded bg-gray-50 text-center">
+                    <div class="text-gray-500 text-xs mb-1">Brands</div>
+                    <div id="statBrandCount" class="text-2xl font-bold text-gray-800">—</div>
                   </div>
-                  <div class="p-3 rounded bg-gray-50">
-                    <div class="text-gray-500">Pending brand invites</div>
-                    <div id="pendingInvitesCount" class="text-xl font-semibold">—</div>
-                  </div>
-                  <div class="p-3 rounded bg-gray-50">
-                    <div class="text-gray-500">Pending admin tokens</div>
-                    <div id="pendingAdminTokensCount" class="text-xl font-semibold">—</div>
+                  <div class="p-3 rounded bg-gray-50 text-center">
+                    <div class="text-gray-500 text-xs mb-1">Products</div>
+                    <div id="statProductCount" class="text-2xl font-bold text-gray-800">—</div>
                   </div>
                 </div>
-                  <div class="flex items-center gap-3 mt-4">
-                    <button id="refreshStats" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">Refresh</button>
-                    <button id="backfillProfilesBtn" class="px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Backfill Profiles</button>
-                    <span id="backfillResult" class="text-sm text-gray-600"></span>
-                  </div>
+                <div id="adminStatsStatus" class="mt-3 text-xs text-gray-500"></div>
               </div>
             </div>
-            <!-- Accounts monitor -->
-            <div class="bg-white shadow rounded-lg overflow-hidden">
+
+            <!-- Brand user creation -->
+            <div id="brandUserProvision" class="bg-white shadow rounded-lg overflow-hidden hidden">
               <div class="p-4 border-b">
-                <h3 class="font-medium">Accounts</h3>
-                <p class="text-xs text-gray-500">List of users from profiles and admin status.</p>
+                <h3 class="font-medium">Create Brand User</h3>
+                <p class="text-xs text-gray-500">Creates a brand-scoped login. Share credentials securely — password is shown only once.</p>
               </div>
-              <!-- Inline delete-user controls (previously a separate mini-page) -->
-              <!-- Edge function key removed: deletions call the Netlify function using the admin's session token -->
-              <div class="p-4 overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
-                  <thead class="bg-gray-100">
-                    <tr>
-                        <th class="p-2">User (email)</th>
-                        <th class="p-2">Brand</th>
-                        <th class="p-2">Admin</th>
-                        <th class="p-2">View</th>
-                        <th class="p-2">Delete</th>
-                    </tr>
-                  </thead>
-                  <tbody id="accountsTable"></tbody>
-                </table>
-              </div>
-              <!-- Embed Brand Limits into the same Accounts card -->
-              <div class="p-4 border-t mt-4">
-                <div class="mb-3">
-                  <h4 class="font-medium">Brand Limits (in Accounts)</h4>
-                  <p class="text-xs text-gray-500">Quick view and edit of per-brand active limits.</p>
+              <div class="p-4 space-y-4">
+                <div id="brandUserStatus" class="text-sm"></div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-xs text-gray-600 mb-1">Brand name</label>
+                    <input id="brandUserBrand" type="text" placeholder="e.g. Acme" class="w-full border rounded p-2" autocomplete="off" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-600 mb-1">User email</label>
+                    <input id="brandUserEmail" type="email" placeholder="brand@company.com" class="w-full border rounded p-2" autocomplete="off" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-600 mb-1">Temporary password</label>
+                    <div class="flex gap-1">
+                      <div class="relative flex-1">
+                        <input id="brandUserPassword" type="password" placeholder="Min 8 chars" class="w-full border rounded p-2 pr-9" autocomplete="new-password" />
+                        <button type="button" id="brandPwToggle" title="Show/hide password" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none">&#128065;</button>
+                      </div>
+                      <button type="button" id="brandPwGenerate" title="Generate a secure random password" class="px-2 py-1 bg-gray-100 border rounded hover:bg-gray-200 text-xs whitespace-nowrap">Generate</button>
+                    </div>
+                  </div>
                 </div>
-                <div class="overflow-x-auto">
-                  <table class="w-full text-left border-collapse text-sm">
-                    <thead class="bg-gray-100">
-                      <tr>
-                        <th class="p-2">Brand</th>
-                        <th class="p-2">Active now</th>
-                        <th class="p-2">Max allowed</th>
-                        <th class="p-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody id="brandLimitsTable"></tbody>
-                  </table>
+                <div>
+                  <button id="createBrandUserBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Create User</button>
                 </div>
-                <div class="mt-3 text-right">
-                  <button id="refreshBrandLimits" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Refresh</button>
+                <!-- Credentials card — shown only after successful creation -->
+                <div id="brandUserCredentials" class="hidden p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="text-sm space-y-1">
+                      <div class="font-semibold text-green-800 mb-2">&#10003; Brand user created — share these credentials securely</div>
+                      <div class="text-gray-700">Brand: <span id="credsBrand" class="font-mono font-semibold"></span></div>
+                      <div class="text-gray-700">Email: <span id="credsEmail" class="font-mono font-semibold"></span></div>
+                      <div class="text-gray-700">Temporary password: <span id="credsPassword" class="font-mono font-semibold"></span></div>
+                      <div class="text-gray-700">Login at: <a id="credsLoginUrl" href="/login.html" class="text-indigo-600 underline text-xs"></a></div>
+                    </div>
+                    <button id="copyCredsBtn" class="shrink-0 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700">Copy</button>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-2">&#9888;&#65039; This password is shown only once. Ask the user to change it after first login.</p>
                 </div>
               </div>
             </div>
 
-            <!-- Registration links -->
-            <div class="bg-white shadow rounded-lg overflow-hidden">
-              <div class="p-4 border-b">
-                <h3 class="font-medium">Registration Links</h3>
-                <p class="text-xs text-gray-500">Generate and copy special links for brand or admin registration.</p>
-              </div>
-              <div class="p-4 space-y-4">
-                <div>
-                  <label class="block text-xs text-gray-600 mb-1">Brand name (optional)</label>
-                  <input id="regBrandInput" type="text" placeholder="Brand name" class="border rounded p-2 w-full" />
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-600 mb-1">Invite email (required)</label>
-                  <input id="regEmailInput" type="email" placeholder="email@example.com" class="border rounded p-2 w-full" />
-                </div>
-                <div class="space-y-3">
-                  <div>
-                    <label class="block text-xs text-gray-600 mb-1">Brand registration link</label>
-                    <div class="flex gap-2">
-                      <input id="brandRegLink" class="flex-1 border rounded p-2 text-xs" readonly />
-                      <button id="copyBrandLink" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Copy</button>
-                    </div>
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-600 mb-1">Admin registration link</label>
-                    <div class="flex gap-2">
-                      <input id="adminRegLink" class="flex-1 border rounded p-2 text-xs" readonly />
-                      <button id="copyAdminLink" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Copy</button>
-                    </div>
-                  </div>
-                    <div class="flex gap-2">
-                      <button id="generateBrandLink" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Generate Brand Link</button>
-                      <button id="generateAdminLink" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Generate Admin Link</button>
-                    </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Pending invites & tokens -->
-          <div class="bg-white shadow rounded-lg overflow-hidden mt-6 md:col-span-2">
-            <div class="p-4 border-b">
-              <h3 class="font-medium">Pending Invites & Tokens</h3>
-              <p class="text-xs text-gray-500">Latest pending brand invites and admin tokens. Copy an id/token or delete entries if needed.</p>
-            </div>
-            <div class="p-4">
-              <div class="flex gap-4 mb-3 items-center">
-                <label class="text-sm">Show latest</label>
-                <select id="pendingLimit" class="border rounded p-1 text-sm">
-                  <option value="5">5</option>
-                  <option value="10" selected>10</option>
-                  <option value="25">25</option>
-                </select>
-                <button id="refreshPending" class="ml-auto px-3 py-1 bg-gray-200 rounded">Refresh</button>
-              </div>
-              <div class="grid gap-4 md:grid-cols-2">
-                <div>
-                  <div class="text-xs text-gray-600 mb-2">Brand Invites</div>
-                  <div id="invitesList" class="text-sm space-y-2"></div>
-                </div>
-                <div>
-                  <div class="text-xs text-gray-600 mb-2">Admin Tokens</div>
-                  <div id="tokensList" class="text-sm space-y-2"></div>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
       </main>
@@ -407,142 +313,6 @@
       }
 
       // No image cycling fallbacks: thumbnails will show a single primary image only.
-
-        // Load latest pending invites and admin tokens (for admin UI)
-        async function loadPendingLists() {
-          const limit = parseInt(document.getElementById('pendingLimit')?.value || '10', 10) || 10;
-          const invitesEl = document.getElementById('invitesList');
-          const tokensEl = document.getElementById('tokensList');
-          if (invitesEl) invitesEl.innerHTML = '<div class="text-gray-500">Loading...</div>';
-          if (tokensEl) tokensEl.innerHTML = '<div class="text-gray-500">Loading...</div>';
-
-          // Fetch invites (prefer RPC)
-          try {
-            let invites = null;
-            try {
-              const { data, error } = await supabase.rpc('get_pending_brand_invites', { p_limit: limit });
-              if (!error && Array.isArray(data)) invites = data;
-            } catch (rpcErr) {
-              console.warn('get_pending_brand_invites RPC failed, falling back:', rpcErr);
-            }
-
-            if (!invites) {
-              const { data: invitesRows, error: invErr } = await supabase
-                .from('brand_invitations')
-                .select('id, email, brand, created_at')
-                .order('created_at', { ascending: false })
-                .limit(limit);
-              if (invErr) throw invErr;
-              invites = invitesRows;
-            }
-
-            if (!invites || invites.length === 0) {
-              if (invitesEl) invitesEl.innerHTML = '<div class="text-gray-500">No pending invites.</div>';
-            } else {
-              invitesEl.innerHTML = '';
-              invites.forEach((r) => {
-                const id = r.id;
-                const line = document.createElement('div');
-                line.className = 'flex items-center justify-between gap-2 p-2 border rounded';
-                const left = document.createElement('div');
-                left.className = 'flex-1';
-                left.innerHTML = `<div class="font-mono text-xs">${id}</div><div class="text-xs text-gray-600">${r.email || ''} — ${r.brand || ''} <span class="text-[11px] text-gray-400">${new Date(r.created_at).toLocaleString()}</span></div>`;
-                const actions = document.createElement('div');
-                actions.className = 'flex gap-2';
-                const copyBtn = document.createElement('button');
-                copyBtn.className = 'px-2 py-1 bg-gray-200 rounded text-xs';
-                copyBtn.textContent = 'Copy ID';
-                copyBtn.addEventListener('click', async () => {
-                  await navigator.clipboard.writeText(String(id));
-                  statusEl.textContent = '✅ Invite id copied to clipboard';
-                });
-                const delBtn = document.createElement('button');
-                delBtn.className = 'px-2 py-1 bg-red-500 text-white rounded text-xs';
-                delBtn.textContent = 'Delete';
-                delBtn.addEventListener('click', async () => {
-                  if (!confirm('Delete this invite? This cannot be undone.')) return;
-                  statusEl.textContent = 'Deleting invite...';
-                  const { error } = await supabase.from('brand_invitations').delete().eq('id', id);
-                  if (error) statusEl.textContent = '❌ Delete failed: ' + (error.message || error);
-                  else { statusEl.textContent = '✅ Invite deleted'; loadPendingLists(); loadAdminStats(); }
-                });
-                actions.appendChild(copyBtn);
-                actions.appendChild(delBtn);
-                line.appendChild(left);
-                line.appendChild(actions);
-                invitesEl.appendChild(line);
-              });
-            }
-          } catch (e) {
-            console.warn('Failed to load invites', e);
-            if (invitesEl) invitesEl.innerHTML = `<div class="text-red-600">Failed to load invites: ${e.message || e}</div>`;
-          }
-
-          // Fetch admin tokens (prefer RPC)
-          try {
-            let tokens = null;
-            try {
-              const { data, error } = await supabase.rpc('get_pending_admin_tokens', { p_limit: limit });
-              if (!error && Array.isArray(data)) tokens = data;
-            } catch (rpcErr) {
-              console.warn('get_pending_admin_tokens RPC failed, falling back:', rpcErr);
-            }
-
-            if (!tokens) {
-              const { data: tokensRows, error: tokErr } = await supabase
-                .from('admin_tokens')
-                .select('token, created_at, created_by_id')
-                .is('consumed_at', null)
-                .order('created_at', { ascending: false })
-                .limit(limit);
-              if (tokErr) throw tokErr;
-              tokens = tokensRows;
-            }
-
-            if (!tokens || tokens.length === 0) {
-              if (tokensEl) tokensEl.innerHTML = '<div class="text-gray-500">No pending tokens.</div>';
-            } else {
-              tokensEl.innerHTML = '';
-              tokens.forEach((t) => {
-                const tokenVal = t.token;
-                const ln = document.createElement('div');
-                ln.className = 'flex items-center justify-between gap-2 p-2 border rounded';
-                const left = document.createElement('div');
-                left.className = 'flex-1';
-                // If `created_by_id` exists in the row it will be shown; otherwise fallback to 'system'
-                const createdBy = (t.created_by_id !== undefined) ? t.created_by_id : 'system';
-                left.innerHTML = `<div class="font-mono text-xs truncate">${tokenVal}</div><div class="text-xs text-gray-600">Created by: ${createdBy} <span class="text-[11px] text-gray-400">${new Date(t.created_at).toLocaleString()}</span></div>`;
-                const actions = document.createElement('div');
-                actions.className = 'flex gap-2';
-                const copyBtn = document.createElement('button');
-                copyBtn.className = 'px-2 py-1 bg-gray-200 rounded text-xs';
-                copyBtn.textContent = 'Copy Token';
-                copyBtn.addEventListener('click', async () => {
-                  await navigator.clipboard.writeText(String(tokenVal));
-                  statusEl.textContent = '✅ Token copied to clipboard';
-                });
-                const delBtn = document.createElement('button');
-                delBtn.className = 'px-3 py-1 bg-red-500 text-white rounded text-xs';
-                delBtn.textContent = 'Delete';
-                delBtn.addEventListener('click', async () => {
-                  if (!confirm('Delete this admin token?')) return;
-                  statusEl.textContent = 'Deleting token...';
-                  const { error } = await supabase.from('admin_tokens').delete().eq('token', tokenVal);
-                  if (error) statusEl.textContent = '❌ Delete failed: ' + (error.message || error);
-                  else { statusEl.textContent = '✅ Token deleted'; loadPendingLists(); loadAdminStats(); }
-                });
-                actions.appendChild(copyBtn);
-                actions.appendChild(delBtn);
-                ln.appendChild(left);
-                ln.appendChild(actions);
-                tokensEl.appendChild(ln);
-              });
-            }
-          } catch (e) {
-            console.warn('Failed to load tokens', e);
-            if (tokensEl) tokensEl.innerHTML = `<div class="text-red-600">Failed to load tokens: ${e.message || e}</div>`;
-          }
-        }
 
       async function loadTfWithFallback() {
         const versions = [
@@ -611,14 +381,6 @@
         }, 'image/jpeg', 0.9));
       }
 
-    // Legacy Supabase admin tooling has been deprecated after the Worker migration.
-    // Keep a placeholder so legacy helper functions don't crash at parse-time.
-    let supabase = null;
-  // External admin backend base URL (Option 2).
-  // Set this to your deployed backend (e.g., https://your-backend.example.com).
-  // The backend must expose POST /admin-delete-user as documented in README.
-  const BACKEND_API_URL = ""; // TODO: set to your backend origin
-
       // Default worker upload URL (can be overridden in browser console)
       window.WORKER_UPLOAD_URL = window.WORKER_UPLOAD_URL || 'https://mindar-worker.nico-824.workers.dev';
 
@@ -680,23 +442,11 @@
   // Admin section els
   const adminTab = document.getElementById('adminTab');
   const adminSection = document.getElementById('adminSection');
-  const accountsTable = document.getElementById('accountsTable');
-  const brandCountEl = document.getElementById('brandCount');
-  const adminCountEl = document.getElementById('adminCount');
-  const pendingInvitesEl = document.getElementById('pendingInvitesCount');
-  const pendingAdminTokensEl = document.getElementById('pendingAdminTokensCount');
-  const refreshStatsBtn = document.getElementById('refreshStats');
-  const brandLimitsTable = document.getElementById('brandLimitsTable');
-  const refreshBrandLimitsBtn = document.getElementById('refreshBrandLimits');
-  const regBrandInput = document.getElementById('regBrandInput');
-  const regEmailInput = document.getElementById('regEmailInput');
-  const brandRegLinkEl = document.getElementById('brandRegLink');
-  const adminRegLinkEl = document.getElementById('adminRegLink');
-  const copyBrandLinkBtn = document.getElementById('copyBrandLink');
-  const copyAdminLinkBtn = document.getElementById('copyAdminLink');
-  const generateBrandBtn = document.getElementById('generateBrandLink');
-  const generateAdminBtn = document.getElementById('generateAdminLink');
-  const refreshPendingBtn = document.getElementById('refreshPending');
+  const refreshAdminStatsBtn = document.getElementById('refreshAdminStats');
+  const statTotalTargets = document.getElementById('statTotalTargets');
+  const statBrandCount = document.getElementById('statBrandCount');
+  const statProductCount = document.getElementById('statProductCount');
+  const adminStatsStatus = document.getElementById('adminStatsStatus');
   const targetsHeadRow = document.getElementById('targetsHeadRow');
   // timer used to clear transient status messages (so they disappear after a few seconds)
   let statusClearTimer = null;
@@ -704,8 +454,10 @@
       uploadTab.addEventListener("click", () => {
         uploadSection.classList.remove("hidden");
         listSection.classList.add("hidden");
+        adminSection.classList.add("hidden");
         uploadTab.classList.add("bg-blue-600");
         listTab.classList.remove("bg-blue-600");
+        adminTab?.classList.remove("bg-blue-600");
       });
 
       
@@ -735,9 +487,13 @@
       });
 
       adminTab?.addEventListener('click', () => {
-        statusEl.textContent = 'Admin tools have been removed after the Worker migration.';
-        setTimeout(() => { if (statusEl && statusEl.textContent) statusEl.textContent = ''; }, 5000);
-        return;
+        uploadSection.classList.add('hidden');
+        listSection.classList.add('hidden');
+        adminSection.classList.remove('hidden');
+        adminTab.classList.add('bg-blue-600');
+        uploadTab.classList.remove('bg-blue-600');
+        listTab.classList.remove('bg-blue-600');
+        loadAdminDashboard();
       });
 
       // Initialize auth + admin and load brand options
@@ -768,8 +524,7 @@
         try {
           if (isAdmin) {
             filterEls.bar?.classList.remove('hidden');
-            // Admin tools section was Supabase-based and is deprecated.
-            adminTab?.classList.add('hidden');
+            adminTab?.classList.remove('hidden');
             if (targetsHeadRow) {
               targetsHeadRow.innerHTML = `
                 <th class="p-3">Target Image</th>
@@ -787,7 +542,7 @@
           }
         } catch {}
 
-        // Admin-only: Brand user provisioning card
+        // Admin-only: Brand user provisioning card (lives in adminSection)
         try {
           const prov = document.getElementById('brandUserProvision');
           if (prov) prov.classList.toggle('hidden', !isAdmin);
@@ -1039,238 +794,28 @@
       const logoutSidebarBtn = document.getElementById('logoutBtnSidebar');
       logoutSidebarBtn?.addEventListener('click', () => doSignOut(logoutSidebarBtn));
 
-      // Create a brand invitation via SECURITY DEFINER RPC (Option A)
-      async function createBrandInvite() {
-        const url = new URL(window.location.href);
-        const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
-        const brandVal = (regBrandInput?.value || '').trim() || null;
-        const emailVal = (regEmailInput?.value || '').trim();
-        if (!emailVal) {
-          statusEl.textContent = '⚠️ Please provide an invite email to generate a brand registration link.';
-          return null;
-        }
+      refreshAdminStatsBtn?.addEventListener('click', () => loadAdminDashboard());
+
+      async function loadAdminDashboard() {
+        if (adminStatsStatus) adminStatsStatus.textContent = 'Loading...';
+        if (statTotalTargets) statTotalTargets.textContent = '—';
+        if (statBrandCount) statBrandCount.textContent = '—';
+        if (statProductCount) statProductCount.textContent = '—';
         try {
-          // Prefer RPC which bypasses RLS safely
-          const { data, error } = await supabase.rpc('create_brand_invite', { p_brand: brandVal, p_email: emailVal });
-          if (error) throw error;
-          const inviteId = (typeof data === 'string' || typeof data === 'number') ? data : (data?.id || data?.invite_id);
-          if (!inviteId) throw new Error('No invite id returned');
-          return `${base}brand-register.html?invite_id=${inviteId}`;
+          const res = await apiFetch('/targets');
+          const items = Array.isArray(res?.items) ? res.items : [];
+          if (statTotalTargets) statTotalTargets.textContent = String(items.length);
+          const brands = new Set(items.map(r => (r.brand || '').trim()).filter(Boolean));
+          if (statBrandCount) statBrandCount.textContent = String(brands.size);
+          const products = new Set(items.map(r => (r.product || '').trim()).filter(Boolean));
+          if (statProductCount) statProductCount.textContent = String(products.size);
+          if (adminStatsStatus) adminStatsStatus.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
         } catch (e) {
-          console.warn('Failed to create brand invite via RPC:', e);
-          statusEl.textContent = `⚠️ Unable to create brand invite: ${e.message || e}`;
-          return null;
+          if (adminStatsStatus) adminStatsStatus.textContent = '❌ Failed to load stats: ' + (e?.message || e);
         }
       }
 
-      // Create an admin token via RPC or fallback table
-      async function createAdminToken() {
-        const url = new URL(window.location.href);
-        const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
-        try {
-          const { data, error } = await supabase.rpc('create_admin_token');
-          if (error) throw error;
-          const token = data?.token || data;
-          if (!token) throw new Error('No token returned from RPC');
-          return `${base}admin-register.html?token=${encodeURIComponent(token)}`;
-        } catch (e) {
-          console.warn('Failed to create admin token via RPC:', e);
-          statusEl.textContent = `⚠️ Unable to create admin token: ${e.message || e}`;
-          return null;
-        }
-      }
-
-      async function generateLinks() {
-        const [brandLink, adminLink] = await Promise.all([
-          createBrandInvite(),
-          createAdminToken()
-        ]);
-        if (brandRegLinkEl && brandLink) brandRegLinkEl.value = brandLink;
-        if (adminRegLinkEl && adminLink) adminRegLinkEl.value = adminLink;
-      }
-
-      copyBrandLinkBtn?.addEventListener('click', async () => {
-        if (brandRegLinkEl?.value) {
-          await navigator.clipboard.writeText(brandRegLinkEl.value);
-          statusEl.textContent = '✅ Brand registration link copied to clipboard';
-        }
-      });
-      copyAdminLinkBtn?.addEventListener('click', async () => {
-        if (adminRegLinkEl?.value) {
-          await navigator.clipboard.writeText(adminRegLinkEl.value);
-          statusEl.textContent = '✅ Admin registration link copied to clipboard';
-        }
-      });
-      generateBrandBtn?.addEventListener('click', async () => {
-        statusEl.textContent = 'Generating brand invite...';
-        const link = await createBrandInvite();
-        if (link) { if (brandRegLinkEl) brandRegLinkEl.value = link; statusEl.textContent = '✅ Brand invite created'; }
-      });
-      generateAdminBtn?.addEventListener('click', async () => {
-        statusEl.textContent = 'Generating admin token...';
-        const link = await createAdminToken();
-        if (link) { if (adminRegLinkEl) adminRegLinkEl.value = link; statusEl.textContent = '✅ Admin token created'; }
-      });
-      refreshStatsBtn?.addEventListener('click', () => loadAdminStats());
-  refreshPendingBtn?.addEventListener('click', () => loadPendingLists());
-  refreshBrandLimitsBtn?.addEventListener('click', () => loadBrandLimits());
-      const backfillBtn = document.getElementById('backfillProfilesBtn');
-      const backfillResultEl = document.getElementById('backfillResult');
-      backfillBtn?.addEventListener('click', async () => {
-        if (!confirm('Create missing `profiles` rows for existing auth.users?')) return;
-        try {
-          backfillBtn.disabled = true;
-          backfillResultEl.textContent = 'Running backfill...';
-          const { data, error } = await supabase.rpc('backfill_profiles_from_auth');
-          if (error) throw error;
-          const inserted = (typeof data === 'number') ? data : (Array.isArray(data) ? data.length : null);
-          backfillResultEl.textContent = inserted !== null ? `Inserted ${inserted} profile(s)` : 'Backfill completed';
-          // refresh UI
-          loadAccounts(); loadAdminStats(); loadBrandLimits();
-        } catch (e) {
-          console.error('Backfill failed', e);
-          backfillResultEl.textContent = 'Backfill failed: ' + (e?.message || JSON.stringify(e));
-        } finally {
-          backfillBtn.disabled = false;
-          setTimeout(() => { backfillResultEl.textContent = ''; }, 6000);
-        }
-      });
-
-      // Load high-level stats (counts)
-      async function loadAdminStats() {
-        // Defaults
-        if (brandCountEl) brandCountEl.textContent = '—';
-        if (adminCountEl) adminCountEl.textContent = '—';
-        if (pendingInvitesEl) pendingInvitesEl.textContent = '—';
-        if (pendingAdminTokensEl) pendingAdminTokensEl.textContent = '—';
-
-        // Brand accounts: number of distinct brands with at least one non-admin profile
-        try {
-          let brandCount = null;
-          // Prefer distinct brand count RPC (SECURITY DEFINER)
-          try {
-            const res1 = await supabase.rpc('get_distinct_brand_count');
-            console.log('RPC get_distinct_brand_count ->', res1);
-            const { data: d1, error: e1 } = res1 || {};
-            if (!e1 && typeof d1 === 'number') brandCount = d1;
-            if (e1) console.warn('get_distinct_brand_count error', e1);
-          } catch (rpcErr) { console.warn('get_distinct_brand_count RPC threw', rpcErr); }
-          // Fallback: count brand accounts (also SECURITY DEFINER)
-          try {
-            const res2 = await supabase.rpc('get_brand_accounts_count');
-            console.log('RPC get_brand_accounts_count ->', res2);
-            const { data: d2, error: e2 } = res2 || {};
-            if (!e2 && typeof d2 === 'number') brandCount = d2;
-            if (e2) console.warn('get_brand_accounts_count error', e2);
-          } catch (rpcErr) { console.warn('get_brand_accounts_count RPC threw', rpcErr); }
-          // Fallback: direct query (may be blocked by RLS)
-          if (brandCount == null) {
-            const { data: profRows, error } = await supabase
-              .from('profiles')
-              .select('brand, user_id');
-            if (!error && Array.isArray(profRows)) {
-              const adminSet = new Set();
-              try {
-                const { data: adminRows } = await supabase.from('admins').select('user_id');
-                (adminRows || []).forEach(r => adminSet.add(r.user_id));
-              } catch {}
-              const brands = new Set();
-              profRows.forEach(r => { if ((r.brand ?? '').trim() !== '' && !adminSet.has(r.user_id)) brands.add(r.brand.trim()); });
-              brandCount = brands.size;
-            }
-          }
-          if (typeof brandCount === 'number' && brandCountEl) brandCountEl.textContent = String(brandCount);
-        } catch (e) { console.warn('Brand count threw:', e); }
-
-        // Admin accounts (count rows in admins)
-        try {
-          let admCount = null;
-          const { count, error } = await supabase
-            .from('admins')
-            .select('user_id', { count: 'exact', head: true });
-          if (!error && typeof count === 'number') admCount = count;
-          if (admCount == null) admCount = adminIds.size; // fallback to what we loaded
-          if (adminCountEl) adminCountEl.textContent = String(admCount);
-          if (error) console.warn('Admin count failed (using fallback if any):', error);
-        } catch (e) { console.warn('Admin count threw:', e); if (adminCountEl) adminCountEl.textContent = String(adminIds.size); }
-
-        // Pending brand invites (existing rows in brand_invitations)
-        try {
-          const { count, error } = await supabase
-            .from('brand_invitations')
-            .select('id', { count: 'exact', head: true });
-          if (!error && typeof count === 'number' && pendingInvitesEl) pendingInvitesEl.textContent = String(count);
-          else if (error) console.warn('Invites count failed:', error);
-        } catch (e) { console.warn('Invites count threw:', e); }
-
-        // Pending admin tokens (consumed_at is null)
-        try {
-          const { count, error } = await supabase
-            .from('admin_tokens')
-            .select('token', { count: 'exact', head: true })
-            .is('consumed_at', null);
-          if (!error && typeof count === 'number' && pendingAdminTokensEl) pendingAdminTokensEl.textContent = String(count);
-          else if (error) console.warn('Admin tokens count failed:', error);
-        } catch (e) { console.warn('Admin tokens count threw:', e); }
-      }
-
-      async function loadAccounts() {
-        accountsTable.innerHTML = '';
-        // Prefer RPC (SECURITY DEFINER) so admins can see all accounts despite RLS
-        try {
-          const { data, error } = await supabase.rpc('get_accounts');
-          if (error) throw error;
-          const rows = Array.isArray(data) ? data : [];
-          if (rows.length === 0) {
-            accountsTable.innerHTML = `<tr><td class="p-2 text-gray-500" colspan="4">No accounts found.</td></tr>`;
-            return;
-          }
-          rows.forEach((r) => {
-            const isAdm = r.is_admin ? 'Yes' : 'No';
-            const email = r.email || r.user_id || '';
-            const brandSafe = r.brand || '';
-            const uid = r.user_id || '';
-            accountsTable.innerHTML += `
-              <tr>
-                <td class="p-2 font-mono text-xs">${email}</td>
-                <td class="p-2">${brandSafe}</td>
-                <td class="p-2">${isAdm}</td>
-                <td class="p-2"><button class="px-2 py-1 bg-blue-600 text-white rounded text-xs" onclick="copyBrandView('${encodeURIComponent(brandSafe)}')">Copy View</button></td>
-                <td class="p-2"><button class="px-2 py-1 bg-red-600 text-white rounded text-xs" onclick="adminDeleteAccount('${uid}')">Delete</button></td>
-              </tr>`;
-          });
-          return;
-        } catch (rpcErr) {
-          console.warn('get_accounts RPC unavailable, falling back to direct select:', rpcErr);
-        }
-
-        // Fallback: direct select (may be blocked by RLS)
-        try {
-          const { data: profiles, error } = await supabase.from('profiles').select('user_id, brand');
-          if (error) throw error;
-          const rows = Array.isArray(profiles) ? profiles : [];
-          if (rows.length === 0) {
-            accountsTable.innerHTML = `<tr><td class="p-2 text-gray-500" colspan="4">No accounts found.</td></tr>`;
-            return;
-          }
-          rows.forEach((r) => {
-            const isAdm = adminIds.has(r.user_id) ? 'Yes' : 'No';
-            const brandSafe = r.brand || '';
-            const uid = r.user_id || '';
-            accountsTable.innerHTML += `
-              <tr>
-                <td class="p-2 font-mono text-xs">${uid}</td>
-                <td class="p-2">${brandSafe}</td>
-                <td class="p-2">${isAdm}</td>
-                <td class="p-2"><button class="px-2 py-1 bg-blue-600 text-white rounded text-xs" onclick="copyBrandView('${encodeURIComponent(brandSafe)}')">Copy View</button></td>
-                <td class="p-2"><button class="px-2 py-1 bg-red-600 text-white rounded text-xs" onclick="adminDeleteAccount('${uid}')">Delete</button></td>
-              </tr>`;
-          });
-        } catch (e) {
-          console.warn('Failed to load accounts', e);
-          accountsTable.innerHTML = `<tr><td class="p-2 text-red-600" colspan="4">Failed to load accounts: ${e.message || e}</td></tr>`;
-        }
-      }
+      // ---- Image Modal Logic ----
 
       // helper:: compile a marker image file in-browser and return an ArrayBuffer
       async function compileImageClient(markerFileOrFiles, progressCallback) {
@@ -1344,7 +889,7 @@
             compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
           });
 
-          compileStatus.textContent = 'Uploading compiled .mind to Supabase storage...';
+          compileStatus.textContent = 'Uploading compiled .mind to storage...';
           const baseName = markerFiles[0]?.name ? markerFiles[0].name.replace(/\.[^/.]+$/, '') : `markers-${Date.now()}`;
           const filename = baseName + (markerFiles.length > 1 ? `-${markerFiles.length}x` : '') + '.mind';
           const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
@@ -1629,104 +1174,17 @@
         loadTargets();
       };
 
-      // Admin: delete account using external backend first; fallback to RPC if needed
+      // Admin: delete account using Worker API
       window.adminDeleteAccount = async (userId) => {
         try {
           if (!userId) return;
-          if (!confirm('Delete this account and all related data (targets, profiles, admins)?')) return;
+          if (!confirm('Delete this account and all related data?')) return;
           const typed = prompt('Type DELETE to confirm permanent removal:');
           if (typed !== 'DELETE') { statusEl.textContent = '⚠️ Deletion cancelled.'; setTimeout(()=>{statusEl.textContent='';},3000); return; }
           statusEl.textContent = '⏳ Deleting account...';
-          // Call the fixed Netlify Edge Function at /.netlify/functions/delete-user
-          // Use the current Supabase session access token as Authorization Bearer.
-          let ok = false; let message = ''; 
-          try {
-            const fixedFn = '/.netlify/functions/delete-user';
-            try {
-              const { data: sessionData } = await supabase.auth.getSession();
-              const accessToken = sessionData?.session?.access_token;
-              if (accessToken) {
-                const res = await fetch(fixedFn, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-                  body: JSON.stringify({ userId })
-                });
-                const json = await res.json().catch(() => ({}));
-                if (res.ok && !json?.error) {
-                  ok = true;
-                  message = json?.status === 'deleted' ? '✅ Account fully deleted (auth + domain).' : '✅ Delete request sent.';
-                  // Ensure domain cleanup (profiles, targets, admins) even if edge function only removed auth user.
-                  try {
-                    const { error: dcErr } = await supabase.rpc('admin_delete_account_domain_cleanup', { p_user_id: userId });
-                    if (dcErr) console.warn('Domain cleanup RPC error after edge delete:', dcErr);
-                  } catch (dcEx) {
-                    console.warn('Domain cleanup RPC exception after edge delete:', dcEx);
-                  }
-                } else {
-                  message = json?.error || `Edge function failed: HTTP ${res.status}`;
-                }
-              } else {
-                console.warn('No access token available for edge function call');
-              }
-            } catch (fe) {
-              console.warn('Fixed edge function call failed, will fall back:', fe);
-            }
-          } catch (e) {
-            console.warn('Edge function deletion check failed:', e);
-          }
-
-          // If edge function not used or failed, try external backend if configured
-          if (!ok && BACKEND_API_URL) {
-            try {
-              const { data: sessionData } = await supabase.auth.getSession();
-              const accessToken = sessionData?.session?.access_token;
-              if (accessToken) {
-                const res = await fetch(`${BACKEND_API_URL.replace(/\/$/, '')}/admin-delete-user`, {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ user_id: userId })
-                });
-                const json = await res.json().catch(() => ({}));
-                if (res.ok && !json?.error) {
-                  ok = true;
-                  message = json?.status === 'deleted' ? '✅ Account fully deleted (auth + domain).' : '⚠️ Domain only deletion completed.';
-                  // Perform domain cleanup for safety (if backend didn't do it fully)
-                  try {
-                    const { error: dcErr2 } = await supabase.rpc('admin_delete_account_domain_cleanup', { p_user_id: userId });
-                    if (dcErr2) console.warn('Domain cleanup RPC error after backend delete:', dcErr2);
-                  } catch (dcEx2) {
-                    console.warn('Domain cleanup RPC exception after backend delete:', dcEx2);
-                  }
-                } else {
-                  message = json?.error || `Backend failed: HTTP ${res.status}`;
-                }
-              }
-            } catch (beErr) {
-              console.warn('Backend delete failed, falling back to RPC:', beErr);
-            }
-          }
-
-          // Fallback: RPC (may only do domain cleanup depending on DB capabilities)
-          if (!ok) {
-            const { data, error } = await supabase.rpc('admin_delete_account', { p_user_id: userId });
-            if (error) throw error;
-            const st = data?.status;
-            if (st === 'deleted_via_internal') {
-              message = '✅ Account fully deleted (auth + domain).';
-            } else if (st === 'http_delete_attempted') {
-              const code = data?.response?.status_code;
-              if (code >= 200 && code < 300) message = `✅ Account deleted via Admin API (HTTP ${code}).`;
-              else message = `⚠️ Domain rows removed; Admin API delete may have failed (HTTP ${code ?? 'unknown'}).`;
-            } else if (st === 'domain_only') {
-              message = '⚠️ Domain rows removed. Auth user NOT deleted.';
-            } else {
-              message = '✅ Account processed.';
-            }
-          }
-
-          statusEl.textContent = message;
-          setTimeout(()=>{ if(statusEl.textContent.startsWith('✅')) statusEl.textContent=''; },6000);
-          loadAccounts();
+          await apiFetch(`/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+          statusEl.textContent = '✅ Account deleted.';
+          setTimeout(()=>{ statusEl.textContent=''; },5000);
           loadTargets();
         } catch (e) {
           console.error('Failed to delete account', e);
@@ -1780,50 +1238,6 @@
         }
       };
 
-      window.editVideo = async (id, name) => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "video/mp4";
-        input.click();
-
- 
-        input.onchange = async () => {
-          const file = input.files[0];
-          if (!file) return;
-          statusEl.textContent = "Uploading new video...";
-          const timestamp = Date.now();
-          const videoPath = `videos/${timestamp}-${file.name}`;
-
-          const { error: vidErr } = await supabase.storage.from("assets").upload(videoPath, file);
-          if (vidErr) return (statusEl.textContent = "❌ Upload failed: " + vidErr.message);
-
-          const videoUrl = supabase.storage.from("assets").getPublicUrl(videoPath).data.publicUrl;
-          const { error: updateErr } = await supabase.from("targets").update({ videourl: videoUrl }).eq("id", id);
-          statusEl.textContent = updateErr ? "❌ Update failed: " + updateErr.message : "✅ Video updated!";
-          loadTargets();
-        };
-      };
-
-      // derive storage path from Supabase public URL
-      function storagePathFromPublicUrl(u) {
-        if (!u) return null;
-        try {
-          const noQuery = u.split('?')[0];
-          const marker1 = '/object/public/assets/';
-          const i1 = noQuery.indexOf(marker1);
-          if (i1 !== -1) return noQuery.substring(i1 + marker1.length);
-          const marker2 = '/object/sign/assets/';
-          const i2 = noQuery.indexOf(marker2);
-          if (i2 !== -1) return noQuery.substring(i2 + marker2.length);
-          // fallback: last two segments (e.g., minds/file.mind)
-          const parts = noQuery.split('/');
-          if (parts.length >= 2) return parts.slice(-2).join('/');
-        } catch (e) {
-          console.warn('storagePathFromPublicUrl failed', e);
-        }
-        return null;
-      }
-
       window.deleteTarget = async (id, name, mindUrl, videoUrl, imageUrl) => {
         const confirm1 = confirm(`Are you sure you want to delete "${name}"?`);
         if (!confirm1) return;
@@ -1838,63 +1252,6 @@
           statusEl.textContent = '❌ Delete failed: ' + (e.message || e);
         }
         loadTargets();
-      };
-
-      // ---- Brand Limits UI ----
-      async function loadBrandLimits() {
-        if (!brandLimitsTable) return;
-        brandLimitsTable.innerHTML = '<tr><td class="p-2 text-gray-500" colspan="4">Loading...</td></tr>';
-        try {
-          const { data, error } = await supabase.rpc('get_brand_limits');
-          if (error) throw error;
-          let rows = Array.isArray(data) ? data : [];
-          // Show only named brands (skip blank placeholder row)
-          rows = rows.filter(r => (r.brand ?? '').trim() !== '');
-          if (rows.length === 0) {
-            brandLimitsTable.innerHTML = '<tr><td class="p-2 text-gray-500" colspan="4">No brands yet.</td></tr>';
-            return;
-          }
-          brandLimitsTable.innerHTML = '';
-          rows.forEach(r => {
-            const brand = r.brand || '';
-            const active = r.active_count ?? 0;
-            const limit = r.max_active ?? 3;
-            const warnClass = (active > limit) ? 'text-red-600 font-medium' : '';
-            brandLimitsTable.innerHTML += `
-              <tr>
-                <td class="p-2">${brand || '<span class=\'text-gray-400\'>(no brand)</span>'}</td>
-                <td class="p-2 ${warnClass}">${active}</td>
-                <td class="p-2">
-                  <input type="number" min="0" step="1" value="${limit}" class="w-24 border rounded p-1 text-right" id="limit-${encodeURIComponent(brand)}" />
-                </td>
-                <td class="p-2">
-                  <button class="px-2 py-1 bg-blue-600 text-white rounded text-xs" onclick="saveBrandLimit('${encodeURIComponent(brand)}')">Save</button>
-                </td>
-              </tr>`;
-          });
-        } catch (e) {
-          console.error('Failed to load brand limits', e);
-          brandLimitsTable.innerHTML = `<tr><td class="p-2 text-red-600" colspan="4">Failed to load limits: ${e.message || e}</td></tr>`;
-        }
-      }
-
-      window.saveBrandLimit = async (encodedBrand) => {
-        try {
-          const brand = decodeURIComponent(encodedBrand || '');
-          const input = document.getElementById(`limit-${encodedBrand}`);
-          if (!input) return;
-          const val = parseInt(input.value, 10);
-          if (!(val >= 0)) { alert('Limit must be a non-negative integer'); return; }
-          statusEl.textContent = 'Updating brand limit...';
-          const { error } = await supabase.rpc('set_brand_max_active', { p_brand: brand, p_limit: val });
-          if (error) throw error;
-          statusEl.textContent = '✅ Brand limit updated';
-          setTimeout(() => { statusEl.textContent = ''; }, 3000);
-          loadBrandLimits();
-        } catch (e) {
-          console.error('Failed to update brand limit', e);
-          statusEl.textContent = '❌ Failed to update brand limit: ' + (e.message || e);
-        }
       };
 
       (async () => {
