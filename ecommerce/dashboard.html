@@ -53,6 +53,9 @@
       <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">
         <button class="nav-link text-uppercase" id="tab-homepage" data-bs-toggle="tab" data-bs-target="#pane-homepage" type="button" role="tab">Homepage Editor</button>
       </li>
+      <li class="nav-item" role="presentation">
+        <a class="nav-link text-uppercase" href="/admin.html">AR Dashboard &#x2197;</a>
+      </li>
     </ul>
 
     <div id="status" class="alert alert-light border" role="status" style="display:none"></div>
@@ -452,7 +455,7 @@
 
     (async function main() {
       clearStatus();
-      const user = await auth.requireRole(['admin'], { redirectTo: '/login.html', next: location.pathname + location.search });
+      const user = await auth.requireRole(['admin', 'brand'], { redirectTo: '/login.html', next: location.pathname + location.search });
       if (!user) return;
       el('userEmail').textContent = user.email || '';
       el('userRole').textContent = user.role || '';

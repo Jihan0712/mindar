@@ -212,11 +212,23 @@
                     <div id="statTotalTargets" class="text-2xl font-bold text-gray-800">—</div>
                   </div>
                   <div class="p-3 rounded bg-gray-50 text-center">
-                    <div class="text-gray-500 text-xs mb-1">Brands</div>
+                    <div class="text-gray-500 text-xs mb-1">Active Targets</div>
+                    <div id="statActiveTargets" class="text-2xl font-bold text-gray-800">—</div>
+                  </div>
+                  <div class="p-3 rounded bg-gray-50 text-center">
+                    <div class="text-gray-500 text-xs mb-1">Brand Accounts</div>
                     <div id="statBrandCount" class="text-2xl font-bold text-gray-800">—</div>
                   </div>
                   <div class="p-3 rounded bg-gray-50 text-center">
-                    <div class="text-gray-500 text-xs mb-1">Products</div>
+                    <div class="text-gray-500 text-xs mb-1">Total Products</div>
+                    <div id="statTotalProducts" class="text-2xl font-bold text-gray-800">—</div>
+                  </div>
+                  <div class="p-3 rounded bg-gray-50 text-center">
+                    <div class="text-gray-500 text-xs mb-1">Published</div>
+                    <div id="statPublishedProducts" class="text-2xl font-bold text-gray-800">—</div>
+                  </div>
+                  <div class="p-3 rounded bg-gray-50 text-center">
+                    <div class="text-gray-500 text-xs mb-1">AR-Linked Products</div>
                     <div id="statProductCount" class="text-2xl font-bold text-gray-800">—</div>
                   </div>
                 </div>
@@ -444,8 +456,11 @@
   const adminSection = document.getElementById('adminSection');
   const refreshAdminStatsBtn = document.getElementById('refreshAdminStats');
   const statTotalTargets = document.getElementById('statTotalTargets');
+  const statActiveTargets = document.getElementById('statActiveTargets');
   const statBrandCount = document.getElementById('statBrandCount');
   const statProductCount = document.getElementById('statProductCount');
+  const statTotalProducts = document.getElementById('statTotalProducts');
+  const statPublishedProducts = document.getElementById('statPublishedProducts');
   const adminStatsStatus = document.getElementById('adminStatsStatus');
   const targetsHeadRow = document.getElementById('targetsHeadRow');
   // timer used to clear transient status messages (so they disappear after a few seconds)
@@ -798,17 +813,28 @@
 
       async function loadAdminDashboard() {
         if (adminStatsStatus) adminStatsStatus.textContent = 'Loading...';
-        if (statTotalTargets) statTotalTargets.textContent = '—';
-        if (statBrandCount) statBrandCount.textContent = '—';
-        if (statProductCount) statProductCount.textContent = '—';
+        [statTotalTargets, statActiveTargets, statBrandCount, statProductCount, statTotalProducts, statPublishedProducts]
+          .forEach(el => { if (el) el.textContent = '—'; });
         try {
-          const res = await apiFetch('/targets');
-          const items = Array.isArray(res?.items) ? res.items : [];
+          const [targetsRes, productsRes] = await Promise.all([
+            apiFetch('/targets'),
+            apiFetch('/products?includeUnpublished=1'),
+          ]);
+
+          // Targets stats
+          const items = Array.isArray(targetsRes?.items) ? targetsRes.items : [];
           if (statTotalTargets) statTotalTargets.textContent = String(items.length);
+          if (statActiveTargets) statActiveTargets.textContent = String(items.filter(r => r.is_active).length);
           const brands = new Set(items.map(r => (r.brand || '').trim()).filter(Boolean));
           if (statBrandCount) statBrandCount.textContent = String(brands.size);
-          const products = new Set(items.map(r => (r.product || '').trim()).filter(Boolean));
-          if (statProductCount) statProductCount.textContent = String(products.size);
+          const linkedProducts = new Set(items.map(r => (r.product || '').trim()).filter(Boolean));
+          if (statProductCount) statProductCount.textContent = String(linkedProducts.size);
+
+          // Products stats
+          const products = Array.isArray(productsRes?.items) ? productsRes.items : [];
+          if (statTotalProducts) statTotalProducts.textContent = String(products.length);
+          if (statPublishedProducts) statPublishedProducts.textContent = String(products.filter(p => p.is_published).length);
+
           if (adminStatsStatus) adminStatsStatus.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
         } catch (e) {
           if (adminStatsStatus) adminStatsStatus.textContent = '❌ Failed to load stats: ' + (e?.message || e);
