@@ -60,8 +60,9 @@
   /* Quantity counter */
   #qty-minus,#qty-plus{color:#F5F5F0;padding:6px 12px}
   #qty-minus:hover,#qty-plus:hover{color:#00ED0A}
-  #quantity{background:transparent;color:#F5F5F0;-moz-appearance:textfield;appearance:textfield}
+  #quantity{background:transparent;color:#F5F5F0;-moz-appearance:textfield;appearance:textfield;width:60px;min-width:0;font-weight:700}
   #quantity::-webkit-outer-spin-button,#quantity::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  #cart-toast{position:fixed;bottom:28px;right:28px;z-index:9999;pointer-events:none;opacity:0;transform:translateY(10px);transition:opacity .22s,transform .22s}
 </style>
 </head>
 <body>
@@ -166,7 +167,7 @@
               <div class="item-title" style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6"><span style="opacity:.6">Quantity: </span></div>
               <div class="input-group" style="width:140px;border:3px solid #333">
                 <button class="btn border-0" type="button" id="qty-minus"><svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#minus"></use></svg></button>
-                <input type="number" class="form-control text-center border-0" id="quantity" value="1" min="1" max="99" style="max-width:50px">
+                <input type="number" class="form-control text-center border-0" id="quantity" value="1" min="1" max="99">
                 <button class="btn border-0" type="button" id="qty-plus"><svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#plus"></use></svg></button>
               </div>
             </div>
@@ -227,6 +228,17 @@
     </div>
   </section>
 
+  <!-- Cart Toast -->
+  <div id="cart-toast" role="status" aria-live="polite">
+    <div style="background:#212121;border:3px solid #00ED0A;box-shadow:6px 6px 0 rgba(0,237,10,.25);padding:14px 20px;display:flex;align-items:center;gap:14px;min-width:240px;max-width:320px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ED0A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <div>
+        <div style="font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#00ED0A">Added to cart</div>
+        <div id="cart-toast-name" style="font-size:13px;color:#F5F5F0;margin-top:3px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer id="footer">
     <div class="container">
@@ -256,6 +268,14 @@
   function moneyFromCents(c,cur){var a=Number(c||0)/100;var s=(cur||'USD')==='USD'?'$':'';return s+a.toFixed(2)}
   function normImg(u){var s=String(u||'');if(!s)return s;if(s.startsWith('data:')||s.startsWith('http')||s.startsWith('/api/')||s.startsWith('/ecommerce/'))return s;if(s.startsWith('/images/'))return s.replace(/^\/images\//,'images/');return s}
   function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+
+  function showCartToast(name){
+    var t=document.getElementById('cart-toast');var n=document.getElementById('cart-toast-name');
+    if(!t)return;if(n)n.textContent=name;
+    t.style.opacity='1';t.style.transform='translateY(0)';
+    clearTimeout(t._timer);
+    t._timer=setTimeout(function(){t.style.opacity='0';t.style.transform='translateY(10px)'},2500);
+  }
 
   function renderStars(rating,max){max=max||5;var html='';for(var i=1;i<=max;i++){html+='<svg width="15" height="15" viewBox="0 0 15 15"><use xlink:href="'+(i<=Math.round(rating)?'#star-solid':'#star-outline')+'"></use></svg>'}return html}
 
@@ -309,13 +329,17 @@
       var qtyInput=document.getElementById('quantity');
       document.getElementById('qty-minus').addEventListener('click',function(){var v=parseInt(qtyInput.value)||1;if(v>1)qtyInput.value=v-1});
       document.getElementById('qty-plus').addEventListener('click',function(){var v=parseInt(qtyInput.value)||1;if(v<99)qtyInput.value=v+1});
+      qtyInput.addEventListener('change',function(){var v=parseInt(qtyInput.value)||1;qtyInput.value=Math.max(1,Math.min(99,v));});
+      qtyInput.addEventListener('input',function(){var v=parseInt(qtyInput.value);if(!isNaN(v)&&v>99)qtyInput.value=99;});
 
       // Add to cart
       addBtn.addEventListener('click',function(){
         var qty=parseInt(qtyInput.value)||1;var sizeEl=document.querySelector('.swatch.option-1 input:checked');var size=sizeEl?sizeEl.value:'';
         var id='sku-'+(p.slug||p.id||'product')+(size?'-'+size:'');
-        Cart.add({id:id,name:(p.title||'Product')+(size?' ('+size+')':''),price:Number(p.price_cents||0)/100,image:images[0]||'',qty:qty});
+        var cartName=(p.title||'Product')+(size?' ('+size+')':'');
+        Cart.add({id:id,name:cartName,price:Number(p.price_cents||0)/100,image:images[0]||'',qty:qty});
         CartUI.render();
+        showCartToast(cartName);
       });
 
       // Load reviews
