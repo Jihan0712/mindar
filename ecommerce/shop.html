@@ -241,7 +241,7 @@
           var title=escapeHtml((p.title||'Product').toString());var slug=encodeURIComponent((p.slug||'').toString());var price=escapeHtml(moneyFromCents(p.price_cents,p.currency));
           var img=escapeHtml(normalizeCatalogImageUrl((p.image_url||'images/product-thumb-1.jpg').toString()));
           var viewer=(p.viewer_url||'').toString();var href=slug?'product.html?slug='+slug:'product.html';
-          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><div class="shop-card-title">'+title+'</div><a href="'+escapeHtml(href)+'" class="shop-card-image"><img src="'+img+'" alt="'+title+'"></a><div class="shop-card-footer"><div class="shop-card-price">'+price+'</div><a href="#" class="shop-card-buy" data-sku="'+escapeHtml((p.slug||'').toString())+'">BUY NOW ?</a></div></div></div>';
+          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><div class="shop-card-title">'+title+'</div><a href="'+escapeHtml(href)+'" class="shop-card-image"><img src="'+img+'" alt="'+title+'"></a><div class="shop-card-footer"><div class="shop-card-price">'+price+'</div><a href="#" class="shop-card-buy" data-sku="'+escapeHtml((p.slug||'').toString())+'">BUY NOW</a></div></div></div>';
         }).join('');
       }catch(e){if(statusEl)statusEl.textContent='Failed to load products.';if(labelEl)labelEl.textContent='';gridEl.innerHTML='';console.warn('Shop products failed:',e)}
     }
