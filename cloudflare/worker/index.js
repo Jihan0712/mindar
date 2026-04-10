@@ -278,6 +278,7 @@
 
     // Admin
     if (request.method === 'POST' && pathname === '/api/admin/brand-users')    return apiAdminCreateBrandUser(request);
+    if (request.method === 'GET'  && pathname === '/api/admin/users')          return apiAdminListUsers(request);
 
     // Targets
     if (request.method === 'GET'  && pathname === '/api/targets')              return apiListTargets(request);
@@ -923,6 +924,27 @@
   }
 
   // ---------- Products APIs ----------
+
+  async function apiAdminListUsers(request) {
+    const { sess, error } = await requireAdminSession(request);
+    if (error) return error;
+    const url = new URL(request.url);
+    const roleFilter = (url.searchParams.get('role') || '').trim().toLowerCase();
+    let sql = `
+      select u.id, u.email, u.role, u.created_at,
+             group_concat(b.name, ', ') as brands
+      from users u
+      left join brand_users bu on bu.user_id = u.id
+      left join brands b on b.id = bu.brand_id
+    `;
+    const where = [];
+    const params = [];
+    if (roleFilter) { where.push('u.role = ?'); params.push(roleFilter); }
+    if (where.length) sql += ' where ' + where.join(' and ');
+    sql += ' group by u.id order by u.created_at desc';
+    const rows = await dbAll(sql, ...params);
+    return jsonResponse({ items: rows || [] }, 200, request);
+  }
 
   async function apiListProducts(request) {
     const url = new URL(request.url);

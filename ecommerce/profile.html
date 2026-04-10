@@ -109,9 +109,11 @@
       if(!user){statusEl.textContent='Not signed in. Redirecting�';setTimeout(function(){location.href='login.html'},1500);return}
       statusEl.textContent='';signedIn.style.display='';
       emailEl.textContent=user.email;roleEl.textContent=user.role||'user';
-      var canDash=user.role==='admin';
+      var canDash=user.role==='admin'||user.role==='brand';
+      var navArDashEl=document.getElementById('navArDashboard');
       if(dashBtn)dashBtn.style.display=canDash?'':'none';
       if(loginEl)loginEl.style.display='none';if(dashEl)dashEl.style.display=canDash?'':'none';
+      if(navArDashEl)navArDashEl.style.display=canDash?'':'none';
       if(navLogout){navLogout.style.display='';navLogout.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}
       logoutBtn.addEventListener('click',async function(){await auth.logout();location.href='login.html'});
     }catch(e){statusEl.textContent='Auth error. Redirecting�';setTimeout(function(){location.href='login.html'},1500)}

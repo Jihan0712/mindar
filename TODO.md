@@ -115,7 +115,9 @@ DNS for `shop.inrl.co` (Dashboard-only)
 - [x] Worker `GET /api/homepage` returns full content (all sections)
 - [x] Worker `POST /api/homepage` now saves extended fields (`whoWeAre`, `features`, `testimonials`, `newsletter`)
 - [x] `ecommerce/index.html` `initHomepageCms()` populated from `/api/homepage` for all sections
-- [ ] Add `ecommerce/index.html` DOM population for `whoWeAre`, `features`, `testimonials`, `newsletter` sections (CMS-driven content rendering)
+- [x] Hero banner flash fix — hero section starts `visibility:hidden`, revealed after Swiper is initialised from CMS data
+- [x] Single-slide hero — when billboard fallback is the only slide, navigation arrows are hidden and Swiper navigation is disabled
+- [x] Add `ecommerce/index.html` DOM population for `whoWeAre`, `features`, `testimonials`, `newsletter` sections (CMS-driven content rendering)
 
 ## 12) Ecommerce ↔ AR integration
 
@@ -143,7 +145,7 @@ DNS for `shop.inrl.co` (Dashboard-only)
 Goal: make each page in the shop nav “real” (not placeholders) and consistent across all `ecommerce/*.html`.
 
 - [ ] Navigation consistency
-  - [ ] Ensure the **Pages** dropdown (About/Cart/Checkout/Coming Soon/Contact/Error/FAQs/My Account/Order Tracking/Wishlist) matches across all `ecommerce/*.html`
+  - [x] `navArDashboard` added to all pages that have auth-aware nav — Dashboard + AR Dashboard shown for admin and brand roles
   - [ ] Replace placeholder top-nav links (`href="#"`) for **Blog** and **Contact** (either wire to real pages or remove)
   - [ ] Ensure Login/Logout links reflect Worker session (`GET /api/auth/me`) on every page
 
@@ -220,17 +222,25 @@ Goal: Document and verify the real end-to-end paths users take through auth, das
   - `/ecommerce/dashboard.html` requires `admin|brand`
 - [x] Manage product catalog in `/ecommerce/dashboard.html` (CRUD + publish + link AR target)
 - [x] Preview store product page from dashboard (`Store` link → `/ecommerce/single-product.html?product=<slug|id>`)
-- [ ] Replace/remove legacy invite/token UI in `/admin.html` (still references Supabase; invite-based registration pages are disabled)
-- [ ] Implement Worker-native user provisioning for `brand` users (invite flow or admin-create) and update the UI accordingly
+- [x] AR Dashboard link added to `/ecommerce/dashboard.html` tab nav (visible to both brand and admin users)
+- [x] Admin stats panel in `/admin.html` expanded — shows Total Targets, Active Targets, Brand Accounts, Total Products, Published, AR-Linked Products (fetches `/api/targets` + `/api/products` in parallel)
+- [x] Worker-native brand user provisioning — admin can create brand users via `/api/admin/brand-users` from the Admin section of `/admin.html`
+- [x] Worker `GET /api/admin/users` endpoint — lists all registered users (admin only, filterable by role)
+- [x] Brand Accounts table in Admin section of `/admin.html` — lists brand users with email, brand(s), and creation date; refreshes on every dashboard load
+- [x] Replace/remove legacy Supabase invite/token UI in `/admin.html` (no legacy code found — already clean)
+- [x] Navigation consistency — `navArDashboard` link added to `coming-soon.html`, `error.html`, `order-tracking.html`, `wishlist.html`; Dashboard/AR Dashboard now visible for both admin and brand roles
+- [x] `account.html` auth-aware nav — Login/Logout/Dashboard/AR Dashboard links wired to Worker session
 
 ### Shopper flow
 
 - [x] Anonymous shopping works (browse store pages without login)
 - [x] Deprecated `/ecommerce/login.html` redirects to `/login.html` (single login for AR + shop)
-- [ ] Decide shopper account model
-  - Current state: client self-registration is disabled (`/register.html`, `/brand-register.html`, `/admin-register.html`)
-  - Option A: keep shop anonymous + remove/adjust any “Sign up” UX
-  - Option B: add Worker endpoint for client registration + enable signup
+- [x] Shopper account model — Option B implemented
+  - `ecommerce/signup.html` created (INRL dark-theme, Bootstrap, mirrors login.html)
+  - Posts to `/api/auth/register` (rate-limited, creates `role:'client'` user)
+  - `ecommerce/login.html` "Create one" link updated → `signup.html`
+  - `canDashboard` fixed across all 10 ecommerce pages (`admin || brand`)
+  - `navArDashboard` wired on all pages not previously fixed
 - [ ] Verify cart behavior end-to-end (add/remove/update qty + cart count + totals across pages)
 - [x] Checkout submission: aligned to Worker `/api/orders`
   - Fixed: `ecommerce/js/config.js` `MINDAR_API_BASE` changed from `http://localhost:8080` to `''` (same-origin)

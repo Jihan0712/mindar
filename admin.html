@@ -284,6 +284,31 @@
               </div>
             </div>
 
+            <!-- Brand accounts list -->
+            <div class="bg-white shadow rounded-lg overflow-hidden md:col-span-2">
+              <div class="flex items-center justify-between p-4 border-b">
+                <div>
+                  <h3 class="font-medium">Brand Accounts</h3>
+                  <p class="text-xs text-gray-500">All brand-role users registered in the system.</p>
+                </div>
+                <button id="refreshAccountsBtn" class="px-3 py-1.5 text-xs bg-gray-200 hover:bg-gray-300 rounded font-medium">Refresh</button>
+              </div>
+              <div id="accountsTableWrap" class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                      <th class="px-4 py-2">Email</th>
+                      <th class="px-4 py-2">Brand(s)</th>
+                      <th class="px-4 py-2">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody id="accountsTbody">
+                    <tr><td colspan="3" class="px-4 py-3 text-gray-400 text-xs">Loading…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         </section>
       </main>
@@ -810,6 +835,7 @@
       logoutSidebarBtn?.addEventListener('click', () => doSignOut(logoutSidebarBtn));
 
       refreshAdminStatsBtn?.addEventListener('click', () => loadAdminDashboard());
+      document.getElementById('refreshAccountsBtn')?.addEventListener('click', () => loadAccountsList());
 
       async function loadAdminDashboard() {
         if (adminStatsStatus) adminStatsStatus.textContent = 'Loading...';
@@ -838,6 +864,34 @@
           if (adminStatsStatus) adminStatsStatus.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
         } catch (e) {
           if (adminStatsStatus) adminStatsStatus.textContent = '❌ Failed to load stats: ' + (e?.message || e);
+        }
+        // Also refresh accounts list whenever dashboard reloads
+        loadAccountsList();
+      }
+
+      async function loadAccountsList() {
+        const tbody = document.getElementById('accountsTbody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-3 text-gray-400 text-xs">Loading…</td></tr>';
+        try {
+          const res = await apiFetch('/admin/users?role=brand');
+          const users = Array.isArray(res?.items) ? res.items : [];
+          if (!users.length) {
+            tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-3 text-gray-400 text-xs">No brand accounts found.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = users.map(u => {
+            const email = (u.email || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+            const brands = (u.brands || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])) || '—';
+            const date = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+            return `<tr class="border-t hover:bg-gray-50">
+              <td class="px-4 py-2 font-mono text-xs">${email}</td>
+              <td class="px-4 py-2 text-xs">${brands}</td>
+              <td class="px-4 py-2 text-xs text-gray-500">${date}</td>
+            </tr>`;
+          }).join('');
+        } catch (e) {
+          tbody.innerHTML = `<tr><td colspan="3" class="px-4 py-3 text-red-500 text-xs">Failed to load accounts: ${e?.message || e}</td></tr>`;
         }
       }
 

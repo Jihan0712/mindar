@@ -24,6 +24,10 @@
             <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
             <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
             <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navArDashboard" href="/admin.html" style="display:none">AR Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
           </ul>
         </div>
       </div>
@@ -65,12 +69,20 @@
   (async function(){
     var statusEl=document.getElementById('status');var signedIn=document.getElementById('signedIn');var signedOut=document.getElementById('signedOut');
     var emailEl=document.getElementById('userEmail');var roleEl=document.getElementById('userRole');var logoutBtn=document.getElementById('logoutBtn');
+    var navLoginEl=document.getElementById('navLogin');var navLogoutEl=document.getElementById('navLogout');
+    var navDashEl=document.getElementById('navDashboard');var navArDashEl=document.getElementById('navArDashboard');
     try{
       var me=await auth.me();var user=me&&me.email?me:null;
-      if(!user){statusEl.textContent='';signedOut.style.display='';return}
+      if(!user){statusEl.textContent='';signedOut.style.display='';if(navLoginEl)navLoginEl.style.display='';return}
       statusEl.textContent='';signedIn.style.display='';
       emailEl.textContent=user.email;roleEl.textContent=user.role||'user';
+      if(navLoginEl)navLoginEl.style.display='none';
+      if(navLogoutEl)navLogoutEl.style.display='';
+      var canDash=user.role==='admin'||user.role==='brand';
+      if(navDashEl)navDashEl.style.display=canDash?'':'none';
+      if(navArDashEl)navArDashEl.style.display=canDash?'':'none';
       logoutBtn.addEventListener('click',async function(){await auth.logout();location.reload()});
+      if(navLogoutEl)navLogoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()});
     }catch(e){statusEl.textContent='';signedOut.style.display=''}
   })();
   </script>

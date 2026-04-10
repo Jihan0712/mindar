@@ -21,6 +21,7 @@
         <a href="checkout.html" class="text-uppercase mx-3">Checkout</a>
         <a href="profile.html" class="text-uppercase mx-3">Profile</a>
         <a id="navDashboard" href="dashboard.html" class="text-uppercase mx-3" style="display:none">Dashboard</a>
+        <a id="navArDashboard" href="/admin.html" class="text-uppercase mx-3" style="display:none">AR Dashboard</a>
         <a id="navLogin" href="login.html" class="text-uppercase mx-3">Login</a>
         <a id="navLogout" href="#" class="text-uppercase mx-3" style="display:none">Logout</a>
       </div>
@@ -48,10 +49,12 @@
           const me = await auth.me();
           const user = me && me.email ? me : null;
           const dashEl = document.getElementById('navDashboard');
-          const canDashboard = user && user.role === 'admin';
+          const arDashEl = document.getElementById('navArDashboard');
+          const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
           if (loginEl) loginEl.style.display = user ? 'none' : '';
           if (logoutEl) logoutEl.style.display = user ? '' : 'none';
           if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
+          if (arDashEl) arDashEl.style.display = canDashboard ? '' : 'none';
           if (logoutEl) logoutEl.addEventListener('click', async (e) => {
             e.preventDefault();
             await auth.logout();

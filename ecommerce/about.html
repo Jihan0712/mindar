@@ -312,8 +312,10 @@
           logoutEl.addEventListener('click', async (e) => { e.preventDefault(); await auth.logout(); location.reload(); });
         }
         if (loginEl) loginEl.style.display = user ? 'none' : '';
-        const canDashboard = user && user.role === 'admin';
+        const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
         if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
+        const arDashEl = document.getElementById('navArDashboard');
+        if (arDashEl) arDashEl.style.display = canDashboard ? '' : 'none';
       } catch {}
     })();
     try { CartUI.render(); } catch {}

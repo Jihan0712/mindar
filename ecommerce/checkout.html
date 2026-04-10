@@ -120,7 +120,7 @@
   <script src="js/cart.js"></script>
   <script src="js/checkout.js"></script>
   <script>
-  (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');try{var me=await auth.me();var user=me&&me.email?me:null;if(loginEl)loginEl.style.display=user?'none':'';var canDash=user&&user.role==='admin';if(dashEl)dashEl.style.display=canDash?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){}})();
+  (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');try{var me=await auth.me();var user=me&&me.email?me:null;if(loginEl)loginEl.style.display=user?'none':'';var canDash=user&&(user.role==='admin'||user.role==='brand');if(dashEl)dashEl.style.display=canDash?'':'none';var arDashEl=document.getElementById('navArDashboard');if(arDashEl)arDashEl.style.display=canDash?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){}})();
   CartUI.render();
   </script>
 </body>
