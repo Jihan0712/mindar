@@ -106,7 +106,7 @@
         form.append('file', file, filename || (file.name || `${Date.now()}`));
         form.append('path', path);
         form.append('filename', filename || (file.name || `${Date.now()}`));
-        const res = await fetch(uploadUrl, { method: 'POST', body: form });
+        const res = await fetch(uploadUrl, { method: 'POST', body: form, credentials: 'include' });
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
           throw new Error('Upload failed: ' + res.status + ' ' + txt);
