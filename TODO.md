@@ -251,19 +251,19 @@ Goal: Document and verify the real end-to-end paths users take through auth, das
 
 ---
 
-## 15) AR Dashboard redesign
+## 15) AR Dashboard redesign ✅
 
 Goal: Bring `admin.html` and `brand.html` in line with the INRL ecommerce design system (dark theme, Bootstrap 5, Roboto Mono / Averia Serif Libre, green `#00ED0A` accent, brutalist card borders) so the full product feels visually consistent.
 
-- [ ] Redesign `admin.html` — replace Tailwind utility classes with Bootstrap 5 + INRL dark theme
+- [x] Redesign `admin.html` — replaced Tailwind with Bootstrap 5 + INRL dark theme
   - Dark `#1C1C1C` background, `#212121` card panels, `3px solid #333` borders
   - Green `#00ED0A` accent for active states, buttons, badges
   - Roboto Mono for labels/code, Averia Serif Libre for headings
-  - Consistent navbar matching `ecommerce/` pages (logo, auth-aware nav links)
+  - Top navbar replacing sidebar (matches ecommerce pages), Bootstrap offcanvas on mobile
   - Stats panel, target table, brand accounts table — all restyled
-- [ ] Redesign `brand.html` — same design system as above (brand-scoped view)
+- [x] Redesign `brand.html` — same design system (brand-scoped view)
   - Upload form, target list, activate/deactivate controls
-- [ ] Shared nav component: both pages should show Dashboard + AR Dashboard + Logout nav links using `auth-worker.js`
+- [x] Top navbar on both pages with auth-aware nav links using `auth-worker.js`
 
 
 
