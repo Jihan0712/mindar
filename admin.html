@@ -1,43 +1,303 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>INRL AR Admin Dashboard</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>INRL AR Admin Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    body { background:#1C1C1C; color:#F5F5F0; font-family:'Roboto Mono',monospace; }
+    .hidden { display:none !important; }
+    .overflow-hidden { overflow:hidden !important; }
+    /* Active tab state reuses Tailwind class name so existing JS works without changes */
+    .bg-blue-600 { background-color:#00ED0A !important; color:#1C1C1C !important; border-color:#00ED0A !important; }
+    .inrl-navbar { background:#111; border-bottom:3px solid #333; }
+    .inrl-brand { font-family:'Averia Serif Libre',serif; font-size:1.4rem; font-weight:700; color:#00ED0A !important; text-decoration:none; letter-spacing:.05em; }
+    .inrl-card { background:#212121; border:3px solid #333; box-shadow:6px 6px 0 rgba(0,237,10,.15); border-radius:0; }
+    .btn-inrl { background:#00ED0A; border:3px solid #1C1C1C; color:#1C1C1C !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; letter-spacing:.05em; }
+    .btn-inrl:hover, .btn-inrl:focus { background:#00c409; color:#1C1C1C !important; }
+    .btn-inrl-outline { background:transparent; border:2px solid #00ED0A; color:#00ED0A !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
+    .btn-inrl-outline:hover, .btn-inrl-outline:focus { background:#00ED0A; color:#1C1C1C !important; }
+    .btn-danger-inrl { background:#ff4d4f; border:2px solid #ff4d4f; color:#fff !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
+    .btn-danger-inrl:hover { background:#d9363e; border-color:#d9363e; color:#fff !important; }
+    .form-control, .form-select { background:#1C1C1C !important; border:2px solid #444 !important; color:#F5F5F0 !important; font-family:'Roboto Mono',monospace; border-radius:0; }
+    .form-control:focus, .form-select:focus { background:#1C1C1C !important; border-color:#00ED0A !important; color:#F5F5F0 !important; box-shadow:0 0 0 2px rgba(0,237,10,.2) !important; }
+    .form-control::placeholder { color:#555; }
+    .inrl-table th { background:#111 !important; border-bottom:3px solid #333 !important; color:#888 !important; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.75rem; letter-spacing:.08em; }
+    .inrl-table td { border-bottom:1px solid #2a2a2a !important; vertical-align:middle; color:#F5F5F0; }
+    .inrl-table tr:hover td { background:rgba(0,237,10,.04) !important; }
+    .stat-card { background:#212121; border:3px solid #333; padding:1.25rem; box-shadow:6px 6px 0 rgba(0,237,10,.1); text-align:center; }
+    .stat-number { font-size:1.8rem; font-weight:700; color:#00ED0A; font-family:'Roboto Mono',monospace; }
+    .stat-label { font-size:.65rem; text-transform:uppercase; letter-spacing:.1em; color:#888; margin-top:.25rem; }
+    #imageModal { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:9999; display:flex; align-items:center; justify-content:center; }
+    #imageModal.hidden { display:none; }
+    .target-thumb { width:72px; height:72px; object-fit:contain; cursor:zoom-in; border:1px solid #333; background:#111; }
+    #status { min-height:1.2em; font-size:.875rem; color:#00ED0A; }
+    .inrl-heading { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.5rem; font-weight:700; border-left:4px solid #00ED0A; padding-left:.75rem; margin-bottom:1.25rem; }
+    .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; background:#00ED0A; color:#1C1C1C; font-weight:700; font-size:.75rem; flex-shrink:0; }
+    .input-group .btn { border-radius:0; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:#111; }
+    ::-webkit-scrollbar-thumb { background:#333; }
+  </style>
+  <script src="assets/js/auth-worker.js?v=20260205"></script>
+</head>
+<body>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Worker Auth Client -->
-    <script src="assets/js/auth-worker.js?v=20260130"></script>
-  </head>
-  <body class="bg-gray-100 text-gray-800 font-sans">
-    <div class="flex min-h-screen">
-      <!-- Sidebar -->
-      <aside class="w-64 bg-gray-900 text-white flex flex-col p-6">
-        <h1 class="text-2xl font-bold mb-8 text-center" href="ecommerce/index.html">INRL AR</h1>
-        <nav class="flex flex-col space-y-3">
-          <button id="uploadTab" class="py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 text-left">Upload Target</button>
-          <button id="listTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left">Existing Targets</button>
-          <button id="adminTab" class="py-2 px-3 rounded hover:bg-gray-700 text-left hidden">Admin</button>
-          <a href="/ecommerce/index.html" class="py-2 px-3 rounded hover:bg-gray-700 text-left block">Ecommerce Store</a>
-          <a id="storeDashboardLink" href="/ecommerce/dashboard.html" class="py-2 px-3 rounded hover:bg-gray-700 text-left block hidden">Product Dashboard</a>
-          <a href="/ecommerce/profile.html" class="py-2 px-3 rounded hover:bg-gray-700 text-left block">Profile</a>
-          <!-- Sidebar logout for always-available sign out -->
-          <button id="logoutBtnSidebar" class="mt-6 py-2 px-3 rounded bg-red-600 hover:bg-red-700 text-left">Logout</button>
-        </nav>
-        <footer class="mt-auto text-xs text-gray-400 pt-4 border-t border-gray-700">
-          &copy; 2025 INRL
-        </footer>
-      </aside>
+<!-- ===== NAVBAR ===== -->
+<nav class="navbar navbar-expand-lg inrl-navbar px-3 py-2">
+  <a class="inrl-brand me-4" href="admin.html">INRL_AR</a>
+  <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navCollapseAdmin" aria-controls="navCollapseAdmin" aria-expanded="false">
+    <span style="color:#00ED0A;font-size:1.25rem;">☰</span>
+  </button>
+  <div class="collapse navbar-collapse" id="navCollapseAdmin">
+    <div class="d-flex flex-wrap gap-2 me-auto py-2 py-lg-0">
+      <button id="uploadTab" class="btn btn-sm btn-inrl-outline bg-blue-600">Upload Target</button>
+      <button id="listTab" class="btn btn-sm btn-inrl-outline">Existing Targets</button>
+      <button id="adminTab" class="btn btn-sm btn-inrl-outline hidden">Admin</button>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2 py-2 py-lg-0">
+      <a href="/ecommerce/index.html" class="btn btn-sm btn-inrl-outline">Store</a>
+      <a id="storeDashboardLink" href="/ecommerce/dashboard.html" class="btn btn-sm btn-inrl-outline hidden">Product Dashboard</a>
+      <a href="/ecommerce/profile.html" class="btn btn-sm btn-inrl-outline">Profile</a>
+      <span id="userEmail" class="text-secondary small px-2"></span>
+      <button id="logoutBtn" class="btn btn-sm btn-danger-inrl">Logout</button>
+      <button id="logoutBtnSidebar" class="hidden" aria-hidden="true"></button>
+    </div>
+  </div>
+</nav>
 
-      <!-- Main content -->
-      <main class="flex-1 p-8">
-        <!-- Top-right user toolbar -->
-        <div class="flex items-center justify-end mb-4 gap-3">
-          <span id="userEmail" class="text-sm text-gray-500"></span>
-          <button id="logoutBtn" class="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-800">Logout</button>
+<!-- Status bar -->
+<div class="container-fluid px-4 pt-3 pb-1">
+  <p id="status" class="mb-0"></p>
+</div>
+
+<!-- ===== IMAGE MODAL ===== -->
+<div id="imageModal" class="hidden">
+  <div class="inrl-card p-4" style="max-width:600px;width:90%;position:relative;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 id="imageModalTitle" class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;"></h5>
+      <div class="d-flex gap-2">
+        <button id="downloadImageBtn" class="btn btn-sm btn-inrl">Download</button>
+        <button id="closeImageModal" class="btn btn-sm btn-danger-inrl">✕ Close</button>
+      </div>
+    </div>
+    <div id="imageModalFooter">
+      <img id="imageModalImg" src="" alt="Target preview" style="width:100%;max-height:65vh;object-fit:contain;border:2px solid #333;background:#111;" />
+    </div>
+    <div id="imageModalMeta" class="text-secondary small mt-2"></div>
+  </div>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="container-fluid px-4 pb-5" style="max-width:1400px;">
+
+  <!-- UPLOAD SECTION -->
+  <section id="uploadSection">
+    <h2 class="inrl-heading mt-4">Upload AR Target</h2>
+
+    <!-- Step 1 -->
+    <div class="inrl-card p-4 mb-4">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="step-badge">1</span>
+        <span style="font-weight:700;text-transform:uppercase;color:#FEFD00;letter-spacing:.05em;">Target Info</span>
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label text-secondary small text-uppercase mb-1">Name <span style="color:#ff4d4f;">*</span></label>
+          <input id="name" type="text" class="form-control" placeholder="e.g. Summer Campaign Poster" />
         </div>
-        <p id="status" class="mb-4 text-sm text-gray-600"></p>
+        <div class="col-12 col-md-6">
+          <label class="form-label text-secondary small text-uppercase mb-1">Product <span class="text-secondary">(optional)</span></label>
+          <input id="productInput" type="text" list="productOptions" class="form-control" placeholder="Product slug or SKU" autocomplete="off" />
+          <datalist id="productOptions"></datalist>
+          <p class="text-secondary small mt-1 mb-0">Use a slug from the ecommerce catalog for AR linking.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="inrl-card p-4 mb-4">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="step-badge">2</span>
+        <span style="font-weight:700;text-transform:uppercase;color:#FEFD00;letter-spacing:.05em;">Marker Image(s)</span>
+      </div>
+      <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" multiple class="form-control mb-2" />
+      <p id="markerFilesInfo" class="text-secondary small mb-3"></p>
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <button id="serverCompile" class="btn btn-sm btn-inrl">Compile Marker</button>
+        <span id="compileStatus" class="text-secondary small"></span>
+      </div>
+      <p class="text-secondary small mt-2 mb-0">Images are auto-resized to 1024px. Supports multiple images for multi-target sets.</p>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="inrl-card p-4 mb-4">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="step-badge">3</span>
+        <span style="font-weight:700;text-transform:uppercase;color:#FEFD00;letter-spacing:.05em;">AR Content (Video)</span>
+      </div>
+      <label class="form-label text-secondary small text-uppercase mb-1">Video file (.mp4) <span style="color:#ff4d4f;">*</span></label>
+      <input id="videoFile" type="file" accept="video/mp4" class="form-control mb-3" />
+      <button id="upload" class="btn btn-inrl">Upload Target</button>
+    </div>
+  </section>
+
+  <!-- LIST SECTION -->
+  <section id="listSection" class="hidden">
+    <h2 class="inrl-heading mt-4">Existing Targets</h2>
+
+    <!-- Admin-only filters -->
+    <div id="filtersBar" class="inrl-card p-3 mb-4 hidden">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-sm-6 col-lg-3">
+          <label class="form-label text-secondary small text-uppercase mb-1">Brand</label>
+          <select id="filterBrand" class="form-select form-select-sm">
+            <option value="">All brands</option>
+          </select>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+          <label class="form-label text-secondary small text-uppercase mb-1">Product</label>
+          <select id="filterProduct" class="form-select form-select-sm">
+            <option value="">All products</option>
+          </select>
+        </div>
+        <div class="col-12 col-sm-4 col-lg-2">
+          <label class="form-label text-secondary small text-uppercase mb-1">Client ID</label>
+          <input id="filterClientId" type="text" class="form-control form-control-sm" placeholder="e.g. usr_..." />
+        </div>
+        <div class="col-12 col-sm-4 col-lg-2">
+          <label class="form-label text-secondary small text-uppercase mb-1">Uploader type</label>
+          <select id="filterUploaderType" class="form-select form-select-sm">
+            <option value="all">All uploads</option>
+            <option value="brand">Brand uploads</option>
+            <option value="admin">Admin uploads</option>
+            <option value="client">Client uploads</option>
+          </select>
+        </div>
+        <div class="col-12 col-sm-4 col-lg-2 d-flex gap-2">
+          <button id="applyFilters" class="btn btn-sm btn-inrl flex-grow-1">Apply</button>
+          <button id="clearFilters" class="btn btn-sm btn-inrl-outline">Clear</button>
+        </div>
+      </div>
+      <p id="filtersSummary" class="mt-2 mb-0 text-secondary small"></p>
+    </div>
+
+    <div class="inrl-card p-0">
+      <div id="targetsList" class="table-responsive">
+        <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse;">
+          <thead>
+            <tr id="targetsHeadRow">
+              <th class="p-3">Target Image</th>
+              <th class="p-3">Name</th>
+              <!-- Brand column inserted at runtime for admins -->
+              <th class="p-3">Product</th>
+              <th class="p-3">Created</th>
+              <th class="p-3">Active</th>
+              <th class="p-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="targetsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ADMIN SECTION -->
+  <section id="adminSection" class="hidden">
+    <h2 class="inrl-heading mt-4">Admin Dashboard</h2>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card"><div class="stat-number" id="statTotalTargets">—</div><div class="stat-label">Total Targets</div></div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card"><div class="stat-number" id="statActiveTargets">—</div><div class="stat-label">Active Targets</div></div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card"><div class="stat-number" id="statBrandCount">—</div><div class="stat-label">Brand Accounts</div></div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card"><div class="stat-number" id="statTotalProducts">—</div><div class="stat-label">Total Products</div></div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card"><div class="stat-number" id="statPublishedProducts">—</div><div class="stat-label">Published</div></div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card"><div class="stat-number" id="statProductCount">—</div><div class="stat-label">AR-Linked Products</div></div>
+      </div>
+    </div>
+    <p id="adminStatsStatus" class="text-secondary small mb-3"></p>
+    <button id="refreshAdminStats" class="btn btn-sm btn-inrl-outline mb-4">Refresh Stats</button>
+
+    <!-- Brand user creation -->
+    <div id="brandUserProvision" class="inrl-card p-4 mb-4 hidden">
+      <h5 class="mb-1" style="font-family:'Averia Serif Libre',serif;color:#FEFD00;border-left:3px solid #FEFD00;padding-left:.5rem;">Create Brand User</h5>
+      <p class="text-secondary small mb-3">Creates a brand-scoped login. Share credentials securely — password is shown only once.</p>
+      <div id="brandUserStatus" class="small mb-3" style="min-height:1em;"></div>
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label text-secondary small text-uppercase mb-1">Brand name</label>
+          <input id="brandUserBrand" type="text" class="form-control" placeholder="e.g. Acme" autocomplete="off" />
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label text-secondary small text-uppercase mb-1">Email</label>
+          <input id="brandUserEmail" type="email" class="form-control" placeholder="brand@example.com" autocomplete="off" />
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label text-secondary small text-uppercase mb-1">Password</label>
+          <div class="input-group">
+            <input id="brandUserPassword" type="password" class="form-control" placeholder="Password" autocomplete="new-password" />
+            <button id="brandPwToggle" class="btn btn-inrl-outline" type="button">👁</button>
+            <button id="brandPwGenerate" class="btn btn-inrl-outline" type="button">Generate</button>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3">
+        <button id="createBrandUserBtn" class="btn btn-inrl">Create Brand User</button>
+      </div>
+      <div id="brandUserCredentials" class="inrl-card p-3 mt-4 hidden" style="border-color:#00ED0A;">
+        <p class="mb-2 text-secondary small text-uppercase">New credentials — copy before leaving</p>
+        <div style="font-family:'Roboto Mono',monospace;font-size:.875rem;line-height:1.9;">
+          <div>Brand: <span id="credsBrand" style="color:#00ED0A;"></span></div>
+          <div>Email: <span id="credsEmail" style="color:#00ED0A;"></span></div>
+          <div>Password: <span id="credsPassword" style="color:#00ED0A;"></span></div>
+          <div>Login: <a id="credsLoginUrl" href="#" style="color:#FEFD00;" target="_blank"></a></div>
+        </div>
+        <button id="copyCredsBtn" class="btn btn-sm btn-inrl mt-3">Copy Credentials</button>
+      </div>
+    </div>
+
+    <!-- Brand accounts table -->
+    <div class="inrl-card p-0 mb-4" id="accountsTableWrap">
+      <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom:3px solid #333;">
+        <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;">Brand Accounts</h5>
+        <button id="refreshAccountsBtn" class="btn btn-sm btn-inrl-outline">Refresh</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th class="px-4 py-2">Email</th>
+              <th class="px-4 py-2">Brand(s)</th>
+              <th class="px-4 py-2">Created</th>
+            </tr>
+          </thead>
+          <tbody id="accountsTbody">
+            <tr><td colspan="3" class="px-4 py-3 text-secondary small">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+
+
 
         <!-- Image Preview Modal (hidden by default) -->
         <div id="imageModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden">

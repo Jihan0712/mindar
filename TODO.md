@@ -251,8 +251,21 @@ Goal: Document and verify the real end-to-end paths users take through auth, das
 
 ---
 
-Notes:
-- The Worker implementation lives in `cloudflare/worker/index.js` and already supports R2 + D1 + cookie sessions.
+## 15) AR Dashboard redesign
+
+Goal: Bring `admin.html` and `brand.html` in line with the INRL ecommerce design system (dark theme, Bootstrap 5, Roboto Mono / Averia Serif Libre, green `#00ED0A` accent, brutalist card borders) so the full product feels visually consistent.
+
+- [ ] Redesign `admin.html` — replace Tailwind utility classes with Bootstrap 5 + INRL dark theme
+  - Dark `#1C1C1C` background, `#212121` card panels, `3px solid #333` borders
+  - Green `#00ED0A` accent for active states, buttons, badges
+  - Roboto Mono for labels/code, Averia Serif Libre for headings
+  - Consistent navbar matching `ecommerce/` pages (logo, auth-aware nav links)
+  - Stats panel, target table, brand accounts table — all restyled
+- [ ] Redesign `brand.html` — same design system as above (brand-scoped view)
+  - Upload form, target list, activate/deactivate controls
+- [ ] Shared nav component: both pages should show Dashboard + AR Dashboard + Logout nav links using `auth-worker.js`
+
+
 
 ## 11) Optional: CDN purge support (CF_API_TOKEN / CF_ZONE_ID)
 
