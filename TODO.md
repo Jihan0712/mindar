@@ -146,19 +146,19 @@ Goal: make each page in the shop nav “real” (not placeholders) and consisten
 
 - [ ] Navigation consistency
   - [x] `navArDashboard` added to all pages that have auth-aware nav — Dashboard + AR Dashboard shown for admin and brand roles
-  - [ ] Replace placeholder top-nav links (`href="#"`) for **Blog** and **Contact** (either wire to real pages or remove)
-  - [ ] Ensure Login/Logout links reflect Worker session (`GET /api/auth/me`) on every page
+  - [x] Replace placeholder top-nav links (`href="#"`) for **Blog** and **Contact** — no Blog link exists; Contact is a real page
+  - [x] Ensure Login/Logout links reflect Worker session (`GET /api/auth/me`) on every page — confirmed on all 14 ecommerce pages
 
-- [ ] About (`ecommerce/about.html`)
-  - [ ] Replace template copy with INRL/MindAR-specific content
+- [x] About (`ecommerce/about.html`)
+  - [x] Replace template copy with INRL/MindAR-specific content — real INRL brand content (hero, stats, mission, values, CTA)
 
-- [ ] Cart (`ecommerce/cart.html`)
-  - [ ] Verify cart UI uses the shared cart storage/logic (add/remove/update qty + totals)
-  - [ ] Verify “Continue to Checkout” carries the correct state
+- [x] Cart (`ecommerce/cart.html`)
+  - [x] Verify cart UI uses the shared cart storage/logic (add/remove/update qty + totals)
+  - [x] Verify "Continue to Checkout" carries the correct state
 
-- [ ] Checkout (`ecommerce/checkout.html`)
-  - [ ] Decide order submission target (Worker `/api/*` vs local demo `backend/server.js`) and align the form
-  - [ ] Confirm success/failure UX and post-checkout cart clearing
+- [x] Checkout (`ecommerce/checkout.html`)
+  - [x] Decide order submission target — aligned to Worker `/api/orders` (same-origin)
+  - [x] Confirm success/failure UX and post-checkout cart clearing — cart cleared on success
 
 - [ ] Coming Soon (`ecommerce/coming-soon.html`)
   - [ ] If used as a placeholder for other pages, standardize query param usage (e.g. `?page=wishlist`) and visible title
@@ -169,18 +169,18 @@ Goal: make each page in the shop nav “real” (not placeholders) and consisten
 - [ ] Error Page (`ecommerce/error.html`)
   - [ ] Confirm 404 routing behavior (Pages `_redirects`) shows this page when appropriate
 
-- [ ] FAQs (`ecommerce/faqs.html`)
-  - [ ] Replace template FAQs with real support content
+- [x] FAQs (`ecommerce/faqs.html`)
+  - [x] Replace template FAQs with real support content — Shipping, AR & Digital Identity, Returns & Exchanges sections
 
-- [ ] My Account (`ecommerce/account.html`)
-  - [ ] Require login; redirect unauthenticated users to `/login.html`
-  - [ ] Verify account details load from Worker session/user (`/api/auth/me`)
+- [x] My Account (`ecommerce/account.html`)
+  - [x] Require login; redirect unauthenticated users to `/login.html`
+  - [x] Verify account details load from Worker session/user (`/api/auth/me`)
 
-- [ ] Order Tracking (`ecommerce/order-tracking.html`)
-  - [ ] Decide whether to implement real tracking or route to Coming Soon
+- [x] Order Tracking (`ecommerce/order-tracking.html`)
+  - [x] Rebuilt with full INRL dark theme navbar + order ID lookup form (real-time tracking TBD)
 
-- [ ] Wishlist (`ecommerce/wishlist.html`)
-  - [ ] Decide whether to implement real wishlist or route to Coming Soon
+- [x] Wishlist (`ecommerce/wishlist.html`)
+  - [x] Rebuilt with full INRL dark theme navbar + functional localStorage wishlist (Wishlist.add/remove/list via cart.js)
 
 - [ ] Single Product (`ecommerce/single-product.html`)
   - [x] Fix product image gallery thumbnail scroller (Swiper re-init + mousewheel/drag)

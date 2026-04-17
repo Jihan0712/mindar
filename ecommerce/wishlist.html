@@ -3,68 +3,250 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wishlist | MindAR Store</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <title>Wishlist &mdash; INRL</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="description" content="Your INRL wishlist — save favourites and shop when ready.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="style.css">
-
-  <!-- Worker Auth Client (shared session + role) -->
   <script src="/assets/js/auth-worker.js?v=20260206"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg bg-light text-uppercase fs-6 p-3 border-bottom align-items-center">
+
+  <!-- SVG SPRITE -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
+    <symbol id="search" viewBox="0 0 24 24"><path fill="currentColor" d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z"/></symbol>
+    <symbol id="facebook" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M7.5 14.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Zm0 0v-8a2 2 0 0 1 2-2h.5m-5 4h5"/></symbol>
+    <symbol id="twitter" viewBox="0 0 15 15"><path fill="currentColor" d="m14.478 1.5l.5-.033a.5.5 0 0 0-.871-.301l.371.334Zm-.498 2.959a.5.5 0 1 0-1 0h1Zm-6.49.082h-.5h.5Zm0 .959h.5h-.5Zm-6.99 7V12a.5.5 0 0 0-.278.916L.5 12.5Zm.998-11l.469-.175a.5.5 0 0 0-.916-.048l.447.223Zm3.994 9l.354.353a.5.5 0 0 0-.195-.827l-.159.474Z"/></symbol>
+    <symbol id="youtube" viewBox="0 0 15 15"><path fill="currentColor" d="m1.61 12.738l-.104.489l.105-.489Zm11.78 0l.104.489l-.105-.489Zm0-10.476l.104-.489l-.105.489Zm-11.78 0l.106.489l-.105-.489ZM6.5 5.5l.277-.416A.5.5 0 0 0 6 5.5h.5Zm0 4H6a.5.5 0 0 0 .777.416L6.5 9.5Zm3-2l.277.416a.5.5 0 0 0 0-.832L9.5 7.5Z"/></symbol>
+    <symbol id="instagram" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M11 3.5h1M4.5.5h6a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-6a4 4 0 0 1-4-4v-6a4 4 0 0 1 4-4Zm3 10a3 3 0 1 1 0-6a3 3 0 0 1 0 6Z"/></symbol>
+  </defs></svg>
+
+  <!-- SEARCH POPUP -->
+  <div class="search-popup">
+    <div class="search-popup-container">
+      <form role="search" method="get" class="search-popup-form">
+        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" name="s">
+        <button type="submit" class="search-submit border-0 position-absolute bg-transparent" style="top:15px;right:15px"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></button>
+      </form>
+      <h5 class="cat-list-title">Browse Categories</h5>
+      <ul class="cat-list">
+        <li class="cat-list-item"><a href="shop.html?category=Men">Men</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Women">Women</a></li>
+        <li class="cat-list-item"><a href="shop.html?category=Accessories">Accessories</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- CART OFFCANVAS -->
+  <div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="offcanvasCart" aria-labelledby="My Cart">
+    <div class="offcanvas-header justify-content-center">
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="order-md-last">
+        <h4 class="d-flex justify-content-between align-items-center mb-3">
+          <span>Your cart</span>
+          <span class="badge bg-primary rounded-pill" id="cart-count">0</span>
+        </h4>
+        <ul id="cart-list" class="list-group mb-3"></ul>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <strong>Total (USD)</strong>
+          <strong id="cart-total">$0.00</strong>
+        </div>
+        <a class="w-100 btn btn-primary btn-lg" href="checkout.html">Continue to Checkout</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
-      <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="logo" style="height:36px"></a>
-      <div class="ms-auto">
-        <a href="shop.html" class="text-uppercase mx-3">Shop</a>
-        <a href="cart.html" class="text-uppercase mx-3">Cart (<span class="js-cart-count">0</span>)</a>
-        <a href="checkout.html" class="text-uppercase mx-3">Checkout</a>
-        <a href="profile.html" class="text-uppercase mx-3">Profile</a>
-        <a id="navDashboard" href="dashboard.html" class="text-uppercase mx-3" style="display:none">Dashboard</a>
-        <a id="navArDashboard" href="/admin.html" class="text-uppercase mx-3" style="display:none">AR Dashboard</a>
-        <a id="navLogin" href="login.html" class="text-uppercase mx-3">Login</a>
-        <a id="navLogout" href="#" class="text-uppercase mx-3" style="display:none">Logout</a>
+      <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:36px"></a>
+      <div class="d-flex align-items-center gap-3 order-lg-last">
+        <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
+        <a href="#search" class="search-button text-white"><svg width="22" height="22" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></a>
+      </div>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+        <div class="offcanvas-header">
+          <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Menu</h5>
+          <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
+            <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
+            <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
+            <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navArDashboard" href="/admin.html" style="display:none">AR Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
+          </ul>
+        </div>
       </div>
     </div>
   </nav>
 
-  <main class="container py-5" style="max-width: 760px">
-    <h1 class="text-uppercase mb-3">Wishlist</h1>
-    <p class="text-muted">This page isn’t ready yet.</p>
-    <div class="d-flex gap-2 mt-4">
-      <a class="btn btn-dark text-uppercase" href="shop.html">Back to Shop</a>
-      <a class="btn btn-outline-dark text-uppercase" href="checkout.html">Go to Checkout</a>
+  <!-- PAGE HERO -->
+  <section style="background:#1C1C1C;padding:140px 0 60px;border-bottom:3px solid #00ED0A">
+    <div class="container">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.28em;color:#00ED0A;margin-bottom:14px">&mdash;&nbsp;Saved Items</div>
+      <h1 style="font-family:'Averia Serif Libre',serif;font-size:clamp(40px,6vw,80px);line-height:.92;letter-spacing:-0.05em;color:#F5F5F0">Your <span style="color:#FEFD00">Wishlist</span></h1>
     </div>
-  </main>
+  </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <!-- WISHLIST CONTENT -->
+  <section style="background:#1C1C1C;padding:64px 0 100px">
+    <div class="container">
+      <div id="wishlistEmpty" style="text-align:center;padding:100px 0;display:none">
+        <div style="font-family:'Averia Serif Libre',serif;font-size:80px;line-height:1;color:rgba(245,245,240,.06);margin-bottom:20px">&#9825;</div>
+        <p style="font-family:'Roboto Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.2em;color:rgba(245,245,240,.35);margin-bottom:28px">Your wishlist is empty</p>
+        <a href="shop.html" style="display:inline-flex;align-items:center;gap:10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:13px 24px;background:#00ED0A;color:#1C1C1C;text-decoration:none;border:3px solid #1C1C1C;box-shadow:4px 4px 0 rgba(0,237,10,.22);transition:transform .12s,box-shadow .12s" onmouseover="this.style.transform='translate(-2px,-2px)';this.style.boxShadow='7px 7px 0 rgba(0,237,10,.22)'" onmouseout="this.style.transform='';this.style.boxShadow='4px 4px 0 rgba(0,237,10,.22)'">Browse the Collection</a>
+      </div>
+      <div id="wishlistItems" style="border:3px solid rgba(245,245,240,.08);display:none"></div>
+      <div id="wishlistActions" style="margin-top:24px;display:none;gap:12px;flex-wrap:wrap">
+        <a href="shop.html" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:12px 22px;border:2px solid rgba(245,245,240,.2);color:rgba(245,245,240,.7);text-decoration:none;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#00ED0A';this.style.color='#00ED0A'" onmouseout="this.style.borderColor='rgba(245,245,240,.2)';this.style.color='rgba(245,245,240,.7)'">Continue Shopping</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer id="footer">
+    <div class="container">
+      <div class="row py-5">
+        <div class="col-md-3 col-sm-6 mb-4">
+          <div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:36px"></div>
+          <p>Next-gen digital identity and fashion. Bold design, no compromise.</p>
+          <div class="d-flex gap-3 mt-3">
+            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:none;stroke:rgba(255,255,255,.5)"><use xlink:href="#facebook"></use></svg></a>
+            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:rgba(255,255,255,.5)"><use xlink:href="#twitter"></use></svg></a>
+            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:rgba(255,255,255,.5)"><use xlink:href="#youtube"></use></svg></a>
+            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:none;stroke:rgba(255,255,255,.5)"><use xlink:href="#instagram"></use></svg></a>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Quick Links</h5>
+          <ul class="list-unstyled border-animation-left">
+            <li class="mb-2"><a href="index.html" class="item-anchor">Home</a></li>
+            <li class="mb-2"><a href="shop.html" class="item-anchor">Shop</a></li>
+            <li class="mb-2"><a href="about.html" class="item-anchor">About</a></li>
+            <li class="mb-2"><a href="contact.html" class="item-anchor">Contact</a></li>
+          </ul>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Help &amp; Info</h5>
+          <ul class="list-unstyled border-animation-left">
+            <li class="mb-2"><a href="order-tracking.html" class="item-anchor">Track Your Order</a></li>
+            <li class="mb-2"><a href="faqs.html" class="item-anchor">FAQs</a></li>
+            <li class="mb-2"><a href="contact.html" class="item-anchor">Contact Us</a></li>
+          </ul>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <h5 class="text-uppercase mb-4">Contact</h5>
+          <p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p>
+          <p><a href="tel:+43720115278">+43 720 11 52 78</a></p>
+        </div>
+      </div>
+      <div class="border-top py-3">
+        <p class="text-center mb-0" style="font-size:12px;opacity:.35">&copy; 2026 INRL. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/jquery.min.js"></script>
+  <script src="js/plugins.js"></script>
+  <script src="js/SmoothScroll.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+  <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
   <script>
-    (function(){
-      // Auth-aware nav
-      (async function(){
-        const loginEl = document.getElementById('navLogin');
-        const logoutEl = document.getElementById('navLogout');
-        try {
-          const me = await auth.me();
-          const user = me && me.email ? me : null;
-          const dashEl = document.getElementById('navDashboard');
-          const arDashEl = document.getElementById('navArDashboard');
-          const canDashboard = user && (user.role === 'admin' || user.role === 'brand');
-          if (loginEl) loginEl.style.display = user ? 'none' : '';
-          if (logoutEl) logoutEl.style.display = user ? '' : 'none';
-          if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
-          if (arDashEl) arDashEl.style.display = canDashboard ? '' : 'none';
-          if (logoutEl) logoutEl.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await auth.logout();
-            location.reload();
-          });
-        } catch {}
-      })();
+    function escHtml(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
 
-      try { CartUI.render(); } catch {}
+    function renderWishlist() {
+      var items = Wishlist.list();
+      var emptyEl = document.getElementById('wishlistEmpty');
+      var tableEl = document.getElementById('wishlistItems');
+      var actionsEl = document.getElementById('wishlistActions');
+      if (!items.length) {
+        emptyEl.style.display = 'block';
+        tableEl.style.display = 'none';
+        actionsEl.style.display = 'none';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      tableEl.style.display = 'block';
+      actionsEl.style.display = 'flex';
+      tableEl.innerHTML = items.map(function(item, i) {
+        var topBorder = i > 0 ? 'border-top:3px solid rgba(245,245,240,.08);' : '';
+        return '<div class="d-flex align-items-center gap-3 p-3" style="' + topBorder + '">'
+          + '<a href="product.html?product=' + escHtml(item.slug || item.id) + '" style="flex-shrink:0;display:block;overflow:hidden;border:2px solid rgba(245,245,240,.08)">'
+          + '<img src="' + escHtml(item.image || '') + '" alt="' + escHtml(item.name) + '" style="width:80px;height:80px;object-fit:cover;display:block">'
+          + '</a>'
+          + '<div class="flex-grow-1" style="min-width:0">'
+          + '<a href="product.html?product=' + escHtml(item.slug || item.id) + '" style="font-family:\'Averia Serif Libre\',serif;font-size:17px;color:#F5F5F0;text-decoration:none;letter-spacing:-0.02em;display:block;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(item.name) + '</a>'
+          + '<div style="font-family:\'Roboto Mono\',monospace;font-size:13px;color:#00ED0A;letter-spacing:.05em">$' + (+(item.price) || 0).toFixed(2) + '</div>'
+          + '</div>'
+          + '<div class="d-flex gap-2 align-items-center flex-shrink-0">'
+          + '<button data-wish-to-cart="' + escHtml(item.id) + '" style="padding:9px 16px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;font-family:\'Roboto Mono\',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;white-space:nowrap">Add to Cart</button>'
+          + '<button data-wish-remove="' + escHtml(item.id) + '" style="padding:9px 12px;background:transparent;border:2px solid rgba(245,245,240,.15);color:rgba(245,245,240,.4);font-size:14px;line-height:1;cursor:pointer" title="Remove from Wishlist">&#x2715;</button>'
+          + '</div>'
+          + '</div>';
+      }).join('');
+      try { CartUI.render(); } catch(err) {}
+    }
+
+    document.addEventListener('click', function(e) {
+      var removeBtn = e.target.closest('[data-wish-remove]');
+      if (removeBtn) {
+        Wishlist.remove(removeBtn.dataset.wishRemove);
+        renderWishlist();
+        return;
+      }
+      var cartBtn = e.target.closest('[data-wish-to-cart]');
+      if (cartBtn) {
+        var id = cartBtn.dataset.wishToCart;
+        var items = Wishlist.list();
+        var item = null;
+        for (var i = 0; i < items.length; i++) { if (items[i].id === id) { item = items[i]; break; } }
+        if (item) {
+          Cart.add({ id: item.id, name: item.name, price: item.price, image: item.image, qty: 1 });
+          Wishlist.remove(id);
+          renderWishlist();
+        }
+      }
+    });
+
+    renderWishlist();
+
+    (async function(){
+      var loginEl = document.getElementById('navLogin');
+      var logoutEl = document.getElementById('navLogout');
+      try {
+        var me = await auth.me();
+        var user = me && me.email ? me : null;
+        if (loginEl) loginEl.style.display = user ? 'none' : '';
+        if (logoutEl) {
+          logoutEl.style.display = user ? '' : 'none';
+          logoutEl.addEventListener('click', async function(e) { e.preventDefault(); await auth.logout(); location.reload(); });
+        }
+        var canDashboard = user && (user.role === 'admin' || user.role === 'brand');
+        var dashEl = document.getElementById('navDashboard');
+        var arDashEl = document.getElementById('navArDashboard');
+        if (dashEl) dashEl.style.display = canDashboard ? '' : 'none';
+        if (arDashEl) arDashEl.style.display = canDashboard ? '' : 'none';
+      } catch(err) {}
     })();
+    try { CartUI.render(); } catch(err) {}
   </script>
 </body>
 </html>
