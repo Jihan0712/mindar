@@ -19,6 +19,8 @@
     globalThis.BOOTSTRAP_ADMIN_KEY = env.BOOTSTRAP_ADMIN_KEY;
     globalThis.CF_API_TOKEN = env.CF_API_TOKEN;
     globalThis.CF_ZONE_ID = env.CF_ZONE_ID;
+    globalThis.PRINTFUL_API_KEY = env.PRINTFUL_API_KEY;
+    globalThis.PRINTFUL_WEBHOOK_SECRET = env.PRINTFUL_WEBHOOK_SECRET;
   }
 
   // ---------- CORS / JSON helpers ----------
@@ -26,8 +28,10 @@
   // Simple in-memory rate limiter (per Worker isolate; resets on cold start)
   const _rateLimitMap = new Map();
   const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-  const RATE_LIMIT_MAX_AUTH = 10; // max login/register attempts per IP per minute
-  const RATE_LIMIT_MAX_UPLOAD = 20; // max uploads per IP per minute
+  const RATE_LIMIT_MAX_AUTH = 10;   // max login/register attempts per IP per minute
+  const RATE_LIMIT_MAX_UPLOAD = 20;  // max uploads per IP per minute
+  const RATE_LIMIT_MAX_ORDER = 10;   // max order submissions per IP per minute
+  const RATE_LIMIT_MAX_REVIEW = 10;  // max review submissions per IP per minute
 
   function rateLimitCheck(key, maxAttempts) {
     const now = Date.now();
@@ -78,7 +82,15 @@
     headers.set('Content-Type', 'application/json');
     headers.set('X-Content-Type-Options', 'nosniff');
     headers.set('X-Frame-Options', 'DENY');
+    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    headers.set('Content-Security-Policy', "default-src 'none'");
     return new Response(JSON.stringify(body), { status, headers });
+  }
+
+  // Attach a Cache-Control directive to an existing Response.
+  function withCache(response, directive) {
+    response.headers.set('Cache-Control', directive);
+    return response;
   }
 
   async function readJson(request) {
@@ -275,6 +287,8 @@
 
     // Orders (shop)
     if (request.method === 'POST' && pathname === '/api/orders')               return apiCreateOrder(request);
+    if (request.method === 'GET'  && pathname === '/api/admin/orders')         return apiAdminListOrders(request);
+    if (request.method === 'POST' && pathname === '/api/webhooks/printful')    return apiPrintfulWebhook(request);
 
     // Admin
     if (request.method === 'POST' && pathname === '/api/admin/brand-users')    return apiAdminCreateBrandUser(request);
@@ -434,14 +448,20 @@
     try {
       const row = await dbGet('select json, updated_at, updated_by from site_content where key = ?', 'homepage');
       if (!row || !row.json) {
-        return jsonResponse({ ok: true, content: defaultHomepageContent(), updated_at: null }, 200, request);
+        return withCache(
+          jsonResponse({ ok: true, content: defaultHomepageContent(), updated_at: null }, 200, request),
+          'public, max-age=60, s-maxage=300'
+        );
       }
       let parsed = null;
       try { parsed = JSON.parse(String(row.json)); } catch { parsed = null; }
       // Always normalize on read so old data (cards/string-stats) is transparently migrated for the frontend
       const rawContent = parsed && typeof parsed === 'object' ? parsed : null;
       const content = rawContent ? normalizeHomepagePayload(rawContent) : defaultHomepageContent();
-      return jsonResponse({ ok: true, content, updated_at: row.updated_at || null, updated_by: row.updated_by || null }, 200, request);
+      return withCache(
+        jsonResponse({ ok: true, content, updated_at: row.updated_at || null, updated_by: row.updated_by || null }, 200, request),
+        'public, max-age=60, s-maxage=300'
+      );
     } catch (e) {
       const msg = String(e || '');
       if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
@@ -806,6 +826,94 @@
 
   // ---------- Orders APIs ----------
 
+  // ISO country-code map for values the checkout form sends as display names.
+  const COUNTRY_CODE_MAP = {
+    'united states': 'US', 'us': 'US',
+    'united kingdom': 'GB', 'uk': 'GB', 'gb': 'GB',
+    'canada': 'CA', 'ca': 'CA',
+    'australia': 'AU', 'au': 'AU',
+    'germany': 'DE', 'de': 'DE',
+    'france': 'FR', 'fr': 'FR',
+    'netherlands': 'NL', 'nl': 'NL',
+    'spain': 'ES', 'es': 'ES',
+    'italy': 'IT', 'it': 'IT',
+    'brazil': 'BR', 'br': 'BR',
+    'mexico': 'MX', 'mx': 'MX',
+    'japan': 'JP', 'jp': 'JP',
+    'new zealand': 'NZ', 'nz': 'NZ',
+  };
+
+  function toCountryCode(raw) {
+    const s = String(raw || '').trim();
+    if (/^[A-Z]{2}$/.test(s)) return s;
+    return COUNTRY_CODE_MAP[s.toLowerCase()] || s.toUpperCase().slice(0, 2);
+  }
+
+  // ---------- Printful API helpers ----------
+
+  async function callPrintful(method, path, body) {
+    const key = typeof PRINTFUL_API_KEY === 'string' ? PRINTFUL_API_KEY.trim() : '';
+    if (!key) throw new Error('PRINTFUL_API_KEY is not configured');
+    const opts = {
+      method,
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'X-PF-Language': 'EN',
+      },
+    };
+    if (body != null) opts.body = JSON.stringify(body);
+    const res = await fetch(`https://api.printful.com${path}`, opts);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = (json && json.error && json.error.message) || JSON.stringify(json);
+      throw new Error(`Printful ${res.status}: ${msg}`);
+    }
+    return json;
+  }
+
+  async function submitPrintfulOrder(orderId, cart, customer) {
+    const key = typeof PRINTFUL_API_KEY === 'string' ? PRINTFUL_API_KEY.trim() : '';
+    if (!key) {
+      console.warn('[printful] PRINTFUL_API_KEY not set — skipping fulfillment for order', orderId);
+      return null;
+    }
+
+    const items = cart
+      .filter(item => item.printful_sync_variant_id)
+      .map(item => ({
+        sync_variant_id: Number(item.printful_sync_variant_id),
+        quantity: item.qty,
+        retail_price: (Number(item.price) || 0).toFixed(2),
+      }));
+
+    if (!items.length) {
+      console.warn('[printful] Order', orderId, '— no items have printful_sync_variant_id; skipping');
+      return null;
+    }
+
+    const countryCode = toCountryCode(customer.country);
+    const payload = {
+      external_id: orderId,
+      recipient: {
+        name: [customer.firstName, customer.lastName].filter(Boolean).join(' '),
+        address1: customer.address,
+        city: customer.city || '',
+        state_code: customer.state,
+        country_code: countryCode,
+        zip: customer.zip,
+        email: customer.email,
+      },
+      items,
+      retail_costs: {
+        currency: customer.currency || 'USD',
+      },
+    };
+
+    const result = await callPrintful('POST', '/orders', payload);
+    return result;
+  }
+
   function normalizeCartItem(raw) {
     const o = raw && typeof raw === 'object' ? raw : {};
     const id = o.id != null ? String(o.id).trim() : '';
@@ -814,12 +922,15 @@
     const qty = Math.max(1, Math.min(99, parseInt(o.qty, 10) || 0));
     const price = Number(o.price);
     const image = String(o.image || o.image_url || '').trim();
+    const printfulVariantId = o.printful_sync_variant_id != null
+      ? String(o.printful_sync_variant_id).trim() || null
+      : null;
 
     if (!name) return null;
     if (!Number.isFinite(price) || price < 0) return null;
     if (!qty) return null;
 
-    return { id: id || null, slug: slug || null, name, qty, price, image: image || null };
+    return { id: id || null, slug: slug || null, name, qty, price, image: image || null, printful_sync_variant_id: printfulVariantId };
   }
 
   function computeOrderTotalCents(cartItems) {
@@ -834,6 +945,10 @@
   }
 
   async function apiCreateOrder(request) {
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('order:' + ip, RATE_LIMIT_MAX_ORDER)) {
+      return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
+    }
     const body = await readJson(request);
     const cartIn = Array.isArray(body.cart) ? body.cart : [];
     const cart = cartIn.map(normalizeCartItem).filter(Boolean);
@@ -844,6 +959,7 @@
     const lastName = clampStr(customer.lastName, 80);
     const email = String(customer.email || '').trim().toLowerCase();
     const address = clampStr(customer.address, 220);
+    const city = clampStr(customer.city, 120);
     const country = clampStr(customer.country, 80);
     const state = clampStr(customer.state, 80);
     const zip = clampStr(customer.zip, 20);
@@ -860,15 +976,17 @@
     const now = new Date().toISOString();
 
     try {
+      // city / printful columns added by printful_migration.sql; fall back gracefully.
       await dbRun(
-        `insert into orders (id, user_id, email, first_name, last_name, address, country, state, zip, currency, total_cents, items_json, status, created_at)
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `insert into orders (id, user_id, email, first_name, last_name, address, city, country, state, zip, currency, total_cents, items_json, status, created_at)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         orderId,
         sess?.user?.id || null,
         email,
         firstName,
         lastName,
         address,
+        city,
         country,
         state,
         zip,
@@ -883,13 +1001,132 @@
       if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
         return jsonResponse({ error: 'DB migration required: create orders table (run sql/orders_migration.sql)' }, 500, request);
       }
-      throw e;
+      if (msg.toLowerCase().includes('no such column') && msg.includes('city')) {
+        // city column not yet added — fall back to insert without it
+        await dbRun(
+          `insert into orders (id, user_id, email, first_name, last_name, address, country, state, zip, currency, total_cents, items_json, status, created_at)
+          values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          orderId, sess?.user?.id || null, email, firstName, lastName,
+          address, country, state, zip, currency, totalCents, JSON.stringify(cart), 'created', now
+        );
+      } else {
+        throw e;
+      }
     }
 
-    return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency }, 201, request);
+    // Submit to Printful for print & fulfilment (fire-and-forget; never block the order response).
+    let printfulOrderId = null;
+    try {
+      const pfResult = await submitPrintfulOrder(orderId, cart, {
+        firstName, lastName, email, address, city, country, state, zip, currency
+      });
+      if (pfResult && pfResult.result && pfResult.result.id) {
+        printfulOrderId = String(pfResult.result.id);
+        await dbRun(
+          `update orders set printful_order_id = ?, printful_status = ?, status = ? where id = ?`,
+          printfulOrderId, 'draft', 'pending_fulfillment', orderId
+        ).catch(() => {/* ignore if columns not yet migrated */});
+      }
+    } catch (pfErr) {
+      // Log but never fail the customer-facing response.
+      console.error('[printful] Failed to create order for', orderId, String(pfErr));
+    }
+
+    return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency, printful_order_id: printfulOrderId }, 201, request);
   }
 
   // ---------- Admin APIs ----------
+
+  // GET /api/admin/orders — list all orders with Printful status (admin only).
+  async function apiAdminListOrders(request) {
+    const { sess, error } = await requireAdminSession(request);
+    if (error) return error;
+
+    const url = new URL(request.url);
+    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+
+    let rows;
+    try {
+      rows = await dbAll(
+        `select id, user_id, email, first_name, last_name, address, city, country, state, zip,
+                currency, total_cents, status, printful_order_id, printful_status, created_at
+         from orders
+         order by created_at desc
+         limit ? offset ?`,
+        limit, offset
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      // Graceful fallback if printful / city columns aren't migrated yet.
+      if (msg.toLowerCase().includes('no such column')) {
+        rows = await dbAll(
+          `select id, user_id, email, first_name, last_name, address, country, state, zip,
+                  currency, total_cents, status, created_at
+           from orders
+           order by created_at desc
+           limit ? offset ?`,
+          limit, offset
+        );
+      } else if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
+        return jsonResponse({ error: 'DB migration required: run sql/orders_migration.sql' }, 500, request);
+      } else {
+        throw e;
+      }
+    }
+
+    return jsonResponse({ items: rows || [], limit, offset }, 200, request);
+  }
+
+  // POST /api/webhooks/printful — receive Printful event notifications.
+  async function apiPrintfulWebhook(request) {
+    const body = await readJson(request);
+    const eventType = String(body.type || '');
+    const data = body.data && typeof body.data === 'object' ? body.data : {};
+
+    // Verify HMAC-SHA256 signature when PRINTFUL_WEBHOOK_SECRET is configured.
+    const secret = typeof PRINTFUL_WEBHOOK_SECRET === 'string' ? PRINTFUL_WEBHOOK_SECRET.trim() : '';
+    if (secret) {
+      const sig = request.headers.get('X-Printful-Signature') || '';
+      if (!sig) return new Response('Forbidden', { status: 403 });
+      try {
+        const rawBody = await request.clone().text();
+        const enc = new TextEncoder();
+        const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+        const sigBytes = Uint8Array.from(atob(sig), c => c.charCodeAt(0));
+        const valid = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(rawBody));
+        if (!valid) return new Response('Forbidden', { status: 403 });
+      } catch {
+        return new Response('Forbidden', { status: 403 });
+      }
+    }
+
+    const pfOrder = data.order || data.shipment?.order || null;
+    const pfOrderId = pfOrder ? String(pfOrder.id || '') : null;
+    if (!pfOrderId) return new Response('OK', { status: 200 });
+
+    // Map Printful event type to a status string.
+    const STATUS_MAP = {
+      'order_created':    'draft',
+      'order_updated':    'pending',
+      'order_failed':     'failed',
+      'order_canceled':   'canceled',
+      'package_shipped':  'shipped',
+      'package_returned': 'returned',
+    };
+    const newStatus = STATUS_MAP[eventType] || eventType;
+
+    try {
+      await dbRun(
+        `update orders set printful_status = ?, status = ? where printful_order_id = ?`,
+        newStatus,
+        newStatus === 'shipped' ? 'shipped' : (newStatus === 'canceled' ? 'canceled' : 'pending_fulfillment'),
+        pfOrderId
+      );
+    } catch { /* ignore if columns not migrated */ }
+
+    return new Response('OK', { status: 200 });
+  }
 
   async function apiAdminCreateBrandUser(request) {
     const { sess, error } = await requireAdminSession(request);
@@ -957,7 +1194,7 @@
     let sql = `
       select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
             case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-            p.is_published, p.ar_target_id, p.created_at, p.updated_at,
+            p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at,
             b.name as brand
       from products p
       left join brands b on b.id = p.brand_id
@@ -1029,13 +1266,16 @@
         image_urls: parsedImageUrls,
         is_published: !!r.is_published,
         ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
+        printful_sync_variant_id: r.printful_sync_variant_id || null,
         brand: r.brand || null,
         viewer_url,
         created_at: r.created_at,
         updated_at: r.updated_at,
       };
     });
-    return jsonResponse({ items }, 200, request);
+    return canSeeUnpublished
+      ? jsonResponse({ items }, 200, request)
+      : withCache(jsonResponse({ items }, 200, request), 'public, max-age=30, s-maxage=120');
   }
 
   async function apiGetProduct(request, ref) {
@@ -1050,7 +1290,7 @@
       row = await dbGet(
         `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
                 case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
+                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at, b.name as brand
         from products p left join brands b on b.id = p.brand_id
         where ${whereClause}`, param
       );
@@ -1076,9 +1316,10 @@
       description: row.description, price_cents: row.price_cents, currency: row.currency,
       image_url: computedImageUrl, image_urls: parsedImageUrls,
       is_published: !!row.is_published, ar_target_id: row.ar_target_id == null ? null : Number(row.ar_target_id),
+      printful_sync_variant_id: row.printful_sync_variant_id || null,
       brand: row.brand || null, created_at: row.created_at, updated_at: row.updated_at,
     };
-    return jsonResponse({ product }, 200, request);
+    return withCache(jsonResponse({ product }, 200, request), 'public, max-age=60, s-maxage=300');
   }
 
   async function apiGetProductImage(request) {
@@ -1141,6 +1382,9 @@
     const imageUrlsArr = parseImageUrlsField(body.image_urls);
     const imageUrlsJson = imageUrlsArr ? JSON.stringify(imageUrlsArr) : null;
     const isPublished = body.is_published ? 1 : 0;
+    const printfulVariantId = body.printful_sync_variant_id != null
+      ? String(body.printful_sync_variant_id).trim() || null
+      : null;
     if (imageUrlsArr == null && body.image_urls != null) return jsonResponse({ error: 'Invalid image_urls (max 5)' }, 400, request);
     if (imageData) {
       if (imageData.length > 2_000_000) return jsonResponse({ error: 'image too large' }, 413, request);
@@ -1180,7 +1424,7 @@
 
     try {
       await dbRun(
-        'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         brandId,
         title,
         slug,
@@ -1194,14 +1438,23 @@
         imageUrlsJson,
         imageData,
         isPublished,
-        targetId
+        targetId,
+        printfulVariantId
       );
     } catch (e) {
       const msg = String(e || '');
       if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
         return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
       }
-      throw e;
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_id')) {
+        // Printful migration not yet applied — insert without it.
+        await dbRun(
+          'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId
+        );
+      } else {
+        throw e;
+      }
     }
 
     const row = await dbGet(
@@ -1312,6 +1565,12 @@
       params.push(v);
     }
 
+    if (body.printful_sync_variant_id !== undefined) {
+      const v = body.printful_sync_variant_id != null ? String(body.printful_sync_variant_id).trim() || null : null;
+      fields.push('printful_sync_variant_id = ?');
+      params.push(v);
+    }
+
     if (!fields.length) return jsonResponse({ ok: true }, 200, request);
     fields.push("updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
 
@@ -1333,7 +1592,7 @@
       row = await dbGet(
         `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
                 case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
+                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at, b.name as brand
         from products p
         left join brands b on b.id = p.brand_id
         where p.id = ?`,
@@ -1440,24 +1699,31 @@
 
     const avg = statsRow && statsRow.average != null ? Number(statsRow.average) : 0;
     const count = statsRow && statsRow.count != null ? Number(statsRow.count) : 0;
-    return jsonResponse(
-      {
-        product,
-        stats: { average: Number.isFinite(avg) ? avg : 0, count: Number.isFinite(count) ? count : 0 },
-        items: (items || []).map(r => ({
-          id: r.id,
-          rating: Number(r.rating) || 0,
-          author: r.author || null,
-          comment: r.comment || null,
-          created_at: r.created_at || null,
-        })),
-      },
-      200,
-      request
+    return withCache(
+      jsonResponse(
+        {
+          product,
+          stats: { average: Number.isFinite(avg) ? avg : 0, count: Number.isFinite(count) ? count : 0 },
+          items: (items || []).map(r => ({
+            id: r.id,
+            rating: Number(r.rating) || 0,
+            author: r.author || null,
+            comment: r.comment || null,
+            created_at: r.created_at || null,
+          })),
+        },
+        200,
+        request
+      ),
+      'public, max-age=60, s-maxage=120'
     );
   }
 
   async function apiCreateReview(request, refOverride) {
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('review:' + ip, RATE_LIMIT_MAX_REVIEW)) {
+      return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
+    }
     const body = await readJson(request);
     const ref = refOverride || (body.product || body.product_id || body.product_slug || '').toString().trim();
     if (!ref) return jsonResponse({ error: 'product required' }, 400, request);
@@ -1766,18 +2032,21 @@
           `, targetId);
 
           if (t && t.is_active) {
-            return jsonResponse({
-              id: t.id,
-              name: t.name,
-              product: t.product,
-              brand: t.brand || null,
-              mindurl: t.mind_url,
-              videourl: t.video_url,
-              imageurl: t.image_url,
-              is_active: !!t.is_active,
-              created_at: t.created_at,
-              source: 'product_link'
-            }, 200, request);
+            return withCache(
+              jsonResponse({
+                id: t.id,
+                name: t.name,
+                product: t.product,
+                brand: t.brand || null,
+                mindurl: t.mind_url,
+                videourl: t.video_url,
+                imageurl: t.image_url,
+                is_active: !!t.is_active,
+                created_at: t.created_at,
+                source: 'product_link'
+              }, 200, request),
+              'public, max-age=30, s-maxage=60'
+            );
           }
         }
       } catch (e) {
@@ -1809,18 +2078,21 @@
     const row = await dbGet(sql, ...params);
     if (!row) return jsonResponse({ error: 'No active target found' }, 404, request);
 
-    return jsonResponse({
-      id: row.id,
-      name: row.name,
-      product: row.product,
-      brand: row.brand || null,
-      mindurl: row.mind_url,
-      videourl: row.video_url,
-      imageurl: row.image_url,
-      is_active: !!row.is_active,
-      created_at: row.created_at,
-      source: 'targets_active'
-    }, 200, request);
+    return withCache(
+      jsonResponse({
+        id: row.id,
+        name: row.name,
+        product: row.product,
+        brand: row.brand || null,
+        mindurl: row.mind_url,
+        videourl: row.video_url,
+        imageurl: row.image_url,
+        is_active: !!row.is_active,
+        created_at: row.created_at,
+        source: 'targets_active'
+      }, 200, request),
+      'public, max-age=30, s-maxage=60'
+    );
   }
 
   // ---------- Existing R2 handlers (unchanged from your current worker) ----------

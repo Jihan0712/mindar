@@ -291,3 +291,195 @@ Use the Worker request tester to call `POST /purge` with body:
 ```
 
 Expect `{ ok: true }`, then re-check the asset URL.
+
+---
+
+## 16) Printful Integration
+
+Goal: Wire Printful as the print-on-demand fulfillment backend. When a customer places an order, the Worker forwards it to Printful automatically. Printful prints, packs, and ships the item; webhooks push tracking back so customers can see real status on the order-tracking page.
+
+### Overview of the full flow
+
+```
+Customer checkout (checkout.html)
+  → POST /api/orders (Worker)
+    → Save order to D1
+    → Forward to Printful POST /v2/orders
+    → Store printful_order_id in D1
+  ← { order_id }
+
+Printful ships the item
+  → POST /api/webhooks/printful (Worker)
+    → Verify webhook token
+    → Update D1 order: tracking_number, tracking_url, carrier, status
+
+Customer visits order-tracking.html
+  → GET /api/orders/:id (Worker)
+  ← { printful_status, tracking_number, tracking_url, carrier }
+```
+
+---
+
+### Phase 1 — Printful account & Worker secrets
+
+- [ ] Create a Printful store and connect your product catalog at printful.com
+- [ ] Generate a Printful API token: Printful Dashboard → Settings → Stores → API → Generate token
+- [ ] Add Worker secret `PRINTFUL_API_KEY` (Wrangler or CF Dashboard → Worker → Settings → Secrets)
+- [ ] Add Worker variable `PRINTFUL_STORE_ID` (string, found in Printful dashboard URL or store settings)
+
+```bash
+wrangler secret put PRINTFUL_API_KEY
+```
+
+---
+
+### Phase 2 — D1 schema additions
+
+- [ ] Add Printful columns to `products` table:
+
+```sql
+ALTER TABLE products ADD COLUMN printful_sync_product_id INTEGER;
+ALTER TABLE products ADD COLUMN printful_sync_variant_id INTEGER;
+```
+
+- [ ] Add Printful + tracking columns to `orders` table:
+
+```sql
+ALTER TABLE orders ADD COLUMN printful_order_id TEXT;
+ALTER TABLE orders ADD COLUMN printful_status TEXT DEFAULT 'pending';
+ALTER TABLE orders ADD COLUMN tracking_number TEXT;
+ALTER TABLE orders ADD COLUMN tracking_url TEXT;
+ALTER TABLE orders ADD COLUMN carrier TEXT;
+ALTER TABLE orders ADD COLUMN shipped_at TEXT;
+```
+
+- [ ] Add SQL migration file at `sql/printful_migration.sql` with both `ALTER TABLE` blocks above
+- [ ] Run migration against your D1 database (CF Dashboard → D1 → your db → Console, or `wrangler d1 execute`)
+
+---
+
+### Phase 3 — Product catalog sync with Printful
+
+Goal: each product in D1 carries its Printful `sync_product_id` and `sync_variant_id` so orders can be forwarded correctly.
+
+- [ ] Worker endpoint `POST /api/admin/printful/sync` (admin-only):
+  - Call Printful `GET /v2/sync-products?store_id=PRINTFUL_STORE_ID`
+  - For each sync product + its variants, upsert into D1 `products`:
+    - `printful_sync_product_id`, `printful_sync_variant_id`
+    - Optionally sync `name`, `price`, and `image_url` from Printful
+  - Return `{ synced: N }` summary
+- [ ] Alternative (manual): Admin sets `printful_sync_variant_id` per product in the dashboard product edit form — add the field to the dashboard product CRUD form in `ecommerce/dashboard.html`
+- [ ] Dashboard "Printful" tab in `ecommerce/dashboard.html`:
+  - "Sync from Printful" button → calls `POST /api/admin/printful/sync`
+  - Display sync status (`printful_sync_variant_id` set / unset) per product in the product table
+
+---
+
+### Phase 4 — Product variants at checkout
+
+Goal: Printful products have size/color variants. Cart items must carry the correct `printful_sync_variant_id` so the order maps to the right SKU.
+
+- [ ] Worker `GET /api/products/:slug/variants` — return the list of variants (fetched from Printful or stored in D1) with `id`, `name`, `size`, `color`, `price`, `printful_sync_variant_id`
+- [ ] `ecommerce/product.html` (and `single-product.html`) — fetch variants and render size/color selectors; set selected `variantId` before "Add to Cart"
+- [ ] `ecommerce/js/cart.js` — store `variantId` (i.e. `printful_sync_variant_id`) alongside each cart item when adding to cart
+- [ ] `ecommerce/js/checkout.js` — include `variantId` per item in the `POST /api/orders` payload
+
+Cart item shape (target):
+
+```json
+{ "id": "slug-SIZE", "name": "Tee – M", "price": 35, "qty": 1, "variantId": 123456789 }
+```
+
+---
+
+### Phase 5 — Worker order endpoint → Printful fulfillment
+
+File: `cloudflare/worker/index.js` — update `POST /api/orders` handler.
+
+- [ ] After saving the order to D1, build the Printful order payload:
+
+```json
+{
+  "recipient": {
+    "name": "First Last",
+    "address1": "...",
+    "city": "...",
+    "state_code": "CA",
+    "country_code": "US",
+    "zip": "...",
+    "email": "customer@example.com"
+  },
+  "items": [
+    { "sync_variant_id": 123456789, "quantity": 1 }
+  ]
+}
+```
+
+- [ ] Call `POST https://api.printful.com/v2/orders?store_id=PRINTFUL_STORE_ID` with `Authorization: Bearer PRINTFUL_API_KEY`
+- [ ] On success: store `printful_order_id` + `printful_status: 'pending'` in D1 `orders` row
+- [ ] On Printful API error: log, set `printful_status: 'error'`, still return `{ order_id }` so checkout succeeds (do not block the customer)
+- [ ] Add helper `callPrintful(path, method, body)` in the Worker to centralise Printful HTTP calls + error handling
+
+---
+
+### Phase 6 — Printful webhooks → order status
+
+- [ ] Register the webhook in Printful Dashboard → Settings → Webhooks → Add endpoint:
+  - URL: `https://shop.inrl.co/api/webhooks/printful`
+  - Events: `package_shipped`, `order_updated`, `order_failed`
+  - Printful will show a webhook token — copy it
+- [ ] Add Worker secret `PRINTFUL_WEBHOOK_TOKEN`
+- [ ] Worker endpoint `POST /api/webhooks/printful` (no auth cookie required, public):
+  - Read `X-Printful-Webhook-Token` header; reject with 401 if mismatch
+  - Parse event body; look up D1 order by `printful_order_id`
+  - `package_shipped` → update `tracking_number`, `tracking_url`, `carrier`, `shipped_at`, `printful_status: 'shipped'`
+  - `order_updated` → update `printful_status` from event data
+  - `order_failed` → set `printful_status: 'failed'`
+  - Return `{ ok: true }` (Printful expects 200)
+- [ ] Add `/api/webhooks/printful` route to Worker path routing (before auth middleware — this endpoint has its own token validation)
+- [ ] Add the webhook route to Cloudflare Worker Routes on the same domain: `shop.inrl.co/api/webhooks/printful`
+
+---
+
+### Phase 7 — Order tracking page
+
+- [ ] Worker `GET /api/orders/:id`:
+  - Admin/brand: return full order row (all columns incl. `printful_status`, `tracking_number`, `tracking_url`, `carrier`)
+  - Client: verify `orders.customer_email` matches session user email before returning
+- [ ] `ecommerce/order-tracking.html` — after fetching the order:
+  - Show `printful_status` badge (pending / shipped / failed)
+  - If `tracking_url` is set, show "Track Package" link and carrier name
+  - If `tracking_number` is set, show copy-to-clipboard or direct carrier link
+
+---
+
+### Phase 8 (optional) — Live shipping rates at checkout
+
+- [ ] Worker `POST /api/shipping/rates`:
+  - Accept `{ recipient, items }` from client
+  - Proxy to Printful `POST /v2/shipping/rates`
+  - Return array of `{ id, name, rate, currency, minDeliveryDays, maxDeliveryDays }`
+- [ ] `ecommerce/checkout.html` — after address is filled, call `/api/shipping/rates` and render a shipping method selector; add selected shipping rate to the order payload
+- [ ] Include `shipping` choice in `POST /api/orders` payload → pass `retail_costs.shipping` or the chosen rate to the Printful order
+
+---
+
+### Phase 9 — Admin dashboard: Printful orders view
+
+- [ ] Dashboard `ecommerce/dashboard.html` → "Printful" tab:
+  - Orders table: `order_id` | `customer` | `printful_status` | `carrier` | `tracking_number` | `shipped_at` | Actions
+  - "Refresh status" button per order → calls `POST /api/admin/printful/orders/:printful_order_id/sync` which re-fetches from Printful `GET /v2/orders/:id` and updates D1
+  - Filter by status (pending / shipped / failed)
+- [ ] Worker `POST /api/admin/printful/orders/:printful_order_id/sync` (admin-only):
+  - Call Printful `GET /v2/orders/:printful_order_id`
+  - Update D1 `orders` row with latest status + tracking
+
+---
+
+### Phase 10 — Verification
+
+- [ ] Place a test order end-to-end: browse product → select variant → add to cart → checkout → confirm `printful_order_id` is stored in D1
+- [ ] Verify Printful receives the order in the Printful dashboard (Orders section)
+- [ ] Trigger a test webhook from Printful (Dashboard → Webhooks → Send test) and verify D1 order updates
+- [ ] Verify `order-tracking.html` shows correct status and tracking link after webhook fires
+- [ ] (Optional) Verify shipping rates appear in checkout after address entry

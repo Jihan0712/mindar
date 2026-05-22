@@ -342,7 +342,7 @@
         var qty=parseInt(qtyInput.value)||1;var sizeEl=document.querySelector('.swatch.option-1 input:checked');var size=sizeEl?sizeEl.value:'';
         var id='sku-'+(p.slug||p.id||'product')+(size?'-'+size:'');
         var cartName=(p.title||'Product')+(size?' ('+size+')':'');
-        Cart.add({id:id,name:cartName,price:Number(p.price_cents||0)/100,image:images[0]||'',qty:qty});
+        Cart.add({id:id,name:cartName,price:Number(p.price_cents||0)/100,image:images[0]||'',qty:qty,printful_sync_variant_id:p.printful_sync_variant_id||null});
         CartUI.render();
         showCartToast(cartName);
       });
