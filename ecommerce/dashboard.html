@@ -148,6 +148,12 @@
               </div>
 
               <div>
+                <label class="form-label text-uppercase" for="printfulVariantInput">Printful Sync Variant ID <span class="text-secondary">(optional)</span></label>
+                <input id="printfulVariantInput" class="form-control" type="text" placeholder="e.g. 12345678" />
+                <div class="form-text">Find this in Printful → Stores → your store → Products → click a variant. Required for automatic print-on-demand fulfillment.</div>
+              </div>
+
+              <div>
                 <label class="form-label text-uppercase" for="targetSelect">Link to AR Target (optional)</label>
                 <select id="targetSelect" class="form-select">
                   <option value="">(none)</option>
@@ -184,6 +190,7 @@
                     <th>Brand</th>
                     <th>Price</th>
                     <th>Published</th>
+                    <th>Printful</th>
                     <th>AR</th>
                     <th class="text-end">Actions</th>
                   </tr>
@@ -376,6 +383,7 @@
       el('imageFileInput').value = '';
       el('descInput').value = p ? (p.description || '') : '';
       el('publishInput').checked = !!(p && p.is_published);
+      el('printfulVariantInput').value = p ? (p.printful_sync_variant_id || '') : '';
       el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
       el('saveBtn').textContent = p ? 'Update' : 'Create';
       syncCategoryPresetFromInput();
@@ -412,7 +420,7 @@
       const tbody = el('productsTbody');
       tbody.innerHTML = '';
       if (!items.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted p-4">No products yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted p-4">No products yet.</td></tr>';
         return;
       }
 
@@ -428,6 +436,11 @@
             <td>${escapeHtml(formatMoney(p.price_cents, p.currency))}</td>
             <td>
               <span class="badge ${p.is_published ? 'bg-success' : 'bg-secondary'}">${p.is_published ? 'Yes' : 'No'}</span>
+            </td>
+            <td>
+              ${p.printful_sync_variant_id
+                ? `<span class="badge bg-success" title="Variant ID: ${escapeHtml(String(p.printful_sync_variant_id))}">Linked</span>`
+                : '<span class="badge bg-secondary">Not set</span>'}
             </td>
             <td>
               <a href="${storeLink}" class="btn btn-sm btn-outline-dark" target="_blank" rel="noopener">Store</a>
@@ -522,6 +535,7 @@
           image_url: el('imageUrlInput').value.trim(),
           description: el('descInput').value.trim(),
           is_published: el('publishInput').checked,
+          printful_sync_variant_id: el('printfulVariantInput').value.trim() || null,
           ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
         };
         if (isAdmin) body.brand = el('brandInput').value.trim();
