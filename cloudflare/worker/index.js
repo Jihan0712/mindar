@@ -1194,7 +1194,7 @@
     let sql = `
       select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
             case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-            p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at,
+            p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.created_at, p.updated_at,
             b.name as brand
       from products p
       left join brands b on b.id = p.brand_id
@@ -1227,7 +1227,11 @@
       rows = await dbAll(sql, ...params);
     } catch (e) {
       const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        // variant map migration not yet run — retry without it
+        const sql2 = sql.replace(', p.printful_variant_map', '');
+        rows = await dbAll(sql2, ...params);
+      } else if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls') || msg.includes('printful_sync_variant_id'))) {
         // Backward-compatible fallback if DB hasn't been migrated yet.
         const fallbackSql = `
           select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
@@ -1267,6 +1271,7 @@
         is_published: !!r.is_published,
         ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
         printful_sync_variant_id: r.printful_sync_variant_id || null,
+        printful_variant_map: r.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_map) : null,
         brand: r.brand || null,
         viewer_url,
         created_at: r.created_at,
@@ -1290,13 +1295,21 @@
       row = await dbGet(
         `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
                 case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at, b.name as brand
+                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.created_at, p.updated_at, b.name as brand
         from products p left join brands b on b.id = p.brand_id
         where ${whereClause}`, param
       );
     } catch (e) {
       const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        row = await dbGet(
+          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
+                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
+                  p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at, b.name as brand
+          from products p left join brands b on b.id = p.brand_id
+          where ${whereClause}`, param
+        );
+      } else if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls') || msg.includes('printful_sync_variant_id'))) {
         row = await dbGet(
           `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
                   p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
@@ -1317,6 +1330,7 @@
       image_url: computedImageUrl, image_urls: parsedImageUrls,
       is_published: !!row.is_published, ar_target_id: row.ar_target_id == null ? null : Number(row.ar_target_id),
       printful_sync_variant_id: row.printful_sync_variant_id || null,
+      printful_variant_map: row.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_variant_map) : null,
       brand: row.brand || null, created_at: row.created_at, updated_at: row.updated_at,
     };
     return withCache(jsonResponse({ product }, 200, request), 'public, max-age=60, s-maxage=300');
@@ -1385,6 +1399,9 @@
     const printfulVariantId = body.printful_sync_variant_id != null
       ? String(body.printful_sync_variant_id).trim() || null
       : null;
+    const printfulVariantMap = body.printful_variant_map != null
+      ? (typeof body.printful_variant_map === 'object' ? JSON.stringify(body.printful_variant_map) : String(body.printful_variant_map).trim() || null)
+      : null;
     if (imageUrlsArr == null && body.image_urls != null) return jsonResponse({ error: 'Invalid image_urls (max 5)' }, 400, request);
     if (imageData) {
       if (imageData.length > 2_000_000) return jsonResponse({ error: 'image too large' }, 413, request);
@@ -1424,7 +1441,7 @@
 
     try {
       await dbRun(
-        'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id, printful_variant_map) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         brandId,
         title,
         slug,
@@ -1439,15 +1456,22 @@
         imageData,
         isPublished,
         targetId,
-        printfulVariantId
+        printfulVariantId,
+        printfulVariantMap
       );
     } catch (e) {
       const msg = String(e || '');
       if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
         return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
       }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_id')) {
-        // Printful migration not yet applied — insert without it.
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        // variant map migration not yet run — insert without printful_variant_map
+        await dbRun(
+          'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId, printfulVariantId
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_id')) {
+        // Printful migration not yet applied — insert without printful columns.
         await dbRun(
           'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId
@@ -1571,6 +1595,14 @@
       params.push(v);
     }
 
+    if (body.printful_variant_map !== undefined) {
+      const v = body.printful_variant_map != null
+        ? (typeof body.printful_variant_map === 'object' ? JSON.stringify(body.printful_variant_map) : String(body.printful_variant_map).trim() || null)
+        : null;
+      fields.push('printful_variant_map = ?');
+      params.push(v);
+    }
+
     if (!fields.length) return jsonResponse({ ok: true }, 200, request);
     fields.push("updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
 
@@ -1592,7 +1624,7 @@
       row = await dbGet(
         `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
                 case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at, b.name as brand
+                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.created_at, p.updated_at, b.name as brand
         from products p
         left join brands b on b.id = p.brand_id
         where p.id = ?`,
@@ -1600,7 +1632,17 @@
       );
     } catch (e) {
       const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        row = await dbGet(
+          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
+                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
+                  p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at, b.name as brand
+          from products p
+          left join brands b on b.id = p.brand_id
+          where p.id = ?`,
+          id
+        );
+      } else if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls') || msg.includes('printful_sync_variant_id'))) {
         row = await dbGet(
           `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
                   p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand

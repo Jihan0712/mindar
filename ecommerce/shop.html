@@ -177,6 +177,21 @@
   <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
   <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
+
+  <!-- Size Picker Modal -->
+  <div class="modal fade" id="shopSizePickerModal" tabindex="-1" aria-labelledby="shopSizePickerLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0">
+        <div class="modal-header" style="border-bottom:2px solid #333">
+          <h5 class="modal-title text-uppercase" id="shopSizePickerLabel" style="font-family:'Roboto Mono',monospace;font-size:14px;color:#F5F5F0;letter-spacing:.08em">Select a Size</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body py-4" id="shopSizePickerBody">
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function(){var f=document.getElementById('newsletter-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();alert('Thanks! Newsletter signup is a demo.');try{f.reset()}catch{}})})();
     (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');var userEl=document.getElementById('liveCatalogUser');try{var me=await auth.me();var user=me&&me.email?me:null;if(userEl)userEl.textContent=user?'Signed in as '+user.email+' ('+user.role+')':'Not signed in';if(loginEl)loginEl.style.display=user?'none':'';var canDashboard=user&&(user.role==='admin'||user.role==='brand');if(dashEl)dashEl.style.display=canDashboard?'':'none';var arDashEl=document.getElementById('navArDashboard');if(arDashEl)arDashEl.style.display=canDashboard?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){if(userEl)userEl.textContent='Not signed in'}})();
@@ -224,7 +239,9 @@
           var title=escapeHtml((p.title||'Product').toString());var slug=encodeURIComponent((p.slug||'').toString());var price=escapeHtml(moneyFromCents(p.price_cents,p.currency));
           var img=escapeHtml(normalizeCatalogImageUrl((p.image_url||'images/product-thumb-1.jpg').toString()));
           var viewer=(p.viewer_url||'').toString();var href=slug?'product.html?slug='+slug:'product.html';
-          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><div class="shop-card-title">'+title+'</div><a href="'+escapeHtml(href)+'" class="shop-card-image"><img src="'+img+'" alt="'+title+'"></a><div class="shop-card-footer"><div class="shop-card-price">'+price+'</div><a href="#" class="shop-card-buy" data-sku="'+escapeHtml((p.slug||'').toString())+'" data-printful-variant="'+escapeHtml(String(p.printful_sync_variant_id||''))+'">BUY NOW</a></div></div></div>';
+          var pfMapJson = p.printful_variant_map ? JSON.stringify(p.printful_variant_map) : '';
+          var pfSizes = p.sizes ? (p.sizes||'').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><div class="shop-card-title">'+title+'</div><a href="'+escapeHtml(href)+'" class="shop-card-image"><img src="'+img+'" alt="'+title+'"></a><div class="shop-card-footer"><div class="shop-card-price">'+price+'</div><a href="#" class="shop-card-buy" data-sku="'+escapeHtml((p.slug||'').toString())+'" data-href="'+escapeHtml(href)+'" data-printful-variant="'+escapeHtml(String(p.printful_sync_variant_id||''))+'" data-printful-variant-map="'+escapeHtml(pfMapJson)+'" data-sizes="'+escapeHtml(pfSizes.join(','))+'">BUY NOW</a></div></div></div>';
         }).join('');
       }catch(e){if(statusEl)statusEl.textContent='Failed to load products.';if(labelEl)labelEl.textContent='';gridEl.innerHTML='';console.warn('Shop products failed:',e)}
     }
@@ -237,7 +254,25 @@
     }
 
     function slugify(s){return(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')}
+    // Size picker state
+    var _shopBuyPending = null;
     document.addEventListener('click',function(e){
+      // Handle size picker buttons inside modal
+      var sizePickBtn = e.target.closest('[data-pick-size]');
+      if (sizePickBtn && _shopBuyPending) {
+        e.preventDefault();
+        var size = sizePickBtn.getAttribute('data-pick-size');
+        var item = _shopBuyPending;
+        var variantMap = item.variantMap || {};
+        var pfVariantId = (size && variantMap[size]) ? variantMap[size] : (item.pfVariant || null);
+        var cartId = item.sku ? ('sku-'+item.sku+'-'+size) : ('sku-'+slugify(item.name)+'-'+size);
+        Cart.add({id:cartId,name:item.name+' ('+size+')',price:item.price,image:item.image,qty:1,printful_sync_variant_id:pfVariantId});
+        CartUI.render();
+        var modalEl = document.getElementById('shopSizePickerModal');
+        if (modalEl && window.bootstrap) { var bsModal = bootstrap.Modal.getInstance(modalEl); if (bsModal) bsModal.hide(); }
+        _shopBuyPending = null;
+        return;
+      }
       var btn=e.target.closest('.shop-card-buy');if(!btn)return;e.preventDefault();
       var card=btn.closest('.shop-card');if(!card)return;
       var name=(card.querySelector('.shop-card-title')||{}).textContent||'Product';
@@ -248,8 +283,21 @@
       var image=imgEl?imgEl.getAttribute('src'):'';
       var sku=(btn.getAttribute('data-sku')||'').trim();
       var pfVariant=(btn.getAttribute('data-printful-variant')||'').trim()||null;
+      var pfMapRaw=(btn.getAttribute('data-printful-variant-map')||'').trim();
+      var variantMap={};try{if(pfMapRaw)variantMap=JSON.parse(pfMapRaw);}catch(e){}
+      var sizesRaw=(btn.getAttribute('data-sizes')||'').trim();
+      var sizes=sizesRaw?sizesRaw.split(',').filter(Boolean):[];
       var id=sku?('sku-'+sku):('sku-'+slugify(name));
-      Cart.add({id:id,name:name,price:price,image:image,qty:1,printful_sync_variant_id:pfVariant});CartUI.render();
+      if(sizes.length>1){
+        _shopBuyPending={sku:sku,name:name,price:price,image:image,pfVariant:pfVariant,variantMap:variantMap};
+        var modalBody=document.getElementById('shopSizePickerBody');
+        if(modalBody){modalBody.innerHTML='<div class="d-flex flex-wrap gap-2 justify-content-center">'+sizes.map(function(s){return'<button class="btn btn-outline-dark text-uppercase fw-bold px-4 py-2" data-pick-size="'+s+'">'+s+'</button>';}).join('')+'</div>';}
+        var modalEl=document.getElementById('shopSizePickerModal');
+        if(modalEl&&window.bootstrap){new bootstrap.Modal(modalEl).show();}
+        return;
+      }
+      var resolvedVariant=(sizes.length===1&&variantMap[sizes[0]])?variantMap[sizes[0]]:pfVariant;
+      Cart.add({id:id,name:name+(sizes.length===1?' ('+sizes[0]+')':''),price:price,image:image,qty:1,printful_sync_variant_id:resolvedVariant});CartUI.render();
     });
     bindShopControls();renderShopProducts();CartUI.render();
   </script>

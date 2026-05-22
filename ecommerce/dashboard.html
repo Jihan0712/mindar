@@ -148,9 +148,11 @@
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="printfulVariantInput">Printful Sync Variant ID <span class="text-secondary">(optional)</span></label>
-                <input id="printfulVariantInput" class="form-control" type="text" placeholder="e.g. 12345678" />
-                <div class="form-text">Find this in Printful → Stores → your store → Products → click a variant. Required for automatic print-on-demand fulfillment.</div>
+                <label class="form-label text-uppercase">Printful Variant IDs per Size <span class="text-secondary">(optional)</span></label>
+                <div id="printfulVariantFields" class="vstack gap-1">
+                  <div class="text-secondary" style="font-size:12px">Enter sizes above first — each size will appear here to link its Printful variant ID.</div>
+                </div>
+                <div class="form-text">Find variant IDs in Printful → Stores → your store → Products → click a variant. Required for automatic print-on-demand fulfillment.</div>
               </div>
 
               <div>
@@ -383,7 +385,8 @@
       el('imageFileInput').value = '';
       el('descInput').value = p ? (p.description || '') : '';
       el('publishInput').checked = !!(p && p.is_published);
-      el('printfulVariantInput').value = p ? (p.printful_sync_variant_id || '') : '';
+      const _pfSizes = p ? (p.sizes || '').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+      renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
       el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
       el('saveBtn').textContent = p ? 'Update' : 'Create';
       syncCategoryPresetFromInput();
@@ -438,8 +441,8 @@
               <span class="badge ${p.is_published ? 'bg-success' : 'bg-secondary'}">${p.is_published ? 'Yes' : 'No'}</span>
             </td>
             <td>
-              ${p.printful_sync_variant_id
-                ? `<span class="badge bg-success" title="Variant ID: ${escapeHtml(String(p.printful_sync_variant_id))}">Linked</span>`
+              ${(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || p.printful_sync_variant_id
+                ? '<span class="badge bg-success">Linked</span>'
                 : '<span class="badge bg-secondary">Not set</span>'}
             </td>
             <td>
@@ -459,6 +462,35 @@
 
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
+
+    function renderPrintfulVariantFields(sizes, currentMap) {
+      const container = el('printfulVariantFields');
+      if (!container) return;
+      if (!sizes || !sizes.length) {
+        container.innerHTML = '<div class="text-secondary" style="font-size:12px">Enter sizes above first — each size will appear here to link its Printful variant ID.</div>';
+        return;
+      }
+      container.innerHTML = sizes.map(function(size) {
+        const val = (currentMap && currentMap[size]) ? escapeHtml(String(currentMap[size])) : '';
+        return '<div class="d-flex align-items-center gap-2 mb-1">' +
+          '<span style="min-width:40px;font-size:12px;text-transform:uppercase;font-weight:700;letter-spacing:.05em">' + escapeHtml(size) + '</span>' +
+          '<input class="form-control form-control-sm" type="text" data-pf-size="' + escapeHtml(size) + '" placeholder="e.g. 6a0ff0f16447e7" value="' + val + '" />' +
+          '</div>';
+      }).join('');
+    }
+
+    function collectPrintfulVariantMap() {
+      const inputs = document.querySelectorAll('#printfulVariantFields input[data-pf-size]');
+      if (!inputs.length) return null;
+      const map = {};
+      let hasAny = false;
+      inputs.forEach(function(inp) {
+        const size = inp.getAttribute('data-pf-size');
+        const val = (inp.value || '').trim();
+        if (size && val) { map[size] = val; hasAny = true; }
+      });
+      return hasAny ? map : null;
     }
 
     async function loadProducts() {
@@ -510,6 +542,15 @@
       el('resetBtn').addEventListener('click', () => setFormProduct(null, isAdmin));
       setFormProduct(null, isAdmin);
 
+      // Re-render Printful variant fields when sizes change
+      const sizesInputEl = el('sizesInput');
+      if (sizesInputEl) {
+        sizesInputEl.addEventListener('input', function() {
+          const sizes = (sizesInputEl.value || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+          renderPrintfulVariantFields(sizes, collectPrintfulVariantMap());
+        });
+      }
+
       // Keep category preset + input in sync
       const categoryPresetEl = el('categoryPreset');
       const categoryInputEl = el('categoryInput');
@@ -535,7 +576,7 @@
           image_url: el('imageUrlInput').value.trim(),
           description: el('descInput').value.trim(),
           is_published: el('publishInput').checked,
-          printful_sync_variant_id: el('printfulVariantInput').value.trim() || null,
+          printful_variant_map: collectPrintfulVariantMap(),
           ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
         };
         if (isAdmin) body.brand = el('brandInput').value.trim();
