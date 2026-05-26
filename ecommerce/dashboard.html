@@ -1,100 +1,163 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard | MindAR Store</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="style.css">
-
-  <!-- Worker Auth Client (same session/role as AR dashboards) -->
-  <script src="/assets/js/auth-worker.js?v=20260204"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Product Dashboard | INRL</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <style>
+    body { background:#1C1C1C; color:#F5F5F0; font-family:'Roboto Mono',monospace; }
+    .hidden { display:none !important; }
+    .inrl-navbar { background:#111; border-bottom:3px solid #333; }
+    .inrl-brand { font-family:'Averia Serif Libre',serif; font-size:1.4rem; font-weight:700; color:#00ED0A !important; text-decoration:none; letter-spacing:.05em; }
+    .inrl-card { background:#212121; border:3px solid #333; box-shadow:6px 6px 0 rgba(0,237,10,.12); border-radius:0; }
+    .inrl-card-header { background:#111 !important; border-bottom:3px solid #333 !important; padding:.85rem 1.25rem; text-transform:uppercase; font-size:.7rem; letter-spacing:.09em; color:#888; font-weight:700; }
+    .inrl-heading { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.3rem; font-weight:700; border-left:4px solid #00ED0A; padding-left:.75rem; margin-bottom:.25rem; }
+    .btn-inrl { background:#00ED0A; border:3px solid #1C1C1C; color:#1C1C1C !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; letter-spacing:.05em; }
+    .btn-inrl:hover,.btn-inrl:focus { background:#00c409; color:#1C1C1C !important; }
+    .btn-inrl-outline { background:transparent; border:2px solid #00ED0A; color:#00ED0A !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
+    .btn-inrl-outline:hover,.btn-inrl-outline:focus { background:#00ED0A; color:#1C1C1C !important; }
+    .btn-danger-inrl { background:#ff4d4f; border:2px solid #ff4d4f; color:#fff !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
+    .btn-danger-inrl:hover { background:#d9363e; border-color:#d9363e; color:#fff !important; }
+    .btn-warn-inrl { background:transparent; border:2px solid #FEFD00; color:#FEFD00 !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
+    .btn-warn-inrl:hover { background:#FEFD00; color:#1C1C1C !important; }
+    .btn-success-inrl { background:transparent; border:2px solid #00ED0A; color:#00ED0A !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
+    .btn-success-inrl:hover { background:#00ED0A; color:#1C1C1C !important; }
+    .form-control,.form-select { background-color:#1C1C1C !important; border:2px solid #444 !important; color:#F5F5F0 !important; font-family:'Roboto Mono',monospace; border-radius:0; }
+    .form-control:focus,.form-select:focus { background-color:#1C1C1C !important; border-color:#00ED0A !important; color:#F5F5F0 !important; box-shadow:0 0 0 2px rgba(0,237,10,.2) !important; }
+    .form-control::placeholder { color:#555; }
+    /* form-select: restore light dropdown arrow after background-color override */
+    .form-select { background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23888888' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important; background-repeat:no-repeat !important; background-position:right .75rem center !important; background-size:16px 12px !important; padding-right:2.25rem !important; }
+    /* file input button */
+    .form-control[type=file] { padding:.3rem .5rem; }
+    .form-control[type=file]::file-selector-button { background:#111; color:#777; border:0; border-right:2px solid #444; font-family:'Roboto Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.3rem .7rem; margin-right:.75rem; cursor:pointer; border-radius:0; transition:color .15s; }
+    .form-control[type=file]:hover::file-selector-button,.form-control[type=file]:focus::file-selector-button { color:#00ED0A; }
+    .form-check-input { background-color:#333 !important; border-color:#555 !important; border-radius:0 !important; }
+    .form-check-input:checked { background-color:#00ED0A !important; border-color:#00ED0A !important; }
+    .form-check-input:focus { box-shadow:0 0 0 2px rgba(0,237,10,.2) !important; border-color:#555 !important; }
+    .form-label { color:#999; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; margin-bottom:.35rem; }
+    .form-text { color:#555; font-size:.68rem; line-height:1.5; }
+    .input-group-text { background:#111 !important; border:2px solid #444 !important; color:#888 !important; border-radius:0; font-family:'Roboto Mono',monospace; }
+    .input-group .btn { border-radius:0; }
+    /* input-group: prevent double borders between adjacent elements */
+    .input-group>.form-control:not(:first-child),.input-group>.form-select:not(:first-child),.input-group>.input-group-text:not(:first-child),.input-group>.btn:not(:first-child) { margin-left:-2px; }
+    .inrl-table th { background:#111 !important; border-bottom:3px solid #333 !important; color:#888 !important; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.65rem; letter-spacing:.09em; padding:.7rem .9rem !important; }
+    .inrl-table td { border-bottom:1px solid #2a2a2a !important; vertical-align:middle; color:#F5F5F0; font-size:.78rem; padding:.65rem .9rem !important; }
+    .inrl-table tr:hover td { background:rgba(0,237,10,.04) !important; }
+    .inrl-tabs { border-bottom:3px solid #333; margin-bottom:1.75rem; gap:0; }
+    .inrl-tabs .nav-link { color:#666; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.68rem; letter-spacing:.09em; font-weight:700; border:none; border-radius:0; padding:.55rem 1.1rem; background:transparent; }
+    .inrl-tabs .nav-link:hover { color:#ccc; background:rgba(255,255,255,.03); }
+    .inrl-tabs .nav-link.active { color:#00ED0A; border-bottom:3px solid #00ED0A; margin-bottom:-3px; background:transparent; }
+    #status { font-size:.78rem; padding:.55rem .9rem; border-radius:0; margin-bottom:.75rem; border-left:3px solid transparent; }
+    #status:empty { display:none !important; }
+    #status.status-error { color:#ff4d4f; border-color:#ff4d4f; background:rgba(255,77,79,.07); }
+    #status.status-success { color:#00ED0A; border-color:#00ED0A; background:rgba(0,237,10,.07); }
+    #status.status-info { color:#888; border-color:#444; background:rgba(255,255,255,.03); }
+    .inrl-subcard { background:#181818; border:2px solid #2a2a2a; border-radius:0; padding:1rem 1.25rem; }
+    .inrl-subcard-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:#555; font-weight:700; margin-bottom:.6rem; }
+    .inrl-section-title { font-size:.62rem; text-transform:uppercase; letter-spacing:.12em; color:#666; font-weight:700; border-bottom:1px solid #2a2a2a; padding-bottom:.4rem; margin-bottom:1.25rem; margin-top:2.25rem; }
+    .inrl-section-title.first { margin-top:0; }
+    .order-stat { background:#181818; border:2px solid #2a2a2a; padding:1rem 1.25rem; }
+    .order-stat-value { font-family:'Averia Serif Libre',serif; font-size:1.75rem; font-weight:700; color:#00ED0A; line-height:1; }
+    .order-stat-value.warn { color:#FEFD00; }
+    .order-stat-value.neutral { color:#F5F5F0; }
+    .order-stat-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.1em; color:#555; font-weight:700; margin-top:.35rem; }
+    code { color:#FEFD00; font-size:.75em; background:rgba(254,253,0,.08); padding:.1em .35em; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:#111; }
+    ::-webkit-scrollbar-thumb { background:#333; }
+    .table-responsive::-webkit-scrollbar { height:4px; }
+    .table-responsive::-webkit-scrollbar-track { background:#1a1a1a; }
+    .table-responsive::-webkit-scrollbar-thumb { background:#444; }
+    @media (max-width:991.98px) { .inrl-navbar .navbar-collapse { background:#111; padding:.5rem 0; border-top:1px solid #2a2a2a; margin-top:.25rem; } }
+  </style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg fixed-top p-3">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="index.html" ><img src="images/main-logo.png" alt="INRL" style="height:36px"></a>
-      <div class="d-flex align-items-center gap-3 order-lg-last">
-        <a href="cart.html" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Cart (<span class="js-cart-count">0</span>)</a>
-      </div>
-      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbarDash"><span class="navbar-toggler-icon"></span></button>
-      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbarDash" aria-labelledby="offcanvasNavbarDashLabel">
-        <div class="offcanvas-header"><h5 class="offcanvas-title" id="offcanvasNavbarDashLabel">Menu</h5><button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
-        <div class="offcanvas-body">
-          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
-            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
-            <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
-            <li class="nav-item"><a class="nav-link" href="contact.html">Contact</a></li>
-            <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-            <li class="nav-item"><a class="nav-link active" href="dashboard.html">Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" id="logoutBtn" href="#">Logout</a></li>
-          </ul>
-        </div>
-      </div>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg inrl-navbar px-3 py-2">
+  <a class="inrl-brand me-4" href="/ecommerce/index.html">INRL</a>
+  <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navCollapseDash">
+    <span style="color:#00ED0A;font-size:1.25rem;">&#9776;</span>
+  </button>
+  <div class="collapse navbar-collapse" id="navCollapseDash">
+    <div class="d-flex flex-wrap gap-2 me-auto py-2 py-lg-0">
+      <span class="px-2 py-1 d-none d-lg-block" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:#555;line-height:2">Product Dashboard</span>
     </div>
-  </nav>
-  <main class="container py-5" style="max-width: 1100px; margin-top: 76px">
-    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
-      <div>
-        <h1 class="h4 text-uppercase mb-1" style="color:#F5F5F0">Product Dashboard</h1>
-        <div style="font-size:14px;color:rgba(245,245,240,.5)">
-          Signed in as <span id="userEmail"></span> (<span id="userRole"></span>)
-        </div>
-      </div>
+    <div class="d-flex flex-wrap align-items-center gap-2 py-2 py-lg-0">
+      <a href="/ecommerce/index.html" class="btn btn-sm btn-inrl-outline">Store</a>
+      <a href="/admin.html" class="btn btn-sm btn-inrl-outline">AR Dashboard &#x2197;</a>
+      <a href="/ecommerce/profile.html" class="btn btn-sm btn-inrl-outline">Profile</a>
+      <span id="userEmail" class="px-1" style="font-size:.65rem;color:#555"></span>
+      <button id="logoutBtn" class="btn btn-sm btn-danger-inrl">Logout</button>
     </div>
+  </div>
+</nav>
 
-    <!-- Tab nav (Homepage tab shown by JS when admin) -->
-    <ul class="nav nav-tabs mb-4" id="dashTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active text-uppercase" id="tab-products" data-bs-toggle="tab" data-bs-target="#pane-products" type="button" role="tab">Products</button>
-      </li>
-      <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">
-        <button class="nav-link text-uppercase" id="tab-homepage" data-bs-toggle="tab" data-bs-target="#pane-homepage" type="button" role="tab">Homepage Editor</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <a class="nav-link text-uppercase" href="/admin.html">AR Dashboard &#x2197;</a>
-      </li>
-    </ul>
+<div class="container-fluid px-4 pb-5" style="max-width:1400px;">
 
-    <div id="status" class="alert alert-light border" role="status" style="display:none"></div>
+  <!-- Page heading -->
+  <div class="pt-4 mb-3">
+    <h1 class="inrl-heading">Product Dashboard</h1>
+    <div style="font-size:.68rem;color:#555;padding-left:1.1rem"><span id="userRole" style="color:#777"></span></div>
+  </div>
 
-    <div class="tab-content">
+  <!-- Status -->
+  <div id="status"></div>
 
-    <!-- PRODUCTS PANE -->
-    <div class="tab-pane fade show active" id="pane-products" role="tabpanel">
+  <!-- Tabs -->
+  <ul class="nav inrl-tabs" id="dashTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-products" data-bs-toggle="tab" data-bs-target="#pane-products" type="button" role="tab">Products</button>
+    </li>
+    <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">
+      <button class="nav-link" id="tab-homepage" data-bs-toggle="tab" data-bs-target="#pane-homepage" type="button" role="tab">Homepage Editor</button>
+    </li>
+    <li class="nav-item" role="presentation" id="tab-orders-item" style="display:none">
+      <button class="nav-link" id="tab-orders" data-bs-toggle="tab" data-bs-target="#pane-orders" type="button" role="tab">Orders</button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+  <!-- ===== PRODUCTS PANE ===== -->
+  <div class="tab-pane fade show active" id="pane-products" role="tabpanel">
     <div class="row g-4">
+
+      <!-- CREATE / EDIT FORM -->
       <div class="col-12 col-lg-5">
-        <div class="card">
-          <div class="card-header text-uppercase">Create / Edit Product</div>
-          <div class="card-body">
+        <div class="inrl-card">
+          <div class="inrl-card-header">Create / Edit Product</div>
+          <div class="p-4">
             <form id="productForm" class="vstack gap-3">
               <input type="hidden" id="productId" value="">
 
               <div id="brandGroup" style="display:none">
-                <label class="form-label text-uppercase" for="brandInput">Brand (admin only)</label>
+                <label class="form-label" for="brandInput">Brand <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
                 <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="titleInput">Title</label>
+                <label class="form-label" for="titleInput">Title <span style="color:#ff4d4f">*</span></label>
                 <input id="titleInput" class="form-control" type="text" required />
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="categoryPreset">Category Preset</label>
+                <label class="form-label" for="categoryPreset">Category Preset</label>
                 <select id="categoryPreset" class="form-select">
                   <option value="">(custom)</option>
                   <option value="Men">Men</option>
                   <option value="Women">Women</option>
                   <option value="Accessories">Accessories</option>
                 </select>
-                <div class="form-text">Use a preset to match shop pages (Men/Women/Accessories), or keep a custom category.</div>
+                <div class="form-text">Use a preset to match shop pages, or enter a custom category.</div>
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="categoryInput">Category</label>
+                <label class="form-label" for="categoryInput">Category <span style="color:#ff4d4f">*</span></label>
                 <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
                 <datalist id="categoryDatalist">
                   <option value="Men"></option>
@@ -104,59 +167,59 @@
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="colorInput">Color</label>
+                <label class="form-label" for="colorInput">Color <span style="color:#ff4d4f">*</span></label>
                 <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="sizesInput">Sizing</label>
+                <label class="form-label" for="sizesInput">Sizing <span style="color:#ff4d4f">*</span></label>
                 <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
-                <div class="form-text">Enter one or more sizes (comma-separated).</div>
+                <div class="form-text">Comma-separated sizes.</div>
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="slugInput">Slug (used for AR linking)</label>
+                <label class="form-label" for="slugInput">Slug</label>
                 <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
-                <div class="form-text">Viewer link becomes: <code>/index.html?brand=…&amp;product=&lt;slug&gt;</code></div>
+                <div class="form-text">AR viewer: <code>/index.html?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="priceInput">Price</label>
+                <label class="form-label" for="priceInput">Price <span style="color:#ff4d4f">*</span></label>
                 <div class="input-group">
                   <span class="input-group-text">$</span>
                   <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" required />
-                  <select id="currencyInput" class="form-select" style="max-width: 120px">
+                  <select id="currencyInput" class="form-select" style="max-width:110px">
                     <option value="USD">USD</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="imageUrlInput">Image URL (optional)</label>
-                <input id="imageUrlInput" class="form-control" type="url" placeholder="https://..." />
+                <label class="form-label" for="imageUrlInput">Image URL</label>
+                <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="imageFileInput">Upload Image (optional)</label>
+                <label class="form-label" for="imageFileInput">Upload Images</label>
                 <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
-                <div class="form-text">Upload up to 5 images. Files are stored in R2 and URLs are saved in the database.</div>
+                <div class="form-text">Up to 5 images. Stored in R2.</div>
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="descInput">Description</label>
+                <label class="form-label" for="descInput">Description</label>
                 <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
               </div>
 
               <div>
-                <label class="form-label text-uppercase">Printful Variant IDs per Size <span class="text-secondary">(optional)</span></label>
+                <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
                 <div id="printfulVariantFields" class="vstack gap-1">
-                  <div class="text-secondary" style="font-size:12px">Enter sizes above first — each size will appear here to link its Printful variant ID.</div>
+                  <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
                 </div>
-                <div class="form-text">Find variant IDs in Printful → Stores → your store → Products → click a variant. Required for automatic print-on-demand fulfillment.</div>
+                <div class="form-text">Find IDs in Printful &#8594; Stores &#8594; Products &#8594; click a variant.</div>
               </div>
 
               <div>
-                <label class="form-label text-uppercase" for="targetSelect">Link to AR Target (optional)</label>
+                <label class="form-label" for="targetSelect">AR Target <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
                 <select id="targetSelect" class="form-select">
                   <option value="">(none)</option>
                 </select>
@@ -164,884 +227,1054 @@
 
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="publishInput">
-                <label class="form-check-label text-uppercase" for="publishInput">Published</label>
+                <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
               </div>
 
-              <div class="d-flex gap-2">
-                <button class="btn btn-dark text-uppercase" type="submit" id="saveBtn">Save</button>
-                <button class="btn btn-outline-secondary text-uppercase" type="button" id="resetBtn">Reset</button>
+              <div class="d-flex gap-2 pt-1">
+                <button class="btn btn-inrl flex-fill" type="submit" id="saveBtn">Save</button>
+                <button class="btn btn-inrl-outline" type="button" id="resetBtn">Reset</button>
               </div>
             </form>
           </div>
         </div>
       </div>
 
+      <!-- PRODUCTS TABLE -->
       <div class="col-12 col-lg-7">
-        <div class="card">
-          <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
+        <div class="inrl-card">
+          <div class="inrl-card-header d-flex justify-content-between align-items-center">
             <span>Products</span>
-            <button id="refreshBtn" class="btn btn-sm btn-outline-dark text-uppercase">Refresh</button>
+            <button id="refreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
           </div>
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-striped table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Slug</th>
-                    <th>Brand</th>
-                    <th>Price</th>
-                    <th>Published</th>
-                    <th>Printful</th>
-                    <th>AR</th>
-                    <th class="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="productsTbody"></tbody>
-              </table>
+          <div class="table-responsive">
+            <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Slug</th>
+                  <th class="d-none d-xl-table-cell">Brand</th>
+                  <th>Price</th>
+                  <th>Pub</th>
+                  <th>Printful</th>
+                  <th>AR</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="productsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /pane-products -->
+
+  <!-- ===== HOMEPAGE PANE ===== -->
+  <div class="tab-pane fade" id="pane-homepage" role="tabpanel">
+    <div class="inrl-card">
+      <div class="inrl-card-header d-flex justify-content-between align-items-center">
+        <span>Homepage Editor</span>
+        <div class="d-flex gap-2">
+          <button id="homeLoadBtn" class="btn btn-sm btn-inrl-outline" type="button" style="font-size:.62rem;padding:.22rem .65rem">Load</button>
+          <button id="homeSaveBtn" class="btn btn-sm btn-inrl" type="button" style="font-size:.62rem;padding:.22rem .65rem">Save</button>
+        </div>
+      </div>
+      <div class="p-4">
+
+        <div class="inrl-section-title first">Billboard</div>
+        <div class="row g-3">
+          <div class="col-12 col-lg-6">
+            <label class="form-label" for="homeBillboardTitle">Title</label>
+            <input id="homeBillboardTitle" class="form-control" type="text" placeholder="e.g. New Collections" />
+          </div>
+          <div class="col-12 col-lg-6">
+            <label class="form-label">Image</label>
+            <div class="input-group">
+              <input id="homeBillboardImage" class="form-control" type="text" placeholder="URL or upload &#8594;" />
+              <label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">
+                Upload
+                <input type="file" accept="image/*" data-home-upload="billboard-image" style="display:none">
+              </label>
             </div>
+            <img id="homeBillboardImagePreview" src="" alt="" style="display:none;margin-top:8px;max-height:80px;border:1px solid #333;object-fit:cover">
           </div>
+          <div class="col-12">
+            <label class="form-label" for="homeBillboardDesc">Description</label>
+            <textarea id="homeBillboardDesc" class="form-control" rows="2" placeholder="Short homepage intro&#8230;"></textarea>
+          </div>
+        </div>
+
+        <div class="inrl-section-title d-flex justify-content-between align-items-center">
+          <span>Hero Slides</span>
+          <button id="homeAddSlideBtn" class="btn btn-sm btn-inrl-outline" type="button" style="font-size:.62rem;padding:.2rem .6rem">+ Add Slide</button>
+        </div>
+        <div id="homeSlides" class="vstack gap-3"></div>
+
+        <div class="inrl-section-title">Who We Are</div>
+        <div class="row g-3">
+          <div class="col-12 col-lg-4">
+            <label class="form-label">Label</label>
+            <input id="homeWhoLabel" class="form-control" type="text" placeholder="Who We Are" />
+          </div>
+          <div class="col-12 col-lg-8">
+            <label class="form-label">Headline</label>
+            <input id="homeWhoHeadline" class="form-control" type="text" placeholder="Fashion meets digital identity" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Body Text</label>
+            <textarea id="homeWhoBody" class="form-control" rows="3" placeholder="Brand description&#8230;"></textarea>
+          </div>
+        </div>
+        <div class="row g-3 mt-1">
+          <div class="col-12">
+            <label class="form-label">Stats <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(up to 4)</span></label>
+            <div id="homeWhoStats" class="vstack gap-2"></div>
+          </div>
+        </div>
+
+        <div class="inrl-section-title">What We Offer (Features)</div>
+        <div class="row g-3">
+          <div class="col-12 col-lg-4">
+            <label class="form-label">Section Label</label>
+            <input id="homeFeaturesLabel" class="form-control" type="text" placeholder="The Experience" />
+          </div>
+          <div class="col-12 col-lg-8">
+            <label class="form-label">Section Headline</label>
+            <input id="homeFeaturesHeadline" class="form-control" type="text" placeholder="What makes us different" />
+          </div>
+        </div>
+        <div id="homeFeatureCards" class="row g-3 mt-1"></div>
+
+        <div class="inrl-section-title d-flex justify-content-between align-items-center">
+          <span>Testimonials</span>
+          <button id="homeAddTestimonialBtn" class="btn btn-sm btn-inrl-outline" type="button" style="font-size:.62rem;padding:.2rem .6rem">+ Add</button>
+        </div>
+        <div id="homeTestimonials" class="vstack gap-3"></div>
+
+        <div class="inrl-section-title">Newsletter</div>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Headline <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">wrap *text* in asterisks for yellow highlight</span></label>
+            <input id="homeNewsletterHeadline" class="form-control" type="text" placeholder="Stay in the *loop*" />
+          </div>
+        </div>
+        <div class="form-text mt-3" style="color:#3a3a3a">
+          Public homepage reads from <code>/api/homepage</code>. Only admins can update.
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /pane-homepage -->
+
+  <!-- ===== ORDERS PANE (admin only) ===== -->
+  <div class="tab-pane fade" id="pane-orders" role="tabpanel">
+
+    <!-- Stats row -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value" id="stat-total-orders">&mdash;</div>
+          <div class="order-stat-label">Total Orders</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value" id="stat-revenue">&mdash;</div>
+          <div class="order-stat-label">Total Revenue</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value warn" id="stat-pending">&mdash;</div>
+          <div class="order-stat-label">Pending Fulfillment</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value" id="stat-shipped">&mdash;</div>
+          <div class="order-stat-label">Shipped</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value neutral" id="stat-avg-order">&mdash;</div>
+          <div class="order-stat-label">Avg Order Value</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value neutral" id="stat-canceled">&mdash;</div>
+          <div class="order-stat-label">Canceled</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value" id="stat-printful-linked">&mdash;</div>
+          <div class="order-stat-label">Printful Linked</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value neutral" id="stat-today">&mdash;</div>
+          <div class="order-stat-label">Orders Today</div>
         </div>
       </div>
     </div>
-    </div><!-- /pane-products -->
 
-    <!-- HOMEPAGE PANE -->
-    <div class="tab-pane fade" id="pane-homepage" role="tabpanel">
-      <div class="row g-4">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
-            <span>Homepage Editor</span>
-            <div class="d-flex gap-2">
-              <button id="homeLoadBtn" class="btn btn-sm btn-outline-dark text-uppercase" type="button">Load</button>
-              <button id="homeSaveBtn" class="btn btn-sm btn-dark text-uppercase" type="button">Save</button>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="row g-3">
-              <div class="col-12 col-lg-6">
-                <label class="form-label text-uppercase" for="homeBillboardTitle">Billboard Title</label>
-                <input id="homeBillboardTitle" class="form-control" type="text" placeholder="e.g. New Collections" />
-              </div>
-              <div class="col-12 col-lg-6">
-                <label class="form-label text-uppercase">Billboard Image</label>
-                <div class="input-group">
-                  <input id="homeBillboardImage" class="form-control" type="text" placeholder="URL or upload →" />
-                  <label class="btn btn-outline-secondary text-uppercase" style="font-size:12px;cursor:pointer">
-                    Upload
-                    <input type="file" accept="image/*" data-home-upload="billboard-image" style="display:none">
-                  </label>
-                </div>
-                <img id="homeBillboardImagePreview" src="" alt="" style="display:none;margin-top:8px;max-height:80px;border:1px solid #dee2e6;object-fit:cover">
-              </div>
-              <div class="col-12">
-                <label class="form-label text-uppercase" for="homeBillboardDesc">Billboard Description</label>
-                <textarea id="homeBillboardDesc" class="form-control" rows="2" placeholder="Short homepage intro..."></textarea>
-              </div>
-            </div>
-
-            <hr class="my-4" />
-
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h2 class="h6 text-uppercase m-0">Hero Slides</h2>
-              <button id="homeAddSlideBtn" class="btn btn-sm btn-outline-secondary text-uppercase" type="button">Add Slide</button>
-            </div>
-
-            <div id="homeSlides" class="vstack gap-3"></div>
-
-            <hr class="my-4" />
-
-            <h2 class="h6 text-uppercase mb-3">Who We Are</h2>
-            <div class="row g-3">
-              <div class="col-12 col-lg-4">
-                <label class="form-label text-uppercase">Label</label>
-                <input id="homeWhoLabel" class="form-control" type="text" placeholder="Who We Are" />
-              </div>
-              <div class="col-12 col-lg-8">
-                <label class="form-label text-uppercase">Headline</label>
-                <input id="homeWhoHeadline" class="form-control" type="text" placeholder="Fashion meets digital identity" />
-              </div>
-              <div class="col-12">
-                <label class="form-label text-uppercase">Body Text</label>
-                <textarea id="homeWhoBody" class="form-control" rows="3" placeholder="Brand description..."></textarea>
-              </div>
-            </div>
-            <div class="row g-3 mt-1">
-              <div class="col-12">
-                <label class="form-label text-uppercase">Stats (up to 3, comma-separated as value:label pairs)</label>
-                <div id="homeWhoStats" class="vstack gap-2"></div>
-              </div>
-            </div>
-
-            <hr class="my-4" />
-
-            <h2 class="h6 text-uppercase mb-3">What We Offer (Features)</h2>
-            <div class="row g-3">
-              <div class="col-12 col-lg-4">
-                <label class="form-label text-uppercase">Section Label</label>
-                <input id="homeFeaturesLabel" class="form-control" type="text" placeholder="The Experience" />
-              </div>
-              <div class="col-12 col-lg-8">
-                <label class="form-label text-uppercase">Section Headline</label>
-                <input id="homeFeaturesHeadline" class="form-control" type="text" placeholder="What makes us different" />
-              </div>
-            </div>
-            <div id="homeFeatureCards" class="row g-3 mt-1"></div>
-
-            <hr class="my-4" />
-
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h2 class="h6 text-uppercase m-0">Testimonials</h2>
-              <button id="homeAddTestimonialBtn" class="btn btn-sm btn-outline-secondary text-uppercase" type="button">Add</button>
-            </div>
-            <div id="homeTestimonials" class="vstack gap-3"></div>
-
-            <hr class="my-4" />
-
-            <h2 class="h6 text-uppercase mb-3">Newsletter</h2>
-            <div class="row g-3">
-              <div class="col-12">
-                <label class="form-label text-uppercase">Headline <span class="text-muted fw-normal text-lowercase">(wrap *text* in asterisks for yellow highlight)</span></label>
-                <input id="homeNewsletterHeadline" class="form-control" type="text" placeholder="Stay in the *loop*" />
-              </div>
-            </div>
-
-            <div class="form-text mt-3">
-              Public homepage reads from <code>/api/homepage</code>. Only admins can update.
-            </div>
-          </div>
+    <!-- Order History table -->
+    <div class="inrl-card">
+      <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span>Order History</span>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+          <input id="orderSearch" class="form-control form-control-sm" type="text" placeholder="Search email / name&hellip;" style="width:190px;font-size:.68rem">
+          <select id="orderStatusFilter" class="form-select form-select-sm" style="width:165px;font-size:.68rem">
+            <option value="">All Statuses</option>
+            <option value="created">Created</option>
+            <option value="pending_fulfillment">Pending Fulfillment</option>
+            <option value="shipped">Shipped</option>
+            <option value="canceled">Canceled</option>
+          </select>
+          <button id="ordersRefreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
         </div>
       </div>
+      <div class="table-responsive">
+        <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="min-width:88px">Date</th>
+              <th style="min-width:110px">Order ID</th>
+              <th style="min-width:120px">Customer</th>
+              <th>Email</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Printful</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTbody"></tbody>
+        </table>
       </div>
-    </div><!-- /pane-homepage -->
+      <div class="d-flex justify-content-between align-items-center px-3 py-2" id="ordersPaginationBar" style="border-top:1px solid #2a2a2a">
+        <span id="ordersPageInfo" style="font-size:.65rem;color:#555"></span>
+        <div class="d-flex gap-2">
+          <button id="ordersPrevBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Prev</button>
+          <button id="ordersNextBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Next</button>
+        </div>
+      </div>
+    </div>
 
-    </div><!-- /tab-content -->
-  </main>
+  </div><!-- /pane-orders -->
 
-  <script>
-    const el = (id) => document.getElementById(id);
+  </div><!-- /tab-content -->
+</div><!-- /container-fluid -->
 
-    const CATEGORY_PRESETS = ['Men', 'Women', 'Accessories'];
+<script>
+  const el = (id) => document.getElementById(id);
 
-    function normalizeCategoryValue(v) {
-      return String(v || '').trim().toLowerCase();
+  const CATEGORY_PRESETS = ['Men', 'Women', 'Accessories'];
+
+  function normalizeCategoryValue(v) {
+    return String(v || '').trim().toLowerCase();
+  }
+
+  function syncCategoryPresetFromInput() {
+    const presetEl = el('categoryPreset');
+    const inputEl = el('categoryInput');
+    if (!presetEl || !inputEl) return;
+    const v = normalizeCategoryValue(inputEl.value);
+    const matched = CATEGORY_PRESETS.find((c) => normalizeCategoryValue(c) === v);
+    presetEl.value = matched || '';
+  }
+
+  function applyCategoryPresetToInput() {
+    const presetEl = el('categoryPreset');
+    const inputEl = el('categoryInput');
+    if (!presetEl || !inputEl) return;
+    const preset = presetEl.value;
+    if (preset) inputEl.value = preset;
+    syncCategoryPresetFromInput();
+  }
+
+  function showStatus(msg, type = 'info') {
+    const s = el('status');
+    s.className = type === 'error' ? 'status-error' : type === 'success' ? 'status-success' : 'status-info';
+    s.textContent = msg;
+  }
+
+  function clearStatus() {
+    const s = el('status');
+    s.className = '';
+    s.textContent = '';
+  }
+
+  function formatMoney(cents, currency) {
+    const v = Number(cents || 0) / 100;
+    const cur = currency || 'USD';
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(v);
+    } catch {
+      return '$' + v.toFixed(2);
+    }
+  }
+
+  function setFormProduct(p, isAdmin) {
+    el('productId').value = p ? String(p.id) : '';
+    if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
+    el('titleInput').value = p ? (p.title || '') : '';
+    el('categoryInput').value = p ? (p.category || '') : '';
+    el('colorInput').value = p ? (p.color || '') : '';
+    el('sizesInput').value = p ? (p.sizes || '') : '';
+    el('slugInput').value = p ? (p.slug || '') : '';
+    el('priceInput').value = p ? ((Number(p.price_cents || 0) / 100).toFixed(2)) : '';
+    el('currencyInput').value = p ? (p.currency || 'USD') : 'USD';
+    el('imageUrlInput').value = p ? (p.image_url || '') : '';
+    el('imageFileInput').value = '';
+    el('descInput').value = p ? (p.description || '') : '';
+    el('publishInput').checked = !!(p && p.is_published);
+    const _pfSizes = p ? (p.sizes || '').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+    renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
+    el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
+    el('saveBtn').textContent = p ? 'Update' : 'Create';
+    syncCategoryPresetFromInput();
+  }
+
+  function requireField(label, value) {
+    if (!String(value || '').trim()) throw new Error(label + ' required');
+  }
+
+  async function uploadProductImage(file, path) {
+    path = path || 'products';
+    const form = new FormData();
+    form.append('file', file);
+    form.append('path', path);
+    form.append('filename', file.name || ('image-' + Date.now()));
+    const res = await fetch('/upload', { method: 'POST', body: form, credentials: 'include' });
+    if (!res.ok) throw new Error('Upload failed (' + res.status + ')');
+    const data = await res.json().catch(() => ({}));
+    if (!data || !data.url) throw new Error('Upload failed (no url)');
+    return String(data.url);
+  }
+
+  async function loadTargets() {
+    const res = await apiFetch('/targets');
+    const items = res.items || [];
+    const select = el('targetSelect');
+    select.innerHTML = '<option value="">(none)</option>' + items.map(function(t) {
+      const label = t.name + (t.product ? ' \u2014 ' + t.product : '') + (t.brand ? ' \u2014 ' + t.brand : '');
+      return '<option value="' + t.id + '">' + label + '</option>';
+    }).join('');
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+      return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function renderProducts(items, isAdmin) {
+    const tbody = el('productsTbody');
+    tbody.innerHTML = '';
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4" style="color:#555">No products yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(function(p) {
+      const viewerLink = p.viewer_url || '/index.html';
+      const storeLink = 'product.html?slug=' + encodeURIComponent((p.slug || '').toString()) + (!p.slug && p.id ? '&id=' + encodeURIComponent(String(p.id)) : '');
+      const hasTarget = p.ar_target_id != null;
+      const pfLinked = (p.printful_variant_map && Object.keys(p.printful_variant_map).length) || p.printful_sync_variant_id;
+      return '<tr>' +
+        '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(p.title || '') + '</td>' +
+        '<td><code style="font-size:.7rem">' + escapeHtml(p.slug || '') + '</code></td>' +
+        '<td class="d-none d-xl-table-cell" style="color:#888">' + escapeHtml(p.brand || '') + '</td>' +
+        '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
+        '<td><span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + (p.is_published ? '#00ED0A' : '#555') + '">' + (p.is_published ? 'Yes' : 'No') + '</span></td>' +
+        '<td>' + (pfLinked
+          ? '<span style="background:#00ED0A;color:#1C1C1C;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">LINKED</span>'
+          : '<span style="background:#2a2a2a;color:#555;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">NONE</span>') + '</td>' +
+        '<td>' +
+          '<a href="' + storeLink + '" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">Store</a> ' +
+          (hasTarget ? '<a href="' + viewerLink + '" class="btn btn-sm btn-inrl" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">AR</a>' : '<span style="font-size:.62rem;color:#444">&#8212;</span>') +
+        '</td>' +
+        '<td class="text-end" style="white-space:nowrap">' +
+          '<button class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .5rem" data-action="edit" data-id="' + p.id + '">Edit</button> ' +
+          '<button class="btn btn-sm ' + (p.is_published ? 'btn-warn-inrl' : 'btn-success-inrl') + '" style="font-size:.6rem;padding:.2rem .5rem" data-action="toggle" data-id="' + p.id + '">' + (p.is_published ? 'Unpub' : 'Pub') + '</button> ' +
+          '<button class="btn btn-sm btn-danger-inrl" style="font-size:.6rem;padding:.2rem .5rem" data-action="delete" data-id="' + p.id + '">Del</button>' +
+        '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function renderPrintfulVariantFields(sizes, currentMap) {
+    const container = el('printfulVariantFields');
+    if (!container) return;
+    if (!sizes || !sizes.length) {
+      container.innerHTML = '<div style="font-size:.68rem;color:#555">Enter sizes above first \u2014 each size will appear here to link its Printful variant ID.</div>';
+      return;
+    }
+    container.innerHTML = sizes.map(function(size) {
+      const val = (currentMap && currentMap[size]) ? escapeHtml(String(currentMap[size])) : '';
+      return '<div class="d-flex align-items-center gap-2 mb-1">' +
+        '<span style="min-width:36px;font-size:.65rem;text-transform:uppercase;font-weight:700;letter-spacing:.06em;color:#888">' + escapeHtml(size) + '</span>' +
+        '<input class="form-control form-control-sm" type="text" data-pf-size="' + escapeHtml(size) + '" placeholder="e.g. 6a0ff0f16447e7" value="' + val + '" />' +
+        '</div>';
+    }).join('');
+  }
+
+  function collectPrintfulVariantMap() {
+    const inputs = document.querySelectorAll('#printfulVariantFields input[data-pf-size]');
+    if (!inputs.length) return null;
+    const map = {};
+    let hasAny = false;
+    inputs.forEach(function(inp) {
+      const size = inp.getAttribute('data-pf-size');
+      const val = (inp.value || '').trim();
+      if (size && val) { map[size] = val; hasAny = true; }
+    });
+    return hasAny ? map : null;
+  }
+
+  async function loadProducts() {
+    const res = await apiFetch('/products?includeUnpublished=1');
+    return res.items || [];
+  }
+
+  // ---- Homepage editor helpers ----
+
+  function slideCardHtml(idx, s) {
+    const image = escapeHtml(s.image || '');
+    const title = escapeHtml(s.title || '');
+    const text = escapeHtml(s.text || '');
+    const href = escapeHtml(s.href || '');
+    const linkLabel = escapeHtml(s.linkLabel || '');
+    return '<div class="inrl-subcard" data-slide-index="' + idx + '">' +
+      '<div class="d-flex justify-content-between align-items-center mb-3">' +
+        '<div class="inrl-subcard-label">Slide ' + (idx + 1) + '</div>' +
+        '<button class="btn btn-sm btn-danger-inrl" style="font-size:.6rem;padding:.2rem .55rem" type="button" data-action="remove-slide">Remove</button>' +
+      '</div>' +
+      '<div class="row g-3">' +
+        '<div class="col-12">' +
+          '<label class="form-label">Image</label>' +
+          '<div class="input-group">' +
+            '<input class="form-control" type="text" data-field="image" value="' + image + '" placeholder="images/banner-image-1.jpg or https://\u2026" />' +
+            '<label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">Upload<input type="file" accept="image/*" data-home-upload="slide-image" style="display:none"></label>' +
+          '</div>' +
+          '<img data-field="image-preview" src="' + image + '" alt="" style="' + (image ? '' : 'display:none;') + 'margin-top:6px;max-height:70px;border:1px solid #333;object-fit:cover">' +
+        '</div>' +
+        '<div class="col-12 col-lg-6"><label class="form-label">Title</label><input class="form-control" type="text" data-field="title" value="' + title + '" /></div>' +
+        '<div class="col-12 col-lg-6"><label class="form-label">Link URL</label><input class="form-control" type="text" data-field="href" value="' + href + '" placeholder="index.html" /></div>' +
+        '<div class="col-12"><label class="form-label">Text</label><textarea class="form-control" rows="2" data-field="text">' + text + '</textarea></div>' +
+        '<div class="col-12 col-lg-6"><label class="form-label">Link Label</label><input class="form-control" type="text" data-field="linkLabel" value="' + linkLabel + '" placeholder="Discover Now" /></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // home is declared inside main() — renderHomeEditor and readHomeFromEditor reference it via closure
+  let home = null;
+
+  function renderHomeEditor() {
+    if (!home) return;
+    const titleEl = document.getElementById('homeBillboardTitle');
+    const descEl = document.getElementById('homeBillboardDesc');
+    if (titleEl) titleEl.value = home.billboard.title || '';
+    if (descEl) descEl.value = home.billboard.description || '';
+    const imgEl2 = document.getElementById('homeBillboardImage');
+    const prevEl2 = document.getElementById('homeBillboardImagePreview');
+    if (imgEl2) imgEl2.value = (home.billboard && home.billboard.image) || '';
+    if (prevEl2) { const bimg = (home.billboard && home.billboard.image) || ''; prevEl2.src = bimg; prevEl2.style.display = bimg ? '' : 'none'; }
+
+    const slidesEl = document.getElementById('homeSlides');
+    if (!slidesEl) return;
+    slidesEl.innerHTML = '';
+    if (!home.slides.length) {
+      slidesEl.innerHTML = '<div style="font-size:.72rem;color:#555;padding:.5rem 0">No slides yet. Click + Add Slide.</div>';
+    } else {
+      slidesEl.innerHTML = home.slides.map(function(s, i) { return slideCardHtml(i, s); }).join('');
     }
 
-    function syncCategoryPresetFromInput() {
-      const presetEl = el('categoryPreset');
-      const inputEl = el('categoryInput');
-      if (!presetEl || !inputEl) return;
-
-      const v = normalizeCategoryValue(inputEl.value);
-      const matched = CATEGORY_PRESETS.find((c) => normalizeCategoryValue(c) === v);
-      presetEl.value = matched || '';
-    }
-
-    function applyCategoryPresetToInput() {
-      const presetEl = el('categoryPreset');
-      const inputEl = el('categoryInput');
-      if (!presetEl || !inputEl) return;
-
-      const preset = presetEl.value;
-      if (preset) inputEl.value = preset;
-      syncCategoryPresetFromInput();
-    }
-
-    function showStatus(msg, type = 'info') {
-      const s = el('status');
-      s.className = 'alert border ' + (type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : 'alert-light');
-      s.textContent = msg;
-      s.style.display = 'block';
-    }
-
-    function clearStatus() {
-      const s = el('status');
-      s.style.display = 'none';
-      s.textContent = '';
-    }
-
-    function formatMoney(cents, currency) {
-      const v = Number(cents || 0) / 100;
-      const cur = currency || 'USD';
-      try {
-        return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(v);
-      } catch {
-        return `$${v.toFixed(2)}`;
-      }
-    }
-
-    function setFormProduct(p, isAdmin) {
-      el('productId').value = p ? String(p.id) : '';
-      if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
-      el('titleInput').value = p ? (p.title || '') : '';
-      el('categoryInput').value = p ? (p.category || '') : '';
-      el('colorInput').value = p ? (p.color || '') : '';
-      el('sizesInput').value = p ? (p.sizes || '') : '';
-      el('slugInput').value = p ? (p.slug || '') : '';
-      el('priceInput').value = p ? ((Number(p.price_cents || 0) / 100).toFixed(2)) : '';
-      el('currencyInput').value = p ? (p.currency || 'USD') : 'USD';
-      el('imageUrlInput').value = p ? (p.image_url || '') : '';
-      el('imageFileInput').value = '';
-      el('descInput').value = p ? (p.description || '') : '';
-      el('publishInput').checked = !!(p && p.is_published);
-      const _pfSizes = p ? (p.sizes || '').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
-      renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
-      el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
-      el('saveBtn').textContent = p ? 'Update' : 'Create';
-      syncCategoryPresetFromInput();
-    }
-
-    function requireField(label, value) {
-      if (!String(value || '').trim()) throw new Error(`${label} required`);
-    }
-
-    async function uploadProductImage(file, path = 'products') {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('path', path);
-      form.append('filename', file.name || `image-${Date.now()}`);
-
-      const res = await fetch('/upload', { method: 'POST', body: form, credentials: 'include' });
-      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-      const data = await res.json().catch(() => ({}));
-      if (!data || !data.url) throw new Error('Upload failed (no url)');
-      return String(data.url);
-    }
-
-    async function loadTargets() {
-      const res = await apiFetch('/targets');
-      const items = res.items || [];
-      const select = el('targetSelect');
-      select.innerHTML = '<option value="">(none)</option>' + items.map(t => {
-        const label = `${t.name}${t.product ? ` — ${t.product}` : ''}${t.brand ? ` — ${t.brand}` : ''}`;
-        return `<option value="${t.id}">${label}</option>`;
-      }).join('');
-    }
-
-    function renderProducts(items, isAdmin) {
-      const tbody = el('productsTbody');
-      tbody.innerHTML = '';
-      if (!items.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted p-4">No products yet.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = items.map(p => {
-        const viewerLink = p.viewer_url || '/index.html';
-        const storeLink = `product.html?slug=${encodeURIComponent((p.slug || '').toString())}${!p.slug && p.id ? '&id=' + encodeURIComponent(String(p.id)) : ''}`;
-        const hasTarget = p.ar_target_id != null;
-        return `
-          <tr>
-            <td>${escapeHtml(p.title || '')}</td>
-            <td><code>${escapeHtml(p.slug || '')}</code></td>
-            <td>${escapeHtml(p.brand || '')}</td>
-            <td>${escapeHtml(formatMoney(p.price_cents, p.currency))}</td>
-            <td>
-              <span class="badge ${p.is_published ? 'bg-success' : 'bg-secondary'}">${p.is_published ? 'Yes' : 'No'}</span>
-            </td>
-            <td>
-              ${(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || p.printful_sync_variant_id
-                ? '<span class="badge bg-success">Linked</span>'
-                : '<span class="badge bg-secondary">Not set</span>'}
-            </td>
-            <td>
-              <a href="${storeLink}" class="btn btn-sm btn-outline-dark" target="_blank" rel="noopener">Store</a>
-              <a href="${viewerLink}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">AR</a>
-              ${hasTarget ? '' : '<span class="text-muted" style="font-size:12px">(no target)</span>'}
-            </td>
-            <td class="text-end">
-              <button class="btn btn-sm btn-outline-dark" data-action="edit" data-id="${p.id}">Edit</button>
-              <button class="btn btn-sm ${p.is_published ? 'btn-outline-warning' : 'btn-outline-success'}" data-action="toggle" data-id="${p.id}">${p.is_published ? 'Unpublish' : 'Publish'}</button>
-              <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${p.id}">Delete</button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function escapeHtml(s) {
-      return String(s || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-    }
-
-    function renderPrintfulVariantFields(sizes, currentMap) {
-      const container = el('printfulVariantFields');
-      if (!container) return;
-      if (!sizes || !sizes.length) {
-        container.innerHTML = '<div class="text-secondary" style="font-size:12px">Enter sizes above first — each size will appear here to link its Printful variant ID.</div>';
-        return;
-      }
-      container.innerHTML = sizes.map(function(size) {
-        const val = (currentMap && currentMap[size]) ? escapeHtml(String(currentMap[size])) : '';
-        return '<div class="d-flex align-items-center gap-2 mb-1">' +
-          '<span style="min-width:40px;font-size:12px;text-transform:uppercase;font-weight:700;letter-spacing:.05em">' + escapeHtml(size) + '</span>' +
-          '<input class="form-control form-control-sm" type="text" data-pf-size="' + escapeHtml(size) + '" placeholder="e.g. 6a0ff0f16447e7" value="' + val + '" />' +
+    const wwa = home.whoWeAre || {};
+    const whoLabelEl = document.getElementById('homeWhoLabel');
+    const whoHeadEl = document.getElementById('homeWhoHeadline');
+    const whoBodyEl = document.getElementById('homeWhoBody');
+    if (whoLabelEl) whoLabelEl.value = wwa.label || '';
+    if (whoHeadEl) whoHeadEl.value = wwa.headline || '';
+    if (whoBodyEl) whoBodyEl.value = wwa.body || '';
+    const statsEl = document.getElementById('homeWhoStats');
+    if (statsEl) {
+      const stats = Array.isArray(wwa.stats) ? wwa.stats : [];
+      statsEl.innerHTML = stats.map(function(st, i) {
+        return '<div class="d-flex align-items-center gap-2" data-stat-index="' + i + '">' +
+          '<input class="form-control form-control-sm" type="text" data-stat-field="value" value="' + escapeHtml(st.value || '') + '" placeholder="50+" style="max-width:80px" />' +
+          '<input class="form-control form-control-sm" type="text" data-stat-field="label" value="' + escapeHtml(st.label || '') + '" placeholder="Products" />' +
+          '<button class="btn btn-sm btn-danger-inrl" type="button" data-stat-action="remove" style="font-size:.6rem;padding:.2rem .5rem;white-space:nowrap">Remove</button>' +
           '</div>';
+      }).join('') + (stats.length < 4 ? '<button id="homeAddStatBtn" class="btn btn-sm btn-inrl-outline mt-1" type="button" style="font-size:.62rem;padding:.22rem .65rem">+ Add Stat</button>' : '');
+    }
+
+    const feat = home.features || {};
+    const flabelEl = document.getElementById('homeFeaturesLabel');
+    const fheadEl = document.getElementById('homeFeaturesHeadline');
+    if (flabelEl) flabelEl.value = feat.label || '';
+    if (fheadEl) fheadEl.value = feat.headline || '';
+    const featCards = document.getElementById('homeFeatureCards');
+    if (featCards) {
+      const items = Array.isArray(feat.items) ? feat.items : [];
+      featCards.innerHTML = items.slice(0, 3).map(function(item, i) {
+        return '<div class="col-12 col-lg-4" data-feature-index="' + i + '">' +
+          '<div class="inrl-subcard">' +
+            '<div class="inrl-subcard-label">Feature ' + (i + 1) + '</div>' +
+            '<div class="mb-2"><label class="form-label">Title</label><input class="form-control" type="text" data-feat-field="title" value="' + escapeHtml(item.title || '') + '" /></div>' +
+            '<div><label class="form-label">Body</label><textarea class="form-control" rows="3" data-feat-field="body">' + escapeHtml(item.body || '') + '</textarea></div>' +
+          '</div>' +
+        '</div>';
       }).join('');
     }
 
-    function collectPrintfulVariantMap() {
-      const inputs = document.querySelectorAll('#printfulVariantFields input[data-pf-size]');
-      if (!inputs.length) return null;
-      const map = {};
-      let hasAny = false;
-      inputs.forEach(function(inp) {
-        const size = inp.getAttribute('data-pf-size');
-        const val = (inp.value || '').trim();
-        if (size && val) { map[size] = val; hasAny = true; }
+    const testEl = document.getElementById('homeTestimonials');
+    if (testEl) {
+      const tItems = Array.isArray(home.testimonials) ? home.testimonials : [];
+      testEl.innerHTML = tItems.length ? tItems.map(function(t, i) {
+        return '<div class="inrl-subcard" data-testimonial-index="' + i + '">' +
+          '<div class="d-flex justify-content-between align-items-center mb-3">' +
+            '<div class="inrl-subcard-label">Testimonial ' + (i + 1) + '</div>' +
+            '<button class="btn btn-sm btn-danger-inrl" style="font-size:.6rem;padding:.2rem .55rem" type="button" data-test-action="remove">Remove</button>' +
+          '</div>' +
+          '<div class="mb-2"><label class="form-label">Quote</label><textarea class="form-control" rows="2" data-test-field="quote">' + escapeHtml(t.quote || '') + '</textarea></div>' +
+          '<div><label class="form-label">Author</label><input class="form-control" type="text" data-test-field="author" value="' + escapeHtml(t.author || '') + '" /></div>' +
+        '</div>';
+      }).join('') : '<div style="font-size:.72rem;color:#555;padding:.5rem 0">No testimonials yet. Click + Add.</div>';
+    }
+
+    const nlEl = document.getElementById('homeNewsletterHeadline');
+    if (nlEl) nlEl.value = (home.newsletter && home.newsletter.headline) || '';
+
+    const addStatBtn = document.getElementById('homeAddStatBtn');
+    if (addStatBtn) addStatBtn.addEventListener('click', function() {
+      if (!home.whoWeAre) home.whoWeAre = {};
+      if (!Array.isArray(home.whoWeAre.stats)) home.whoWeAre.stats = [];
+      if (home.whoWeAre.stats.length < 4) { home.whoWeAre.stats.push({ value: '', label: '' }); renderHomeEditor(); }
+    });
+  }
+
+  function readHomeFromEditor() {
+    if (!home) return;
+    const titleEl = document.getElementById('homeBillboardTitle');
+    const descEl = document.getElementById('homeBillboardDesc');
+    const imgEl = document.getElementById('homeBillboardImage');
+    home.billboard.title = titleEl ? titleEl.value.trim() : '';
+    home.billboard.description = descEl ? descEl.value.trim() : '';
+    home.billboard.image = imgEl ? imgEl.value.trim() : '';
+
+    const slidesEl = document.getElementById('homeSlides');
+    const cards = slidesEl ? Array.from(slidesEl.querySelectorAll('[data-slide-index]')) : [];
+    home.slides = cards.map(function(card) {
+      return {
+        image: (card.querySelector('[data-field="image"]') && card.querySelector('[data-field="image"]').value || '').trim(),
+        title: (card.querySelector('[data-field="title"]') && card.querySelector('[data-field="title"]').value || '').trim(),
+        text: (card.querySelector('[data-field="text"]') && card.querySelector('[data-field="text"]').value || '').trim(),
+        href: (card.querySelector('[data-field="href"]') && card.querySelector('[data-field="href"]').value || '').trim(),
+        linkLabel: (card.querySelector('[data-field="linkLabel"]') && card.querySelector('[data-field="linkLabel"]').value || '').trim(),
+      };
+    });
+
+    if (!home.whoWeAre) home.whoWeAre = {};
+    const whoLabelEl = document.getElementById('homeWhoLabel');
+    const whoHeadEl = document.getElementById('homeWhoHeadline');
+    const whoBodyEl = document.getElementById('homeWhoBody');
+    if (whoLabelEl) home.whoWeAre.label = whoLabelEl.value.trim();
+    if (whoHeadEl) home.whoWeAre.headline = whoHeadEl.value.trim();
+    if (whoBodyEl) home.whoWeAre.body = whoBodyEl.value.trim();
+    const statsEl = document.getElementById('homeWhoStats');
+    if (statsEl) {
+      home.whoWeAre.stats = Array.from(statsEl.querySelectorAll('[data-stat-index]')).map(function(row) {
+        return {
+          value: ((row.querySelector('[data-stat-field="value"]') || {}).value || '').trim(),
+          label: ((row.querySelector('[data-stat-field="label"]') || {}).value || '').trim()
+        };
       });
-      return hasAny ? map : null;
     }
 
-    async function loadProducts() {
-      const res = await apiFetch('/products?includeUnpublished=1');
-      return res.items || [];
+    if (!home.features) home.features = {};
+    const flabelEl = document.getElementById('homeFeaturesLabel');
+    const fheadEl = document.getElementById('homeFeaturesHeadline');
+    if (flabelEl) home.features.label = flabelEl.value.trim();
+    if (fheadEl) home.features.headline = fheadEl.value.trim();
+    const featCards = document.getElementById('homeFeatureCards');
+    if (featCards) {
+      home.features.items = Array.from(featCards.querySelectorAll('[data-feature-index]')).map(function(div) {
+        return {
+          title: ((div.querySelector('[data-feat-field="title"]') || {}).value || '').trim(),
+          body: ((div.querySelector('[data-feat-field="body"]') || {}).value || '').trim()
+        };
+      });
     }
 
-    (async function main() {
+    const testEl = document.getElementById('homeTestimonials');
+    if (testEl) {
+      home.testimonials = Array.from(testEl.querySelectorAll('[data-testimonial-index]')).map(function(div) {
+        return {
+          quote: ((div.querySelector('[data-test-field="quote"]') || {}).value || '').trim(),
+          author: ((div.querySelector('[data-test-field="author"]') || {}).value || '').trim()
+        };
+      });
+    }
+
+    const nlEl = document.getElementById('homeNewsletterHeadline');
+    if (!home.newsletter) home.newsletter = {};
+    if (nlEl) home.newsletter.headline = nlEl.value.trim();
+  }
+
+  // ---- Main init ----
+
+  (async function main() {
+    clearStatus();
+    const user = await auth.requireRole(['admin', 'brand'], { redirectTo: '/login.html', next: location.pathname + location.search });
+    if (!user) return;
+    el('userEmail').textContent = user.email || '';
+    el('userRole').textContent = user.role || '';
+    const isAdmin = user.role === 'admin';
+    el('brandGroup').style.display = isAdmin ? '' : 'none';
+
+    const tabHomepageItem = document.getElementById('tab-homepage-item');
+    if (tabHomepageItem) tabHomepageItem.style.display = isAdmin ? '' : 'none';
+
+    el('logoutBtn').addEventListener('click', async function(ev) {
+      ev.preventDefault();
+      await auth.logout();
+      location.href = '/login.html';
+    });
+
+    try {
+      await loadTargets();
+    } catch (e) {
+      showStatus('Targets failed to load: ' + (e.message || e), 'error');
+    }
+
+    let products = [];
+    async function refresh() {
       clearStatus();
-      const user = await auth.requireRole(['admin', 'brand'], { redirectTo: '/login.html', next: location.pathname + location.search });
-      if (!user) return;
-      el('userEmail').textContent = user.email || '';
-      el('userRole').textContent = user.role || '';
-      const isAdmin = user.role === 'admin';
-      el('brandGroup').style.display = isAdmin ? '' : 'none';
+      products = await loadProducts();
+      renderProducts(products, isAdmin);
+    }
+    try {
+      await refresh();
+    } catch (e) {
+      showStatus('Products failed to load: ' + (e.message || e), 'error');
+    }
 
-      // Show Homepage tab for admins
-      const tabHomepageItem = document.getElementById('tab-homepage-item');
-      if (tabHomepageItem) tabHomepageItem.style.display = isAdmin ? '' : 'none';
+    el('refreshBtn').addEventListener('click', async function() {
+      try { await refresh(); } catch (e) { showStatus(e.message || String(e), 'error'); }
+    });
 
-      el('logoutBtn').addEventListener('click', async (ev) => {
-        ev.preventDefault();
-        await auth.logout();
-        location.href = '/login.html';
+    el('resetBtn').addEventListener('click', function() { setFormProduct(null, isAdmin); });
+    setFormProduct(null, isAdmin);
+
+    const sizesInputEl = el('sizesInput');
+    if (sizesInputEl) {
+      sizesInputEl.addEventListener('input', function() {
+        const sizes = (sizesInputEl.value || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+        renderPrintfulVariantFields(sizes, collectPrintfulVariantMap());
       });
+    }
+
+    const categoryPresetEl = el('categoryPreset');
+    const categoryInputEl = el('categoryInput');
+    if (categoryPresetEl && categoryInputEl) {
+      categoryPresetEl.addEventListener('change', applyCategoryPresetToInput);
+      categoryInputEl.addEventListener('input', syncCategoryPresetFromInput);
+      syncCategoryPresetFromInput();
+    }
+
+    el('productForm').addEventListener('submit', async function(ev) {
+      ev.preventDefault();
+      clearStatus();
+      const id = el('productId').value.trim();
+      const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
+      const body = {
+        title: el('titleInput').value.trim(),
+        category: el('categoryInput').value.trim(),
+        color: el('colorInput').value.trim(),
+        sizes: el('sizesInput').value.trim(),
+        slug: el('slugInput').value.trim(),
+        price: el('priceInput').value,
+        currency: el('currencyInput').value,
+        image_url: el('imageUrlInput').value.trim(),
+        description: el('descInput').value.trim(),
+        is_published: el('publishInput').checked,
+        printful_variant_map: collectPrintfulVariantMap(),
+        ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
+      };
+      if (isAdmin) body.brand = el('brandInput').value.trim();
 
       try {
-        await loadTargets();
+        requireField('Title', body.title);
+        requireField('Category', body.category);
+        requireField('Color', body.color);
+        requireField('Sizing', body.sizes);
+        requireField('Price', body.price);
       } catch (e) {
-        showStatus('Targets failed to load: ' + (e.message || e), 'error');
+        showStatus(e.message || String(e), 'error');
+        return;
       }
 
-      let products = [];
-      async function refresh() {
-        clearStatus();
-        products = await loadProducts();
-        renderProducts(products, isAdmin);
-      }
       try {
+        if (imageFiles.length > 5) throw new Error('Max 5 images per product');
+        if (imageFiles.length) {
+          for (const f of imageFiles) {
+            if (!String(f.type || '').toLowerCase().startsWith('image/')) throw new Error('Invalid image file');
+          }
+          const urls = [];
+          for (const f of imageFiles) {
+            urls.push(await uploadProductImage(f));
+          }
+          body.image_urls = urls;
+          body.image_url = urls[0] || '';
+        }
+        if (!id) {
+          await apiFetch('/products', { method: 'POST', body });
+          showStatus('Product created.', 'success');
+        } else {
+          await apiFetch('/products/' + encodeURIComponent(id), { method: 'POST', body });
+          showStatus('Product updated.', 'success');
+        }
+        setFormProduct(null, isAdmin);
         await refresh();
       } catch (e) {
-        showStatus('Products failed to load: ' + (e.message || e), 'error');
+        showStatus(e.message || String(e), 'error');
+      }
+    });
+
+    el('productsTbody').addEventListener('click', async function(ev) {
+      const btn = ev.target.closest('button[data-action]');
+      if (!btn) return;
+      const action = btn.getAttribute('data-action');
+      const id = btn.getAttribute('data-id');
+      const p = products.find(function(x) { return String(x.id) === String(id); });
+
+      if (action === 'edit' && p) {
+        setFormProduct(p, isAdmin);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       }
 
-      el('refreshBtn').addEventListener('click', async () => {
-        try { await refresh(); } catch (e) { showStatus(e.message || String(e), 'error'); }
-      });
-
-      el('resetBtn').addEventListener('click', () => setFormProduct(null, isAdmin));
-      setFormProduct(null, isAdmin);
-
-      // Re-render Printful variant fields when sizes change
-      const sizesInputEl = el('sizesInput');
-      if (sizesInputEl) {
-        sizesInputEl.addEventListener('input', function() {
-          const sizes = (sizesInputEl.value || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
-          renderPrintfulVariantFields(sizes, collectPrintfulVariantMap());
-        });
-      }
-
-      // Keep category preset + input in sync
-      const categoryPresetEl = el('categoryPreset');
-      const categoryInputEl = el('categoryInput');
-      if (categoryPresetEl && categoryInputEl) {
-        categoryPresetEl.addEventListener('change', applyCategoryPresetToInput);
-        categoryInputEl.addEventListener('input', syncCategoryPresetFromInput);
-        syncCategoryPresetFromInput();
-      }
-
-      el('productForm').addEventListener('submit', async (ev) => {
-        ev.preventDefault();
-        clearStatus();
-        const id = el('productId').value.trim();
-        const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
-        const body = {
-          title: el('titleInput').value.trim(),
-          category: el('categoryInput').value.trim(),
-          color: el('colorInput').value.trim(),
-          sizes: el('sizesInput').value.trim(),
-          slug: el('slugInput').value.trim(),
-          price: el('priceInput').value,
-          currency: el('currencyInput').value,
-          image_url: el('imageUrlInput').value.trim(),
-          description: el('descInput').value.trim(),
-          is_published: el('publishInput').checked,
-          printful_variant_map: collectPrintfulVariantMap(),
-          ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
-        };
-        if (isAdmin) body.brand = el('brandInput').value.trim();
-
+      if (action === 'toggle' && p) {
         try {
-          requireField('Title', body.title);
-          requireField('Category', body.category);
-          requireField('Color', body.color);
-          requireField('Sizing', body.sizes);
-          requireField('Price', body.price);
+          await apiFetch('/products/' + encodeURIComponent(id), { method: 'POST', body: { is_published: !p.is_published } });
+          await refresh();
         } catch (e) {
           showStatus(e.message || String(e), 'error');
-          return;
         }
+        return;
+      }
 
+      if (action === 'delete') {
+        if (!confirm('Delete this product?')) return;
         try {
-          if (imageFiles.length > 5) throw new Error('Max 5 images per product');
-          if (imageFiles.length) {
-            for (const f of imageFiles) {
-              if (!String(f.type || '').toLowerCase().startsWith('image/')) throw new Error('Invalid image file');
-            }
-            const urls = [];
-            for (const f of imageFiles) {
-              urls.push(await uploadProductImage(f));
-            }
-            body.image_urls = urls;
-            body.image_url = urls[0] || '';
-          }
-          if (!id) {
-            await apiFetch('/products', { method: 'POST', body });
-            showStatus('Product created.', 'success');
-          } else {
-            await apiFetch(`/products/${encodeURIComponent(id)}`, { method: 'POST', body });
-            showStatus('Product updated.', 'success');
-          }
+          await apiFetch('/products/' + encodeURIComponent(id), { method: 'DELETE' });
           setFormProduct(null, isAdmin);
           await refresh();
         } catch (e) {
           showStatus(e.message || String(e), 'error');
         }
+        return;
+      }
+    });
+
+    // ---- Homepage editor (admin only) ----
+    if (isAdmin) {
+      home = {
+        billboard: { title: '', description: '', image: '' },
+        slides: [],
+        whoWeAre: {
+          label: 'Who We Are',
+          headline: 'Fashion meets digital identity',
+          body: 'INRL is a neo-brutalist fashion label building at the intersection of physical garments and digital identity. We design bold, uncompromising pieces and pair them with augmented reality experiences that let you wear your story in both worlds.',
+          stats: [
+            { value: '50+', label: 'Products' },
+            { value: 'AR', label: 'Enabled' },
+            { value: '24/7', label: 'Digital Access' }
+          ]
+        },
+        features: {
+          label: 'The Experience',
+          headline: 'What makes us different',
+          items: [
+            { title: 'Bold Fashion', body: 'Uncompromising designs with brutalist aesthetics. Every piece is a statement that refuses to blend in.' },
+            { title: 'AR Experiences', body: 'Scan your garments to unlock augmented reality layers. Your clothes become a portal to digital content.' },
+            { title: 'Digital Identity', body: 'Own your digital presence. Each product comes with verifiable digital identity that bridges physical and virtual.' }
+          ]
+        },
+        testimonials: [
+          { quote: 'More than expected - crazy soft, flexible, and best fitted.', author: 'Casual Way' },
+          { quote: 'Best fitted white denim shirt, more than expected crazy soft.', author: 'Uptop' },
+          { quote: 'Absolutely love the brutalist aesthetic. Unique and bold.', author: 'Denim Craze' }
+        ],
+        newsletter: { headline: 'Stay in the *loop*' }
+      };
+
+      async function loadHomepage() {
+        clearStatus();
+        const res = await apiFetch('/homepage');
+        const content = res && res.content ? res.content : null;
+        home.billboard = (content && content.billboard) ? content.billboard : { title: '', description: '', image: '' };
+        home.slides = Array.isArray(content && content.slides) ? content.slides : [];
+        home.whoWeAre = (content && content.whoWeAre) ? content.whoWeAre : home.whoWeAre;
+        home.features = (content && content.features) ? content.features : home.features;
+        if (home.features && Array.isArray(home.features.cards) && !Array.isArray(home.features.items)) {
+          home.features.items = home.features.cards;
+          delete home.features.cards;
+        }
+        if (!Array.isArray(home.features.items)) home.features.items = [];
+        if (home.whoWeAre && typeof home.whoWeAre.stats === 'string') home.whoWeAre.stats = [];
+        if (!Array.isArray(home.whoWeAre.stats)) home.whoWeAre.stats = [];
+        home.testimonials = Array.isArray(content && content.testimonials) ? content.testimonials : home.testimonials;
+        home.newsletter = (content && content.newsletter) ? content.newsletter : home.newsletter;
+        renderHomeEditor();
+        showStatus('Homepage loaded.', 'success');
+      }
+
+      async function saveHomepage() {
+        clearStatus();
+        readHomeFromEditor();
+        await apiFetch('/homepage', { method: 'POST', body: home });
+        showStatus('Homepage saved.', 'success');
+      }
+
+      document.getElementById('homeAddSlideBtn').addEventListener('click', function() {
+        home.slides.push({ image: '', title: '', text: '', href: 'index.html', linkLabel: 'Discover Now' });
+        renderHomeEditor();
       });
 
-      el('productsTbody').addEventListener('click', async (ev) => {
-        const btn = ev.target.closest('button[data-action]');
-        if (!btn) return;
-        const action = btn.getAttribute('data-action');
-        const id = btn.getAttribute('data-id');
-        const p = products.find(x => String(x.id) === String(id));
-
-        if (action === 'edit' && p) {
-          setFormProduct(p, isAdmin);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          return;
-        }
-
-        if (action === 'toggle' && p) {
-          try {
-            await apiFetch(`/products/${encodeURIComponent(id)}`, { method: 'POST', body: { is_published: !p.is_published } });
-            await refresh();
-          } catch (e) {
-            showStatus(e.message || String(e), 'error');
-          }
-          return;
-        }
-
-        if (action === 'delete') {
-          if (!confirm('Delete this product?')) return;
-          try {
-            await apiFetch(`/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
-            setFormProduct(null, isAdmin);
-            await refresh();
-          } catch (e) {
-            showStatus(e.message || String(e), 'error');
-          }
-          return;
-        }
+      document.getElementById('homeAddTestimonialBtn').addEventListener('click', function() {
+        if (!Array.isArray(home.testimonials)) home.testimonials = [];
+        home.testimonials.push({ quote: '', author: '' });
+        renderHomeEditor();
       });
 
-      // --- Homepage editor wiring (admin only) ---
-      if (isAdmin) {
-        const home = {
-          billboard: { title: '', description: '', image: '' },
-          slides: [],
-          whoWeAre: {
-            label: 'Who We Are',
-            headline: 'Fashion meets digital identity',
-            body: 'INRL is a neo-brutalist fashion label building at the intersection of physical garments and digital identity. We design bold, uncompromising pieces and pair them with augmented reality experiences that let you wear your story in both worlds.',
-            stats: [
-              { value: '50+', label: 'Products' },
-              { value: 'AR', label: 'Enabled' },
-              { value: '24/7', label: 'Digital Access' }
-            ]
-          },
-          features: {
-            label: 'The Experience',
-            headline: 'What makes us different',
-            items: [
-              { title: 'Bold Fashion', body: 'Uncompromising designs with brutalist aesthetics. Every piece is a statement that refuses to blend in.' },
-              { title: 'AR Experiences', body: 'Scan your garments to unlock augmented reality layers. Your clothes become a portal to digital content.' },
-              { title: 'Digital Identity', body: 'Own your digital presence. Each product comes with verifiable digital identity that bridges physical and virtual.' }
-            ]
-          },
-          testimonials: [
-            { quote: 'More than expected - crazy soft, flexible, and best fitted.', author: 'Casual Way' },
-            { quote: 'Best fitted white denim shirt, more than expected crazy soft.', author: 'Uptop' },
-            { quote: 'Absolutely love the brutalist aesthetic. Unique and bold.', author: 'Denim Craze' }
-          ],
-          newsletter: { headline: 'Stay in the *loop*' }
-        };
+      document.getElementById('homeLoadBtn').addEventListener('click', loadHomepage);
+      document.getElementById('homeSaveBtn').addEventListener('click', async function() {
+        try { await saveHomepage(); } catch (e) { showStatus(e.message || String(e), 'error'); }
+      });
 
-        function slideCardHtml(idx, s) {
-          const image = escapeHtml(s.image || '');
-          const title = escapeHtml(s.title || '');
-          const text = escapeHtml(s.text || '');
-          const href = escapeHtml(s.href || '');
-          const linkLabel = escapeHtml(s.linkLabel || '');
-
-          return `
-            <div class="card" data-slide-index="${idx}">
-              <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <div class="text-uppercase" style="font-size: 13px; letter-spacing: .06em">Slide ${idx + 1}</div>
-                  <button class="btn btn-sm btn-outline-danger text-uppercase" type="button" data-action="remove-slide">Remove</button>
-                </div>
-                <div class="row g-3">
-                  <div class="col-12">
-                    <label class="form-label text-uppercase">Image</label>
-                    <div class="input-group">
-                      <input class="form-control" type="text" data-field="image" value="${image}" placeholder="images/banner-image-1.jpg or https://..." />
-                      <label class="btn btn-outline-secondary text-uppercase" style="font-size:12px;cursor:pointer">
-                        Upload
-                        <input type="file" accept="image/*" data-home-upload="slide-image" style="display:none">
-                      </label>
-                    </div>
-                    <img data-field="image-preview" src="${image}" alt="" style="${image ? '' : 'display:none;'}margin-top:6px;max-height:70px;border:1px solid #dee2e6;object-fit:cover">
-                  </div>
-                  <div class="col-12 col-lg-6">
-                    <label class="form-label text-uppercase">Title</label>
-                    <input class="form-control" type="text" data-field="title" value="${title}" />
-                  </div>
-                  <div class="col-12 col-lg-6">
-                    <label class="form-label text-uppercase">Link URL</label>
-                    <input class="form-control" type="text" data-field="href" value="${href}" placeholder="index.html" />
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label text-uppercase">Text</label>
-                    <textarea class="form-control" rows="2" data-field="text">${text}</textarea>
-                  </div>
-                  <div class="col-12 col-lg-6">
-                    <label class="form-label text-uppercase">Link Label</label>
-                    <input class="form-control" type="text" data-field="linkLabel" value="${linkLabel}" placeholder="Discover Now" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-        }
-
-        function renderHomeEditor() {
-          const titleEl = document.getElementById('homeBillboardTitle');
-          const descEl = document.getElementById('homeBillboardDesc');
-          if (titleEl) titleEl.value = home.billboard.title || '';
-          if (descEl) descEl.value = home.billboard.description || '';
-          const imgEl2 = document.getElementById('homeBillboardImage');
-          const prevEl2 = document.getElementById('homeBillboardImagePreview');
-          if (imgEl2) imgEl2.value = (home.billboard && home.billboard.image) || '';
-          if (prevEl2) { const bimg = (home.billboard && home.billboard.image) || ''; prevEl2.src = bimg; prevEl2.style.display = bimg ? '' : 'none'; }
-
-          const slidesEl = document.getElementById('homeSlides');
-          if (!slidesEl) return;
-          slidesEl.innerHTML = '';
-          if (!home.slides.length) {
-            slidesEl.innerHTML = '<div class="text-muted">No slides yet. Click Add Slide.</div>';
-          } else {
-            slidesEl.innerHTML = home.slides.map((s, i) => slideCardHtml(i, s)).join('');
-          }
-
-          // Who We Are
-          const wwa = home.whoWeAre || {};
-          const whoLabelEl = document.getElementById('homeWhoLabel');
-          const whoHeadEl = document.getElementById('homeWhoHeadline');
-          const whoBodyEl = document.getElementById('homeWhoBody');
-          if (whoLabelEl) whoLabelEl.value = wwa.label || '';
-          if (whoHeadEl) whoHeadEl.value = wwa.headline || '';
-          if (whoBodyEl) whoBodyEl.value = wwa.body || '';
-          const statsEl = document.getElementById('homeWhoStats');
-          if (statsEl) {
-            const stats = Array.isArray(wwa.stats) ? wwa.stats : [];
-            statsEl.innerHTML = stats.map((st, i) => `
-              <div class="row g-2 align-items-center" data-stat-index="${i}">
-                <div class="col-3"><input class="form-control form-control-sm" type="text" data-stat-field="value" value="${escapeHtml(st.value || '')}" placeholder="50+" /></div>
-                <div class="col-5"><input class="form-control form-control-sm" type="text" data-stat-field="label" value="${escapeHtml(st.label || '')}" placeholder="Products" /></div>
-                <div class="col-4 d-flex gap-1">
-                  ${i > 0 ? '' : ''}<button class="btn btn-sm btn-outline-danger" type="button" data-stat-action="remove">Remove</button>
-                </div>
-              </div>`).join('') + (stats.length < 4 ? `<button id="homeAddStatBtn" class="btn btn-sm btn-outline-secondary text-uppercase mt-1" type="button">+ Add Stat</button>` : '');
-          }
-
-          // Features
-          const feat = home.features || {};
-          const flabelEl = document.getElementById('homeFeaturesLabel');
-          const fheadEl = document.getElementById('homeFeaturesHeadline');
-          if (flabelEl) flabelEl.value = feat.label || '';
-          if (fheadEl) fheadEl.value = feat.headline || '';
-          const featCards = document.getElementById('homeFeatureCards');
-          if (featCards) {
-            const items = Array.isArray(feat.items) ? feat.items : [];
-            featCards.innerHTML = items.slice(0, 3).map((item, i) => `
-              <div class="col-12 col-lg-4" data-feature-index="${i}">
-                <div class="card">
-                  <div class="card-body">
-                    <div class="text-uppercase mb-2" style="font-size:12px;opacity:.6">Feature ${i + 1}</div>
-                    <div class="mb-2">
-                      <label class="form-label text-uppercase">Title</label>
-                      <input class="form-control" type="text" data-feat-field="title" value="${escapeHtml(item.title || '')}" />
-                    </div>
-                    <div>
-                      <label class="form-label text-uppercase">Body</label>
-                      <textarea class="form-control" rows="3" data-feat-field="body">${escapeHtml(item.body || '')}</textarea>
-                    </div>
-                  </div>
-                </div>
-              </div>`).join('');
-          }
-
-          // Testimonials
-          const testEl = document.getElementById('homeTestimonials');
-          if (testEl) {
-            const tItems = Array.isArray(home.testimonials) ? home.testimonials : [];
-            testEl.innerHTML = tItems.length ? tItems.map((t, i) => `
-              <div class="card" data-testimonial-index="${i}">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div class="text-uppercase" style="font-size:12px;opacity:.6">Testimonial ${i + 1}</div>
-                    <button class="btn btn-sm btn-outline-danger" type="button" data-test-action="remove">Remove</button>
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label text-uppercase">Quote</label>
-                    <textarea class="form-control" rows="2" data-test-field="quote">${escapeHtml(t.quote || '')}</textarea>
-                  </div>
-                  <div>
-                    <label class="form-label text-uppercase">Author</label>
-                    <input class="form-control" type="text" data-test-field="author" value="${escapeHtml(t.author || '')}" />
-                  </div>
-                </div>
-              </div>`).join('') : '<div class="text-muted">No testimonials yet. Click Add.</div>';
-          }
-
-          // Newsletter
-          const nlEl = document.getElementById('homeNewsletterHeadline');
-          if (nlEl) nlEl.value = (home.newsletter && home.newsletter.headline) || '';
-
-          // Wire add-stat button (rendered inline)
-          const addStatBtn = document.getElementById('homeAddStatBtn');
-          if (addStatBtn) addStatBtn.addEventListener('click', () => {
-            if (!home.whoWeAre) home.whoWeAre = {};
-            if (!Array.isArray(home.whoWeAre.stats)) home.whoWeAre.stats = [];
-            if (home.whoWeAre.stats.length < 4) { home.whoWeAre.stats.push({ value: '', label: '' }); renderHomeEditor(); }
-          });
-        }
-
-        function readHomeFromEditor() {
-          const titleEl = document.getElementById('homeBillboardTitle');
-          const descEl = document.getElementById('homeBillboardDesc');
-          const imgEl = document.getElementById('homeBillboardImage');
-          home.billboard.title = titleEl ? titleEl.value.trim() : '';
-          home.billboard.description = descEl ? descEl.value.trim() : '';
-          home.billboard.image = imgEl ? imgEl.value.trim() : '';
-
-          const slidesEl = document.getElementById('homeSlides');
-          const cards = slidesEl ? Array.from(slidesEl.querySelectorAll('[data-slide-index]')) : [];
-          const nextSlides = [];
-          for (const card of cards) {
-            const slide = {
-              image: (card.querySelector('[data-field="image"]')?.value || '').trim(),
-              title: (card.querySelector('[data-field="title"]')?.value || '').trim(),
-              text: (card.querySelector('[data-field="text"]')?.value || '').trim(),
-              href: (card.querySelector('[data-field="href"]')?.value || '').trim(),
-              linkLabel: (card.querySelector('[data-field="linkLabel"]')?.value || '').trim(),
-            };
-            nextSlides.push(slide);
-          }
-          home.slides = nextSlides;
-
-          // Who We Are
-          if (!home.whoWeAre) home.whoWeAre = {};
-          const whoLabelEl = document.getElementById('homeWhoLabel');
-          const whoHeadEl = document.getElementById('homeWhoHeadline');
-          const whoBodyEl = document.getElementById('homeWhoBody');
-          if (whoLabelEl) home.whoWeAre.label = whoLabelEl.value.trim();
-          if (whoHeadEl) home.whoWeAre.headline = whoHeadEl.value.trim();
-          if (whoBodyEl) home.whoWeAre.body = whoBodyEl.value.trim();
-          const statsEl = document.getElementById('homeWhoStats');
-          if (statsEl) {
-            const statRows = Array.from(statsEl.querySelectorAll('[data-stat-index]'));
-            home.whoWeAre.stats = statRows.map(row => ({
-              value: (row.querySelector('[data-stat-field="value"]')?.value || '').trim(),
-              label: (row.querySelector('[data-stat-field="label"]')?.value || '').trim()
-            }));
-          }
-
-          // Features
-          if (!home.features) home.features = {};
-          const flabelEl = document.getElementById('homeFeaturesLabel');
-          const fheadEl = document.getElementById('homeFeaturesHeadline');
-          if (flabelEl) home.features.label = flabelEl.value.trim();
-          if (fheadEl) home.features.headline = fheadEl.value.trim();
-          const featCards = document.getElementById('homeFeatureCards');
-          if (featCards) {
-            const featDivs = Array.from(featCards.querySelectorAll('[data-feature-index]'));
-            home.features.items = featDivs.map(div => ({
-              title: (div.querySelector('[data-feat-field="title"]')?.value || '').trim(),
-              body: (div.querySelector('[data-feat-field="body"]')?.value || '').trim()
-            }));
-          }
-
-          // Testimonials
-          const testEl = document.getElementById('homeTestimonials');
-          if (testEl) {
-            const testDivs = Array.from(testEl.querySelectorAll('[data-testimonial-index]'));
-            home.testimonials = testDivs.map(div => ({
-              quote: (div.querySelector('[data-test-field="quote"]')?.value || '').trim(),
-              author: (div.querySelector('[data-test-field="author"]')?.value || '').trim()
-            }));
-          }
-
-          // Newsletter
-          const nlEl = document.getElementById('homeNewsletterHeadline');
-          if (!home.newsletter) home.newsletter = {};
-          if (nlEl) home.newsletter.headline = nlEl.value.trim();
-        }
-
-        async function loadHomepage() {
-          clearStatus();
-          const res = await apiFetch('/homepage');
-          const content = res && res.content ? res.content : null;
-          home.billboard = (content && content.billboard) ? content.billboard : { title: '', description: '', image: '' };
-          home.slides = Array.isArray(content && content.slides) ? content.slides : [];
-          home.whoWeAre = (content && content.whoWeAre) ? content.whoWeAre : home.whoWeAre;
-          home.features = (content && content.features) ? content.features : home.features;
-          // Backward compat: old data used .cards, new uses .items
-          if (home.features && Array.isArray(home.features.cards) && !Array.isArray(home.features.items)) {
-            home.features.items = home.features.cards;
-            delete home.features.cards;
-          }
-          if (!Array.isArray(home.features.items)) home.features.items = [];
-          // Backward compat: old data stored stats as string
-          if (home.whoWeAre && typeof home.whoWeAre.stats === 'string') {
-            home.whoWeAre.stats = [];
-          }
-          if (!Array.isArray(home.whoWeAre.stats)) home.whoWeAre.stats = [];
-          home.testimonials = Array.isArray(content && content.testimonials) ? content.testimonials : home.testimonials;
-          home.newsletter = (content && content.newsletter) ? content.newsletter : home.newsletter;
-          renderHomeEditor();
-          showStatus('Homepage loaded.', 'success');
-        }
-
-        async function saveHomepage() {
-          clearStatus();
-          readHomeFromEditor();
-          await apiFetch('/homepage', { method: 'POST', body: home });
-          showStatus('Homepage saved.', 'success');
-        }
-
-        document.getElementById('homeAddSlideBtn')?.addEventListener('click', () => {
-          home.slides.push({ image: '', title: '', text: '', href: 'index.html', linkLabel: 'Discover Now' });
-          renderHomeEditor();
-        });
-
-        document.getElementById('homeAddTestimonialBtn')?.addEventListener('click', () => {
-          if (!Array.isArray(home.testimonials)) home.testimonials = [];
-          home.testimonials.push({ quote: '', author: '' });
-          renderHomeEditor();
-        });
-
-        document.getElementById('homeLoadBtn')?.addEventListener('click', loadHomepage);
-        document.getElementById('homeSaveBtn')?.addEventListener('click', async () => {
-          try { await saveHomepage(); } catch (e) { showStatus(e.message || String(e), 'error'); }
-        });
-
-        // Homepage image upload handler (billboard + slides)
-        document.querySelector('#pane-homepage')?.addEventListener('change', async (ev) => {
-          const input = ev.target;
-          if (input.type !== 'file' || !input.dataset.homeUpload) return;
-          const file = input.files && input.files[0];
-          if (!file) return;
-          const uploadType = input.dataset.homeUpload; // 'billboard-image' or 'slide-image'
-          const label = input.closest('label');
-          const origText = label ? label.childNodes[0].textContent.trim() : '';
-          if (label) label.childNodes[0].textContent = ' Uploading…';
-          try {
-            const url = await uploadProductImage(file, 'banners');
-            if (uploadType === 'billboard-image') {
-              const urlInput = document.getElementById('homeBillboardImage');
-              const prev = document.getElementById('homeBillboardImagePreview');
+      document.querySelector('#pane-homepage').addEventListener('change', async function(ev) {
+        const input = ev.target;
+        if (input.type !== 'file' || !input.dataset.homeUpload) return;
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const uploadType = input.dataset.homeUpload;
+        const label = input.closest('label');
+        const origText = label ? label.childNodes[0].textContent.trim() : '';
+        if (label) label.childNodes[0].textContent = ' Uploading\u2026';
+        try {
+          const url = await uploadProductImage(file, 'banners');
+          if (uploadType === 'billboard-image') {
+            const urlInput = document.getElementById('homeBillboardImage');
+            const prev = document.getElementById('homeBillboardImagePreview');
+            if (urlInput) urlInput.value = url;
+            if (prev) { prev.src = url; prev.style.display = ''; }
+          } else if (uploadType === 'slide-image') {
+            const card = input.closest('[data-slide-index]');
+            if (card) {
+              const urlInput = card.querySelector('[data-field="image"]');
+              const prev = card.querySelector('[data-field="image-preview"]');
               if (urlInput) urlInput.value = url;
               if (prev) { prev.src = url; prev.style.display = ''; }
-            } else if (uploadType === 'slide-image') {
-              const card = input.closest('[data-slide-index]');
-              if (card) {
-                const urlInput = card.querySelector('[data-field="image"]');
-                const prev = card.querySelector('[data-field="image-preview"]');
-                if (urlInput) urlInput.value = url;
-                if (prev) { prev.src = url; prev.style.display = ''; }
-              }
             }
-            showStatus('Image uploaded.', 'success');
-          } catch (e) {
-            showStatus('Upload failed: ' + (e.message || e), 'error');
-          } finally {
-            if (label) label.childNodes[0].textContent = ' Upload';
-            input.value = '';
           }
-        });
+          showStatus('Image uploaded.', 'success');
+        } catch (e) {
+          showStatus('Upload failed: ' + (e.message || e), 'error');
+        } finally {
+          if (label) label.childNodes[0].textContent = ' Upload';
+          input.value = '';
+        }
+      });
 
-        document.querySelector('#pane-homepage')?.addEventListener('click', (ev) => {
-          const btn = ev.target.closest('button[data-action="remove-slide"]');
-          if (!btn) return;
-          const card = btn.closest('[data-slide-index]');
-          if (!card) return;
-          const idx = parseInt(card.getAttribute('data-slide-index'), 10);
-          if (Number.isFinite(idx)) {
-            home.slides.splice(idx, 1);
-            renderHomeEditor();
+      document.querySelector('#pane-homepage').addEventListener('click', function(ev) {
+        const removeSlideBtn = ev.target.closest('button[data-action="remove-slide"]');
+        if (removeSlideBtn) {
+          const card = removeSlideBtn.closest('[data-slide-index]');
+          if (card) {
+            const idx = parseInt(card.getAttribute('data-slide-index'), 10);
+            if (Number.isFinite(idx)) { home.slides.splice(idx, 1); renderHomeEditor(); }
           }
-        });
+          return;
+        }
+      });
 
-        document.getElementById('homeWhoStats')?.addEventListener('click', (ev) => {
-          const btn = ev.target.closest('button[data-stat-action="remove"]');
-          if (!btn) return;
-          const row = btn.closest('[data-stat-index]');
-          if (!row) return;
-          const idx = parseInt(row.getAttribute('data-stat-index'), 10);
-          if (Number.isFinite(idx) && Array.isArray(home.whoWeAre && home.whoWeAre.stats)) {
-            home.whoWeAre.stats.splice(idx, 1);
-            renderHomeEditor();
-          }
-        });
+      document.getElementById('homeWhoStats').addEventListener('click', function(ev) {
+        const btn = ev.target.closest('button[data-stat-action="remove"]');
+        if (!btn) return;
+        const row = btn.closest('[data-stat-index]');
+        if (!row) return;
+        const idx = parseInt(row.getAttribute('data-stat-index'), 10);
+        if (Number.isFinite(idx) && Array.isArray(home.whoWeAre && home.whoWeAre.stats)) {
+          home.whoWeAre.stats.splice(idx, 1);
+          renderHomeEditor();
+        }
+      });
 
-        document.getElementById('homeTestimonials')?.addEventListener('click', (ev) => {
-          const btn = ev.target.closest('button[data-test-action="remove"]');
-          if (!btn) return;
-          const card = btn.closest('[data-testimonial-index]');
-          if (!card) return;
-          const idx = parseInt(card.getAttribute('data-testimonial-index'), 10);
-          if (Number.isFinite(idx) && Array.isArray(home.testimonials)) {
-            home.testimonials.splice(idx, 1);
-            renderHomeEditor();
-          }
-        });
+      document.getElementById('homeTestimonials').addEventListener('click', function(ev) {
+        const btn = ev.target.closest('button[data-test-action="remove"]');
+        if (!btn) return;
+        const card = btn.closest('[data-testimonial-index]');
+        if (!card) return;
+        const idx = parseInt(card.getAttribute('data-testimonial-index'), 10);
+        if (Number.isFinite(idx) && Array.isArray(home.testimonials)) {
+          home.testimonials.splice(idx, 1);
+          renderHomeEditor();
+        }
+      });
 
-        // Wire tab click to load homepage data on first visit
-        let homepageLoaded = false;
-        document.getElementById('tab-homepage')?.addEventListener('shown.bs.tab', async () => {
-          if (!homepageLoaded) {
-            homepageLoaded = true;
-            try { await loadHomepage(); } catch (e) { showStatus('Homepage failed to load: ' + (e.message || e), 'error'); }
+      let homepageLoaded = false;
+      document.getElementById('tab-homepage').addEventListener('shown.bs.tab', async function() {
+        if (!homepageLoaded) {
+          homepageLoaded = true;
+          try { await loadHomepage(); } catch (e) { showStatus('Homepage failed to load: ' + (e.message || e), 'error'); }
+        }
+      });
+
+      // ---- Orders (admin only) ----
+      document.getElementById('tab-orders-item').style.display = '';
+
+      let allOrders = [];
+      let ordersPage = 0;
+      const ORDERS_PAGE_SIZE = 25;
+
+      function statusBadge(s) {
+        var map = {
+          'created': 'rgba(136,136,136,.12)|#888|#444',
+          'pending_fulfillment': 'rgba(254,253,0,.1)|#FEFD00|#FEFD00',
+          'shipped': 'rgba(0,237,10,.1)|#00ED0A|#00ED0A',
+          'canceled': 'rgba(255,77,79,.1)|#ff4d4f|#ff4d4f'
+        };
+        var p = (map[s] || map['created']).split('|');
+        return '<span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.28em .55em;' +
+          'font-family:\'Roboto Mono\',monospace;background:' + p[0] + ';color:' + p[1] + ';border:1px solid ' + p[2] + '">' +
+          escapeHtml(String(s || 'unknown')) + '</span>';
+      }
+
+      function printfulBadge(id, status) {
+        if (!id) return '<span style="font-size:.62rem;color:#444">&#8212;</span>';
+        var col = status === 'shipped' ? '#00ED0A' : (status ? '#FEFD00' : '#888');
+        return '<span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.28em .55em;' +
+          'font-family:\'Roboto Mono\',monospace;background:rgba(0,237,10,.08);color:' + col + ';border:1px solid ' + col + '" title="#' +
+          escapeHtml(String(id)) + '">' + escapeHtml(String(status || 'linked')) + '</span>';
+      }
+
+      function renderOrderStats(orders) {
+        var total = orders.length;
+        var revenue = orders.reduce(function(a, o) { return a + (Number(o.total_cents) || 0); }, 0);
+        var pending = orders.filter(function(o) { return o.status === 'created' || o.status === 'pending_fulfillment'; }).length;
+        var shipped = orders.filter(function(o) { return o.status === 'shipped'; }).length;
+        var canceled = orders.filter(function(o) { return o.status === 'canceled'; }).length;
+        var avg = total ? Math.round(revenue / total) : 0;
+        var pfLinked = orders.filter(function(o) { return !!o.printful_order_id; }).length;
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var today = orders.filter(function(o) { return o.created_at && o.created_at.slice(0, 10) === todayStr; }).length;
+        var cur = (orders[0] && orders[0].currency) || 'USD';
+        function se(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
+        se('stat-total-orders', total >= 200 ? '200+' : String(total));
+        se('stat-revenue', formatMoney(revenue, cur));
+        se('stat-pending', String(pending));
+        se('stat-shipped', String(shipped));
+        se('stat-avg-order', avg ? formatMoney(avg, cur) : '$0.00');
+        se('stat-canceled', String(canceled));
+        se('stat-printful-linked', String(pfLinked));
+        se('stat-today', String(today));
+      }
+
+      function getFilteredOrders() {
+        var q = (document.getElementById('orderSearch') ? document.getElementById('orderSearch').value : '').toLowerCase().trim();
+        var st = document.getElementById('orderStatusFilter') ? document.getElementById('orderStatusFilter').value : '';
+        return allOrders.filter(function(o) {
+          if (st && o.status !== st) return false;
+          if (q) {
+            var hay = [o.email || '', o.first_name || '', o.last_name || '', String(o.id || '')].join(' ').toLowerCase();
+            if (hay.indexOf(q) === -1) return false;
           }
+          return true;
         });
       }
-    })().catch(e => {
-      const s = document.getElementById('status');
-      if (s) { s.className = 'alert border alert-danger'; s.textContent = 'Dashboard error: ' + (e.message || String(e)); s.style.display = 'block'; }
-      console.error('Dashboard init error:', e);
-    });
-  </script>
+
+      function renderOrdersTable() {
+        var filtered = getFilteredOrders();
+        var pageCount = Math.max(1, Math.ceil(filtered.length / ORDERS_PAGE_SIZE));
+        if (ordersPage >= pageCount) ordersPage = pageCount - 1;
+        var start = ordersPage * ORDERS_PAGE_SIZE;
+        var slice = filtered.slice(start, start + ORDERS_PAGE_SIZE);
+        var tbody = document.getElementById('ordersTbody');
+        if (!tbody) return;
+        if (!slice.length) {
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4" style="color:#555">No orders found.</td></tr>';
+        } else {
+          tbody.innerHTML = slice.map(function(o) {
+            var date = o.created_at ? o.created_at.slice(0, 10) : '\u2014';
+            var shortId = String(o.id || '').slice(-10);
+            var name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || '\u2014';
+            var loc = [o.city, o.country].filter(Boolean).join(', ') || '\u2014';
+            return '<tr>' +
+              '<td style="font-size:.7rem;white-space:nowrap;color:#888">' + escapeHtml(date) + '</td>' +
+              '<td><code style="font-size:.67rem;color:#666" title="' + escapeHtml(String(o.id || '')) + '">&hellip;' + escapeHtml(shortId) + '</code></td>' +
+              '<td style="white-space:nowrap">' + escapeHtml(name) + '</td>' +
+              '<td style="font-size:.72rem;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(o.email || '\u2014') + '</td>' +
+              '<td style="white-space:nowrap;font-weight:700">' + escapeHtml(formatMoney(o.total_cents, o.currency)) + '</td>' +
+              '<td>' + statusBadge(o.status) + '</td>' +
+              '<td>' + printfulBadge(o.printful_order_id, o.printful_status) + '</td>' +
+              '<td style="font-size:.7rem;color:#666">' + escapeHtml(loc) + '</td>' +
+            '</tr>';
+          }).join('');
+        }
+        var pageInfo = document.getElementById('ordersPageInfo');
+        var prevBtn = document.getElementById('ordersPrevBtn');
+        var nextBtn = document.getElementById('ordersNextBtn');
+        if (pageInfo) pageInfo.textContent = filtered.length
+          ? 'Showing ' + (start + 1) + '\u2013' + Math.min(start + ORDERS_PAGE_SIZE, filtered.length) + ' of ' + filtered.length
+          : 'No results';
+        if (prevBtn) prevBtn.disabled = ordersPage <= 0;
+        if (nextBtn) nextBtn.disabled = ordersPage >= pageCount - 1;
+      }
+
+      async function loadAndRenderOrders() {
+        showStatus('Loading orders\u2026', 'info');
+        try {
+          var res = await apiFetch('/admin/orders?limit=200');
+          allOrders = res.items || [];
+          renderOrderStats(allOrders);
+          ordersPage = 0;
+          renderOrdersTable();
+          clearStatus();
+        } catch (e) {
+          showStatus('Orders failed to load: ' + (e.message || String(e)), 'error');
+        }
+      }
+
+      var ordersRefreshBtn = document.getElementById('ordersRefreshBtn');
+      if (ordersRefreshBtn) ordersRefreshBtn.addEventListener('click', loadAndRenderOrders);
+
+      var orderSearchEl = document.getElementById('orderSearch');
+      var orderStatusFilterEl = document.getElementById('orderStatusFilter');
+      if (orderSearchEl) orderSearchEl.addEventListener('input', function() { ordersPage = 0; renderOrdersTable(); });
+      if (orderStatusFilterEl) orderStatusFilterEl.addEventListener('change', function() { ordersPage = 0; renderOrdersTable(); });
+
+      var ordersPrevBtnEl = document.getElementById('ordersPrevBtn');
+      var ordersNextBtnEl = document.getElementById('ordersNextBtn');
+      if (ordersPrevBtnEl) ordersPrevBtnEl.addEventListener('click', function() { if (ordersPage > 0) { ordersPage--; renderOrdersTable(); } });
+      if (ordersNextBtnEl) ordersNextBtnEl.addEventListener('click', function() { ordersPage++; renderOrdersTable(); });
+
+      var ordersLoaded = false;
+      var ordersTabBtn = document.getElementById('tab-orders');
+      if (ordersTabBtn) {
+        ordersTabBtn.addEventListener('shown.bs.tab', function() {
+          if (!ordersLoaded) { ordersLoaded = true; loadAndRenderOrders(); }
+        });
+      }
+    }
+  })().catch(function(e) {
+    const s = document.getElementById('status');
+    if (s) { s.className = 'status-error'; s.textContent = 'Dashboard error: ' + (e.message || String(e)); }
+    console.error('Dashboard init error:', e);
+  });
+</script>
 </body>
 </html>

@@ -131,10 +131,21 @@ a {
   color: #1C1C1C;
 }
 
-/* --- List group --- */
+/* --- List group (cart items, etc.) --- */
+.list-group {
+  border: 3px solid #1C1C1C;
+  border-radius: 0;
+}
 .list-group-item {
-  --bs-list-group-item-padding-x: 0;
+  --bs-list-group-item-padding-x: 1rem;
   --bs-list-group-border-width: 0;
+  border-bottom: 2px solid #1C1C1C !important;
+  border-radius: 0 !important;
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+.list-group-item:last-child {
+  border-bottom: none !important;
 }
 
 /* --- Buttons --- */

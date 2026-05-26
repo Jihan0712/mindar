@@ -69,19 +69,20 @@
       }
 
       list.innerHTML = items.length ? items.map(i => `
-        <li class="list-group-item d-flex align-items-center justify-content-between gap-2">
-          <img src="${i.image}" alt="${i.name}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;">
-          <div class="flex-grow-1">
-            <div class="fw-semibold">${i.name}</div>
-            <div class="text-muted small">${Cart.currency(i.price)} x 
-              <input type="number" min="1" class="form-control d-inline-block" style="width:70px" value="${i.qty}" data-qty-for="${i.id}">
+        <li class="list-group-item d-flex align-items-center gap-3 py-3">
+          <img src="${i.image || ''}" alt="${i.name}" style="width:60px;height:60px;object-fit:cover;border:2px solid #1C1C1C;flex-shrink:0">
+          <div class="flex-grow-1" style="min-width:0">
+            <div style="font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.name}</div>
+            <div class="d-flex align-items-center gap-2 mt-1">
+              <span style="font-size:.78rem;color:#888">${Cart.currency(i.price)} ea.</span>
+              <input type="number" min="1" class="form-control form-control-sm d-inline-block" style="width:68px" value="${i.qty}" data-qty-for="${i.id}">
             </div>
           </div>
-          <div class="text-end">
-            <div>${Cart.currency(i.qty * i.price)}</div>
-            <button class="btn btn-link text-danger p-0 small" data-remove="${i.id}">Remove</button>
+          <div class="d-flex flex-column align-items-end gap-2 flex-shrink-0">
+            <div style="font-weight:700;font-size:1rem">${Cart.currency(i.qty * i.price)}</div>
+            <button class="btn btn-sm btn-outline-dark" style="font-size:.65rem;padding:.2rem .6rem;border-width:2px" data-remove="${i.id}">Remove</button>
           </div>
-        </li>`).join('') : '<li class="list-group-item">Your cart is empty.</li>';
+        </li>`).join('') : '<li class="list-group-item py-3" style="color:#888;font-size:.85rem">Your cart is empty.</li>';
     }
   };
 
