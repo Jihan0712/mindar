@@ -211,6 +211,12 @@
               </div>
 
               <div>
+                <label class="form-label" for="printfulSyncVariantInput">Printful Sync Variant ID <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional &mdash; single-variant products)</span></label>
+                <input id="printfulSyncVariantInput" class="form-control" type="text" placeholder="e.g. 6a0ff0f16447e7" />
+                <div class="form-text">For single-variant products. Use the per-size fields below for sized products.</div>
+              </div>
+
+              <div>
                 <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
                 <div id="printfulVariantFields" class="vstack gap-1">
                   <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
@@ -531,6 +537,7 @@
     el('imageFileInput').value = '';
     el('descInput').value = p ? (p.description || '') : '';
     el('publishInput').checked = !!(p && p.is_published);
+    el('printfulSyncVariantInput').value = p ? (p.printful_sync_variant_id || '') : '';
     const _pfSizes = p ? (p.sizes || '').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
     renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
@@ -911,6 +918,7 @@
       // Only include printful_variant_map when inputs are rendered (undefined = no sizes loaded).
       // null means inputs exist but all cleared — that intentionally wipes the map.
       if (_pfMap !== undefined) body.printful_variant_map = _pfMap;
+      body.printful_sync_variant_id = el('printfulSyncVariantInput').value.trim() || null;
       if (isAdmin) body.brand = el('brandInput').value.trim();
 
       try {
