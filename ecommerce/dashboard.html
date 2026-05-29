@@ -623,7 +623,11 @@
 
   function collectPrintfulVariantMap() {
     const inputs = document.querySelectorAll('#printfulVariantFields input[data-pf-size]');
-    if (!inputs.length) return null;
+    // Return undefined (not null) when no inputs are rendered — this means sizes field is
+    // empty or the product hasn't loaded yet. Returning undefined causes the form submit
+    // to omit printful_variant_map from the body entirely, preserving the existing DB value.
+    // Returning null means inputs ARE rendered but all empty — intentionally clears the map.
+    if (!inputs.length) return undefined;
     const map = {};
     let hasAny = false;
     inputs.forEach(function(inp) {
@@ -890,6 +894,7 @@
       clearStatus();
       const id = el('productId').value.trim();
       const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
+      const _pfMap = collectPrintfulVariantMap();
       const body = {
         title: el('titleInput').value.trim(),
         category: el('categoryInput').value.trim(),
@@ -901,9 +906,11 @@
         image_url: el('imageUrlInput').value.trim(),
         description: el('descInput').value.trim(),
         is_published: el('publishInput').checked,
-        printful_variant_map: collectPrintfulVariantMap(),
         ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
       };
+      // Only include printful_variant_map when inputs are rendered (undefined = no sizes loaded).
+      // null means inputs exist but all cleared — that intentionally wipes the map.
+      if (_pfMap !== undefined) body.printful_variant_map = _pfMap;
       if (isAdmin) body.brand = el('brandInput').value.trim();
 
       try {

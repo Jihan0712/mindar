@@ -1616,7 +1616,18 @@
       if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
         return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
       }
-      throw e;
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        // printful_variant_map column not yet added — retry update without it.
+        const pfIdx = fields.indexOf('printful_variant_map = ?');
+        if (pfIdx !== -1) {
+          const rf = [...fields]; rf.splice(pfIdx, 1);
+          const rp = [...params]; rp.splice(pfIdx, 1);
+          await dbRun(`update products set ${rf.join(', ')} where id = ?`, ...rp, id);
+        }
+        // fall through to re-fetch and return — variant map not saved until migration is run
+      } else {
+        throw e;
+      }
     }
 
     let row;
