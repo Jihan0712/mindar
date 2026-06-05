@@ -424,11 +424,8 @@ File: `cloudflare/worker/index.js` — update `POST /api/orders` handler.
 
 ### Phase 6 — Printful webhooks → order status
 
-- [ ] Register the webhook in Printful Dashboard → Settings → Webhooks → Add endpoint:
-  - URL: `https://shop.inrl.co/api/webhooks/printful`
-  - Events: `package_shipped`, `order_updated`, `order_failed`
-  - Printful will show a webhook token — copy it
-- [ ] Add Worker secret `PRINTFUL_WEBHOOK_TOKEN`
+- [ ] Add Worker secret `PRINTFUL_WEBHOOK_TOKEN` (any random string you generate, e.g. `openssl rand -hex 32`)
+- [ ] Register the webhook **via the dashboard** — go to `ecommerce/dashboard.html` → Printful tab → enter your site URL → click "Register Webhook". This calls `POST /api/admin/printful/webhook/register` which hits Printful's API (`POST /v2/webhooks`) automatically.
 - [ ] Worker endpoint `POST /api/webhooks/printful` (no auth cookie required, public):
   - Read `X-Printful-Webhook-Token` header; reject with 401 if mismatch
   - Parse event body; look up D1 order by `printful_order_id`

@@ -113,14 +113,11 @@
         <div id="trackForm">
           <div style="margin-bottom:16px">
             <label for="orderIdInput" style="display:block;font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:8px">Order ID</label>
-            <input id="orderIdInput" type="text" placeholder="e.g. ORD-2026-00123" style="width:100%;background:transparent;border:2px solid rgba(245,245,240,.15);color:#F5F5F0;padding:12px 14px;font-family:'Roboto Mono',monospace;font-size:13px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#00ED0A'" onblur="this.style.borderColor='rgba(245,245,240,.15)'">
+            <input id="orderIdInput" type="text" placeholder="e.g. ord_…" style="width:100%;background:transparent;border:2px solid rgba(245,245,240,.15);color:#F5F5F0;padding:12px 14px;font-family:'Roboto Mono',monospace;font-size:13px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#00ED0A'" onblur="this.style.borderColor='rgba(245,245,240,.15)'">
           </div>
           <button onclick="submitTrack()" style="padding:12px 28px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Look Up Order</button>
         </div>
-        <div id="trackResult" style="display:none;margin-top:24px;padding:20px;border:2px solid rgba(0,237,10,.25);background:rgba(0,237,10,.04)">
-          <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#00ED0A;margin-bottom:8px">We&rsquo;ve Got Your Order</div>
-          <p style="font-size:13px;line-height:1.7;color:rgba(245,245,240,.6);margin:0">Order <strong id="trackOrderId" style="color:#F5F5F0"></strong> is registered. Detailed tracking will be available here soon. For immediate updates, email us at <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a> with your order ID.</p>
-        </div>
+        <div id="trackResult" style="display:none;margin-top:24px"></div>
       </div>
 
       <div style="border:3px solid rgba(245,245,240,.08);padding:36px 40px">
@@ -186,15 +183,116 @@
   <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
   <script>
-    function submitTrack() {
-      var id = (document.getElementById('orderIdInput').value || '').trim();
-      if (!id) return;
-      document.getElementById('trackOrderId').textContent = id;
-      document.getElementById('trackResult').style.display = 'block';
+    var _trackLookupActive = false;
+
+    const STATUS_LABELS = {
+      pending:   { label: 'Pending',    color: 'rgba(245,245,240,.5)' },
+      draft:     { label: 'Draft',      color: 'rgba(245,245,240,.5)' },
+      confirmed: { label: 'Confirmed',  color: '#00ED0A' },
+      inprocess: { label: 'In Process', color: '#00ED0A' },
+      partial:   { label: 'Partial',    color: '#FEFD00' },
+      fulfilled: { label: 'Fulfilled',  color: '#00ED0A' },
+      shipped:   { label: 'Shipped',    color: '#00ED0A' },
+      returned:  { label: 'Returned',   color: '#ff4d4f' },
+      cancelled: { label: 'Cancelled',  color: '#ff4d4f' },
+      failed:    { label: 'Failed',     color: '#ff4d4f' },
+      error:     { label: 'Error',      color: '#ff4d4f' },
+    };
+
+    function escHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+
+    function renderTrackResult(order) {
+      const resultEl = document.getElementById('trackResult');
+      if (!resultEl) return;
+
+      const pfStatus = (order.printful_status || 'pending').toLowerCase();
+      const statusInfo = STATUS_LABELS[pfStatus] || { label: pfStatus, color: 'rgba(245,245,240,.5)' };
+
+      let trackingHtml = '';
+      if (order.tracking_url) {
+        trackingHtml = `
+          <div style="margin-top:16px;padding:14px 16px;border:2px solid rgba(0,237,10,.2);background:rgba(0,237,10,.04)">
+            <div style="font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:6px">Tracking</div>
+            ${order.carrier ? `<div style="font-size:12px;color:rgba(245,245,240,.5);margin-bottom:6px">${escHtml(order.carrier)}</div>` : ''}
+            <a href="${escHtml(order.tracking_url)}" target="_blank" rel="noopener"
+               style="display:inline-block;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:9px 18px;background:#00ED0A;color:#1C1C1C;text-decoration:none">
+              Track Package &rarr;
+            </a>
+            ${order.tracking_number ? `
+            <button onclick="navigator.clipboard && navigator.clipboard.writeText('${escHtml(order.tracking_number)}').then(()=>this.textContent='Copied!').catch(()=>{})" style="margin-left:8px;font-family:'Roboto Mono',monospace;font-size:10px;padding:9px 14px;background:transparent;border:2px solid rgba(245,245,240,.2);color:rgba(245,245,240,.6);cursor:pointer">
+              Copy #
+            </button>` : ''}
+          </div>`;
+      } else if (order.tracking_number) {
+        trackingHtml = `
+          <div style="margin-top:16px;padding:14px 16px;border:2px solid rgba(245,245,240,.1)">
+            <div style="font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:6px">Tracking Number</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:13px;color:#F5F5F0">${escHtml(order.tracking_number)}</div>
+          </div>`;
+      }
+
+      resultEl.innerHTML = `
+        <div style="padding:20px;border:2px solid rgba(0,237,10,.25);background:rgba(0,237,10,.04)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#00ED0A">Order Found</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 10px;border:2px solid ${statusInfo.color};color:${statusInfo.color}">${escHtml(statusInfo.label)}</div>
+          </div>
+          <p style="font-size:13px;line-height:1.7;color:rgba(245,245,240,.6);margin:0 0 6px">
+            Order <strong style="color:#F5F5F0">${escHtml(order.id)}</strong>
+            &mdash; ${escHtml(order.first_name)} ${escHtml(order.last_name)}
+          </p>
+          ${order.shipped_at ? `<p style="font-size:12px;color:rgba(245,245,240,.4);margin:0">Shipped: ${escHtml(order.shipped_at.slice(0,10))}</p>` : ''}
+          ${trackingHtml}
+          ${!order.tracking_url && !order.tracking_number && pfStatus !== 'shipped' ? `<p style="font-size:12px;color:rgba(245,245,240,.4);margin:6px 0 0">Tracking will appear here once your order ships. Questions? <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a></p>` : ''}
+        </div>`;
+      resultEl.style.display = 'block';
+    }
+
+    async function submitTrack() {
+      if (_trackLookupActive) return;
+      const id = (document.getElementById('orderIdInput').value || '').trim();
+      if (!id) return;
+
+      const resultEl = document.getElementById('trackResult');
+      resultEl.innerHTML = '<div style="font-family:\'Roboto Mono\',monospace;font-size:12px;color:rgba(245,245,240,.4);padding:12px 0">Looking up order…</div>';
+      resultEl.style.display = 'block';
+      _trackLookupActive = true;
+
+      try {
+        const res = await fetch(`/api/orders/${encodeURIComponent(id)}`, { credentials: 'include' });
+        if (res.status === 401) {
+          resultEl.innerHTML = '<div style="font-size:13px;color:#ff4d4f;padding:12px 0">Please <a href="login.html?next=order-tracking.html" style="color:#00ED0A">sign in</a> to view your order.</div>';
+          return;
+        }
+        if (res.status === 404) {
+          resultEl.innerHTML = '<div style="font-size:13px;color:#ff4d4f;padding:12px 0">Order not found. Check the ID and try again.</div>';
+          return;
+        }
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const data = await res.json();
+        renderTrackResult(data.order);
+      } catch (e) {
+        resultEl.innerHTML = `<div style="font-size:13px;color:#ff4d4f;padding:12px 0">Lookup failed: ${escHtml(e.message)}</div>`;
+      } finally {
+        _trackLookupActive = false;
+      }
+    }
+
     document.getElementById('orderIdInput').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') submitTrack();
     });
+
+    // Pre-fill from query param ?order=ord_xxx
+    (function(){
+      var qs = new URLSearchParams(location.search);
+      var orderId = qs.get('order') || qs.get('id');
+      if (orderId) {
+        document.getElementById('orderIdInput').value = orderId;
+        submitTrack();
+      }
+    })();
 
     (async function(){
       var loginEl = document.getElementById('navLogin');

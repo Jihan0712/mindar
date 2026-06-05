@@ -40,7 +40,11 @@
       lastName: document.getElementById('lastName').value.trim(),
       email: document.getElementById('email').value.trim(),
       address: document.getElementById('address').value.trim(),
+<<<<<<< HEAD
       city: (document.getElementById('city') || {}).value?.trim() || '',
+=======
+      city: (document.getElementById('city') ? document.getElementById('city').value.trim() : ''),
+>>>>>>> 6a231e8 (printful integration)
       country: document.getElementById('country').value,
       state: document.getElementById('state').value.trim(),
       zip: document.getElementById('zip').value.trim(),

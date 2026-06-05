@@ -1,20 +1,27 @@
--- Printful print-on-demand integration migration
--- Apply in Cloudflare D1 Console.
---
--- REQUIRED: run sql/orders_migration.sql first to create the orders table,
--- then run this file.
+-- Printful integration migration
+-- Run against your D1 database:
+--   CF Dashboard → D1 → your db → Console  (paste and execute)
+--   or: wrangler d1 execute mindardb --file sql/printful_migration.sql
 
--- Add Printful sync variant ID to products so each product maps to a
--- Printful sync product variant (configured in the Printful dashboard).
-ALTER TABLE products ADD COLUMN printful_sync_variant_id TEXT NULL;
+PRAGMA foreign_keys = ON;
 
--- Add city to orders (required by Printful recipient address).
-ALTER TABLE orders ADD COLUMN city TEXT NOT NULL DEFAULT '';
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Products: link each product to its Printful sync product + variant
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE products ADD COLUMN printful_sync_product_id INTEGER;
+ALTER TABLE products ADD COLUMN printful_sync_variant_id INTEGER;
 
--- Track the Printful order that was created for each store order.
-ALTER TABLE orders ADD COLUMN printful_order_id TEXT NULL;
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Orders: Printful fulfillment tracking columns
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE orders ADD COLUMN city             TEXT;
+ALTER TABLE orders ADD COLUMN printful_order_id TEXT;
+ALTER TABLE orders ADD COLUMN printful_status   TEXT DEFAULT 'pending';
+ALTER TABLE orders ADD COLUMN tracking_number   TEXT;
+ALTER TABLE orders ADD COLUMN tracking_url      TEXT;
+ALTER TABLE orders ADD COLUMN carrier           TEXT;
+ALTER TABLE orders ADD COLUMN shipped_at        TEXT;
 
--- Mirror the Printful fulfillment status (e.g. draft, pending, inprocess, fulfilled, canceled).
-ALTER TABLE orders ADD COLUMN printful_status TEXT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_orders_printful_id ON orders(printful_order_id);
+-- Index for fast webhook lookups by printful_order_id
+CREATE INDEX IF NOT EXISTS idx_orders_printful ON orders(printful_order_id);
+ 
