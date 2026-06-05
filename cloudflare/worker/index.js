@@ -19,15 +19,10 @@
     globalThis.BOOTSTRAP_ADMIN_KEY = env.BOOTSTRAP_ADMIN_KEY;
     globalThis.CF_API_TOKEN = env.CF_API_TOKEN;
     globalThis.CF_ZONE_ID = env.CF_ZONE_ID;
-<<<<<<< HEAD
-    globalThis.PRINTFUL_API_KEY = env.PRINTFUL_API_KEY;
-    globalThis.PRINTFUL_WEBHOOK_SECRET = env.PRINTFUL_WEBHOOK_SECRET;
-=======
     // Printful
-    globalThis.PRINTFUL_API_KEY      = env.PRINTFUL_API_KEY;
-    globalThis.PRINTFUL_STORE_ID     = env.PRINTFUL_STORE_ID;
-    globalThis.PRINTFUL_WEBHOOK_TOKEN = env.PRINTFUL_WEBHOOK_TOKEN;
->>>>>>> 6a231e8 (printful integration)
+    globalThis.PRINTFUL_API_KEY       = env.PRINTFUL_API_KEY;
+    globalThis.PRINTFUL_STORE_ID      = env.PRINTFUL_STORE_ID;
+    globalThis.PRINTFUL_WEBHOOK_SECRET = env.PRINTFUL_WEBHOOK_SECRET;
   }
 
   // ---------- CORS / JSON helpers ----------
@@ -297,15 +292,10 @@
 
     // Orders (shop)
     if (request.method === 'POST' && pathname === '/api/orders')               return apiCreateOrder(request);
-<<<<<<< HEAD
-    if (request.method === 'GET'  && pathname === '/api/admin/orders')         return apiAdminListOrders(request);
-    if (request.method === 'POST' && pathname === '/api/webhooks/printful')    return apiPrintfulWebhook(request);
-=======
     if (request.method === 'GET'  && /^\/api\/orders\/[^/]+$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetOrder(request, id);
     }
->>>>>>> 6a231e8 (printful integration)
 
     // Admin
     if (request.method === 'POST' && pathname === '/api/admin/brand-users')    return apiAdminCreateBrandUser(request);
@@ -967,12 +957,10 @@
     if (!Number.isFinite(price) || price < 0) return null;
     if (!qty) return null;
 
-<<<<<<< HEAD
-    return { id: id || null, slug: slug || null, name, qty, price, image: image || null, printful_sync_variant_id: printfulVariantId };
-=======
-    const variantId = o.variantId != null ? (Number(o.variantId) || null) : null;
-    return { id: id || null, slug: slug || null, name, qty, price, image: image || null, variantId };
->>>>>>> 6a231e8 (printful integration)
+    // Accept both field names: dashboard sends printful_sync_variant_id; checkout.js sends variantId
+    const resolvedVariantId = printfulVariantId ||
+      (o.variantId != null ? (String(Number(o.variantId) || '') || null) : null);
+    return { id: id || null, slug: slug || null, name, qty, price, image: image || null, printful_sync_variant_id: resolvedVariantId };
   }
 
   function computeOrderTotalCents(cartItems) {
@@ -1056,7 +1044,6 @@
       }
     }
 
-<<<<<<< HEAD
     // Submit to Printful for print & fulfilment (fire-and-forget; never block the order response).
     let printfulOrderId = null;
     try {
@@ -1071,61 +1058,10 @@
         ).catch(() => {/* ignore if columns not yet migrated */});
       }
     } catch (pfErr) {
-      // Log but never fail the customer-facing response.
       console.error('[printful] Failed to create order for', orderId, String(pfErr));
     }
 
     return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency, printful_order_id: printfulOrderId }, 201, request);
-=======
-    // Optionally store city (column added by printful_migration.sql — silent fail if not migrated yet)
-    const city = clampStr((customer && customer.city) || '', 80);
-    if (city) {
-      try { await dbRun('update orders set city = ? where id = ?', city, orderId); } catch {}
-    }
-
-    // ── Phase 5: Forward to Printful (non-blocking) ──────────────────────────
-    if (typeof PRINTFUL_API_KEY === 'string' && PRINTFUL_API_KEY) {
-      const printfulItems = cart
-        .filter(it => it.variantId)
-        .map(it => ({ sync_variant_id: Number(it.variantId), quantity: it.qty }));
-
-      if (printfulItems.length > 0) {
-        try {
-          const storeQs = typeof PRINTFUL_STORE_ID === 'string' && PRINTFUL_STORE_ID
-            ? `?store_id=${encodeURIComponent(PRINTFUL_STORE_ID)}` : '';
-          const printfulPayload = {
-            recipient: {
-              name: `${firstName} ${lastName}`,
-              address1: address,
-              city: city || state,
-              state_code: state.length <= 3 ? state.toUpperCase() : state,
-              country_code: countryToCode(country),
-              zip,
-              email,
-            },
-            items: printfulItems,
-          };
-          const pResult = await callPrintful(`/v2/orders${storeQs}`, 'POST', printfulPayload);
-          const pfId =
-            (pResult && pResult.result && pResult.result.id) ||
-            (pResult && pResult.data  && pResult.data.id)   ||
-            (pResult && pResult.id)   || null;
-          if (pfId) {
-            await dbRun(
-              'update orders set printful_order_id = ?, printful_status = ? where id = ?',
-              String(pfId), 'pending', orderId
-            );
-          }
-        } catch (pErr) {
-          console.error('Printful order failed (non-blocking):', String(pErr));
-          try { await dbRun('update orders set printful_status = ? where id = ?', 'error', orderId); } catch {}
-        }
-      }
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
-    return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency }, 201, request);
->>>>>>> 6a231e8 (printful integration)
   }
 
   // ---------- Admin APIs ----------
@@ -2369,92 +2305,6 @@
     }
   }
 
-  // ---------- Printful helpers ----------
-
-  const COUNTRY_CODES = {
-    'united states': 'US', 'usa': 'US', 'us': 'US',
-    'united kingdom': 'GB', 'uk': 'GB', 'gb': 'GB',
-    'canada': 'CA', 'ca': 'CA',
-    'australia': 'AU', 'au': 'AU',
-    'germany': 'DE', 'france': 'FR', 'italy': 'IT', 'spain': 'ES',
-    'netherlands': 'NL', 'sweden': 'SE', 'norway': 'NO', 'denmark': 'DK',
-    'japan': 'JP', 'south korea': 'KR', 'brazil': 'BR', 'mexico': 'MX',
-    'new zealand': 'NZ', 'austria': 'AT', 'switzerland': 'CH', 'belgium': 'BE',
-    'portugal': 'PT', 'ireland': 'IE', 'finland': 'FI', 'poland': 'PL',
-    'czech republic': 'CZ', 'hungary': 'HU', 'romania': 'RO', 'bulgaria': 'BG',
-  };
-
-  function countryToCode(country) {
-    const k = String(country || '').trim().toLowerCase();
-    if (COUNTRY_CODES[k]) return COUNTRY_CODES[k];
-    // Already a 2-letter code
-    if (/^[a-z]{2}$/i.test(k)) return k.toUpperCase();
-    return k.slice(0, 2).toUpperCase() || 'US';
-  }
-
-  async function callPrintful(path, method = 'GET', body = null) {
-    const apiKey = globalThis.PRINTFUL_API_KEY;
-    if (!apiKey) throw new Error('PRINTFUL_API_KEY not configured');
-    const url = `https://api.printful.com${path}`;
-    const opts = {
-      method,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    };
-    if (body !== null) opts.body = JSON.stringify(body);
-    const res = await fetch(url, opts);
-    const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(`Printful ${res.status}: ${JSON.stringify(data)}`);
-    return data;
-  }
-
-  // ---------- Printful API handlers ----------
-
-  async function apiPrintfulWebhook(request) {
-    const provided = request.headers.get('X-Printful-Webhook-Token') || '';
-    const expected = typeof PRINTFUL_WEBHOOK_TOKEN === 'string' ? PRINTFUL_WEBHOOK_TOKEN : '';
-    if (!expected || !timingSafeEqual(provided, expected)) {
-      return jsonResponse({ error: 'Unauthorized' }, 401, request);
-    }
-    const body = await readJson(request);
-    const eventType = body && body.type ? String(body.type) : '';
-    const data = body && body.data ? body.data : {};
-
-    const pfOrder = data.order || {};
-    const pfOrderId = pfOrder.id ? String(pfOrder.id) : '';
-    if (!pfOrderId) return jsonResponse({ ok: true }, 200, request);
-
-    let orderRow = null;
-    try {
-      orderRow = await dbGet('select id from orders where printful_order_id = ?', pfOrderId);
-    } catch { return jsonResponse({ ok: true }, 200, request); }
-    if (!orderRow) return jsonResponse({ ok: true }, 200, request);
-
-    try {
-      if (eventType === 'package_shipped') {
-        const ship = data.shipment || {};
-        await dbRun(
-          'update orders set printful_status = ?, tracking_number = ?, tracking_url = ?, carrier = ?, shipped_at = ? where id = ?',
-          'shipped',
-          ship.tracking_number || null,
-          ship.tracking_url   || null,
-          ship.carrier        || null,
-          new Date().toISOString(),
-          orderRow.id
-        );
-      } else if (eventType === 'order_updated') {
-        const status = pfOrder.status || null;
-        if (status) await dbRun('update orders set printful_status = ? where id = ?', status, orderRow.id);
-      } else if (eventType === 'order_failed') {
-        await dbRun('update orders set printful_status = ? where id = ?', 'failed', orderRow.id);
-      }
-    } catch { /* non-blocking */ }
-
-    return jsonResponse({ ok: true }, 200, request);
-  }
-
   async function apiGetOrder(request, id) {
     const rawId = String(id || '').trim();
     if (!rawId) return jsonResponse({ error: 'order id required' }, 400, request);
@@ -2522,34 +2372,6 @@
     }, 200, request);
   }
 
-  async function apiAdminListOrders(request) {
-    const { error } = await requireAdminSession(request);
-    if (error) return error;
-    const url = new URL(request.url);
-    const statusFilter = (url.searchParams.get('printful_status') || '').trim().toLowerCase();
-    let sql = `
-      select id, email, first_name, last_name, currency, total_cents, status, created_at,
-             printful_order_id, printful_status, tracking_number, tracking_url, carrier, shipped_at
-      from orders
-    `;
-    const params = [];
-    if (statusFilter) { sql += ' where printful_status = ?'; params.push(statusFilter); }
-    sql += ' order by created_at desc limit 200';
-    let rows;
-    try {
-      rows = await dbAll(sql, ...params);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful')) {
-        rows = await dbAll(
-          `select id, email, first_name, last_name, currency, total_cents, status, created_at
-           from orders order by created_at desc limit 200`
-        );
-      } else { throw e; }
-    }
-    return jsonResponse({ items: rows || [] }, 200, request);
-  }
-
   async function apiPrintfulWebhookRegister(request) {
     const { error } = await requireAdminSession(request);
     if (error) return error;
@@ -2563,7 +2385,7 @@
       ? String(body.site_url).replace(/\/$/, '')
       : new URL(request.url).origin;
     const webhookUrl = `${siteUrl}/api/webhooks/printful`;
-    const token = typeof PRINTFUL_WEBHOOK_TOKEN === 'string' ? PRINTFUL_WEBHOOK_TOKEN : '';
+    const token = typeof PRINTFUL_WEBHOOK_SECRET === 'string' ? PRINTFUL_WEBHOOK_SECRET : '';
 
     try {
       const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
@@ -2574,7 +2396,7 @@
       };
       // Include the shared secret token if configured so Printful signs requests
       if (token) pfBody.secret = token;
-      const data = await callPrintful(`/v2/webhooks${qs}`, 'POST', pfBody);
+      const data = await callPrintful('POST', `/v2/webhooks${qs}`, pfBody);
       return jsonResponse({ ok: true, webhook_url: webhookUrl, printful: data }, 200, request);
     } catch (e) {
       // Try v1 fallback
@@ -2584,7 +2406,7 @@
           types: ['package_shipped', 'order_updated', 'order_failed'],
         };
         const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
-        const data = await callPrintful(`/webhooks${qs}`, 'POST', pfBodyV1);
+        const data = await callPrintful('POST', `/webhooks${qs}`, pfBodyV1);
         return jsonResponse({ ok: true, webhook_url: webhookUrl, printful: data, api_version: 'v1' }, 200, request);
       } catch (e2) {
         return jsonResponse({ error: String(e) + ' | v1 fallback: ' + String(e2) }, 500, request);
@@ -2600,7 +2422,7 @@
     if (!apiKey) return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
     try {
       const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
-      const data = await callPrintful(`/v2/sync-products${qs}`);
+      const data = await callPrintful('GET', `/v2/sync-products${qs}`);
       const syncProducts = (data && data.result) || (data && data.data) || [];
       let synced = 0;
       for (const sp of Array.isArray(syncProducts) ? syncProducts : []) {
@@ -2608,7 +2430,7 @@
         const name = sp.name || '';
         let variants = [];
         try {
-          const vdata = await callPrintful(`/v2/sync-products/${syncProductId}${qs}`);
+          const vdata = await callPrintful('GET', `/v2/sync-products/${syncProductId}${qs}`);
           variants = (vdata && vdata.result && vdata.result.sync_variants) ||
                      (vdata && vdata.data  && vdata.data.sync_variants) || [];
         } catch {}
@@ -2641,7 +2463,7 @@
     if (!apiKey) return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
     try {
       const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
-      const data = await callPrintful(`/v2/orders/${encodeURIComponent(printfulOrderId)}${qs}`);
+      const data = await callPrintful('GET', `/v2/orders/${encodeURIComponent(printfulOrderId)}${qs}`);
       const pfOrd = (data && data.result) || (data && data.data) || data || {};
       const status = pfOrd.status || null;
       const shipments = pfOrd.shipments || [];
@@ -2713,7 +2535,7 @@
     if (!items.length)           return jsonResponse({ error: 'items required' }, 400, request);
     try {
       const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
-      const data = await callPrintful(`/v2/shipping/rates${qs}`, 'POST', { recipient, items });
+      const data = await callPrintful('POST', `/v2/shipping/rates${qs}`, { recipient, items });
       const rates = (data && data.result) || (data && data.data) || [];
       const normalized = (Array.isArray(rates) ? rates : []).map(r => ({
         id: r.id,
