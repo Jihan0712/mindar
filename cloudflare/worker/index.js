@@ -1,5 +1,7 @@
   // Cloudflare Worker: R2 assets + auth/targets/viewer APIs (Cloudflare-only backend)
 
+  import * as Printful from './printful.js';
+
   // ES Module format: expose fetch and inject env bindings into globals per request
   export default {
     async fetch(request, env, ctx) {
@@ -20,9 +22,20 @@
     globalThis.CF_API_TOKEN = env.CF_API_TOKEN;
     globalThis.CF_ZONE_ID = env.CF_ZONE_ID;
     // Printful
-    globalThis.PRINTFUL_API_KEY       = env.PRINTFUL_API_KEY;
-    globalThis.PRINTFUL_STORE_ID      = env.PRINTFUL_STORE_ID;
-    globalThis.PRINTFUL_WEBHOOK_SECRET = env.PRINTFUL_WEBHOOK_SECRET;
+    globalThis.PRINTFUL_API_KEY              = env.PRINTFUL_API_KEY;
+    globalThis.PRINTFUL_STORE_ID             = env.PRINTFUL_STORE_ID;
+    globalThis.PRINTFUL_WEBHOOK_SECRET       = env.PRINTFUL_WEBHOOK_SECRET;
+    globalThis.PRINTFUL_CATALOG_PRODUCT_ID   = env.PRINTFUL_CATALOG_PRODUCT_ID;
+  }
+
+  /** Build env object for Printful module (reads per-request globals). */
+  function printfulEnv() {
+    return {
+      PRINTFUL_API_KEY: globalThis.PRINTFUL_API_KEY,
+      PRINTFUL_STORE_ID: globalThis.PRINTFUL_STORE_ID,
+      PRINTFUL_WEBHOOK_SECRET: globalThis.PRINTFUL_WEBHOOK_SECRET,
+      PRINTFUL_CATALOG_PRODUCT_ID: globalThis.PRINTFUL_CATALOG_PRODUCT_ID,
+    };
   }
 
   // ---------- CORS / JSON helpers ----------
@@ -304,6 +317,11 @@
     // Printful admin
     if (request.method === 'POST' && pathname === '/api/admin/printful/sync')             return apiPrintfulSync(request);
     if (request.method === 'POST' && pathname === '/api/admin/printful/webhook/register')  return apiPrintfulWebhookRegister(request);
+    if (request.method === 'POST' && pathname === '/api/admin/printful/products/push')     return apiPrintfulPushProduct(request);
+    if (request.method === 'POST' && /^\/api\/admin\/printful\/products\/\d+\/push$/.test(pathname)) {
+      const productId = parseInt(pathname.split('/')[5], 10);
+      return apiPrintfulPushProduct(request, productId);
+    }
     if (request.method === 'POST' && /^\/api\/admin\/printful\/orders\/[^/]+\/sync$/.test(pathname)) {
       const printfulOrderId = decodeURIComponent(pathname.split('/')[5]);
       return apiPrintfulOrderSync(request, printfulOrderId);
@@ -879,24 +897,7 @@
   // ---------- Printful API helpers ----------
 
   async function callPrintful(method, path, body) {
-    const key = typeof PRINTFUL_API_KEY === 'string' ? PRINTFUL_API_KEY.trim() : '';
-    if (!key) throw new Error('PRINTFUL_API_KEY is not configured');
-    const opts = {
-      method,
-      headers: {
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        'X-PF-Language': 'EN',
-      },
-    };
-    if (body != null) opts.body = JSON.stringify(body);
-    const res = await fetch(`https://api.printful.com${path}`, opts);
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = (json && json.error && json.error.message) || JSON.stringify(json);
-      throw new Error(`Printful ${res.status}: ${msg}`);
-    }
-    return json;
+    return Printful.callPrintful(printfulEnv(), method, path, body);
   }
 
   async function submitPrintfulOrder(orderId, cart, customer) {
@@ -2411,6 +2412,96 @@
       } catch (e2) {
         return jsonResponse({ error: String(e) + ' | v1 fallback: ' + String(e2) }, 500, request);
       }
+    }
+  }
+
+
+  /**
+   * POST /api/admin/printful/products/push
+   * POST /api/admin/printful/products/:id/push
+   *
+   * Option B (Push): create a Printful Sync Product from a local D1 product.
+   * Body: { product_id?, catalog_product_id?, catalog_variant_ids?, print_file_url?, placement?, site_url? }
+   */
+  async function apiPrintfulPushProduct(request, routeProductId) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
+      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+    }
+
+    const body = await readJson(request);
+    const productId = routeProductId || (body.product_id != null ? Number(body.product_id) : null);
+    if (!productId || !Number.isFinite(productId)) {
+      return jsonResponse({ error: 'product_id required' }, 400, request);
+    }
+
+    let row;
+    try {
+      row = await dbGet(
+        `select id, title, slug, category, color, sizes, price_cents, currency, image_url, image_urls,
+                printful_sync_product_id, printful_sync_variant_id, printful_variant_map
+         from products where id = ?`,
+        productId
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful')) {
+        return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
+      }
+      throw e;
+    }
+    if (!row) return jsonResponse({ error: 'Product not found' }, 404, request);
+
+    const siteUrl = (body.site_url || new URL(request.url).origin).replace(/\/$/, '');
+    const options = {
+      catalog_product_id: body.catalog_product_id,
+      catalog_variant_ids: body.catalog_variant_ids,
+      print_file_url: body.print_file_url,
+      placement: body.placement || 'front',
+      site_origin: siteUrl,
+    };
+
+    try {
+      const pushed = await Printful.pushProductToPrintful(pfEnv, row, options);
+      const variantMapJson = Object.keys(pushed.syncVariantMap || {}).length
+        ? JSON.stringify(pushed.syncVariantMap)
+        : null;
+      const firstVariant = pushed.syncVariantId || null;
+
+      try {
+        await dbRun(
+          `update products set printful_sync_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
+                  updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+           where id = ?`,
+          pushed.syncProductId,
+          firstVariant,
+          variantMapJson,
+          productId
+        );
+      } catch (dbErr) {
+        const msg = String(dbErr || '');
+        if (msg.includes('printful_variant_map')) {
+          await dbRun(
+            `update products set printful_sync_product_id = ?, printful_sync_variant_id = ? where id = ?`,
+            pushed.syncProductId, firstVariant, productId
+          );
+        } else {
+          throw dbErr;
+        }
+      }
+
+      return jsonResponse({
+        ok: true,
+        product_id: productId,
+        printful_sync_product_id: pushed.syncProductId,
+        printful_sync_variant_id: firstVariant,
+        printful_variant_map: pushed.syncVariantMap,
+      }, 200, request);
+    } catch (e) {
+      return jsonResponse({ error: String(e) }, 500, request);
     }
   }
 

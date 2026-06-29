@@ -29,6 +29,7 @@ Worker bindings / variables (configure in the Cloudflare dashboard):
 - Vars: `ASSETS_DOMAIN` (e.g. `https://assets.example.com`), `ALLOWED_ORIGINS` (comma-separated)
 - Secrets: `BOOTSTRAP_ADMIN_KEY` (one-time bootstrap), `WORKER_DELETE_KEY` (server-side deletes only)
 - Optional vars/secrets (cache purge): `CF_ZONE_ID`, `CF_API_TOKEN`
+- Printful (print-on-demand): `PRINTFUL_API_KEY` (secret), `PRINTFUL_STORE_ID` (Manual/API store ID), `PRINTFUL_WEBHOOK_SECRET` (secret, optional), `PRINTFUL_CATALOG_PRODUCT_ID` (optional default blank product, e.g. `71` for Bella Canvas 3001)
 
 ## API surface (high level)
 

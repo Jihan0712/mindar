@@ -497,7 +497,39 @@
           </div>
         </div>
 
-        <!-- Sync card -->
+        <!-- Push to Printful (Option B — recommended) -->
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
+              <span>Push Product to Printful</span>
+              <button id="printfulPushBtn" class="btn btn-sm btn-dark text-uppercase">Push Selected</button>
+            </div>
+            <div class="card-body">
+              <p class="text-muted mb-2" style="font-size:13px">
+                Creates the product in Printful from your dashboard catalog (recommended workflow).
+                Select a product in the Products tab first, or enter a product ID below.
+                Requires a public HTTPS design URL or product image URL Printful can fetch.
+              </p>
+              <div class="row g-2 mb-2" style="max-width:720px">
+                <div class="col-sm-4">
+                  <label class="form-label" style="font-size:.7rem">Product ID</label>
+                  <input id="printfulPushProductId" class="form-control form-control-sm" type="number" min="1" placeholder="e.g. 12">
+                </div>
+                <div class="col-sm-4">
+                  <label class="form-label" style="font-size:.7rem">Catalog product ID <span class="text-muted">(optional)</span></label>
+                  <input id="printfulCatalogProductId" class="form-control form-control-sm" type="number" min="1" placeholder="e.g. 71">
+                </div>
+                <div class="col-sm-4">
+                  <label class="form-label" style="font-size:.7rem">Print file URL <span class="text-muted">(optional)</span></label>
+                  <input id="printfulPrintFileUrl" class="form-control form-control-sm" type="url" placeholder="https://…/design.png">
+                </div>
+              </div>
+              <div id="printfulPushStatus"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sync card (Option A — pull) -->
         <div class="col-12">
           <div class="card">
             <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
@@ -614,6 +646,8 @@
 
   function setFormProduct(p, isAdmin) {
     el('productId').value = p ? String(p.id) : '';
+    const pfPushId = document.getElementById('printfulPushProductId');
+    if (pfPushId) pfPushId.value = p ? String(p.id) : '';
     if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
     el('titleInput').value = p ? (p.title || '') : '';
     el('categoryInput').value = p ? (p.category || '') : '';
@@ -1411,6 +1445,36 @@
           pfStatus(`Webhook registered → ${res.webhook_url}`, 'success', 'printfulWebhookStatus');
         } catch (e) {
           pfStatus('Registration failed: ' + (e.message || String(e)), 'error', 'printfulWebhookStatus');
+        }
+      });
+
+      // Push to Printful (Option B)
+      document.getElementById('printfulPushBtn')?.addEventListener('click', async () => {
+        const productId = (document.getElementById('printfulPushProductId')?.value || el('productId')?.value || '').trim();
+        if (!productId) {
+          pfStatus('Enter a product ID or select a product in the Products tab.', 'error', 'printfulPushStatus');
+          return;
+        }
+        pfStatus('Creating product in Printful…', 'info', 'printfulPushStatus');
+        const body = {
+          product_id: Number(productId),
+          site_url: (document.getElementById('printfulSiteUrl')?.value || '').trim() || location.origin,
+        };
+        const catalogId = (document.getElementById('printfulCatalogProductId')?.value || '').trim();
+        const printUrl = (document.getElementById('printfulPrintFileUrl')?.value || '').trim();
+        if (catalogId) body.catalog_product_id = Number(catalogId);
+        if (printUrl) body.print_file_url = printUrl;
+        try {
+          const res = await apiFetch(`/admin/printful/products/${encodeURIComponent(productId)}/push`, { method: 'POST', body });
+          const mapKeys = res.printful_variant_map ? Object.keys(res.printful_variant_map).length : 0;
+          pfStatus(
+            `Pushed — sync product ${res.printful_sync_product_id}, ${mapKeys || 1} variant(s) linked.`,
+            'success',
+            'printfulPushStatus'
+          );
+          products = await loadProducts();
+        } catch (e) {
+          pfStatus('Push failed: ' + (e.message || String(e)), 'error', 'printfulPushStatus');
         }
       });
 
