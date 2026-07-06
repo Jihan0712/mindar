@@ -517,6 +517,7 @@
                   <th>Brand</th>
                   <th>Price</th>
                   <th>Sync Product ID</th>
+                  <th>Sync State</th>
                   <th class="text-end">Action</th>
                 </tr>
               </thead>
@@ -1448,17 +1449,27 @@
         var tbody = document.getElementById('printfulProductsTbody');
         if (!tbody) return;
         if (!printfulProducts.length) {
-          tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4" style="color:#555">No linked Printful products found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4" style="color:#555">No linked Printful products found yet. Auto-push or push a product first.</td></tr>';
           return;
         }
 
         tbody.innerHTML = printfulProducts.map(function(p) {
+          var hasSyncProduct = !!p.printful_sync_product_id;
+          var hasSyncVariant = !!p.printful_sync_variant_id;
+          var stateLabel = hasSyncProduct ? 'ready' : (hasSyncVariant ? 'variant-only' : 'unlinked');
+          var stateChip = hasSyncProduct
+            ? printfulStatusChip(stateLabel, '#00ED0A', 'rgba(0,237,10,.1)')
+            : printfulStatusChip(stateLabel, '#FEFD00', 'rgba(254,253,0,.1)');
+          var actionHtml = hasSyncProduct
+            ? '<button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit/Re-Sync</button>'
+            : '<span style="font-size:.62rem;color:#555">Push first</span>';
           return '<tr>' +
             '<td><div style="font-weight:700">' + escapeHtml(p.title || '') + '</div><div style="font-size:.66rem;color:#666">/' + escapeHtml(p.slug || '') + '</div></td>' +
             '<td style="color:#888">' + escapeHtml(p.brand || '\u2014') + '</td>' +
             '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
-            '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_sync_product_id || '')) + '</code></td>' +
-            '<td class="text-end"><button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit/Re-Sync</button></td>' +
+            '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_sync_product_id || '\u2014')) + '</code></td>' +
+            '<td>' + stateChip + '</td>' +
+            '<td class="text-end">' + actionHtml + '</td>' +
           '</tr>';
         }).join('');
       }

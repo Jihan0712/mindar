@@ -2535,7 +2535,7 @@
                 p.updated_at, p.created_at, b.name as brand
          from products p
          left join brands b on b.id = p.brand_id
-         where p.printful_sync_product_id is not null
+         where p.printful_sync_product_id is not null or p.printful_sync_variant_id is not null
          order by p.updated_at desc, p.created_at desc`
       );
     } catch (e) {
@@ -2550,7 +2550,7 @@
                   p.updated_at, p.created_at, b.name as brand
            from products p
            left join brands b on b.id = p.brand_id
-           where p.printful_sync_product_id is not null
+           where p.printful_sync_product_id is not null or p.printful_sync_variant_id is not null
            order by p.updated_at desc, p.created_at desc`
         );
       } else {
