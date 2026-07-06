@@ -43,7 +43,7 @@
       });
       return true;
     },
-    async requireRole(allowed = [], { redirectTo = '/login.html', next = location.pathname + location.search } = {}) {
+    async requireRole(allowed = [], { redirectTo = '/ecommerce/login.html', next = location.pathname + location.search } = {}) {
       const user = await auth.me();
       if (!user) {
         const sep = redirectTo.includes('?') ? '&' : '?';

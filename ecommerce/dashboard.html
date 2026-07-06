@@ -959,7 +959,7 @@
 
   (async function main() {
     clearStatus();
-    const user = await auth.requireRole(['admin', 'brand'], { redirectTo: '/login.html', next: location.pathname + location.search });
+    const user = await auth.requireRole(['admin', 'brand'], { redirectTo: '/ecommerce/login.html', next: location.pathname + location.search });
     if (!user) return;
     el('userEmail').textContent = user.email || '';
     el('userRole').textContent = user.role || '';
@@ -972,7 +972,7 @@
     el('logoutBtn').addEventListener('click', async function(ev) {
       ev.preventDefault();
       await auth.logout();
-      location.href = '/login.html';
+      location.href = '/ecommerce/login.html';
     });
 
     try {

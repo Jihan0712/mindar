@@ -12,18 +12,18 @@
     },
     async signIn(){
       // Login lives on the main site page.
-      window.location.href = '/login.html';
+      window.location.href = '/ecommerce/login.html';
     },
     async signOut(){
       try {
         await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       } finally {
-        window.location.href = '/login.html?loggedout=1';
+        window.location.href = '/ecommerce/login.html?loggedout=1';
       }
     },
     async requireLogin(){
       const u = await this.currentUser();
-      if (!u) window.location.href = '/login.html';
+      if (!u) window.location.href = '/ecommerce/login.html';
       return !!u;
     }
   };

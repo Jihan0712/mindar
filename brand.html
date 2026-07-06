@@ -208,9 +208,9 @@
       let currentUserBrand = null;
 
       async function initBrandContext() {
-        if (!window.auth) { window.location.href = '/login.html'; return; }
+        if (!window.auth) { window.location.href = '/ecommerce/login.html'; return; }
         const me = await auth.me();
-        if (!me) { window.location.href = '/login.html'; return; }
+        if (!me) { window.location.href = '/ecommerce/login.html'; return; }
         if (me.role === 'admin') { window.location.href = '/admin.html'; return; }
         if (me.role !== 'brand') { window.location.href = '/ecommerce/'; return; }
         currentUser = me;
@@ -385,7 +385,7 @@
           if (!confirm('Sign out now?')) return;
           await auth.logout();
         } finally {
-          window.location.href = '/login.html?loggedout=1';
+          window.location.href = '/ecommerce/login.html?loggedout=1';
         }
       });
 

@@ -328,7 +328,7 @@
           if (!el) return;
           el.addEventListener('click', async () => {
             await auth.logout();
-            location.href = '/login.html';
+            location.href = '/ecommerce/login.html';
           });
         };
         bindLogout('logoutBtn');
@@ -734,7 +734,7 @@
             'Brand: ' + (credsBrandEl?.textContent || ''),
             'Email: ' + (credsEmailEl?.textContent || ''),
             'Temporary password: ' + (credsPasswordEl?.textContent || ''),
-            'Login URL: ' + (credsLoginEl?.href || window.location.origin + '/login.html'),
+            'Login URL: ' + (credsLoginEl?.href || window.location.origin + '/ecommerce/login.html'),
           ].join('\n');
           try {
             await navigator.clipboard.writeText(text);
@@ -782,7 +782,7 @@
             if (credsEmailEl) credsEmailEl.textContent = data?.user?.email || email;
             if (credsPasswordEl) credsPasswordEl.textContent = password;
             if (credsLoginEl) {
-              const loginUrl = window.location.origin + '/login.html';
+              const loginUrl = window.location.origin + '/ecommerce/login.html';
               credsLoginEl.href = loginUrl;
               credsLoginEl.textContent = loginUrl;
             }
