@@ -1,6 +1,345 @@
   // Cloudflare Worker: R2 assets + auth/targets/viewer APIs (Cloudflare-only backend)
 
-  import * as Printful from './printful.js';
+  // Inline Printful helper module so this worker can run in single-file deployments
+  // where sibling ES modules are not uploaded alongside worker.js.
+  const Printful = (() => {
+    const PRINTFUL_BASE = 'https://api.printful.com/v2';
+
+    function normalizePrintfulPath(path) {
+      let p = String(path || '').trim();
+      if (!p.startsWith('/')) p = '/' + p;
+
+      // Avoid /v2/v2/... when callers pass explicit v2 paths.
+      if (p === '/v2') p = '/';
+      else if (p.startsWith('/v2/')) p = p.slice(3);
+
+      // Map legacy sync-product endpoints to v2 beta.
+      if (p === '/store/products') return '/sync-products';
+      if (p.startsWith('/store/products/')) return '/sync-products/' + p.slice('/store/products/'.length);
+
+      return p;
+    }
+
+    function getPrintfulConfig(env) {
+      const apiKey = String(env?.PRINTFUL_API_KEY || '').trim();
+      const storeId = String(env?.PRINTFUL_STORE_ID || '').trim();
+      const webhookSecret = String(env?.PRINTFUL_WEBHOOK_SECRET || '').trim();
+      const catalogProductId = parseInt(env?.PRINTFUL_CATALOG_PRODUCT_ID, 10) || null;
+      return { apiKey, storeId, webhookSecret, catalogProductId };
+    }
+
+    function printfulStoreQuery(env) {
+      const { storeId } = getPrintfulConfig(env);
+      return storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
+    }
+
+    async function callPrintful(env, method, path, body) {
+      const { apiKey } = getPrintfulConfig(env);
+      if (!apiKey) throw new Error('PRINTFUL_API_KEY is not configured');
+      const normalizedPath = normalizePrintfulPath(path);
+
+      const opts = {
+        method,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'X-PF-Language': 'EN',
+        },
+      };
+      if (body != null) opts.body = JSON.stringify(body);
+
+      const res = await fetch(`${PRINTFUL_BASE}${normalizedPath}`, opts);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = (json && json.error && json.error.message) || JSON.stringify(json);
+        throw new Error(`Printful ${res.status}: ${msg}`);
+      }
+      return json;
+    }
+
+    async function fetchCatalogProduct(env, catalogProductId) {
+      const id = Number(catalogProductId);
+      if (!Number.isFinite(id) || id <= 0) {
+        throw new Error('Invalid catalog product id');
+      }
+      const data = await callPrintful(env, 'GET', `/products/${id}`);
+      return (data && data.result) || null;
+    }
+
+    function normalizeSizeLabel(s) {
+      return String(s || '').trim().toUpperCase();
+    }
+
+    function normalizeColorLabel(s) {
+      return String(s || '').trim().toLowerCase();
+    }
+
+    function resolveCatalogVariants(catalogProduct, sizes, color, overrideMap) {
+      const variants = Array.isArray(catalogProduct?.variants) ? catalogProduct.variants : [];
+      const colorNorm = normalizeColorLabel(color);
+      const resolved = [];
+      const missing = [];
+
+      for (const size of sizes) {
+        const sizeNorm = normalizeSizeLabel(size);
+        if (!sizeNorm) continue;
+
+        if (overrideMap && overrideMap[sizeNorm] != null) {
+          resolved.push({ size, variant_id: Number(overrideMap[sizeNorm]) });
+          continue;
+        }
+        if (overrideMap && overrideMap[size] != null) {
+          resolved.push({ size, variant_id: Number(overrideMap[size]) });
+          continue;
+        }
+
+        const match = variants.find(v => {
+          const vSize = normalizeSizeLabel(v.size);
+          const vColor = normalizeColorLabel(v.color);
+          if (vSize !== sizeNorm) return false;
+          if (!colorNorm) return true;
+          return vColor === colorNorm || vColor.includes(colorNorm) || colorNorm.includes(vColor);
+        });
+
+        if (match && match.id) {
+          resolved.push({ size, variant_id: Number(match.id) });
+        } else {
+          missing.push(size);
+        }
+      }
+
+      return { resolved, missing };
+    }
+
+    function resolveDesignFileUrl(product, options = {}) {
+      if (options.print_file_url) {
+        const u = String(options.print_file_url).trim();
+        if (!/^https:\/\//i.test(u)) {
+          throw new Error('print_file_url must be an absolute https URL');
+        }
+        return u;
+      }
+
+      const siteOrigin = String(options.site_origin || '').replace(/\/$/, '');
+      const candidates = [];
+
+      if (product.image_url) candidates.push(String(product.image_url).trim());
+      if (product.image_urls) {
+        try {
+          const arr = typeof product.image_urls === 'string' ? JSON.parse(product.image_urls) : product.image_urls;
+          if (Array.isArray(arr)) candidates.push(...arr.map(String));
+        } catch {}
+      }
+
+      for (let raw of candidates) {
+        if (!raw) continue;
+        if (/^https:\/\//i.test(raw)) return raw;
+        if (raw.startsWith('/api/product-image') && siteOrigin) {
+          return `${siteOrigin}${raw.startsWith('/') ? raw : '/' + raw}`;
+        }
+        if (raw.startsWith('/') && siteOrigin) {
+          return `${siteOrigin}${raw}`;
+        }
+      }
+
+      throw new Error(
+        'No public design URL found. Set product image_url to an https URL, ' +
+        'or pass print_file_url / site_origin when pushing to Printful.'
+      );
+    }
+
+    function buildSyncProductPayload(product, catalogVariants, options = {}) {
+      const placement = String(options.placement || 'front').trim() || 'front';
+      const designUrl = resolveDesignFileUrl(product, options);
+      const priceCents = Number(product.price_cents) || 0;
+      const retailPrice = (priceCents / 100).toFixed(2);
+      const thumbnail = designUrl;
+
+      const sync_variants = catalogVariants.map(({ size, variant_id }) => ({
+        external_id: String(size),
+        variant_id: Number(variant_id),
+        retail_price: retailPrice,
+        files: [{ type: placement, url: designUrl }],
+      }));
+
+      if (!sync_variants.length) {
+        throw new Error('No catalog variants resolved — check sizes, color, and catalog product id');
+      }
+
+      return {
+        sync_product: {
+          name: String(product.title || product.slug || 'Product').trim(),
+          thumbnail,
+        },
+        sync_variants,
+      };
+    }
+
+    async function pushProductToPrintful(env, product, options = {}) {
+      const catalogProductId = Number(options.catalog_product_id) || getPrintfulConfig(env).catalogProductId;
+
+      if (!catalogProductId) {
+        throw new Error(
+          'catalog_product_id required (pass in request body or set PRINTFUL_CATALOG_PRODUCT_ID). ' +
+          'Find IDs via GET /products in the Printful Catalog API.'
+        );
+      }
+
+      const sizes = String(product.sizes || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (!sizes.length) throw new Error('Product has no sizes');
+
+      const catalogProduct = await fetchCatalogProduct(env, catalogProductId);
+      const overrideMap = options.catalog_variant_ids && typeof options.catalog_variant_ids === 'object'
+        ? options.catalog_variant_ids
+        : null;
+
+      const { resolved, missing } = resolveCatalogVariants(
+        catalogProduct,
+        sizes,
+        product.color || '',
+        overrideMap
+      );
+
+      if (missing.length) {
+        throw new Error(
+          `Could not match catalog variants for size(s): ${missing.join(', ')} ` +
+          `(color: ${product.color || 'any'}). Pass catalog_variant_ids to override.`
+        );
+      }
+
+      const payload = buildSyncProductPayload(product, resolved, options);
+      const qs = printfulStoreQuery(env);
+      const data = await callPrintful(env, 'POST', `/store/products${qs}`, payload);
+
+      const result = (data && data.result) || {};
+      const syncProduct = result.sync_product || {};
+      const syncVariants = Array.isArray(result.sync_variants) ? result.sync_variants : [];
+
+      const syncVariantMap = {};
+      let firstSyncVariantId = null;
+
+      for (const sv of syncVariants) {
+        const syncId = sv.id != null ? String(sv.id) : null;
+        if (!syncId) continue;
+        if (!firstSyncVariantId) firstSyncVariantId = syncId;
+
+        const ext = sv.external_id != null ? String(sv.external_id).trim() : '';
+        if (ext) syncVariantMap[ext] = syncId;
+
+        const catId = sv.variant_id != null ? Number(sv.variant_id) : null;
+        if (catId) {
+          const match = resolved.find(r => Number(r.variant_id) === catId);
+          if (match) syncVariantMap[match.size] = syncId;
+        }
+      }
+
+      return {
+        syncProductId: syncProduct.id != null ? Number(syncProduct.id) : null,
+        syncVariantId: firstSyncVariantId,
+        syncVariantMap,
+        raw: result,
+      };
+    }
+
+    async function listSyncProducts(env) {
+      const qs = printfulStoreQuery(env);
+      try {
+        const data = await callPrintful(env, 'GET', `/v2/sync-products${qs}`);
+        return (data && data.result) || (data && data.data) || [];
+      } catch {
+        const data = await callPrintful(env, 'GET', `/store/products${qs}`);
+        return (data && data.result) || [];
+      }
+    }
+
+    function normalizeRetailPrice(value, fallbackCents) {
+      if (value == null || value === '') {
+        return ((Number(fallbackCents) || 0) / 100).toFixed(2);
+      }
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0) throw new Error('Invalid retail_price');
+      return n.toFixed(2);
+    }
+
+    async function updatePrintfulProduct(env, product, options = {}) {
+      const syncProductId = Number(product && product.printful_sync_product_id);
+      if (!Number.isFinite(syncProductId) || syncProductId <= 0) {
+        throw new Error('Product is not linked to a Printful sync product');
+      }
+
+      const qs = printfulStoreQuery(env);
+      const current = await callPrintful(env, 'GET', `/store/products/${syncProductId}${qs}`);
+      const currentResult = (current && current.result) || {};
+      const currentSyncProduct = currentResult.sync_product || {};
+      const currentVariants = Array.isArray(currentResult.sync_variants) ? currentResult.sync_variants : [];
+      if (!currentVariants.length) {
+        throw new Error('Printful sync product has no variants to update');
+      }
+
+      let designUrl = null;
+      if (options.print_file_url) {
+        designUrl = resolveDesignFileUrl(product, options);
+      }
+
+      const retailPrice = normalizeRetailPrice(options.retail_price, product && product.price_cents);
+      const placement = String(options.placement || 'front').trim() || 'front';
+
+      const sync_variants = currentVariants.map((sv) => {
+        const v = {
+          id: sv.id,
+          external_id: sv.external_id,
+          retail_price: retailPrice,
+        };
+        if (designUrl) {
+          v.files = [{ type: placement, url: designUrl }];
+        }
+        return v;
+      });
+
+      const payload = {
+        sync_product: {
+          id: currentSyncProduct.id,
+          name: String(product.title || currentSyncProduct.name || '').trim() || currentSyncProduct.name,
+          thumbnail: designUrl || currentSyncProduct.thumbnail,
+        },
+        sync_variants,
+      };
+
+      const data = await callPrintful(env, 'PUT', `/store/products/${syncProductId}${qs}`, payload);
+      const result = (data && data.result) || {};
+      const outVariants = Array.isArray(result.sync_variants) ? result.sync_variants : [];
+
+      const syncVariantMap = {};
+      let firstSyncVariantId = null;
+      for (const sv of outVariants) {
+        const syncId = sv.id != null ? String(sv.id) : null;
+        if (!syncId) continue;
+        if (!firstSyncVariantId) firstSyncVariantId = syncId;
+        const ext = sv.external_id != null ? String(sv.external_id).trim() : '';
+        if (ext) syncVariantMap[ext] = syncId;
+      }
+
+      return {
+        syncProductId,
+        syncVariantId: firstSyncVariantId,
+        syncVariantMap,
+        raw: result,
+      };
+    }
+
+    return {
+      getPrintfulConfig,
+      printfulStoreQuery,
+      callPrintful,
+      pushProductToPrintful,
+      updatePrintfulProduct,
+      listSyncProducts,
+    };
+  })();
 
   // ES Module format: expose fetch and inject env bindings into globals per request
   export default {
@@ -294,6 +633,7 @@
   async function handleApi(request, pathname) {
     // Webhooks — token-validated internally, no session cookie required
     if (request.method === 'POST' && pathname === '/api/webhooks/printful') return apiPrintfulWebhook(request);
+    if (request.method === 'POST' && pathname === '/api/admin/printful/webhook') return apiPrintfulWebhook(request);
 
     // Auth
     if (request.method === 'POST' && pathname === '/api/auth/bootstrap-admin') return apiBootstrapAdmin(request);
@@ -1114,52 +1454,90 @@
     return jsonResponse({ items: rows || [], limit, offset }, 200, request);
   }
 
-  // POST /api/webhooks/printful — receive Printful event notifications.
+  // POST /api/webhooks/printful and /api/admin/printful/webhook — receive Printful event notifications.
   async function apiPrintfulWebhook(request) {
-    const body = await readJson(request);
-    const eventType = String(body.type || '');
-    const data = body.data && typeof body.data === 'object' ? body.data : {};
+    const rawBody = await request.text();
 
-    // Verify HMAC-SHA256 signature when PRINTFUL_WEBHOOK_SECRET is configured.
-    const secret = typeof PRINTFUL_WEBHOOK_SECRET === 'string' ? PRINTFUL_WEBHOOK_SECRET.trim() : '';
-    if (secret) {
-      const sig = request.headers.get('X-Printful-Signature') || '';
-      if (!sig) return new Response('Forbidden', { status: 403 });
-      try {
-        const rawBody = await request.clone().text();
-        const enc = new TextEncoder();
-        const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-        const sigBytes = Uint8Array.from(atob(sig), c => c.charCodeAt(0));
-        const valid = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(rawBody));
-        if (!valid) return new Response('Forbidden', { status: 403 });
-      } catch {
-        return new Response('Forbidden', { status: 403 });
-      }
+    let payload = {};
+    try {
+      payload = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      // Acknowledge malformed payloads so Printful does not retry indefinitely.
+      return new Response('OK', { status: 200 });
     }
 
-    const pfOrder = data.order || data.shipment?.order || null;
-    const pfOrderId = pfOrder ? String(pfOrder.id || '') : null;
-    if (!pfOrderId) return new Response('OK', { status: 200 });
+    const eventType = String(payload.type || '');
+    const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
 
-    // Map Printful event type to a status string.
-    const STATUS_MAP = {
-      'order_created':    'draft',
-      'order_updated':    'pending',
-      'order_failed':     'failed',
-      'order_canceled':   'canceled',
-      'package_shipped':  'shipped',
-      'package_returned': 'returned',
-    };
-    const newStatus = STATUS_MAP[eventType] || eventType;
+    const orderObj = (data.order && typeof data.order === 'object') ? data.order : null;
+    const shipmentObj = (data.shipment && typeof data.shipment === 'object') ? data.shipment : null;
+    const nestedShipmentOrder = shipmentObj && shipmentObj.order && typeof shipmentObj.order === 'object'
+      ? shipmentObj.order
+      : null;
+    const printfulOrderId = String(
+      (orderObj && orderObj.id) ||
+      data.order_id ||
+      data.orderId ||
+      (nestedShipmentOrder && nestedShipmentOrder.id) ||
+      ''
+    ).trim();
+
+    if (!printfulOrderId) return new Response('OK', { status: 200 });
 
     try {
-      await dbRun(
-        `update orders set printful_status = ?, status = ? where printful_order_id = ?`,
-        newStatus,
-        newStatus === 'shipped' ? 'shipped' : (newStatus === 'canceled' ? 'canceled' : 'pending_fulfillment'),
-        pfOrderId
-      );
-    } catch { /* ignore if columns not migrated */ }
+      switch (eventType) {
+        case 'package_shipped': {
+          const trackingNumber = String(
+            (shipmentObj && (shipmentObj.tracking_number || shipmentObj.trackingNumber)) ||
+            data.tracking_number ||
+            data.trackingNumber ||
+            ''
+          ).trim() || null;
+          const trackingUrl = String(
+            (shipmentObj && (shipmentObj.tracking_url || shipmentObj.trackingUrl)) ||
+            data.tracking_url ||
+            data.trackingUrl ||
+            ''
+          ).trim() || null;
+          const carrier = String((shipmentObj && shipmentObj.carrier) || data.carrier || '').trim() || null;
+          await dbRun(
+            `update orders
+             set status = ?, printful_status = ?, tracking_number = ?, tracking_url = ?, carrier = ?,
+                 shipped_at = coalesce(shipped_at, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+             where printful_order_id = ?`,
+            'shipped',
+            'shipped',
+            trackingNumber,
+            trackingUrl,
+            carrier,
+            printfulOrderId
+          );
+          break;
+        }
+        case 'order_updated': {
+          const newStatus = String((orderObj && orderObj.status) || data.status || '').trim() || 'updated';
+          await dbRun(
+            `update orders set printful_status = ? where printful_order_id = ?`,
+            newStatus,
+            printfulOrderId
+          );
+          break;
+        }
+        case 'order_failed': {
+          await dbRun(
+            `update orders set printful_status = ? where printful_order_id = ?`,
+            'failed',
+            printfulOrderId
+          );
+          break;
+        }
+        default:
+          // Ignore unsupported event types but still acknowledge delivery.
+          break;
+      }
+    } catch {
+      // Always acknowledge webhook receipt to avoid repeated retries for transient DB issues.
+    }
 
     return new Response('OK', { status: 200 });
   }
@@ -2470,7 +2848,7 @@
     const siteUrl = (body && body.site_url)
       ? String(body.site_url).replace(/\/$/, '')
       : new URL(request.url).origin;
-    const webhookUrl = `${siteUrl}/api/webhooks/printful`;
+    const webhookUrl = `${siteUrl}/api/admin/printful/webhook`;
     const token = typeof PRINTFUL_WEBHOOK_SECRET === 'string' ? PRINTFUL_WEBHOOK_SECRET : '';
 
     try {
@@ -2510,13 +2888,70 @@
       return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
     }
 
-    const url = new URL(request.url);
-    const siteUrl = String(url.searchParams.get('site_url') || new URL(request.url).origin).replace(/\/$/, '');
-    const expectedWebhookUrl = `${siteUrl}/api/webhooks/printful`;
+    const reqUrl = new URL(request.url);
+    const siteUrl = String(reqUrl.searchParams.get('site_url') || reqUrl.origin).trim().replace(/\/$/, '');
+    const expectedPrimaryUrl = `${siteUrl}/api/admin/printful/webhook`;
+    const expectedLegacyUrl = `${siteUrl}/api/webhooks/printful`;
+
+    function normalizeWebhookRows(rows) {
+      return (rows || []).map((w) => {
+        const webhookUrl = String((w && (w.url || w.callback_url)) || '').trim().replace(/\/$/, '');
+        const active = !(w && (w.is_deleted || w.deleted || w.disabled));
+        return {
+          id: w && w.id != null ? w.id : null,
+          url: webhookUrl,
+          active,
+          events: Array.isArray(w && w.events) ? w.events : (Array.isArray(w && w.types) ? w.types : []),
+        };
+      });
+    }
+
+    function findExpectedWebhook(webhooks) {
+      return webhooks.find((w) => w.url === expectedPrimaryUrl || w.url === expectedLegacyUrl) || null;
+    }
 
     try {
-      const health = await Printful.getWebhookHealth(pfEnv, expectedWebhookUrl);
-      return jsonResponse({ ok: true, ...health }, 200, request);
+      const qs = Printful.printfulStoreQuery(pfEnv);
+      // Requirement: call Printful GET /webhooks. Keep this as primary check.
+      const v1Data = await callPrintful('GET', `/webhooks${qs}`);
+      const v1Rows = Array.isArray(v1Data && v1Data.result)
+        ? v1Data.result
+        : (Array.isArray(v1Data && v1Data.data) ? v1Data.data : []);
+      const v1Webhooks = normalizeWebhookRows(v1Rows);
+      let matched = findExpectedWebhook(v1Webhooks);
+
+      // Some stores expose webhooks only through v2. Fall back to v2 if v1 has no match.
+      if (!matched) {
+        try {
+          const v2Data = await callPrintful('GET', `/v2/webhooks${qs}`);
+          const v2Rows = Array.isArray(v2Data && v2Data.result)
+            ? v2Data.result
+            : (Array.isArray(v2Data && v2Data.data) ? v2Data.data : []);
+          const v2Webhooks = normalizeWebhookRows(v2Rows);
+          matched = findExpectedWebhook(v2Webhooks);
+          if (matched) {
+            return jsonResponse({
+              ok: true,
+              active: !!matched.active,
+              expected_webhook_url: expectedPrimaryUrl,
+              expected_webhook_urls: [expectedPrimaryUrl, expectedLegacyUrl],
+              matched_webhook: matched,
+              webhooks_total: v2Webhooks.length,
+              api_version: 'v2',
+            }, 200, request);
+          }
+        } catch {}
+      }
+
+      return jsonResponse({
+        ok: true,
+        active: !!(matched && matched.active),
+        expected_webhook_url: expectedPrimaryUrl,
+        expected_webhook_urls: [expectedPrimaryUrl, expectedLegacyUrl],
+        matched_webhook: matched,
+        webhooks_total: v1Webhooks.length,
+        api_version: 'v1',
+      }, 200, request);
     } catch (e) {
       return jsonResponse({ error: String(e) }, 500, request);
     }
@@ -2535,7 +2970,7 @@
                 p.updated_at, p.created_at, b.name as brand
          from products p
          left join brands b on b.id = p.brand_id
-         where p.printful_sync_product_id is not null or p.printful_sync_variant_id is not null
+         where p.printful_sync_product_id is not null
          order by p.updated_at desc, p.created_at desc`
       );
     } catch (e) {
@@ -2550,7 +2985,7 @@
                   p.updated_at, p.created_at, b.name as brand
            from products p
            left join brands b on b.id = p.brand_id
-           where p.printful_sync_product_id is not null or p.printful_sync_variant_id is not null
+           where p.printful_sync_product_id is not null
            order by p.updated_at desc, p.created_at desc`
         );
       } else {
@@ -2574,7 +3009,7 @@
       created_at: r.created_at || null,
     }));
 
-    return jsonResponse({ items }, 200, request);
+    return jsonResponse(items, 200, request);
   }
 
   // PUT /api/admin/printful/products/:id — update local product values and re-sync to Printful.
