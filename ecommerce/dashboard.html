@@ -119,6 +119,9 @@
     <li class="nav-item" role="presentation" id="tab-orders-item" style="display:none">
       <button class="nav-link" id="tab-orders" data-bs-toggle="tab" data-bs-target="#pane-orders" type="button" role="tab">Orders</button>
     </li>
+    <li class="nav-item" role="presentation" id="tab-printful-item" style="display:none">
+      <button class="nav-link" id="tab-printful" data-bs-toggle="tab" data-bs-target="#pane-printful" type="button" role="tab">Printful</button>
+    </li>
   </ul>
 
   <div class="tab-content">
@@ -234,6 +237,11 @@
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="publishInput">
                 <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
+              </div>
+
+              <div class="form-check" id="printfulPushGroup">
+                <input class="form-check-input" type="checkbox" id="printfulPushInput">
+                <label class="form-check-label" for="printfulPushInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Auto-Push to Printful on Save</label>
               </div>
 
               <div class="d-flex gap-2 pt-1">
@@ -469,131 +477,116 @@
       </div>
     </div>
 
-<<<<<<< HEAD
   </div><!-- /pane-orders -->
-=======
-    <!-- PRINTFUL PANE -->
-    <div class="tab-pane fade" id="pane-printful" role="tabpanel">
-      <div class="row g-4">
 
-        <!-- Webhook setup card -->
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
-              <span>Printful Webhook</span>
-              <button id="printfulWebhookBtn" class="btn btn-sm btn-outline-dark text-uppercase">Register Webhook</button>
-            </div>
-            <div class="card-body">
-              <p class="text-muted mb-2" style="font-size:13px">
-                Registers <code>/api/webhooks/printful</code> on your live site with Printful via their API
-                so shipping events flow back automatically. Only needed once (or after changing your domain).
-              </p>
-              <div class="input-group input-group-sm mb-2" style="max-width:480px">
-                <span class="input-group-text">Site URL</span>
-                <input id="printfulSiteUrl" class="form-control" type="url" placeholder="https://shop.inrl.co">
-              </div>
-              <div id="printfulWebhookStatus"></div>
-            </div>
+  <!-- ===== PRINTFUL PANE (admin only) ===== -->
+  <div class="tab-pane fade" id="pane-printful" role="tabpanel">
+    <div class="row g-4">
+
+      <div class="col-12">
+        <div class="inrl-card">
+          <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Webhook Health</span>
+            <button id="printfulHealthRefreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
           </div>
-        </div>
-
-        <!-- Push to Printful (Option B — recommended) -->
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
-              <span>Push Product to Printful</span>
-              <button id="printfulPushBtn" class="btn btn-sm btn-dark text-uppercase">Push Selected</button>
-            </div>
-            <div class="card-body">
-              <p class="text-muted mb-2" style="font-size:13px">
-                Creates the product in Printful from your dashboard catalog (recommended workflow).
-                Select a product in the Products tab first, or enter a product ID below.
-                Requires a public HTTPS design URL or product image URL Printful can fetch.
-              </p>
-              <div class="row g-2 mb-2" style="max-width:720px">
-                <div class="col-sm-4">
-                  <label class="form-label" style="font-size:.7rem">Product ID</label>
-                  <input id="printfulPushProductId" class="form-control form-control-sm" type="number" min="1" placeholder="e.g. 12">
-                </div>
-                <div class="col-sm-4">
-                  <label class="form-label" style="font-size:.7rem">Catalog product ID <span class="text-muted">(optional)</span></label>
-                  <input id="printfulCatalogProductId" class="form-control form-control-sm" type="number" min="1" placeholder="e.g. 71">
-                </div>
-                <div class="col-sm-4">
-                  <label class="form-label" style="font-size:.7rem">Print file URL <span class="text-muted">(optional)</span></label>
-                  <input id="printfulPrintFileUrl" class="form-control form-control-sm" type="url" placeholder="https://…/design.png">
-                </div>
+          <div class="p-4">
+            <div class="row g-3 align-items-end">
+              <div class="col-12 col-lg-7">
+                <label class="form-label" for="printfulSiteUrl">Site URL</label>
+                <input id="printfulSiteUrl" class="form-control" type="url" placeholder="https://your-domain.com" />
               </div>
-              <div id="printfulPushStatus"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sync card (Option A — pull) -->
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
-              <span>Printful Catalog Sync</span>
-              <button id="printfulSyncBtn" class="btn btn-sm btn-dark text-uppercase">Sync from Printful</button>
-            </div>
-            <div class="card-body">
-              <p class="text-muted mb-2" style="font-size:13px">
-                Matches D1 products to Printful sync variants by slug. After syncing, orders for products
-                with a <code>sync_variant_id</code> are automatically forwarded to Printful for fulfillment.
-              </p>
-              <div id="printfulSyncStatus"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Orders card -->
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header text-uppercase d-flex justify-content-between align-items-center">
-              <span>Orders</span>
-              <div class="d-flex gap-2 align-items-center">
-                <select id="printfulStatusFilter" class="form-select form-select-sm" style="width:auto">
-                  <option value="">All statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="fulfilled">Fulfilled</option>
-                  <option value="error">Error</option>
-                  <option value="failed">Failed</option>
-                </select>
-                <button id="printfulOrdersRefresh" class="btn btn-sm btn-outline-dark text-uppercase">Refresh</button>
-              </div>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="table table-striped table-hover mb-0 align-middle" style="font-size:13px">
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Printful Status</th>
-                      <th>Carrier</th>
-                      <th>Tracking</th>
-                      <th>Shipped</th>
-                      <th class="text-end">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="printfulOrdersTbody">
-                    <tr><td colspan="7" class="text-center text-muted p-4">Loading&hellip;</td></tr>
-                  </tbody>
-                </table>
+              <div class="col-12 col-lg-5">
+                <div id="printfulWebhookHealthStatus" style="font-size:.75rem;color:#888">Checking webhook health&hellip;</div>
               </div>
             </div>
           </div>
         </div>
-
       </div>
-    </div><!-- /pane-printful -->
+
+      <div class="col-12">
+        <div class="inrl-card">
+          <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Printful Product Manager</span>
+            <button id="printfulProductsRefreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Brand</th>
+                  <th>Price</th>
+                  <th>Sync Product ID</th>
+                  <th class="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody id="printfulProductsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="inrl-card">
+          <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Recent Printful Orders</span>
+            <button id="printfulOrdersRefreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Order ID</th>
+                  <th>Printful Order</th>
+                  <th>Status</th>
+                  <th>Tracking</th>
+                  <th class="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody id="printfulRecentOrdersTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /pane-printful -->
 
     </div><!-- /tab-content -->
 
   </div><!-- /tab-content -->
 </div><!-- /container-fluid -->
+
+<div class="modal fade" id="printfulProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0;color:#F5F5F0;">
+      <div class="modal-header" style="border-bottom:2px solid #333;">
+        <h5 class="modal-title" style="font-family:'Averia Serif Libre',serif;color:#00ED0A">Edit / Re-Sync Printful Product</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="printfulModalProductId" />
+        <div class="mb-3">
+          <label class="form-label" for="printfulModalTitle">Product</label>
+          <input id="printfulModalTitle" class="form-control" type="text" disabled />
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="printfulModalPrintFileUrl">Print File URL (HTTPS)</label>
+          <input id="printfulModalPrintFileUrl" class="form-control" type="url" placeholder="https://.../design.png" />
+        </div>
+        <div>
+          <label class="form-label" for="printfulModalRetailPrice">Retail Price (USD)</label>
+          <input id="printfulModalRetailPrice" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" />
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:2px solid #333;">
+        <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="printfulModalSaveBtn" class="btn btn-inrl">Save &amp; Re-Sync</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
   const el = (id) => document.getElementById(id);
@@ -660,6 +653,9 @@
     el('imageFileInput').value = '';
     el('descInput').value = p ? (p.description || '') : '';
     el('publishInput').checked = !!(p && p.is_published);
+    el('printfulPushInput').checked = false;
+    const printfulPushGroup = el('printfulPushGroup');
+    if (printfulPushGroup) printfulPushGroup.style.display = isAdmin ? '' : 'none';
     el('printfulSyncVariantInput').value = p ? (p.printful_sync_variant_id || '') : '';
     const _pfSizes = p ? (p.sizes || '').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
     renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
@@ -1036,6 +1032,7 @@
         image_url: el('imageUrlInput').value.trim(),
         description: el('descInput').value.trim(),
         is_published: el('publishInput').checked,
+        printful_push: !!el('printfulPushInput')?.checked,
         ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
       };
       // Only include printful_variant_map when inputs are rendered (undefined = no sizes loaded).
@@ -1334,8 +1331,6 @@
           return true;
         });
       }
-<<<<<<< HEAD
-
       function renderOrdersTable() {
         var filtered = getFilteredOrders();
         var pageCount = Math.max(1, Math.ceil(filtered.length / ORDERS_PAGE_SIZE));
@@ -1408,6 +1403,260 @@
           if (!ordersLoaded) { ordersLoaded = true; loadAndRenderOrders(); }
         });
       }
+
+      // ---- Printful Control Center (admin only) ----
+      document.getElementById('tab-printful-item').style.display = '';
+      var printfulSiteUrlInput = document.getElementById('printfulSiteUrl');
+      if (printfulSiteUrlInput && !printfulSiteUrlInput.value) printfulSiteUrlInput.value = location.origin;
+
+      var printfulProducts = [];
+      var printfulRecentOrders = [];
+      var printfulLoaded = false;
+      var printfulModalEl = document.getElementById('printfulProductModal');
+      var printfulModalInstance = printfulModalEl ? new bootstrap.Modal(printfulModalEl) : null;
+
+      function printfulStatusChip(text, color, bg) {
+        return '<span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.28em .55em;' +
+          'font-family:\'Roboto Mono\',monospace;background:' + bg + ';color:' + color + ';border:1px solid ' + color + '">' +
+          escapeHtml(String(text || 'unknown')) + '</span>';
+      }
+
+      function renderPrintfulWebhookHealth(health) {
+        var statusEl = document.getElementById('printfulWebhookHealthStatus');
+        if (!statusEl) return;
+        if (!health) {
+          statusEl.innerHTML = '<span style="color:#888">Webhook health unavailable.</span>';
+          return;
+        }
+        var active = !!health.active;
+        var badge = active
+          ? printfulStatusChip('active', '#00ED0A', 'rgba(0,237,10,.1)')
+          : printfulStatusChip('inactive', '#ff4d4f', 'rgba(255,77,79,.1)');
+        var meta = 'API ' + escapeHtml(health.api_version || 'unknown') + ' • ' +
+          String(health.webhooks_total || 0) + ' webhook(s)';
+        statusEl.innerHTML = badge + '<span style="margin-left:.65rem;color:#666">' + meta + '</span>';
+      }
+
+      async function loadPrintfulWebhookHealth() {
+        var siteInput = document.getElementById('printfulSiteUrl');
+        var siteUrl = (siteInput && siteInput.value ? siteInput.value : '').trim() || location.origin;
+        const res = await apiFetch('/admin/printful/webhooks?site_url=' + encodeURIComponent(siteUrl));
+        renderPrintfulWebhookHealth(res || null);
+      }
+
+      function renderPrintfulProductsTable() {
+        var tbody = document.getElementById('printfulProductsTbody');
+        if (!tbody) return;
+        if (!printfulProducts.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4" style="color:#555">No linked Printful products found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = printfulProducts.map(function(p) {
+          return '<tr>' +
+            '<td><div style="font-weight:700">' + escapeHtml(p.title || '') + '</div><div style="font-size:.66rem;color:#666">/' + escapeHtml(p.slug || '') + '</div></td>' +
+            '<td style="color:#888">' + escapeHtml(p.brand || '\u2014') + '</td>' +
+            '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
+            '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_sync_product_id || '')) + '</code></td>' +
+            '<td class="text-end"><button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit/Re-Sync</button></td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      async function loadPrintfulProducts() {
+        const res = await apiFetch('/admin/printful/products');
+        printfulProducts = Array.isArray(res && res.items) ? res.items : [];
+        renderPrintfulProductsTable();
+      }
+
+      function openPrintfulProductModal(productId) {
+        var p = printfulProducts.find(function(x) { return String(x.id) === String(productId); });
+        if (!p) return;
+        document.getElementById('printfulModalProductId').value = String(p.id);
+        document.getElementById('printfulModalTitle').value = p.title || '';
+        document.getElementById('printfulModalPrintFileUrl').value = p.image_url || '';
+        document.getElementById('printfulModalPrintFileUrl').dataset.original = p.image_url || '';
+        document.getElementById('printfulModalRetailPrice').value = ((Number(p.price_cents || 0) / 100).toFixed(2));
+        if (printfulModalInstance) printfulModalInstance.show();
+      }
+
+      async function savePrintfulProductChanges() {
+        var id = (document.getElementById('printfulModalProductId').value || '').trim();
+        if (!id) throw new Error('Missing product id');
+
+        var printFileInput = document.getElementById('printfulModalPrintFileUrl');
+        var printFileUrl = (printFileInput.value || '').trim();
+        var originalPrintFileUrl = String(printFileInput.dataset.original || '').trim();
+        var retailPrice = (document.getElementById('printfulModalRetailPrice').value || '').trim();
+
+        const body = {};
+        if (printFileUrl && /^https:\/\//i.test(printFileUrl)) {
+          body.print_file_url = printFileUrl;
+        } else if (printFileUrl && printFileUrl !== originalPrintFileUrl) {
+          throw new Error('Print file URL must be an absolute https URL');
+        }
+
+        if (retailPrice !== '') {
+          var retailNum = Number(retailPrice);
+          if (!Number.isFinite(retailNum) || retailNum < 0) throw new Error('Invalid retail price');
+          body.retail_price = retailNum;
+        }
+
+        await apiFetch('/admin/printful/products/' + encodeURIComponent(id), { method: 'PUT', body });
+        if (printfulModalInstance) printfulModalInstance.hide();
+        await loadPrintfulProducts();
+        await refresh();
+      }
+
+      function printfulOrderStatusChip(status) {
+        var s = String(status || '').toLowerCase();
+        if (!s) return printfulStatusChip('empty', '#888', 'rgba(136,136,136,.1)');
+        if (s === 'shipped' || s === 'fulfilled') return printfulStatusChip(s, '#00ED0A', 'rgba(0,237,10,.1)');
+        if (s === 'failed' || s === 'error') return printfulStatusChip(s, '#ff4d4f', 'rgba(255,77,79,.1)');
+        return printfulStatusChip(s, '#FEFD00', 'rgba(254,253,0,.1)');
+      }
+
+      function shouldShowForceSync(order) {
+        var s = String(order.printful_status || '').trim().toLowerCase();
+        return !s || s === 'failed' || s === 'error';
+      }
+
+      function renderRecentPrintfulOrdersTable() {
+        var tbody = document.getElementById('printfulRecentOrdersTbody');
+        if (!tbody) return;
+        if (!printfulRecentOrders.length) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4" style="color:#555">No recent Printful orders found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = printfulRecentOrders.map(function(o) {
+          var date = o.created_at ? o.created_at.slice(0, 10) : '\u2014';
+          var localId = String(o.id || '');
+          var localIdShort = localId ? localId.slice(-10) : '\u2014';
+          var pfOrderId = o.printful_order_id ? String(o.printful_order_id) : '';
+          var tracking = o.tracking_number || '\u2014';
+          var hasTrackingUrl = !!o.tracking_url;
+          var canForce = shouldShowForceSync(o);
+          var forceBtn = '';
+          if (canForce) {
+            if (pfOrderId) {
+              forceBtn = '<button class="btn btn-sm btn-warn-inrl" style="font-size:.6rem;padding:.2rem .5rem" data-pf-order-action="force-sync" data-id="' + escapeHtml(pfOrderId) + '">Force Sync</button>';
+            } else {
+              forceBtn = '<span style="font-size:.62rem;color:#555">No Printful ID</span>';
+            }
+          } else {
+            forceBtn = '<span style="font-size:.62rem;color:#555">OK</span>';
+          }
+
+          return '<tr>' +
+            '<td style="font-size:.7rem;color:#888">' + escapeHtml(date) + '</td>' +
+            '<td><code style="font-size:.67rem;color:#666" title="' + escapeHtml(localId) + '">&hellip;' + escapeHtml(localIdShort) + '</code></td>' +
+            '<td>' + (pfOrderId ? '<code style="font-size:.67rem">' + escapeHtml(pfOrderId) + '</code>' : '<span style="color:#555">\u2014</span>') + '</td>' +
+            '<td>' + printfulOrderStatusChip(o.printful_status) + '</td>' +
+            '<td>' + (hasTrackingUrl ? ('<a href="' + escapeHtml(o.tracking_url) + '" target="_blank" rel="noopener" style="color:#00ED0A">' + escapeHtml(tracking) + '</a>') : '<span>' + escapeHtml(tracking) + '</span>') + '</td>' +
+            '<td class="text-end">' + forceBtn + '</td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      async function loadRecentPrintfulOrders() {
+        const res = await apiFetch('/admin/orders?limit=150');
+        const rows = Array.isArray(res && res.items) ? res.items : [];
+        printfulRecentOrders = rows.filter(function(o) {
+          return !!o.printful_order_id || !!o.printful_status || !!o.tracking_number;
+        });
+        renderRecentPrintfulOrdersTable();
+      }
+
+      async function loadPrintfulControlCenter() {
+        await Promise.all([
+          loadPrintfulWebhookHealth(),
+          loadPrintfulProducts(),
+          loadRecentPrintfulOrders(),
+        ]);
+      }
+
+      var printfulTabBtn = document.getElementById('tab-printful');
+      if (printfulTabBtn) {
+        printfulTabBtn.addEventListener('shown.bs.tab', async function() {
+          if (!printfulLoaded) {
+            printfulLoaded = true;
+            try {
+              showStatus('Loading Printful control center\u2026', 'info');
+              await loadPrintfulControlCenter();
+              clearStatus();
+            } catch (e) {
+              showStatus('Printful tab failed to load: ' + (e.message || String(e)), 'error');
+            }
+          }
+        });
+      }
+
+      var printfulHealthRefreshBtn = document.getElementById('printfulHealthRefreshBtn');
+      if (printfulHealthRefreshBtn) {
+        printfulHealthRefreshBtn.addEventListener('click', async function() {
+          try { await loadPrintfulWebhookHealth(); } catch (e) { showStatus(e.message || String(e), 'error'); }
+        });
+      }
+
+      var printfulProductsRefreshBtn = document.getElementById('printfulProductsRefreshBtn');
+      if (printfulProductsRefreshBtn) {
+        printfulProductsRefreshBtn.addEventListener('click', async function() {
+          try { await loadPrintfulProducts(); } catch (e) { showStatus(e.message || String(e), 'error'); }
+        });
+      }
+
+      var printfulOrdersRefreshBtn = document.getElementById('printfulOrdersRefreshBtn');
+      if (printfulOrdersRefreshBtn) {
+        printfulOrdersRefreshBtn.addEventListener('click', async function() {
+          try { await loadRecentPrintfulOrders(); } catch (e) { showStatus(e.message || String(e), 'error'); }
+        });
+      }
+
+      var printfulProductsTbody = document.getElementById('printfulProductsTbody');
+      if (printfulProductsTbody) {
+        printfulProductsTbody.addEventListener('click', function(ev) {
+          var btn = ev.target.closest('button[data-pf-product-action="edit"]');
+          if (!btn) return;
+          openPrintfulProductModal(btn.getAttribute('data-id'));
+        });
+      }
+
+      var printfulModalSaveBtn = document.getElementById('printfulModalSaveBtn');
+      if (printfulModalSaveBtn) {
+        printfulModalSaveBtn.addEventListener('click', async function() {
+          try {
+            printfulModalSaveBtn.disabled = true;
+            await savePrintfulProductChanges();
+            showStatus('Printful product updated and re-synced.', 'success');
+          } catch (e) {
+            showStatus(e.message || String(e), 'error');
+          } finally {
+            printfulModalSaveBtn.disabled = false;
+          }
+        });
+      }
+
+      var printfulRecentOrdersTbody = document.getElementById('printfulRecentOrdersTbody');
+      if (printfulRecentOrdersTbody) {
+        printfulRecentOrdersTbody.addEventListener('click', async function(ev) {
+          var btn = ev.target.closest('button[data-pf-order-action="force-sync"]');
+          if (!btn) return;
+          var pfOrderId = btn.getAttribute('data-id');
+          if (!pfOrderId) return;
+          try {
+            btn.disabled = true;
+            await apiFetch('/admin/printful/orders/' + encodeURIComponent(pfOrderId) + '/sync', { method: 'POST' });
+            await loadRecentPrintfulOrders();
+            await loadAndRenderOrders();
+            showStatus('Printful order re-synced.', 'success');
+          } catch (e) {
+            showStatus(e.message || String(e), 'error');
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      }
     }
   })().catch(function(e) {
     const s = document.getElementById('status');
@@ -1415,155 +1664,5 @@
     console.error('Dashboard init error:', e);
   });
 </script>
-=======
-    })().catch(e => {
-      const s = document.getElementById('status');
-      if (s) { s.className = 'alert border alert-danger'; s.textContent = 'Dashboard error: ' + (e.message || String(e)); s.style.display = 'block'; }
-      console.error('Dashboard init error:', e);
-    });
-
-    // ─── Printful tab (admin only) ──────────────────────────────────────────
-    (async function initPrintful() {
-      // Reveal the tab only for admin
-      const me = await auth.me().catch(() => null);
-      if (!me || me.role !== 'admin') return;
-      const tabItem = document.getElementById('tab-printful-item');
-      if (tabItem) tabItem.style.display = '';
-
-      function pfStatus(msg, type, targetId) {
-        const el = document.getElementById(targetId || 'printfulSyncStatus');
-        if (!el) return;
-        el.innerHTML = `<div class="alert ${type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : 'alert-light'} border p-2" style="font-size:13px">${escapeHtml(msg)}</div>`;
-      }
-
-      // Webhook register button
-      document.getElementById('printfulWebhookBtn')?.addEventListener('click', async () => {
-        pfStatus('Registering webhook with Printful…', 'info', 'printfulWebhookStatus');
-        const siteUrl = (document.getElementById('printfulSiteUrl')?.value || '').trim() || location.origin;
-        try {
-          const res = await apiFetch('/admin/printful/webhook/register', { method: 'POST', body: { site_url: siteUrl } });
-          pfStatus(`Webhook registered → ${res.webhook_url}`, 'success', 'printfulWebhookStatus');
-        } catch (e) {
-          pfStatus('Registration failed: ' + (e.message || String(e)), 'error', 'printfulWebhookStatus');
-        }
-      });
-
-      // Push to Printful (Option B)
-      document.getElementById('printfulPushBtn')?.addEventListener('click', async () => {
-        const productId = (document.getElementById('printfulPushProductId')?.value || el('productId')?.value || '').trim();
-        if (!productId) {
-          pfStatus('Enter a product ID or select a product in the Products tab.', 'error', 'printfulPushStatus');
-          return;
-        }
-        pfStatus('Creating product in Printful…', 'info', 'printfulPushStatus');
-        const body = {
-          product_id: Number(productId),
-          site_url: (document.getElementById('printfulSiteUrl')?.value || '').trim() || location.origin,
-        };
-        const catalogId = (document.getElementById('printfulCatalogProductId')?.value || '').trim();
-        const printUrl = (document.getElementById('printfulPrintFileUrl')?.value || '').trim();
-        if (catalogId) body.catalog_product_id = Number(catalogId);
-        if (printUrl) body.print_file_url = printUrl;
-        try {
-          const res = await apiFetch(`/admin/printful/products/${encodeURIComponent(productId)}/push`, { method: 'POST', body });
-          const mapKeys = res.printful_variant_map ? Object.keys(res.printful_variant_map).length : 0;
-          pfStatus(
-            `Pushed — sync product ${res.printful_sync_product_id}, ${mapKeys || 1} variant(s) linked.`,
-            'success',
-            'printfulPushStatus'
-          );
-          products = await loadProducts();
-        } catch (e) {
-          pfStatus('Push failed: ' + (e.message || String(e)), 'error', 'printfulPushStatus');
-        }
-      });
-
-      // Sync button
-      document.getElementById('printfulSyncBtn')?.addEventListener('click', async () => {
-        pfStatus('Syncing from Printful…', 'info', 'printfulSyncStatus');
-        try {
-          const res = await apiFetch('/admin/printful/sync', { method: 'POST' });
-          pfStatus(`Sync complete — ${res.synced || 0} variant(s) matched.`, 'success', 'printfulSyncStatus');
-        } catch (e) {
-          pfStatus('Sync failed: ' + (e.message || String(e)), 'error', 'printfulSyncStatus');
-        }
-      });
-
-      // Orders table
-      async function loadPrintfulOrders() {
-        const statusFilter = document.getElementById('printfulStatusFilter')?.value || '';
-        const qs = statusFilter ? `?printful_status=${encodeURIComponent(statusFilter)}` : '';
-        let rows;
-        try {
-          const res = await apiFetch(`/admin/orders${qs}`);
-          rows = res.items || [];
-        } catch (e) {
-          document.getElementById('printfulOrdersTbody').innerHTML =
-            `<tr><td colspan="7" class="text-center text-danger p-4">${escapeHtml(e.message || String(e))}</td></tr>`;
-          return;
-        }
-
-        const tbody = document.getElementById('printfulOrdersTbody');
-        if (!rows.length) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted p-4">No orders.</td></tr>';
-          return;
-        }
-
-        const STATUS_COLORS = {
-          pending: 'secondary', confirmed: 'primary', inprocess: 'info',
-          shipped: 'success', fulfilled: 'success', returned: 'warning',
-          cancelled: 'danger', failed: 'danger', error: 'danger',
-        };
-
-        tbody.innerHTML = rows.map(o => {
-          const pfStatus = o.printful_status || '—';
-          const badgeClass = STATUS_COLORS[pfStatus.toLowerCase()] || 'secondary';
-          const trackingCell = o.tracking_url
-            ? `<a href="${escapeHtml(o.tracking_url)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">Track</a>`
-            : (o.tracking_number ? `<code>${escapeHtml(o.tracking_number)}</code>` : '—');
-          const shippedAt = o.shipped_at ? o.shipped_at.slice(0, 10) : '—';
-          const syncBtn = o.printful_order_id
-            ? `<button class="btn btn-sm btn-outline-dark" data-pf-action="sync-order" data-pf-id="${escapeHtml(o.printful_order_id)}">Refresh</button>`
-            : '';
-          return `
-            <tr>
-              <td><code>${escapeHtml(o.id)}</code></td>
-              <td>${escapeHtml(o.first_name || '')} ${escapeHtml(o.last_name || '')}<br><small class="text-muted">${escapeHtml(o.email || '')}</small></td>
-              <td><span class="badge bg-${badgeClass}">${escapeHtml(pfStatus)}</span></td>
-              <td>${escapeHtml(o.carrier || '—')}</td>
-              <td>${trackingCell}</td>
-              <td>${escapeHtml(shippedAt)}</td>
-              <td class="text-end">${syncBtn}</td>
-            </tr>`;
-        }).join('');
-
-        // Wire refresh-per-order buttons
-        tbody.querySelectorAll('[data-pf-action="sync-order"]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const pfId = btn.getAttribute('data-pf-id');
-            btn.disabled = true; btn.textContent = '…';
-            try {
-              await apiFetch(`/admin/printful/orders/${encodeURIComponent(pfId)}/sync`, { method: 'POST' });
-              await loadPrintfulOrders();
-            } catch (e) {
-              btn.disabled = false; btn.textContent = 'Refresh';
-              alert('Refresh failed: ' + (e.message || String(e)));
-            }
-          });
-        });
-      }
-
-      document.getElementById('printfulOrdersRefresh')?.addEventListener('click', loadPrintfulOrders);
-      document.getElementById('printfulStatusFilter')?.addEventListener('change', loadPrintfulOrders);
-
-      // Load when tab is first shown
-      document.getElementById('tab-printful')?.addEventListener('shown.bs.tab', async () => {
-        if (!document.getElementById('printfulOrdersTbody').dataset.loaded) {
-          document.getElementById('printfulOrdersTbody').dataset.loaded = '1';
-          await loadPrintfulOrders();
-        }
-      });
-    })().catch(e => console.warn('Printful tab init error:', e));
-  </script>
 </body>
 </html>

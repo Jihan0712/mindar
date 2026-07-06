@@ -278,3 +278,125 @@ export async function listSyncProducts(env) {
     return (data && data.result) || [];
   }
 }
+
+function normalizeRetailPrice(value, fallbackCents) {
+  if (value == null || value === '') {
+    return ((Number(fallbackCents) || 0) / 100).toFixed(2);
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) throw new Error('Invalid retail_price');
+  return n.toFixed(2);
+}
+
+/**
+ * Update an existing Printful Sync Product via PUT /store/products/:id.
+ * Supports refreshing print file URL and/or retail price for all variants.
+ */
+export async function updatePrintfulProduct(env, product, options = {}) {
+  const syncProductId = Number(product && product.printful_sync_product_id);
+  if (!Number.isFinite(syncProductId) || syncProductId <= 0) {
+    throw new Error('Product is not linked to a Printful sync product');
+  }
+
+  const qs = printfulStoreQuery(env);
+  const current = await callPrintful(env, 'GET', `/store/products/${syncProductId}${qs}`);
+  const currentResult = (current && current.result) || {};
+  const currentSyncProduct = currentResult.sync_product || {};
+  const currentVariants = Array.isArray(currentResult.sync_variants) ? currentResult.sync_variants : [];
+  if (!currentVariants.length) {
+    throw new Error('Printful sync product has no variants to update');
+  }
+
+  let designUrl = null;
+  if (options.print_file_url) {
+    designUrl = resolveDesignFileUrl(product, options);
+  }
+
+  const retailPrice = normalizeRetailPrice(options.retail_price, product && product.price_cents);
+  const placement = String(options.placement || 'front').trim() || 'front';
+
+  const sync_variants = currentVariants.map((sv) => {
+    const v = {
+      id: sv.id,
+      retail_price: retailPrice,
+    };
+    if (designUrl) {
+      v.files = [{ type: placement, url: designUrl }];
+    }
+    return v;
+  });
+
+  const payload = {
+    sync_product: {
+      id: syncProductId,
+      name: String((product && product.title) || currentSyncProduct.name || 'Product').trim(),
+    },
+    sync_variants,
+  };
+  if (designUrl) payload.sync_product.thumbnail = designUrl;
+
+  const data = await callPrintful(env, 'PUT', `/store/products/${syncProductId}${qs}`, payload);
+  const result = (data && data.result) || {};
+  const outVariants = Array.isArray(result.sync_variants) ? result.sync_variants : [];
+
+  const syncVariantMap = {};
+  let firstSyncVariantId = null;
+  for (const sv of outVariants) {
+    const syncId = sv.id != null ? String(sv.id) : null;
+    if (!syncId) continue;
+    if (!firstSyncVariantId) firstSyncVariantId = syncId;
+    const ext = sv.external_id != null ? String(sv.external_id).trim() : '';
+    if (ext) syncVariantMap[ext] = syncId;
+  }
+
+  return {
+    syncProductId,
+    syncVariantId: firstSyncVariantId,
+    syncVariantMap,
+    raw: result,
+  };
+}
+
+/** List currently registered Printful webhooks (v2 preferred, v1 fallback). */
+export async function listWebhooks(env) {
+  const qs = printfulStoreQuery(env);
+  try {
+    const data = await callPrintful(env, 'GET', `/v2/webhooks${qs}`);
+    const items = (data && data.result) || (data && data.data) || [];
+    return { items: Array.isArray(items) ? items : [], api_version: 'v2' };
+  } catch {
+    const data = await callPrintful(env, 'GET', `/webhooks${qs}`);
+    const items = (data && data.result) || (data && data.data) || [];
+    return { items: Array.isArray(items) ? items : [], api_version: 'v1' };
+  }
+}
+
+/**
+ * Check whether a specific webhook URL is registered in Printful.
+ * Returns health metadata for dashboard diagnostics.
+ */
+export async function getWebhookHealth(env, expectedWebhookUrl) {
+  const expected = String(expectedWebhookUrl || '').trim().replace(/\/$/, '');
+  if (!expected) throw new Error('expectedWebhookUrl required');
+
+  const { items, api_version } = await listWebhooks(env);
+  const normalized = items.map((w) => {
+    const url = String((w && (w.url || w.callback_url)) || '').trim().replace(/\/$/, '');
+    const active = !(w && (w.is_deleted || w.deleted || w.disabled));
+    return {
+      id: w && w.id != null ? w.id : null,
+      url,
+      active,
+      events: Array.isArray(w && w.events) ? w.events : (Array.isArray(w && w.types) ? w.types : []),
+    };
+  });
+
+  const matched = normalized.find((w) => w.url === expected) || null;
+  return {
+    active: !!(matched && matched.active),
+    expected_webhook_url: expected,
+    matched_webhook: matched,
+    webhooks_total: normalized.length,
+    api_version,
+  };
+}
