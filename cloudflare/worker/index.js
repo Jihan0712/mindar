@@ -2849,32 +2849,22 @@
       ? String(body.site_url).replace(/\/$/, '')
       : new URL(request.url).origin;
     const webhookUrl = `${siteUrl}/api/admin/printful/webhook`;
-    const token = typeof PRINTFUL_WEBHOOK_SECRET === 'string' ? PRINTFUL_WEBHOOK_SECRET : '';
 
     try {
       const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
-      // Printful v2: POST /v2/webhooks
+      // Printful v2 webhook configuration uses default_url + events[] payload.
       const pfBody = {
-        url: webhookUrl,
-        events: ['package_shipped', 'order_updated', 'order_failed'],
+        default_url: webhookUrl,
+        events: [
+          { type: 'package_shipped', url: webhookUrl },
+          { type: 'order_updated', url: webhookUrl },
+          { type: 'order_failed', url: webhookUrl },
+        ],
       };
-      // Include the shared secret token if configured so Printful signs requests
-      if (token) pfBody.secret = token;
-      const data = await callPrintful('POST', `/v2/webhooks${qs}`, pfBody);
+      const data = await callPrintful('POST', `/webhooks${qs}`, pfBody);
       return jsonResponse({ ok: true, webhook_url: webhookUrl, printful: data }, 200, request);
     } catch (e) {
-      // Try v1 fallback
-      try {
-        const pfBodyV1 = {
-          url: webhookUrl,
-          types: ['package_shipped', 'order_updated', 'order_failed'],
-        };
-        const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
-        const data = await callPrintful('POST', `/webhooks${qs}`, pfBodyV1);
-        return jsonResponse({ ok: true, webhook_url: webhookUrl, printful: data, api_version: 'v1' }, 200, request);
-      } catch (e2) {
-        return jsonResponse({ error: String(e) + ' | v1 fallback: ' + String(e2) }, 500, request);
-      }
+      return jsonResponse({ error: String(e) }, 500, request);
     }
   }
 
@@ -2894,14 +2884,18 @@
     const expectedLegacyUrl = `${siteUrl}/api/webhooks/printful`;
 
     function normalizeWebhookRows(rows) {
-      return (rows || []).map((w) => {
-        const webhookUrl = String((w && (w.url || w.callback_url)) || '').trim().replace(/\/$/, '');
+      const list = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+      return list.map((w) => {
+        const webhookUrl = String((w && (w.url || w.callback_url || w.default_url)) || '').trim().replace(/\/$/, '');
         const active = !(w && (w.is_deleted || w.deleted || w.disabled));
+        const events = Array.isArray(w && w.events)
+          ? w.events.map((evt) => (typeof evt === 'string' ? evt : (evt && evt.type) || evt)).filter(Boolean)
+          : (Array.isArray(w && w.types) ? w.types : []);
         return {
           id: w && w.id != null ? w.id : null,
           url: webhookUrl,
           active,
-          events: Array.isArray(w && w.events) ? w.events : (Array.isArray(w && w.types) ? w.types : []),
+          events,
         };
       });
     }
@@ -2914,9 +2908,8 @@
       const qs = Printful.printfulStoreQuery(pfEnv);
       // Requirement: call Printful GET /webhooks. Keep this as primary check.
       const v1Data = await callPrintful('GET', `/webhooks${qs}`);
-      const v1Rows = Array.isArray(v1Data && v1Data.result)
-        ? v1Data.result
-        : (Array.isArray(v1Data && v1Data.data) ? v1Data.data : []);
+      const v1Raw = (v1Data && (v1Data.result ?? v1Data.data)) || null;
+      const v1Rows = Array.isArray(v1Raw) ? v1Raw : (v1Raw ? [v1Raw] : []);
       const v1Webhooks = normalizeWebhookRows(v1Rows);
       let matched = findExpectedWebhook(v1Webhooks);
 
@@ -2924,9 +2917,8 @@
       if (!matched) {
         try {
           const v2Data = await callPrintful('GET', `/v2/webhooks${qs}`);
-          const v2Rows = Array.isArray(v2Data && v2Data.result)
-            ? v2Data.result
-            : (Array.isArray(v2Data && v2Data.data) ? v2Data.data : []);
+          const v2Raw = (v2Data && (v2Data.result ?? v2Data.data)) || null;
+          const v2Rows = Array.isArray(v2Raw) ? v2Raw : (v2Raw ? [v2Raw] : []);
           const v2Webhooks = normalizeWebhookRows(v2Rows);
           matched = findExpectedWebhook(v2Webhooks);
           if (matched) {

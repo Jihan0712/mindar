@@ -379,10 +379,10 @@ Goal: each product in D1 carries its Printful `sync_product_id` and `sync_varian
 
 Goal: Printful products have size/color variants. Cart items must carry the correct `printful_sync_variant_id` so the order maps to the right SKU.
 
-- [ ] Worker `GET /api/products/:slug/variants` — return the list of variants (fetched from Printful or stored in D1) with `id`, `name`, `size`, `color`, `price`, `printful_sync_variant_id`
-- [ ] `ecommerce/product.html` (and `single-product.html`) — fetch variants and render size/color selectors; set selected `variantId` before "Add to Cart"
-- [ ] `ecommerce/js/cart.js` — store `variantId` (i.e. `printful_sync_variant_id`) alongside each cart item when adding to cart
-- [ ] `ecommerce/js/checkout.js` — include `variantId` per item in the `POST /api/orders` payload
+- [x] Worker `GET /api/products/:slug/variants` — return the list of variants (fetched from Printful or stored in D1) with `id`, `name`, `size`, `color`, `price`, `printful_sync_variant_id`
+- [x] `ecommerce/product.html` (and `single-product.html`) — fetch variants and render size/color selectors; set selected `variantId` before "Add to Cart"
+- [x] `ecommerce/js/cart.js` — store `variantId` (i.e. `printful_sync_variant_id`) alongside each cart item when adding to cart
+- [x] `ecommerce/js/checkout.js` — include `variantId` per item in the `POST /api/orders` payload
 
 Cart item shape (target):
 

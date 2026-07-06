@@ -344,7 +344,7 @@
         var cartName=(p.title||'Product')+(size?' ('+size+')':'');
         var variantMap={};try{variantMap=p.printful_variant_map||{};}catch(e){}
         var pfVariantId=(size&&variantMap[size])||p.printful_sync_variant_id||null;
-        Cart.add({id:id,name:cartName,price:Number(p.price_cents||0)/100,image:images[0]||'',qty:qty,printful_sync_variant_id:pfVariantId});
+        Cart.add({id:id,name:cartName,price:Number(p.price_cents||0)/100,image:images[0]||'',qty:qty,variantId:pfVariantId,printful_sync_variant_id:pfVariantId});
         CartUI.render();
         showCartToast(cartName);
       });

@@ -40,17 +40,18 @@
       lastName: document.getElementById('lastName').value.trim(),
       email: document.getElementById('email').value.trim(),
       address: document.getElementById('address').value.trim(),
-<<<<<<< HEAD
-      city: (document.getElementById('city') || {}).value?.trim() || '',
-=======
       city: (document.getElementById('city') ? document.getElementById('city').value.trim() : ''),
->>>>>>> 6a231e8 (printful integration)
       country: document.getElementById('country').value,
       state: document.getElementById('state').value.trim(),
       zip: document.getElementById('zip').value.trim(),
     };
 
-    const payload = { cart: items, total: Cart.total(), customer };
+    const normalizedCart = items.map((item) => ({
+      ...item,
+      variantId: item.variantId || item.printful_sync_variant_id || null,
+      printful_sync_variant_id: item.printful_sync_variant_id || item.variantId || null,
+    }));
+    const payload = { cart: normalizedCart, total: Cart.total(), customer };
     const API_BASE = window.MINDAR_API_BASE || '';
     try {
       status('Placing order...', false);
