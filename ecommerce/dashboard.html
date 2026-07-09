@@ -605,6 +605,9 @@
 
 <script>
   const el = (id) => document.getElementById(id);
+  let products = [];
+  let productsPage = 0;
+  const PRODUCTS_PAGE_SIZE = 25;
 
   const CATEGORY_PRESETS = ['Men', 'Women', 'Accessories'];
 
@@ -1023,9 +1026,6 @@
       showStatus('Targets failed to load: ' + (e.message || e), 'error');
     }
 
-    let products = [];
-    let productsPage = 0;
-    const PRODUCTS_PAGE_SIZE = 25;
     async function refresh() {
       clearStatus();
       products = await loadProducts();
