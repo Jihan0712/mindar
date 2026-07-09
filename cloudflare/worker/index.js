@@ -656,6 +656,7 @@
     if (request.method === 'GET'  && pathname === '/api/admin/orders')         return apiAdminListOrders(request);
     // Printful admin
     if (request.method === 'POST' && pathname === '/api/admin/printful/sync')             return apiPrintfulSync(request);
+    if (request.method === 'POST' && pathname === '/api/admin/printful/backfill')         return apiPrintfulBackfill(request);
     if (request.method === 'GET'  && pathname === '/api/admin/printful/webhooks')          return apiPrintfulWebhookHealth(request);
     if (request.method === 'GET'  && pathname === '/api/admin/printful/products')          return apiPrintfulListLinkedProducts(request);
     if (request.method === 'PUT'  && /^\/api\/admin\/printful\/products\/\d+$/.test(pathname)) {
@@ -1454,6 +1455,115 @@
     return jsonResponse({ items: rows || [], limit, offset }, 200, request);
   }
 
+  function extractPrintfulSyncProductFromData(data) {
+    const d = data && typeof data === 'object' ? data : {};
+    const syncProduct = (d.sync_product && typeof d.sync_product === 'object') ? d.sync_product : {};
+    const syncVariants = Array.isArray(d.sync_variants)
+      ? d.sync_variants
+      : (Array.isArray(syncProduct.sync_variants) ? syncProduct.sync_variants : []);
+    const rawPrintfulId = syncProduct.id != null ? syncProduct.id : (d.sync_product_id != null ? d.sync_product_id : d.id);
+    const printfulProductId = Number(rawPrintfulId);
+    return { syncProduct, syncVariants, printfulProductId };
+  }
+
+  async function resolveUniqueProductSlug(seed, printfulProductId, excludeId) {
+    const base = String(seed || '').trim() || `printful-product-${printfulProductId}`;
+    let candidate = base;
+    let i = 2;
+    while (true) {
+      const row = await dbGet('select id from products where slug = ?', candidate);
+      if (!row || (excludeId != null && Number(row.id) === Number(excludeId))) return candidate;
+      candidate = `${base}-${i++}`;
+    }
+  }
+
+  async function upsertPrintfulSyncProductToD1(data) {
+    const extracted = extractPrintfulSyncProductFromData(data);
+    const syncProduct = extracted.syncProduct;
+    const syncVariants = extracted.syncVariants;
+    const printfulProductId = extracted.printfulProductId;
+    if (!Number.isFinite(printfulProductId) || printfulProductId <= 0) return { action: 'skipped' };
+
+    const title = String(syncProduct.name || data.name || '').trim() || `Printful Product ${printfulProductId}`;
+    const baseSlug = normalizeSlug(title) || `printful-product-${printfulProductId}`;
+    const thumbnailUrl = String(syncProduct.thumbnail_url || syncProduct.thumbnail || data.thumbnail_url || '').trim() || null;
+
+    let priceCents = 0;
+    let firstSyncVariantId = null;
+    for (const v of syncVariants) {
+      if (firstSyncVariantId == null && v && v.id != null) {
+        const sv = Number(v.id);
+        if (Number.isFinite(sv) && sv > 0) firstSyncVariantId = sv;
+      }
+      const n = Number(v && v.retail_price);
+      if (Number.isFinite(n) && n >= 0) {
+        priceCents = Math.round(n * 100);
+        break;
+      }
+    }
+
+    const existing = await dbGet('select id, slug from products where printful_sync_product_id = ?', printfulProductId);
+    if (existing && existing.id != null) {
+      const slug = existing.slug ? String(existing.slug) : await resolveUniqueProductSlug(baseSlug, printfulProductId, existing.id);
+      await dbRun(
+        `update products
+         set title = ?, slug = ?, price_cents = ?, currency = ?, image_url = ?,
+             printful_sync_product_id = ?, printful_sync_variant_id = ?,
+             updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+         where id = ?`,
+        title,
+        slug,
+        priceCents,
+        'USD',
+        thumbnailUrl,
+        printfulProductId,
+        firstSyncVariantId,
+        existing.id
+      );
+      return { action: 'updated', id: Number(existing.id), printful_sync_product_id: printfulProductId };
+    }
+
+    const slug = await resolveUniqueProductSlug(baseSlug, printfulProductId, null);
+    await dbRun(
+      `insert into products (
+         brand_id, title, slug, category, color, sizes, description,
+         price_cents, currency, image_url, image_urls, image_data,
+         is_published, ar_target_id, printful_sync_product_id, printful_sync_variant_id
+       ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      null,
+      title,
+      slug,
+      null,
+      null,
+      null,
+      null,
+      priceCents,
+      'USD',
+      thumbnailUrl,
+      null,
+      null,
+      0,
+      null,
+      printfulProductId,
+      firstSyncVariantId
+    );
+    return { action: 'created', printful_sync_product_id: printfulProductId };
+  }
+
+  async function hidePrintfulProductInD1(data) {
+    const extracted = extractPrintfulSyncProductFromData(data);
+    const printfulProductId = extracted.printfulProductId;
+    if (!Number.isFinite(printfulProductId) || printfulProductId <= 0) return { action: 'skipped' };
+    await dbRun(
+      `update products
+       set is_published = 0,
+           updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+       where printful_sync_product_id = ?`,
+      printfulProductId
+    );
+    return { action: 'hidden', printful_sync_product_id: printfulProductId };
+  }
+
   // POST /api/webhooks/printful and /api/admin/printful/webhook — receive Printful event notifications.
   async function apiPrintfulWebhook(request) {
     const rawBody = await request.text();
@@ -1482,11 +1592,10 @@
       ''
     ).trim();
 
-    if (!printfulOrderId) return new Response('OK', { status: 200 });
-
     try {
       switch (eventType) {
-        case 'package_shipped': {
+        case 'shipment_sent': {
+          if (!printfulOrderId) break;
           const trackingNumber = String(
             (shipmentObj && (shipmentObj.tracking_number || shipmentObj.trackingNumber)) ||
             data.tracking_number ||
@@ -1515,6 +1624,7 @@
           break;
         }
         case 'order_updated': {
+          if (!printfulOrderId) break;
           const newStatus = String((orderObj && orderObj.status) || data.status || '').trim() || 'updated';
           await dbRun(
             `update orders set printful_status = ? where printful_order_id = ?`,
@@ -1524,11 +1634,21 @@
           break;
         }
         case 'order_failed': {
+          if (!printfulOrderId) break;
           await dbRun(
             `update orders set printful_status = ? where printful_order_id = ?`,
             'failed',
             printfulOrderId
           );
+          break;
+        }
+        case 'product_synced':
+        case 'product_updated': {
+          await upsertPrintfulSyncProductToD1(data);
+          break;
+        }
+        case 'product_deleted': {
+          await hidePrintfulProductInD1(data);
           break;
         }
         default:
@@ -2856,9 +2976,12 @@
       const pfBody = {
         default_url: webhookUrl,
         events: [
-          { type: 'package_shipped', url: webhookUrl },
+          { type: 'shipment_sent', url: webhookUrl },
           { type: 'order_updated', url: webhookUrl },
           { type: 'order_failed', url: webhookUrl },
+          { type: 'product_synced', url: webhookUrl },
+          { type: 'product_updated', url: webhookUrl },
+          { type: 'product_deleted', url: webhookUrl },
         ],
       };
       const data = await callPrintful('POST', `/webhooks${qs}`, pfBody);
@@ -3251,6 +3374,84 @@
     } catch (e) {
       return jsonResponse({ error: String(e) }, 500, request);
     }
+  }
+
+  async function apiPrintfulBackfill(request) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
+      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+    }
+
+    const qs = Printful.printfulStoreQuery(pfEnv);
+    let list = [];
+    try {
+      const data = await callPrintful('GET', `/v2/sync-products${qs}`);
+      const raw = (data && (data.result ?? data.data)) || [];
+      if (Array.isArray(raw)) {
+        list = raw;
+      } else if (raw && Array.isArray(raw.items)) {
+        list = raw.items;
+      } else {
+        list = [];
+      }
+    } catch (e) {
+      return jsonResponse({ error: String(e) }, 500, request);
+    }
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    let failed = 0;
+    const errors = [];
+
+    for (const item of list) {
+      const itemId = Number((item && item.id != null) ? item.id : (item && item.sync_product && item.sync_product.id));
+      const errorId = Number.isFinite(itemId) && itemId > 0 ? String(itemId) : 'unknown';
+      try {
+        let dataForUpsert = {
+          sync_product: (item && item.sync_product) ? item.sync_product : item,
+          sync_variants: Array.isArray(item && item.sync_variants) ? item.sync_variants : [],
+        };
+
+        if (Number.isFinite(itemId) && itemId > 0) {
+          try {
+            const detail = await callPrintful('GET', `/v2/sync-products/${itemId}${qs}`);
+            const detailResult = (detail && (detail.result ?? detail.data)) || {};
+            dataForUpsert = {
+              sync_product: (detailResult && detailResult.sync_product) ? detailResult.sync_product : dataForUpsert.sync_product,
+              sync_variants: Array.isArray(detailResult && detailResult.sync_variants)
+                ? detailResult.sync_variants
+                : dataForUpsert.sync_variants,
+            };
+          } catch {
+            // Fallback to list item payload when detail fetch fails.
+          }
+        }
+
+        const r = await upsertPrintfulSyncProductToD1(dataForUpsert);
+        if (r.action === 'created') created++;
+        else if (r.action === 'updated') updated++;
+        else skipped++;
+      } catch (e) {
+        failed++;
+        if (errors.length < 20) {
+          errors.push({ printful_sync_product_id: errorId, error: String(e && e.message ? e.message : e) });
+        }
+      }
+    }
+
+    return jsonResponse({
+      ok: true,
+      total: list.length,
+      created,
+      updated,
+      skipped,
+      failed,
+      errors,
+    }, 200, request);
   }
 
   async function apiPrintfulOrderSync(request, printfulOrderId) {

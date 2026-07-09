@@ -488,6 +488,7 @@
           <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>Webhook Health</span>
             <div class="d-flex gap-2">
+              <button id="printfulBackfillBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Sync Existing Catalog</button>
               <button id="printfulRegisterWebhookBtn" class="btn btn-sm btn-inrl" style="font-size:.62rem;padding:.22rem .65rem">Register Webhook</button>
               <button id="printfulHealthRefreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
             </div>
@@ -1459,6 +1460,20 @@
         await loadPrintfulWebhookHealth();
       }
 
+      async function backfillPrintfulCatalog() {
+        const res = await apiFetch('/admin/printful/backfill', { method: 'POST' });
+        await loadPrintfulProducts();
+        const msg =
+          'Catalog sync complete.\n' +
+          'Total: ' + String(res.total || 0) + '\n' +
+          'Created: ' + String(res.created || 0) + '\n' +
+          'Updated: ' + String(res.updated || 0) + '\n' +
+          'Skipped: ' + String(res.skipped || 0) + '\n' +
+          'Failed: ' + String(res.failed || 0);
+        alert(msg);
+        showStatus('Printful catalog backfill completed.', 'success');
+      }
+
       function renderPrintfulProductsTable() {
         var tbody = document.getElementById('printfulProductsTbody');
         if (!tbody) return;
@@ -1634,6 +1649,20 @@
             showStatus('Webhook register failed: ' + (e.message || String(e)), 'error');
           } finally {
             printfulRegisterWebhookBtn.disabled = false;
+          }
+        });
+      }
+
+      var printfulBackfillBtn = document.getElementById('printfulBackfillBtn');
+      if (printfulBackfillBtn) {
+        printfulBackfillBtn.addEventListener('click', async function() {
+          try {
+            printfulBackfillBtn.disabled = true;
+            await backfillPrintfulCatalog();
+          } catch (e) {
+            showStatus('Catalog sync failed: ' + (e.message || String(e)), 'error');
+          } finally {
+            printfulBackfillBtn.disabled = false;
           }
         });
       }
