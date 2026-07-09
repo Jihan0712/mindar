@@ -256,9 +256,12 @@
       <!-- PRODUCTS TABLE -->
       <div class="col-12 col-lg-7">
         <div class="inrl-card">
-          <div class="inrl-card-header d-flex justify-content-between align-items-center">
+          <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>Products</span>
-            <button id="refreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+              <input id="productSearch" class="form-control form-control-sm" type="text" placeholder="Search title / slug / printful id&hellip;" style="width:190px;font-size:.68rem">
+              <button id="refreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
+            </div>
           </div>
           <div class="table-responsive">
             <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse">
@@ -269,13 +272,20 @@
                   <th class="d-none d-xl-table-cell">Brand</th>
                   <th>Price</th>
                   <th>Pub</th>
-                  <th>Printful</th>
+                  <th>Printful ID</th>
                   <th>AR</th>
                   <th class="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody id="productsTbody"></tbody>
             </table>
+          </div>
+          <div class="d-flex justify-content-between align-items-center px-3 py-2" id="productsPaginationBar" style="border-top:1px solid #2a2a2a">
+            <span id="productsPageInfo" style="font-size:.65rem;color:#555"></span>
+            <div class="d-flex gap-2">
+              <button id="productsPrevBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Prev</button>
+              <button id="productsNextBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Next</button>
+            </div>
           </div>
         </div>
       </div>
@@ -702,27 +712,45 @@
     });
   }
 
+  function getFilteredProducts(items) {
+    var q = (document.getElementById('productSearch') ? document.getElementById('productSearch').value : '').toLowerCase().trim();
+    if (!q) return items;
+    return items.filter(function(p) {
+      var hay = [
+        p.title || '',
+        p.slug || '',
+        p.printful_sync_product_id != null ? String(p.printful_sync_product_id) : ''
+      ].join(' ').toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+  }
+
   function renderProducts(items, isAdmin) {
+    var filtered = getFilteredProducts(items || []);
+    var pageCount = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PAGE_SIZE));
+    if (productsPage >= pageCount) productsPage = pageCount - 1;
+    var start = productsPage * PRODUCTS_PAGE_SIZE;
+    var slice = filtered.slice(start, start + PRODUCTS_PAGE_SIZE);
+
     const tbody = el('productsTbody');
     tbody.innerHTML = '';
-    if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4" style="color:#555">No products yet.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = items.map(function(p) {
+    if (!slice.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4" style="color:#555">No products found.</td></tr>';
+    } else {
+      tbody.innerHTML = slice.map(function(p) {
       const viewerLink = p.viewer_url || '/index.html';
       const storeLink = 'product.html?slug=' + encodeURIComponent((p.slug || '').toString()) + (!p.slug && p.id ? '&id=' + encodeURIComponent(String(p.id)) : '');
       const hasTarget = p.ar_target_id != null;
-      const pfLinked = (p.printful_variant_map && Object.keys(p.printful_variant_map).length) || p.printful_sync_variant_id;
+      const pfSyncProductId = p.printful_sync_product_id != null ? String(p.printful_sync_product_id) : '';
       return '<tr>' +
         '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(p.title || '') + '</td>' +
         '<td><code style="font-size:.7rem">' + escapeHtml(p.slug || '') + '</code></td>' +
         '<td class="d-none d-xl-table-cell" style="color:#888">' + escapeHtml(p.brand || '') + '</td>' +
         '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
         '<td><span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + (p.is_published ? '#00ED0A' : '#555') + '">' + (p.is_published ? 'Yes' : 'No') + '</span></td>' +
-        '<td>' + (pfLinked
-          ? '<span style="background:#00ED0A;color:#1C1C1C;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">LINKED</span>'
-          : '<span style="background:#2a2a2a;color:#555;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">NONE</span>') + '</td>' +
+        '<td>' + (pfSyncProductId
+          ? '<code style="font-size:.68rem">' + escapeHtml(pfSyncProductId) + '</code>'
+          : '<span style="background:#2a2a2a;color:#555;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">UNLINKED</span>') + '</td>' +
         '<td>' +
           '<a href="' + storeLink + '" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">Store</a> ' +
           (hasTarget ? '<a href="' + viewerLink + '" class="btn btn-sm btn-inrl" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">AR</a>' : '<span style="font-size:.62rem;color:#444">&#8212;</span>') +
@@ -733,7 +761,17 @@
           '<button class="btn btn-sm btn-danger-inrl" style="font-size:.6rem;padding:.2rem .5rem" data-action="delete" data-id="' + p.id + '">Del</button>' +
         '</td>' +
         '</tr>';
-    }).join('');
+      }).join('');
+    }
+
+    var pageInfo = document.getElementById('productsPageInfo');
+    var prevBtn = document.getElementById('productsPrevBtn');
+    var nextBtn = document.getElementById('productsNextBtn');
+    if (pageInfo) pageInfo.textContent = filtered.length
+      ? 'Showing ' + (start + 1) + '\u2013' + Math.min(start + PRODUCTS_PAGE_SIZE, filtered.length) + ' of ' + filtered.length
+      : 'No results';
+    if (prevBtn) prevBtn.disabled = productsPage <= 0;
+    if (nextBtn) nextBtn.disabled = productsPage >= pageCount - 1;
   }
 
   function renderPrintfulVariantFields(sizes, currentMap) {
@@ -986,9 +1024,12 @@
     }
 
     let products = [];
+    let productsPage = 0;
+    const PRODUCTS_PAGE_SIZE = 25;
     async function refresh() {
       clearStatus();
       products = await loadProducts();
+      productsPage = 0;
       renderProducts(products, isAdmin);
     }
     try {
@@ -1000,6 +1041,31 @@
     el('refreshBtn').addEventListener('click', async function() {
       try { await refresh(); } catch (e) { showStatus(e.message || String(e), 'error'); }
     });
+
+    var productSearchEl = document.getElementById('productSearch');
+    if (productSearchEl) {
+      productSearchEl.addEventListener('input', function() {
+        productsPage = 0;
+        renderProducts(products, isAdmin);
+      });
+    }
+
+    var productsPrevBtn = document.getElementById('productsPrevBtn');
+    var productsNextBtn = document.getElementById('productsNextBtn');
+    if (productsPrevBtn) {
+      productsPrevBtn.addEventListener('click', function() {
+        if (productsPage > 0) {
+          productsPage--;
+          renderProducts(products, isAdmin);
+        }
+      });
+    }
+    if (productsNextBtn) {
+      productsNextBtn.addEventListener('click', function() {
+        productsPage++;
+        renderProducts(products, isAdmin);
+      });
+    }
 
     el('resetBtn').addEventListener('click', function() { setFormProduct(null, isAdmin); });
     setFormProduct(null, isAdmin);
