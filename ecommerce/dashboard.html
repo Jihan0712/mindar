@@ -119,6 +119,9 @@
     <li class="nav-item" role="presentation" id="tab-orders-item" style="display:none">
       <button class="nav-link" id="tab-orders" data-bs-toggle="tab" data-bs-target="#pane-orders" type="button" role="tab">Orders</button>
     </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-creator" data-bs-toggle="tab" data-bs-target="#pane-creator" type="button" role="tab">Design Creator</button>
+    </li>
     <li class="nav-item" role="presentation" id="tab-printful-item" style="display:none">
       <button class="nav-link" id="tab-printful" data-bs-toggle="tab" data-bs-target="#pane-printful" type="button" role="tab">Printful</button>
     </li>
@@ -292,6 +295,47 @@
 
     </div>
   </div><!-- /pane-products -->
+
+  <!-- ===== DESIGN CREATOR PANE ===== -->
+  <div class="tab-pane fade" id="pane-creator" role="tabpanel">
+    <div class="row g-4">
+      <div class="col-12 col-lg-6">
+        <div class="inrl-card">
+          <div class="inrl-card-header">Create a Printful T-Shirt</div>
+          <div class="p-4">
+            <form id="creatorForm" class="vstack gap-3">
+              <div>
+                <label class="form-label" for="creatorTitle">Product Title <span style="color:#ff4d4f">*</span></label>
+                <input id="creatorTitle" class="form-control" type="text" required />
+              </div>
+
+              <div>
+                <label class="form-label" for="creatorPrice">Retail Price <span style="color:#ff4d4f">*</span></label>
+                <input id="creatorPrice" class="form-control" type="number" step="0.01" min="0" required />
+              </div>
+
+              <div>
+                <label class="form-label" for="creatorBaseProduct">Base T-Shirt Model <span style="color:#ff4d4f">*</span></label>
+                <select id="creatorBaseProduct" class="form-select" required>
+                  <option value="">Select a base model</option>
+                  <option value="5000">Gildan 5000</option>
+                  <option value="3001">Bella+Canvas 3001</option>
+                  <option value="1717">Comfort Colors 1717</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="form-label" for="creatorDesign">Design File <span style="color:#ff4d4f">*</span></label>
+                <input id="creatorDesign" class="form-control" type="file" accept="image/*" required />
+              </div>
+
+              <button type="submit" class="btn btn-inrl">Create T-Shirt &amp; Push to Printful</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /pane-creator -->
 
   <!-- ===== HOMEPAGE PANE ===== -->
   <div class="tab-pane fade" id="pane-homepage" role="tabpanel">
@@ -1149,6 +1193,40 @@
         showStatus(e.message || String(e), 'error');
       }
     });
+
+    const creatorForm = el('creatorForm');
+    if (creatorForm) {
+      creatorForm.addEventListener('submit', async function(ev) {
+        ev.preventDefault();
+        clearStatus();
+        const file = el('creatorDesign').files && el('creatorDesign').files.length ? el('creatorDesign').files[0] : null;
+        if (!file) {
+          showStatus('Please choose a design file.', 'error');
+          return;
+        }
+
+        try {
+          const designUrl = await uploadProductImage(file, 'products');
+          const body = {
+            title: el('creatorTitle').value.trim(),
+            price: el('creatorPrice').value,
+            base_product_id: el('creatorBaseProduct').value,
+            design_url: designUrl,
+          };
+
+          if (!body.title) throw new Error('Product title required');
+          if (!body.base_product_id) throw new Error('Please choose a base t-shirt model');
+          if (!body.price) throw new Error('Retail price required');
+
+          await apiFetch('/admin/printful/creator', { method: 'POST', body });
+          window.alert('T-shirt created and pushed to Printful.');
+          creatorForm.reset();
+          await refresh();
+        } catch (e) {
+          showStatus(e.message || String(e), 'error');
+        }
+      });
+    }
 
     el('productsTbody').addEventListener('click', async function(ev) {
       const btn = ev.target.closest('button[data-action]');

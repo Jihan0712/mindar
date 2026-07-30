@@ -664,6 +664,7 @@
       return apiPrintfulUpdateProduct(request, productId);
     }
     if (request.method === 'POST' && pathname === '/api/admin/printful/webhook/register')  return apiPrintfulWebhookRegister(request);
+    if (request.method === 'POST' && pathname === '/api/admin/printful/creator')          return apiCreatePrintfulCreatorProduct(request);
     if (request.method === 'POST' && pathname === '/api/admin/printful/products/push')     return apiPrintfulPushProduct(request);
     if (request.method === 'POST' && /^\/api\/admin\/printful\/products\/\d+\/push$/.test(pathname)) {
       const productId = parseInt(pathname.split('/')[5], 10);
@@ -1565,6 +1566,180 @@
   }
 
   // POST /api/webhooks/printful and /api/admin/printful/webhook — receive Printful event notifications.
+  async function apiCreatePrintfulCreatorProduct(request) {
+    const { sess, error } = await requireAdminSession(request);
+    if (error) return error;
+
+    const body = await readJson(request);
+    const title = String(body.title || '').trim();
+    const priceValue = body.price != null && body.price !== '' ? String(body.price).trim() : '';
+    const baseProductId = String(body.base_product_id != null ? body.base_product_id : '').trim();
+    const designUrl = String(body.design_url || '').trim();
+
+    if (!title) return jsonResponse({ error: 'title required' }, 400, request);
+    if (!baseProductId) return jsonResponse({ error: 'base_product_id required' }, 400, request);
+    if (!designUrl) return jsonResponse({ error: 'design_url required' }, 400, request);
+    if (!priceValue) return jsonResponse({ error: 'price required' }, 400, request);
+
+    const priceCents = parsePriceCents({ price: priceValue });
+    if (priceCents == null) return jsonResponse({ error: 'Invalid price' }, 400, request);
+
+    const numericBaseProductId = Number(baseProductId);
+    if (!Number.isFinite(numericBaseProductId) || numericBaseProductId <= 0) {
+      return jsonResponse({ error: 'Invalid base_product_id' }, 400, request);
+    }
+
+    const pfEnv = printfulEnv();
+    const catalogData = await Printful.callPrintful(pfEnv, 'GET', `/products/${numericBaseProductId}`);
+    const catalogProduct = (catalogData && catalogData.result) || null;
+    const catalogVariants = Array.isArray(catalogProduct && catalogProduct.variants) ? catalogProduct.variants : [];
+
+    if (!catalogVariants.length) {
+      return jsonResponse({ error: 'No catalog variants found for the selected base product' }, 400, request);
+    }
+
+    const retailPrice = (priceCents / 100).toFixed(2);
+    const syncVariants = [];
+    const variantMap = {};
+
+    for (const variant of catalogVariants) {
+      const variantId = Number(variant && variant.id);
+      const sizeLabel = String(variant && (variant.size || variant.name || variant.id || '')).trim();
+      if (!Number.isFinite(variantId) || variantId <= 0) continue;
+      const externalId = sizeLabel || String(variantId);
+      syncVariants.push({
+        external_id: externalId,
+        variant_id: variantId,
+        retail_price: retailPrice,
+        files: [{ type: 'front', url: designUrl }],
+      });
+      variantMap[externalId] = String(variantId);
+    }
+
+    if (!syncVariants.length) {
+      return jsonResponse({ error: 'No valid Printful variants could be resolved from the selected base product' }, 400, request);
+    }
+
+    const payload = {
+      sync_product: {
+        name: title,
+        thumbnail: designUrl,
+      },
+      sync_variants: syncVariants,
+    };
+
+    const data = await Printful.callPrintful(pfEnv, 'POST', '/v2/sync-products', payload);
+    const result = (data && data.result) || {};
+    const syncProduct = result.sync_product || {};
+    const createdSyncVariants = Array.isArray(result.sync_variants) ? result.sync_variants : [];
+
+    const syncProductId = Number(syncProduct.id != null ? syncProduct.id : data && data.id);
+    const firstSyncVariantId = createdSyncVariants.length
+      ? Number(createdSyncVariants[0] && createdSyncVariants[0].id)
+      : null;
+
+    const createdVariantMap = {};
+    for (const syncVariant of createdSyncVariants) {
+      const syncVariantId = syncVariant && syncVariant.id != null ? String(syncVariant.id) : '';
+      const externalId = syncVariant && syncVariant.external_id != null ? String(syncVariant.external_id).trim() : '';
+      if (syncVariantId && externalId) createdVariantMap[externalId] = syncVariantId;
+    }
+
+    const sizesText = Object.keys(createdVariantMap).join(', ');
+    const slug = await resolveUniqueProductSlug(normalizeSlug(title) || `printful-creator-${syncProductId || 'product'}`, syncProductId, null);
+    const variantMapJson = Object.keys(createdVariantMap).length ? JSON.stringify(createdVariantMap) : null;
+
+    try {
+      await dbRun(
+        `insert into products (
+          brand_id, title, slug, category, color, sizes, description,
+          price_cents, currency, image_url, image_urls, image_data,
+          is_published, ar_target_id, printful_sync_product_id, printful_sync_variant_id, printful_variant_map
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
+        null,
+        title,
+        slug,
+        'T-Shirts',
+        null,
+        sizesText || null,
+        null,
+        priceCents,
+        'USD',
+        designUrl,
+        null,
+        null,
+        1,
+        null,
+        Number.isFinite(syncProductId) && syncProductId > 0 ? syncProductId : null,
+        Number.isFinite(firstSyncVariantId) && firstSyncVariantId > 0 ? firstSyncVariantId : null,
+        variantMapJson
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        await dbRun(
+          `insert into products (
+            brand_id, title, slug, category, color, sizes, description,
+            price_cents, currency, image_url, image_urls, image_data,
+            is_published, ar_target_id, printful_sync_product_id, printful_sync_variant_id
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          null,
+          title,
+          slug,
+          'T-Shirts',
+          null,
+          sizesText || null,
+          null,
+          priceCents,
+          'USD',
+          designUrl,
+          null,
+          null,
+          1,
+          null,
+          Number.isFinite(syncProductId) && syncProductId > 0 ? syncProductId : null,
+          Number.isFinite(firstSyncVariantId) && firstSyncVariantId > 0 ? firstSyncVariantId : null
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_product_id')) {
+        await dbRun(
+          `insert into products (
+            brand_id, title, slug, category, color, sizes, description,
+            price_cents, currency, image_url, image_urls, image_data,
+            is_published, ar_target_id
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          null,
+          title,
+          slug,
+          'T-Shirts',
+          null,
+          sizesText || null,
+          null,
+          priceCents,
+          'USD',
+          designUrl,
+          null,
+          null,
+          1,
+          null
+        );
+      } else {
+        throw e;
+      }
+    }
+
+    const row = await dbGet(
+      `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
+              case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
+              p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map,
+              p.created_at, p.updated_at, b.name as brand
+      from products p
+      left join brands b on b.id = p.brand_id
+      where p.rowid = last_insert_rowid()`
+    );
+
+    return jsonResponse({ ok: true, item: row || null, sync_product_id: syncProductId, sync_variant_id: firstSyncVariantId, printful_variant_map: createdVariantMap }, 200, request);
+  }
+
   async function apiPrintfulWebhook(request) {
     const rawBody = await request.text();
 
