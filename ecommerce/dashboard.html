@@ -316,8 +316,8 @@
 
               <div>
                 <label class="form-label" for="creatorBaseProduct">Base T-Shirt Model <span style="color:#ff4d4f">*</span></label>
-                <select id="creatorBaseProduct" class="form-select" required>
-                  <option value="">Select a base model</option>
+                <select id="creatorBaseProduct" class="form-select">
+                  <option value="auto" selected>Use Printful default catalog product</option>
                   <option value="5000">Gildan 5000</option>
                   <option value="3001">Bella+Canvas 3001</option>
                   <option value="1717">Comfort Colors 1717</option>
@@ -736,10 +736,25 @@
     form.append('file', file);
     form.append('path', path);
     form.append('filename', file.name || ('image-' + Date.now()));
-    const res = await fetch('/upload', { method: 'POST', body: form, credentials: 'include' });
-    if (!res.ok) throw new Error('Upload failed (' + res.status + ')');
-    const data = await res.json().catch(() => ({}));
-    if (!data || !data.url) throw new Error('Upload failed (no url)');
+
+    let res;
+    try {
+      res = await fetch('/upload', { method: 'POST', body: form, credentials: 'include' });
+    } catch (e) {
+      throw new Error('Upload failed: ' + (e && e.message ? e.message : String(e)));
+    }
+
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {}
+
+    if (!res.ok) {
+      const msg = data && (data.error || data.message) ? String(data.error || data.message) : 'Upload failed (' + res.status + ')';
+      throw new Error(msg);
+    }
+
+    if (!data || !data.url) throw new Error('Upload failed (no public URL returned)');
     return String(data.url);
   }
 
@@ -1196,6 +1211,19 @@
 
     const creatorForm = el('creatorForm');
     if (creatorForm) {
+      const creatorSubmitBtn = creatorForm.querySelector('button[type="submit"]');
+      const creatorInputs = Array.from(creatorForm.querySelectorAll('input, select, button'));
+
+      function setCreatorBusy(isBusy) {
+        creatorInputs.forEach(function(elm) {
+          if (elm.tagName === 'BUTTON') elm.disabled = isBusy;
+          else elm.disabled = isBusy;
+        });
+        if (creatorSubmitBtn) {
+          creatorSubmitBtn.textContent = isBusy ? 'Creating…' : 'Create T-Shirt & Push to Printful';
+        }
+      }
+
       creatorForm.addEventListener('submit', async function(ev) {
         ev.preventDefault();
         clearStatus();
@@ -1205,26 +1233,45 @@
           return;
         }
 
+        const title = el('creatorTitle').value.trim();
+        const price = el('creatorPrice').value;
+        const baseProductId = el('creatorBaseProduct').value;
+
+        if (!title) {
+          showStatus('Product title required', 'error');
+          return;
+        }
+        if (!price) {
+          showStatus('Retail price required', 'error');
+          return;
+        }
+
+        setCreatorBusy(true);
+        showStatus('Uploading design and pushing to Printful…', 'info');
+
         try {
           const designUrl = await uploadProductImage(file, 'products');
           const body = {
-            title: el('creatorTitle').value.trim(),
-            price: el('creatorPrice').value,
-            base_product_id: el('creatorBaseProduct').value,
+            title,
+            price,
+            base_product_id: baseProductId === 'auto' ? '' : baseProductId,
             design_url: designUrl,
             site_url: window.location.origin,
           };
 
-          if (!body.title) throw new Error('Product title required');
-          if (!body.base_product_id) throw new Error('Please choose a base t-shirt model');
-          if (!body.price) throw new Error('Retail price required');
-
-          await apiFetch('/admin/printful/creator', { method: 'POST', body });
-          window.alert('T-shirt created and pushed to Printful.');
+          const result = await apiFetch('/admin/printful/creator', { method: 'POST', body });
+          const createdId = result && result.item && result.item.id ? String(result.item.id) : '';
+          const syncId = result && result.sync_product_id ? String(result.sync_product_id) : '';
+          const successMsg = createdId || syncId
+            ? 'T-shirt created successfully. Product ID ' + createdId + (syncId ? ' • Printful sync product ' + syncId : '')
+            : 'T-shirt created and pushed to Printful.';
           creatorForm.reset();
+          showStatus(successMsg, 'success');
           await refresh();
         } catch (e) {
           showStatus(e.message || String(e), 'error');
+        } finally {
+          setCreatorBusy(false);
         }
       });
     }
