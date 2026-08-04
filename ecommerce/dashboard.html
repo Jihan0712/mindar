@@ -1212,6 +1212,7 @@
             price: el('creatorPrice').value,
             base_product_id: el('creatorBaseProduct').value,
             design_url: designUrl,
+            site_url: window.location.origin,
           };
 
           if (!body.title) throw new Error('Product title required');

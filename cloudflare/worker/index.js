@@ -33,10 +33,17 @@
       return storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
     }
 
+    function buildPrintfulUrl(env, path) {
+      const normalizedPath = normalizePrintfulPath(path);
+      const qs = printfulStoreQuery(env);
+      if (!qs) return `${PRINTFUL_BASE}${normalizedPath}`;
+      const separator = normalizedPath.includes('?') ? '&' : '?';
+      return `${PRINTFUL_BASE}${normalizedPath}${separator}${qs.slice(1)}`;
+    }
+
     async function callPrintful(env, method, path, body) {
       const { apiKey } = getPrintfulConfig(env);
       if (!apiKey) throw new Error('PRINTFUL_API_KEY is not configured');
-      const normalizedPath = normalizePrintfulPath(path);
 
       const opts = {
         method,
@@ -48,7 +55,7 @@
       };
       if (body != null) opts.body = JSON.stringify(body);
 
-      const res = await fetch(`${PRINTFUL_BASE}${normalizedPath}`, opts);
+      const res = await fetch(buildPrintfulUrl(env, path), opts);
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = (json && json.error && json.error.message) || JSON.stringify(json);
@@ -596,6 +603,41 @@
       } catch {}
       return s.replace(/^\/+/, '').split('?')[0].split('#')[0];
     }
+  }
+
+  function buildPublicAssetUrl(request, key) {
+    const normalizedKey = String(key || '').trim().replace(/^\/+/, '');
+    if (!normalizedKey) return '';
+
+    const assetsDomain = String(typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '').trim();
+    let publicBase = '';
+    if (assetsDomain) {
+      publicBase = assetsDomain.replace(/\/$/, '');
+      if (!/^https?:\/\//i.test(publicBase)) publicBase = 'https://' + publicBase;
+      const assetKey = normalizedKey.startsWith('api/r2/') ? normalizedKey.slice('api/r2/'.length) : normalizedKey;
+      return `${publicBase}/${assetKey}`;
+    }
+
+    const requestUrl = new URL(request.url);
+    const proto = (request.headers.get('x-forwarded-proto') || requestUrl.protocol || 'https:').split(',')[0].trim();
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || requestUrl.host;
+    publicBase = `${proto}//${host}`;
+    const workerKey = normalizedKey.startsWith('api/r2/') ? normalizedKey : `api/r2/${normalizedKey}`;
+    return `${publicBase}/${workerKey}`;
+  }
+
+  function normalizePublicUrl(value, request, fallbackOrigin = '') {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return '';
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed.replace(/^http:\/\//i, 'https://');
+    }
+
+    const origin = (fallbackOrigin || new URL(request.url).origin).replace(/\/$/, '');
+    if (trimmed.startsWith('/')) return `${origin}${trimmed}`;
+    if (trimmed.startsWith('api/r2/')) return `${origin}/${trimmed}`;
+    return `${origin}/${trimmed}`;
   }
 
   // ---------- Main router ----------
@@ -1574,7 +1616,9 @@
     const title = String(body.title || '').trim();
     const priceValue = body.price != null && body.price !== '' ? String(body.price).trim() : '';
     const baseProductId = String(body.base_product_id != null ? body.base_product_id : '').trim();
-    const designUrl = String(body.design_url || '').trim();
+    const rawDesignUrl = String(body.design_url || '').trim();
+    const siteUrl = String(body.site_url || new URL(request.url).origin).replace(/\/$/, '');
+    const designUrl = normalizePublicUrl(rawDesignUrl, request, siteUrl);
 
     if (!title) return jsonResponse({ error: 'title required' }, 400, request);
     if (!baseProductId) return jsonResponse({ error: 'base_product_id required' }, 400, request);
@@ -3042,19 +3086,10 @@
         httpMetadata: { contentType: file.type || 'application/octet-stream' }
       });
 
-      let assetsDomain = (typeof ASSETS_DOMAIN === 'string' ? ASSETS_DOMAIN : '') || '';
-      assetsDomain = assetsDomain.replace(/\/$/, '');
-      if (assetsDomain && !/^https?:\/\//i.test(assetsDomain)) assetsDomain = 'https://' + assetsDomain;
       // Route images through /api/r2/<key> — this path is always handled by the Worker
       // (via the /api/* Worker Route) regardless of how Cloudflare Pages routes are configured.
       // If ASSETS_DOMAIN is configured (e.g. an R2 public bucket), use it directly instead.
-      let publicUrl;
-      if (assetsDomain) {
-        publicUrl = `${assetsDomain}/${key}`;
-      } else {
-        const origin = new URL(request.url).origin;
-        publicUrl = `${origin}/api/r2/${key}`;
-      }
+      const publicUrl = buildPublicAssetUrl(request, key);
 
       const headers = buildCorsHeaders(request);
       headers.set('Content-Type', 'application/json');
