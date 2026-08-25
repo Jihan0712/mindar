@@ -116,16 +116,25 @@
       const resolved = [];
       const missing = [];
 
+      // Overrides are hand-typed Printful variant IDs, not matched via find() above —
+      // look the id up in the catalog product's own variant list to recover its cost.
+      const priceById = (id) => {
+        const v = variants.find(v => Number(v.id) === Number(id));
+        return v && v.price != null ? v.price : null;
+      };
+
       for (const size of sizes) {
         const sizeNorm = normalizeSizeLabel(size);
         if (!sizeNorm) continue;
 
         if (overrideMap && overrideMap[sizeNorm] != null) {
-          resolved.push({ size, variant_id: Number(overrideMap[sizeNorm]) });
+          const variantId = Number(overrideMap[sizeNorm]);
+          resolved.push({ size, variant_id: variantId, price: priceById(variantId) });
           continue;
         }
         if (overrideMap && overrideMap[size] != null) {
-          resolved.push({ size, variant_id: Number(overrideMap[size]) });
+          const variantId = Number(overrideMap[size]);
+          resolved.push({ size, variant_id: variantId, price: priceById(variantId) });
           continue;
         }
 
@@ -138,7 +147,7 @@
         });
 
         if (match && match.id) {
-          resolved.push({ size, variant_id: Number(match.id) });
+          resolved.push({ size, variant_id: Number(match.id), price: match.price != null ? match.price : null });
         } else {
           missing.push(size);
         }
@@ -3490,7 +3499,7 @@
     try {
       rows = await dbAll(
         `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
-                p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map,
+                p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_variant_cost_map,
                 p.updated_at, p.created_at, b.name as brand
          from products p
          left join brands b on b.id = p.brand_id
@@ -3502,7 +3511,18 @@
       if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
         return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
       }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_catalog_product_id')) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_cost_map')) {
+        // Cost tracking migration not yet applied — retry without it.
+        rows = await dbAll(
+          `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
+                  p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map,
+                  p.updated_at, p.created_at, b.name as brand
+           from products p
+           left join brands b on b.id = p.brand_id
+           where p.printful_variant_map is not null or p.printful_sync_variant_id is not null
+           order by p.updated_at desc, p.created_at desc`
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_catalog_product_id')) {
         rows = await dbAll(
           `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
                   p.printful_sync_variant_id, p.printful_variant_map,
@@ -3528,6 +3548,7 @@
       printful_catalog_product_id: r.printful_catalog_product_id || null,
       printful_sync_variant_id: r.printful_sync_variant_id || null,
       printful_variant_map: r.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_map) : null,
+      printful_variant_cost_map: r.printful_variant_cost_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_cost_map) : null,
       brand: r.brand || null,
       updated_at: r.updated_at || null,
       created_at: r.created_at || null,
@@ -3651,23 +3672,36 @@
     const { resolved, missing } = Printful.resolveCatalogVariants(catalogProduct, sizes, product.color || '', overrideMap);
 
     const variantMap = {};
-    for (const r of resolved) variantMap[r.size] = String(r.variant_id);
+    const costMap = {};
+    for (const r of resolved) {
+      variantMap[r.size] = String(r.variant_id);
+      if (r.price != null) costMap[r.size] = String(r.price);
+    }
     const variantMapJson = Object.keys(variantMap).length ? JSON.stringify(variantMap) : null;
+    const costMapJson = Object.keys(costMap).length ? JSON.stringify(costMap) : null;
     const firstVariant = resolved.length ? Number(resolved[0].variant_id) : null;
 
     try {
       await dbRun(
         `update products set printful_catalog_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
-                updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                printful_variant_cost_map = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
          where id = ?`,
-        catalogProductId, firstVariant, variantMapJson, productId
+        catalogProductId, firstVariant, variantMapJson, costMapJson, productId
       );
     } catch (e) {
       const msg = String(e || '');
       if (msg.toLowerCase().includes('no such column') && msg.includes('printful_catalog_product_id')) {
         return jsonResponse({ error: 'DB migration required: run sql/stripe_migration.sql' }, 500, request);
       }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_cost_map')) {
+        // Cost tracking migration not yet applied — retry without it.
+        await dbRun(
+          `update products set printful_catalog_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
+                  updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+           where id = ?`,
+          catalogProductId, firstVariant, variantMapJson, productId
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
         await dbRun(
           `update products set printful_sync_variant_id = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
           firstVariant, productId
@@ -3677,7 +3711,7 @@
       }
     }
 
-    return jsonResponse({ ok: true, printful_variant_map: variantMap, missing }, 200, request);
+    return jsonResponse({ ok: true, printful_variant_map: variantMap, printful_variant_cost_map: costMap, missing }, 200, request);
   }
 
   async function apiPrintfulOrderSync(request, printfulOrderId) {

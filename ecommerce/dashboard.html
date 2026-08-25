@@ -198,6 +198,7 @@
                     <option value="USD">USD</option>
                   </select>
                 </div>
+                <div id="marginHint" style="display:none;font-size:.65rem;margin-top:.35rem"></div>
               </div>
 
               <div>
@@ -594,6 +595,7 @@
                   <th>Product</th>
                   <th>Brand</th>
                   <th>Price</th>
+                  <th>Margin</th>
                   <th>Catalog Product</th>
                   <th>Catalog Linked</th>
                   <th class="text-end">Action</th>
@@ -702,6 +704,11 @@
   let products = [];
   let productsPage = 0;
   const PRODUCTS_PAGE_SIZE = 25;
+  // Populated by loadPrintfulProducts() inside main() — declared here (not just inside
+  // main()) so setFormProduct() can look up a product's Printful cost map by id for the
+  // margin hint next to the price field.
+  let printfulProducts = [];
+  let currentProductCostMap = null;
 
   const CATEGORY_PRESETS = ['Men', 'Women', 'Accessories'];
 
@@ -749,6 +756,39 @@
     }
   }
 
+  // Compares a product's own retail price_cents against the Printful cost captured at
+  // link time (printful_variant_cost_map, per size). Costs can differ by size, so this
+  // returns a min/max range — the max (worst case) is what should drive any warning.
+  function computeMarginSummary(priceCents, costMap) {
+    const costs = Object.values(costMap || {})
+      .map(v => Number(v))
+      .filter(n => Number.isFinite(n) && n >= 0);
+    if (!costs.length) return null;
+    const price = Number(priceCents || 0) / 100;
+    const minCost = Math.min(...costs);
+    const maxCost = Math.max(...costs);
+    const worstMargin = price - maxCost;
+    const bestMargin = price - minCost;
+    const worstPct = price > 0 ? (worstMargin / price) * 100 : 0;
+    return { price, minCost, maxCost, worstMargin, bestMargin, worstPct };
+  }
+
+  // Renders computeMarginSummary()'s result as a colored HTML string — red for a loss,
+  // yellow for a thin (<20%) margin, green otherwise. Returns '' when there's no cost data.
+  function renderMarginHtml(summary, currency) {
+    if (!summary) return '';
+    const color = summary.worstMargin <= 0 ? '#ff4d4f' : (summary.worstPct < 20 ? '#FEFD00' : '#00ED0A');
+    const costLabel = summary.minCost === summary.maxCost
+      ? formatMoney(summary.minCost * 100, currency)
+      : formatMoney(summary.minCost * 100, currency) + '–' + formatMoney(summary.maxCost * 100, currency);
+    const marginLabel = summary.bestMargin === summary.worstMargin
+      ? formatMoney(summary.worstMargin * 100, currency)
+      : formatMoney(summary.worstMargin * 100, currency) + '–' + formatMoney(summary.bestMargin * 100, currency);
+    const warn = summary.worstMargin <= 0 ? ' — selling at a loss!' : '';
+    return '<span style="color:' + color + '">Printful cost ' + costLabel + ' · margin ' + marginLabel +
+      ' (' + summary.worstPct.toFixed(0) + '%)' + warn + '</span>';
+  }
+
   function setFormProduct(p, isAdmin) {
     el('productId').value = p ? String(p.id) : '';
     if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
@@ -768,6 +808,8 @@
     renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
     el('saveBtn').textContent = p ? 'Update' : 'Create';
+    currentProductCostMap = p ? findPrintfulCostMap(p.id) : null;
+    updateMarginHint();
     const linkBtn = el('printfulLinkBtn');
     const linkSummary = el('printfulLinkSummary');
     if (linkBtn) linkBtn.disabled = !p;
@@ -779,6 +821,27 @@
           : 'Not linked yet — this product can’t be sold/fulfilled until it’s linked.');
     }
     syncCategoryPresetFromInput();
+  }
+
+  // printfulProducts is only populated once the Printful tab's data has loaded
+  // (loadPrintfulProducts(), called eagerly on init and again after every link/relink) —
+  // returns null before that, which updateMarginHint() treats as "no cost data yet".
+  function findPrintfulCostMap(productId) {
+    const match = printfulProducts.find(x => String(x.id) === String(productId));
+    return (match && match.printful_variant_cost_map) || null;
+  }
+
+  // Re-renders the margin hint under the price field from currentProductCostMap and
+  // whatever price is currently typed in — called on product load and on every keystroke
+  // in the price field so the admin sees margin update live as they adjust price.
+  function updateMarginHint() {
+    const hintEl = el('marginHint');
+    if (!hintEl) return;
+    const priceCents = Math.round(Number(el('priceInput').value || 0) * 100);
+    const summary = currentProductCostMap ? computeMarginSummary(priceCents, currentProductCostMap) : null;
+    const html = renderMarginHtml(summary, el('currencyInput').value);
+    hintEl.innerHTML = html;
+    hintEl.style.display = html ? '' : 'none';
   }
 
   function requireField(label, value) {
@@ -1193,6 +1256,11 @@
         renderPrintfulVariantFields(sizes, collectPrintfulVariantMap());
       });
     }
+
+    const priceInputEl = el('priceInput');
+    if (priceInputEl) priceInputEl.addEventListener('input', updateMarginHint);
+    const currencyInputEl = el('currencyInput');
+    if (currencyInputEl) currencyInputEl.addEventListener('change', updateMarginHint);
 
     const categoryPresetEl = el('categoryPreset');
     const categoryInputEl = el('categoryInput');
@@ -1668,7 +1736,6 @@
       var printfulSiteUrlInput = document.getElementById('printfulSiteUrl');
       if (printfulSiteUrlInput && !printfulSiteUrlInput.value) printfulSiteUrlInput.value = location.origin;
 
-      var printfulProducts = [];
       var printfulRecentOrders = [];
       var printfulLoaded = false;
       var printfulModalEl = document.getElementById('printfulProductModal');
@@ -1718,7 +1785,7 @@
         var tbody = document.getElementById('printfulProductsTbody');
         if (!tbody) return;
         if (!printfulProducts.length) {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4" style="color:#555">No products linked to Printful yet. Edit a product and use "Link to Printful Catalog".</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4" style="color:#555">No products linked to Printful yet. Edit a product and use "Link to Printful Catalog".</td></tr>';
           return;
         }
 
@@ -1728,10 +1795,12 @@
             ? printfulStatusChip('linked', '#00ED0A', 'rgba(0,237,10,.1)')
             : printfulStatusChip('unlinked', '#FEFD00', 'rgba(254,253,0,.1)');
           var actionHtml = '<button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit Design/Price</button>';
+          var marginHtml = renderMarginHtml(computeMarginSummary(p.price_cents, p.printful_variant_cost_map), p.currency) || '<span style="color:#555">\u2014</span>';
           return '<tr>' +
             '<td><div style="font-weight:700">' + escapeHtml(p.title || '') + '</div><div style="font-size:.66rem;color:#666">/' + escapeHtml(p.slug || '') + '</div></td>' +
             '<td style="color:#888">' + escapeHtml(p.brand || '\u2014') + '</td>' +
             '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
+            '<td style="white-space:nowrap">' + marginHtml + '</td>' +
             '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_catalog_product_id || '\u2014')) + '</code></td>' +
             '<td>' + stateChip + '</td>' +
             '<td class="text-end">' + actionHtml + '</td>' +
@@ -1822,7 +1891,7 @@
         }).join('');
       }
 
-      function renderPfPickerResolved(name, variantMap, missing) {
+      function renderPfPickerResolved(name, variantMap, missing, costMap) {
         document.getElementById('pfPickerResolved').style.display = '';
         document.getElementById('pfPickerResolvedName').textContent = name || '';
         var sizes = Object.keys(variantMap || {}).concat(missing || []);
@@ -1830,9 +1899,14 @@
         grid.innerHTML = sizes.map(function(size) {
           var val = variantMap && variantMap[size] != null ? String(variantMap[size]) : '';
           var isMissing = (missing || []).indexOf(size) !== -1;
+          var cost = costMap && costMap[size] != null ? costMap[size] : null;
+          var costHtml = cost != null
+            ? '<span style="font-size:.62rem;color:#888;white-space:nowrap">cost ' + escapeHtml(formatMoney(Number(cost) * 100, 'USD')) + '</span>'
+            : '';
           return '<div class="d-flex align-items-center gap-2">' +
             '<span style="min-width:36px;font-size:.65rem;text-transform:uppercase;font-weight:700;color:' + (isMissing ? '#FEFD00' : '#00ED0A') + '">' + escapeHtml(size) + '</span>' +
             '<input class="form-control form-control-sm" type="text" data-pf-override-size="' + escapeHtml(size) + '" placeholder="Printful variant ID" value="' + escapeHtml(val) + '" />' +
+            costHtml +
           '</div>';
         }).join('');
         var missingHint = document.getElementById('pfPickerMissingHint');
@@ -1874,7 +1948,7 @@
           body: { catalog_product_id: Number(catalogProductId) },
         });
         pfPickerLastResolved = { catalogProductId: Number(catalogProductId), map: res.printful_variant_map || {} };
-        renderPfPickerResolved('Catalog product #' + catalogProductId, res.printful_variant_map || {}, res.missing || []);
+        renderPfPickerResolved('Catalog product #' + catalogProductId, res.printful_variant_map || {}, res.missing || [], res.printful_variant_cost_map || {});
         pfPickerSetStatus((res.missing && res.missing.length)
           ? (res.missing.length + ' size(s) need a manual variant ID (see below).')
           : 'All sizes linked.');
@@ -1898,7 +1972,7 @@
           method: 'POST',
           body: { catalog_product_id: pfPickerLastResolved.catalogProductId, catalog_variant_ids: overrides },
         });
-        renderPfPickerResolved('Catalog product #' + pfPickerLastResolved.catalogProductId, res.printful_variant_map || {}, res.missing || []);
+        renderPfPickerResolved('Catalog product #' + pfPickerLastResolved.catalogProductId, res.printful_variant_map || {}, res.missing || [], res.printful_variant_cost_map || {});
         pfPickerSetStatus((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes linked.');
         await loadPrintfulProducts();
         await refresh();
