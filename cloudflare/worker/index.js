@@ -639,6 +639,10 @@
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiResumeOrderPayment(request, id);
     }
+    if (request.method === 'POST' && /^\/api\/orders\/([^/]+)\/cancel$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[3]);
+      return apiCancelOrder(request, id);
+    }
     if (request.method === 'GET'  && /^\/api\/orders\/[^/]+$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetOrder(request, id);
@@ -3163,6 +3167,47 @@
     }
 
     return jsonResponse({ ok: true, checkout_url: session.url }, 200, request);
+  }
+
+  // POST /api/orders/:id/cancel — lets the customer cancel an order that never finished
+  // payment (e.g. they changed their mind before returning to Stripe). Same ownership model
+  // as resume-payment: a logged-in session matching the order's user_id, or a matching email.
+  // Refuses to touch an order that's already paid — cancelling a paid/fulfilled order isn't
+  // a self-serve action.
+  async function apiCancelOrder(request, id) {
+    const rawId = String(id || '').trim();
+    if (!rawId) return jsonResponse({ error: 'order id required' }, 400, request);
+
+    const body = await readJson(request);
+    const emailIn = String(body.email || '').trim().toLowerCase();
+
+    const row = await dbGet(
+      `select id, user_id, email, status, payment_status from orders where id = ?`,
+      rawId
+    );
+    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const sess = await getSessionUser(request);
+    const ownsBySession = !!(sess && sess.user && row.user_id != null && String(sess.user.id) === String(row.user_id));
+    const ownsByEmail = !!(emailIn && String(row.email || '').trim().toLowerCase() === emailIn);
+    if (!ownsBySession && !ownsByEmail) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    if (row.payment_status === 'paid') {
+      return jsonResponse({ error: 'This order is already paid and cannot be cancelled here.' }, 400, request);
+    }
+    if (row.status === 'canceled') {
+      return jsonResponse({ ok: true });
+    }
+
+    // "canceled" (one L) matches the admin dashboard's orders.status convention
+    // (dashboard.html statusBadge/renderOrderStats); "cancelled" (two L's) matches
+    // order-tracking.html's STATUS_LABELS, which is keyed on printful_status.
+    await dbRun(
+      `update orders set status = ?, printful_status = ? where id = ?`,
+      'canceled', 'cancelled', rawId
+    );
+
+    return jsonResponse({ ok: true }, 200, request);
   }
 
   // GET /api/orders/mine — the logged-in customer's own order history, matched by the

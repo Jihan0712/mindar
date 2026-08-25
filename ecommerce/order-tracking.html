@@ -271,11 +271,15 @@
         ? ` &mdash; ${escHtml(order.first_name || '')} ${escHtml(order.last_name || '')}`
         : '';
 
-      const needsPayment = order.payment_status && order.payment_status !== 'paid';
+      const isCancelled = pfStatus === 'cancelled' || order.status === 'cancelled' || order.status === 'canceled';
+      const needsPayment = !isCancelled && order.payment_status && order.payment_status !== 'paid';
       const paymentHtml = needsPayment ? `
         <div style="margin-top:16px;padding:14px 16px;border:2px solid rgba(254,253,0,.3);background:rgba(254,253,0,.05)">
           <div style="font-size:12px;color:rgba(245,245,240,.6);margin-bottom:10px">Payment wasn't completed for this order &mdash; it hasn't been sent to production yet.</div>
-          <button onclick="resumePayment('${escHtml(order.id)}', this)" style="padding:10px 20px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer">Complete Payment</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button onclick="resumePayment('${escHtml(order.id)}', this)" style="padding:10px 20px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer">Complete Payment</button>
+            <button onclick="cancelOrder('${escHtml(order.id)}', this)" style="padding:10px 20px;background:transparent;border:2px solid rgba(255,77,79,.5);color:#ff4d4f;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer">Cancel Order</button>
+          </div>
         </div>` : '';
 
       return `
@@ -318,6 +322,27 @@
       } catch (e) {
         alert(e.message || String(e));
         if (btn) { btn.disabled = false; btn.textContent = 'Complete Payment'; }
+      }
+    }
+
+    async function cancelOrder(orderId, btn) {
+      if (!confirm('Cancel this order? This cannot be undone.')) return;
+      if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+      try {
+        const emailInput = document.getElementById('orderEmailInput');
+        const email = emailInput ? (emailInput.value || '').trim() : '';
+        const res = await fetch('/api/orders/' + encodeURIComponent(orderId) + '/cancel', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Could not cancel order');
+        location.reload();
+      } catch (e) {
+        alert(e.message || String(e));
+        if (btn) { btn.disabled = false; btn.textContent = 'Cancel Order'; }
       }
     }
 
