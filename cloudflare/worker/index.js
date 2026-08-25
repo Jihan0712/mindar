@@ -622,6 +622,10 @@
       return apiGetOrderTrackPublic(request, id, email);
     }
     if (request.method === 'GET'  && pathname === '/api/orders/mine')          return apiListMyOrders(request);
+    if (request.method === 'POST' && /^\/api\/orders\/([^/]+)\/resume-payment$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[3]);
+      return apiResumeOrderPayment(request, id);
+    }
     if (request.method === 'GET'  && /^\/api\/orders\/[^/]+$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetOrder(request, id);
@@ -1552,8 +1556,8 @@
       session = await Stripe.createCheckoutSession(stripeEnv(), {
         mode: 'payment',
         customer_email: customer.email,
-        success_url: `${siteUrl}/order-confirmation.html?order_id=${encodeURIComponent(orderId)}&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/checkout.html?cancelled=1`,
+        success_url: `${siteUrl}/ecommerce/order-confirmation.html?order_id=${encodeURIComponent(orderId)}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/ecommerce/checkout.html?cancelled=1`,
         'metadata[order_id]': orderId,
         line_items: resolvedItems.map(it => ({
           quantity: it.qty,
@@ -3032,7 +3036,7 @@
     let row;
     try {
       row = await dbGet(
-        `select id, email, first_name, last_name, currency, total_cents, items_json, status, created_at,
+        `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at,
                 printful_status, tracking_number, tracking_url, carrier, shipped_at
          from orders where id = ?`,
         rawId
@@ -3065,6 +3069,7 @@
         total_cents: row.total_cents,
         items,
         status: row.status || null,
+        payment_status: row.payment_status || null,
         created_at: row.created_at || null,
         printful_status:  row.printful_status  || null,
         tracking_number:  row.tracking_number  || null,
@@ -3073,6 +3078,67 @@
         shipped_at:       row.shipped_at       || null,
       }
     }, 200, request);
+  }
+
+  // POST /api/orders/:id/resume-payment — creates a fresh Stripe Checkout Session for an
+  // order stuck at pending_payment (e.g. the customer closed the tab before finishing on
+  // Stripe's page, or the original session expired). Ownership proven by either a logged-in
+  // session matching the order's user_id, or a matching email (same trust model as /track).
+  async function apiResumeOrderPayment(request, id) {
+    const rawId = String(id || '').trim();
+    if (!rawId) return jsonResponse({ error: 'order id required' }, 400, request);
+
+    const body = await readJson(request);
+    const emailIn = String(body.email || '').trim().toLowerCase();
+    const siteUrl = String(body.site_url || new URL(request.url).origin).replace(/\/$/, '');
+
+    const row = await dbGet(
+      `select id, user_id, email, currency, total_cents, items_json, payment_status
+       from orders where id = ?`,
+      rawId
+    ).catch(() => null);
+    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const sess = await getSessionUser(request);
+    const ownsBySession = !!(sess && sess.user && row.user_id != null && String(sess.user.id) === String(row.user_id));
+    const ownsByEmail = !!(emailIn && String(row.email || '').trim().toLowerCase() === emailIn);
+    if (!ownsBySession && !ownsByEmail) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    if (row.payment_status === 'paid') {
+      return jsonResponse({ error: 'This order is already paid.' }, 400, request);
+    }
+
+    let items = [];
+    try { items = JSON.parse(row.items_json) || []; } catch {}
+    if (!items.length) return jsonResponse({ error: 'Order has no items' }, 400, request);
+
+    const stConfig = Stripe.getStripeConfig(stripeEnv());
+    if (!stConfig.secretKey) return jsonResponse({ error: 'STRIPE_SECRET_KEY not configured' }, 500, request);
+
+    let session;
+    try {
+      session = await Stripe.createCheckoutSession(stripeEnv(), {
+        mode: 'payment',
+        customer_email: row.email,
+        success_url: `${siteUrl}/ecommerce/order-confirmation.html?order_id=${encodeURIComponent(rawId)}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/ecommerce/checkout.html?cancelled=1`,
+        'metadata[order_id]': rawId,
+        line_items: items.map(it => ({
+          quantity: it.qty,
+          price_data: {
+            currency: (it.currency || row.currency || 'USD').toLowerCase(),
+            unit_amount: it.price_cents,
+            product_data: { name: it.name, images: it.image_url ? [it.image_url] : undefined },
+          },
+        })),
+      });
+    } catch (e) {
+      return jsonResponse({ error: `Payment session could not be created: ${String(e && e.message ? e.message : e)}` }, 502, request);
+    }
+
+    await dbRun(`update orders set stripe_session_id = ? where id = ?`, session.id, rawId).catch(() => {});
+
+    return jsonResponse({ ok: true, checkout_url: session.url }, 200, request);
   }
 
   // GET /api/orders/mine — the logged-in customer's own order history, matched by account

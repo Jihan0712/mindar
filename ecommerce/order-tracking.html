@@ -268,6 +268,13 @@
         ? ` &mdash; ${escHtml(order.first_name || '')} ${escHtml(order.last_name || '')}`
         : '';
 
+      const needsPayment = order.payment_status && order.payment_status !== 'paid';
+      const paymentHtml = needsPayment ? `
+        <div style="margin-top:16px;padding:14px 16px;border:2px solid rgba(254,253,0,.3);background:rgba(254,253,0,.05)">
+          <div style="font-size:12px;color:rgba(245,245,240,.6);margin-bottom:10px">Payment wasn't completed for this order &mdash; it hasn't been sent to production yet.</div>
+          <button onclick="resumePayment('${escHtml(order.id)}', this)" style="padding:10px 20px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer">Complete Payment</button>
+        </div>` : '';
+
       return `
         <div style="padding:20px;border:2px solid rgba(0,237,10,.25);background:rgba(0,237,10,.04)">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
@@ -279,8 +286,9 @@
             ${order.created_at ? `&mdash; placed ${escHtml(String(order.created_at).slice(0,10))}` : ''}
           </p>
           ${order.shipped_at ? `<p style="font-size:12px;color:rgba(245,245,240,.4);margin:0">Shipped: ${escHtml(order.shipped_at.slice(0,10))}</p>` : ''}
-          ${trackingHtml}
-          ${!order.tracking_url && !order.tracking_number && pfStatus !== 'shipped' ? `<p style="font-size:12px;color:rgba(245,245,240,.4);margin:6px 0 0">Tracking will appear here once your order ships. Questions? <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a></p>` : ''}
+          ${paymentHtml}
+          ${!needsPayment ? trackingHtml : ''}
+          ${!needsPayment && !order.tracking_url && !order.tracking_number && pfStatus !== 'shipped' ? `<p style="font-size:12px;color:rgba(245,245,240,.4);margin:6px 0 0">Tracking will appear here once your order ships. Questions? <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a></p>` : ''}
           ${renderOrderItems(order.items, order.currency)}
           ${Number.isFinite(order.total_cents) ? `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:10px;border-top:2px solid rgba(245,245,240,.15)">
@@ -288,6 +296,26 @@
             <strong style="font-size:15px;color:#F5F5F0">${escHtml(formatMoney(order.total_cents, order.currency))}</strong>
           </div>` : ''}
         </div>`;
+    }
+
+    async function resumePayment(orderId, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+      try {
+        const emailInput = document.getElementById('orderEmailInput');
+        const email = emailInput ? (emailInput.value || '').trim() : '';
+        const res = await fetch('/api/orders/' + encodeURIComponent(orderId) + '/resume-payment', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, site_url: location.origin }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.checkout_url) throw new Error(data.error || 'Could not resume payment');
+        location.href = data.checkout_url;
+      } catch (e) {
+        alert(e.message || String(e));
+        if (btn) { btn.disabled = false; btn.textContent = 'Complete Payment'; }
+      }
     }
 
     function renderTrackResult(order) {
