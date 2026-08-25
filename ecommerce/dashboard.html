@@ -1951,6 +1951,14 @@
               if (btn) btn.disabled = false;
               return;
             }
+            // Backend flags this when the task looks done (not pending/processing) but no
+            // image URL could be parsed out of it — surface the raw response so the actual
+            // shape is visible instead of looping until the attempt budget runs out.
+            if (res && res.debug_raw_response) {
+              setMockupStatus('Task finished but no image URL was found. Raw response: ' + res.debug_raw_response, '#FEFD00');
+              if (btn) btn.disabled = false;
+              return;
+            }
             if (attemptsLeft <= 0) {
               setMockupStatus('Still rendering — click Preview again in a bit.', '#FEFD00');
               if (btn) btn.disabled = false;

@@ -169,8 +169,10 @@
 
     // POST /v2/mockup-tasks — kicks off async mockup rendering (a design printed onto a
     // real photo of the garment). Returns a task id; the mockup itself isn't ready yet,
-    // it has to be polled via getMockupTask.
-    async function createMockupTask(env, { catalogProductId, catalogVariantIds, mockupStyleIds, placement, technique, imageUrl, format }) {
+    // it has to be polled via getMockupTask. Returns the FULL raw response unwrapped —
+    // callers should try several envelope shapes rather than assume one, since Printful's
+    // v2-beta docs haven't matched the actual response shape here on the first two guesses.
+    async function createMockupTaskRaw(env, { catalogProductId, catalogVariantIds, mockupStyleIds, placement, technique, imageUrl, format }) {
       const payload = {
         format: format || 'jpg',
         products: [{
@@ -185,14 +187,13 @@
           }],
         }],
       };
-      const data = await callPrintful(env, 'POST', '/mockup-tasks', payload);
-      return (data && (data.data ?? data.result)) || data;
+      return callPrintful(env, 'POST', '/mockup-tasks', payload);
     }
 
     // GET /v2/mockup-tasks?id=... — poll until status leaves "pending"/"processing".
-    async function getMockupTask(env, taskId) {
-      const data = await callPrintful(env, 'GET', `/mockup-tasks?id=${encodeURIComponent(taskId)}`);
-      return (data && (data.data ?? data.result)) || data;
+    // Returns the raw response unwrapped — same reasoning as createMockupTaskRaw.
+    async function getMockupTaskRaw(env, taskId) {
+      return callPrintful(env, 'GET', `/mockup-tasks?id=${encodeURIComponent(taskId)}`);
     }
 
     return {
@@ -203,8 +204,8 @@
       listCatalogProducts,
       resolveCatalogVariants,
       listMockupStyles,
-      createMockupTask,
-      getMockupTask,
+      createMockupTaskRaw,
+      getMockupTaskRaw,
     };
   })();
 
@@ -3830,11 +3831,11 @@
       return jsonResponse({ error: `Could not load mockup styles: ${String(e && e.message ? e.message : e)}` }, 502, request);
     }
 
-    let task;
+    let rawTask;
     try {
       // One representative variant is enough for a design preview — this isn't generating
       // a mockup per size, just showing what the print looks like on the garment.
-      task = await Printful.createMockupTask(pfEnv, {
+      rawTask = await Printful.createMockupTaskRaw(pfEnv, {
         catalogProductId: product.printful_catalog_product_id,
         catalogVariantIds: catalogVariantIds.slice(0, 1),
         mockupStyleIds: [styleId],
@@ -3846,7 +3847,22 @@
       return jsonResponse({ error: `Mockup generation failed: ${String(e && e.message ? e.message : e)}` }, 502, request);
     }
 
-    if (!task || task.id == null) return jsonResponse({ error: 'Printful did not return a mockup task id' }, 502, request);
+    // The request body sends products as an array — try both an unwrapped single object
+    // and an array-of-one for the response, same uncertainty as the mockup-styles shape.
+    const candidates = [
+      rawTask,
+      rawTask && rawTask.data,
+      rawTask && rawTask.result,
+      rawTask && Array.isArray(rawTask.data) ? rawTask.data[0] : null,
+      rawTask && Array.isArray(rawTask.result) ? rawTask.result[0] : null,
+      Array.isArray(rawTask) ? rawTask[0] : null,
+    ];
+    const task = candidates.find(t => t && t.id != null);
+
+    if (!task) {
+      const rawStr = JSON.stringify(rawTask).slice(0, 900);
+      return jsonResponse({ error: `Printful did not return a mockup task id. Raw response: ${rawStr}` }, 502, request);
+    }
     return jsonResponse({ ok: true, task_id: task.id, status: task.status || 'pending' }, 200, request);
   }
 
@@ -3862,29 +3878,46 @@
     const pfEnv = printfulEnv();
     if (!Printful.getPrintfulConfig(pfEnv).apiKey) return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
 
-    let task;
+    let rawTask;
     try {
-      task = await Printful.getMockupTask(pfEnv, taskId);
+      rawTask = await Printful.getMockupTaskRaw(pfEnv, taskId);
     } catch (e) {
       return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
     }
-    if (!task) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (!rawTask) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const candidates = [
+      rawTask,
+      rawTask.data,
+      rawTask.result,
+      Array.isArray(rawTask.data) ? rawTask.data[0] : null,
+      Array.isArray(rawTask.result) ? rawTask.result[0] : null,
+      Array.isArray(rawTask) ? rawTask[0] : null,
+    ];
+    const task = candidates.find(t => t && (t.id != null || t.status != null)) || rawTask;
 
     const mockups = Array.isArray(task.catalog_variant_mockups) ? task.catalog_variant_mockups : [];
     const imageUrls = [];
     for (const m of mockups) {
+      // Cast a wide net: nested per-variant "mockups" array, or the entry itself carrying
+      // the url directly — same shape uncertainty as everywhere else in this feature.
       const nested = Array.isArray(m && m.mockups) ? m.mockups : (m ? [m] : []);
       for (const n of nested) {
-        const url = n && (n.mockup_url || n.url || n.image_url);
+        const url = n && (n.mockup_url || n.url || n.image_url || n.preview_url);
         if (url) imageUrls.push(url);
       }
     }
+
+    const statusStr = String(task.status || '').toLowerCase();
+    const stillWorking = !statusStr || statusStr.includes('pend') || statusStr.includes('process');
+    const debugRaw = (!imageUrls.length && !stillWorking) ? JSON.stringify(rawTask).slice(0, 900) : null;
 
     return jsonResponse({
       ok: true,
       status: task.status || 'unknown',
       image_urls: imageUrls,
       failure_reasons: Array.isArray(task.failure_reasons) ? task.failure_reasons : [],
+      debug_raw_response: debugRaw,
     }, 200, request);
   }
 
