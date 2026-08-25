@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Confirmation — INRL</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <link rel="stylesheet" type="text/css" href="css/vendor.css">
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <script src="/assets/js/auth-worker.js?v=20260401"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg fixed-top p-3">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:36px"></a>
+      <div class="d-flex align-items-center gap-3 order-lg-last">
+        <a href="cart.html" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em">Cart (<span class="js-cart-count">0</span>)</a>
+      </div>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"><span class="navbar-toggler-icon"></span></button>
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar">
+        <div class="offcanvas-header"><h5 class="offcanvas-title">Menu</h5><button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+        <div class="offcanvas-body">
+          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
+            <li class="nav-item"><a class="nav-link" href="order-tracking.html">Track Order</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CONFIRMATION SECTION -->
+  <section style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:100px 16px 60px;background:#1C1C1C">
+    <div style="width:100%;max-width:520px">
+
+      <div class="text-center mb-4">
+        <a href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:48px"></a>
+      </div>
+
+      <div style="border:3px solid rgba(245,245,240,.15);box-shadow:6px 6px 0 rgba(0,237,10,.15);padding:40px 36px;background:#212121">
+
+        <div id="stateConfirming">
+          <div class="text-center mb-3">
+            <div class="spinner-border" role="status" style="color:#00ED0A;width:2.5rem;height:2.5rem"></div>
+          </div>
+          <h1 class="text-uppercase text-center mb-1" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#F5F5F0;letter-spacing:-0.03em">Confirming Payment&hellip;</h1>
+          <p class="text-center" style="font-size:13px;color:rgba(245,245,240,.4)">This usually takes a few seconds.</p>
+        </div>
+
+        <div id="statePaid" style="display:none">
+          <h1 class="text-uppercase mb-1" style="font-family:'Averia Serif Libre',serif;font-size:26px;color:#00ED0A;letter-spacing:-0.03em">Order Confirmed</h1>
+          <p style="font-size:13px;color:rgba(245,245,240,.5);margin-bottom:20px">Printful is printing and preparing your order for shipment.</p>
+          <div style="font-size:13px;color:rgba(245,245,240,.7);margin-bottom:6px">Order ID: <code id="orderIdOut" style="color:#00ED0A"></code></div>
+          <ul id="itemsOut" class="list-unstyled" style="font-size:13px;color:rgba(245,245,240,.7);margin:12px 0"></ul>
+          <div class="d-flex justify-content-between" style="border-top:2px solid rgba(245,245,240,.15);padding-top:12px;margin-top:12px;font-size:14px;color:#F5F5F0">
+            <strong class="text-uppercase">Total</strong>
+            <strong id="totalOut"></strong>
+          </div>
+          <a id="trackLink" href="order-tracking.html" class="btn w-100 mt-4" style="background:#00ED0A;color:#1C1C1C;border:3px solid #1C1C1C;font-family:'Roboto Mono',monospace;font-weight:700;text-transform:uppercase;font-size:13px;letter-spacing:.1em;padding:12px">Track Your Order</a>
+        </div>
+
+        <div id="statePending" style="display:none">
+          <h1 class="text-uppercase mb-1" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#FEFD00;letter-spacing:-0.03em">Still Processing</h1>
+          <p style="font-size:13px;color:rgba(245,245,240,.5)">Your payment is taking a bit longer to confirm than usual. You'll get a confirmation once it clears — no need to try again. You can check status any time on the order tracking page.</p>
+          <a id="trackLinkPending" href="order-tracking.html" class="btn btn-outline-light w-100 mt-3" style="border-radius:0;font-family:'Roboto Mono',monospace;font-size:13px;text-transform:uppercase;letter-spacing:.08em">Check Order Status</a>
+        </div>
+
+        <div id="stateError" style="display:none">
+          <h1 class="text-uppercase mb-1" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#ff4d4f;letter-spacing:-0.03em">Something Went Wrong</h1>
+          <p id="errorMsg" style="font-size:13px;color:rgba(245,245,240,.5)"></p>
+          <a href="checkout.html" class="btn btn-outline-light w-100 mt-3" style="border-radius:0;font-family:'Roboto Mono',monospace;font-size:13px;text-transform:uppercase;letter-spacing:.08em">Back to Checkout</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer id="footer">
+    <div class="container">
+      <div class="row py-5">
+        <div class="col-md-3 col-sm-6 mb-4"><div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:36px"></div><p>Next-gen digital identity and fashion.</p></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Quick Links</h5><ul class="list-unstyled"><li class="mb-2"><a href="index.html">Home</a></li><li class="mb-2"><a href="shop.html">Shop</a></li><li class="mb-2"><a href="about.html">About</a></li><li class="mb-2"><a href="contact.html">Contact</a></li></ul></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Help & Info</h5><ul class="list-unstyled"><li class="mb-2"><a href="order-tracking.html">Track Order</a></li><li class="mb-2"><a href="faqs.html">FAQs</a></li><li class="mb-2"><a href="contact.html">Contact Us</a></li></ul></div>
+        <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Contact</h5><p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p></div>
+      </div>
+      <div class="border-top py-3"><p class="text-center mb-0" style="font-size:12px;opacity:.35">&copy; 2026 INRL. All rights reserved.</p></div>
+    </div>
+  </footer>
+
+  <script src="js/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="js/cart.js"></script>
+  <script>
+    (function () {
+      const qs = new URLSearchParams(location.search);
+      const orderId = qs.get('order_id');
+      const sessionId = qs.get('session_id');
+
+      const stateConfirming = document.getElementById('stateConfirming');
+      const statePaid = document.getElementById('statePaid');
+      const statePending = document.getElementById('statePending');
+      const stateError = document.getElementById('stateError');
+
+      function show(el) {
+        [stateConfirming, statePaid, statePending, stateError].forEach(e => e.style.display = (e === el ? '' : 'none'));
+      }
+
+      function formatMoney(cents, currency) {
+        const v = Number(cents || 0) / 100;
+        try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' }).format(v); }
+        catch { return '$' + v.toFixed(2); }
+      }
+
+      function showPaid(data) {
+        document.getElementById('orderIdOut').textContent = data.order_id || orderId || '';
+        document.getElementById('totalOut').textContent = formatMoney(data.total_cents, data.currency);
+        const itemsOut = document.getElementById('itemsOut');
+        itemsOut.innerHTML = (data.items || []).map(function (it) {
+          return '<li class="d-flex justify-content-between"><span>' + (it.name || '') + ' &times; ' + it.qty + '</span><span>' +
+            formatMoney((it.price_cents || 0) * (it.qty || 1)) + '</span></li>';
+        }).join('');
+        const trackLink = document.getElementById('trackLink');
+        if (trackLink && data.order_id) trackLink.href = 'order-tracking.html?order=' + encodeURIComponent(data.order_id);
+
+        // Payment is confirmed — safe to clear the cart now and record local order history.
+        try {
+          if (window.Cart) Cart.clear();
+          const ORDERS_KEY = 'mindar_orders_v1';
+          const prev = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+          if (!prev.some(o => o.order_id === data.order_id)) {
+            prev.unshift({ order_id: data.order_id, total_cents: data.total_cents, ts: Date.now() });
+            localStorage.setItem(ORDERS_KEY, JSON.stringify(prev.slice(0, 50)));
+          }
+        } catch (e) {}
+
+        show(statePaid);
+      }
+
+      async function poll(attemptsLeft) {
+        try {
+          const res = await fetch('/api/orders/' + encodeURIComponent(orderId) + '/status?session_id=' + encodeURIComponent(sessionId));
+          if (res.ok) {
+            const data = await res.json();
+            if (data.payment_status === 'paid') { showPaid(data); return; }
+          }
+        } catch (e) {}
+
+        if (attemptsLeft <= 0) { show(statePending); return; }
+        setTimeout(function () { poll(attemptsLeft - 1); }, 1500);
+      }
+
+      if (!orderId || !sessionId) {
+        document.getElementById('errorMsg').textContent = 'Missing order reference. If you just completed checkout, check your email or visit order tracking.';
+        show(stateError);
+      } else {
+        poll(20);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -4,6 +4,7 @@
   const countEl = document.getElementById('cart-count');
   const totalEl = document.getElementById('cart-total');
   const statusEl = document.getElementById('order-status');
+  const submitBtn = document.getElementById('place-order');
 
   function renderSummary(){
     const items = Cart.list();
@@ -23,6 +24,11 @@
   }
 
   renderSummary();
+
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('cancelled') === '1') {
+    status('Checkout cancelled — your cart is still saved.', false);
+  }
 
   function validate(){
     if (!form) return false;
@@ -46,36 +52,35 @@
       zip: document.getElementById('zip').value.trim(),
     };
 
-    const normalizedCart = items.map((item) => ({
-      ...item,
-      variantId: item.variantId || item.printful_sync_variant_id || null,
-      printful_sync_variant_id: item.printful_sync_variant_id || item.variantId || null,
+    // Only {slug, size, qty} are sent — price, design, and Printful variant are always
+    // re-resolved server-side from the product record, never trusted from the client.
+    const cart = items.map((item) => ({
+      slug: item.slug || null,
+      size: item.size || null,
+      qty: item.qty,
     }));
-    const payload = { cart: normalizedCart, total: Cart.total(), customer };
+    const payload = { cart, customer, site_url: location.origin };
     const API_BASE = window.MINDAR_API_BASE || '';
     try {
-      status('Placing order...', false);
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Redirecting to payment…'; }
+      status('Preparing secure payment…', false);
+      const res = await fetch(`${API_BASE}/api/checkout/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const data = await res.json();
-      status(`Order placed! ID: ${data.order_id}`, false, true);
-      // Persist a lightweight order record for dashboard
-      const ORDERS_KEY = 'mindar_orders_v1';
-      const prev = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
-      prev.unshift({ order_id: data.order_id, total: Cart.total(), items: Cart.count(), ts: Date.now() });
-      localStorage.setItem(ORDERS_KEY, JSON.stringify(prev.slice(0, 50)));
-      Cart.clear();
-      renderSummary();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.checkout_url) throw new Error(data.error || `Server error ${res.status}`);
+      // Do NOT clear the cart here — payment isn't confirmed yet. The cart is only cleared
+      // on order-confirmation.html once payment is actually verified as paid.
+      location.href = data.checkout_url;
     } catch (err){
-      status(`Failed to place order: ${err.message}`, true);
+      status(`Could not start checkout: ${err.message}`, true);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Continue to Payment'; }
     }
   }
 
-  function status(msg, isError=false, success=false){
+  function status(msg, isError=false){
     if (!statusEl) return;
     statusEl.innerHTML = `<div class="alert ${isError? 'alert-danger':'alert-success'}">${msg}</div>`;
   }

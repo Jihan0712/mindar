@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>dependency-cruiser output</title>
+  <style media="screen">
+    html {
+      font-family: sans-serif;
+      font-size: 10pt;
+    }
+
+    table {
+      overflow: hidden;
+    }
+
+    table,
+    td.controls {
+      transition-duration: 0.3s;
+    }
+
+    table,
+    th,
+    td {
+      border: solid black 1px;
+      border-collapse: collapse;
+      font-size: inherit;
+    }
+
+    td,
+    th {
+      position: relative;
+    }
+
+    th {
+      text-align: start;
+      vertical-align: bottom;
+      max-width: 1em;
+      max-height: 30em;
+      height: 20em;
+      font-weight: normal;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    th div {
+      transform: rotateZ(-90deg);
+      transform-origin: 0.5em;
+      text-align: start;
+      height: 1em;
+      width: 30em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    td {
+      text-align: center;
+    }
+
+    td.first-cell {
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    td.top-left {
+      border-top: solid 1px transparent;
+      border-left: solid 1px transparent;
+    }
+
+    td.top-right {
+      border-top: solid 1px transparent;
+      border-right: solid 1px transparent;
+    }
+
+    td.bottom-left {
+      border-bottom: solid 1px transparent;
+      border-left: solid 1px transparent;
+    }
+
+    td.bottom-right {
+      border-bottom: solid 1px transparent;
+      border-right: solid 1px transparent;
+    }
+
+    tbody tr:hover {
+      background-color: lightgrey;
+    }
+
+    td:hover::after,
+    td:focus::after,
+    th:hover::after,
+    th:focus::after {
+      background-color: #00000077;
+      content: "";
+      height: 5000px;
+      left: 0;
+      position: absolute;
+      top: -2500px;
+      width: 100%;
+      z-index: -1;
+    }
+
+    #table-rotated:target {
+      transform: rotateZ(45deg);
+      transform-origin: bottom left;
+    }
+
+    #table-rotated:target #unrotate {
+      opacity: 1;
+    }
+
+    #table-rotated:target #rotate {
+      opacity: 0;
+    }
+
+    #unrotate {
+      opacity: 0;
+    }
+
+    #rotate {
+      opacity: 1;
+    }
+
+    .controls {
+      opacity: 0.2;
+      vertical-align: bottom;
+      padding: 0.5em;
+    }
+
+    .controls:hover {
+      opacity: 1;
+    }
+
+    .controls a {
+      font-style: normal;
+      text-decoration: none;
+      background-color: #eee;
+      padding: 0.2em 0.5em 0.2em 0.5em;
+    }
+
+    .cell-core-module {
+      color: grey;
+      font-style: italic;
+    }
+
+    .cell-unresolvable-module {
+      color: red;
+      font-style: italic;
+    }
+
+    .cell-true {
+      background-color: black;
+      opacity: 0.5;
+    }
+
+    .cell-false {
+      background-color: white;
+      opacity: 0.5;
+    }
+
+    .cell-error {
+      background-color: red;
+      opacity: 0.5;
+    }
+
+    .cell-warn {
+      background-color: orange;
+      opacity: 0.5;
+    }
+
+    .cell-info {
+      background-color: blue;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+
+<body>
+  
+  <table id="table-rotated">
+    <thead>
+      <tr>
+        <td class="controls top-left">
+          <a id="rotate" href="#table-rotated">rotate</a>
+          <a id="unrotate" href="#">rotate back</a>
+        </td>
+        <th><div>.dependency-cruiser.js</div></th><th><div>assets/js/auth-worker.js</div></th><th><div>assets/js/cart.js</div></th><th><div>assets/js/checkout.js</div></th><th><div>backend/server.js</div></th><th><div>cloudflare/worker/index.js</div></th><th><div class="cell-unresolvable-module">cors</div></th><th><div>ecommerce/js/SmoothScroll.js</div></th><th><div>ecommerce/js/auth.js</div></th><th><div>ecommerce/js/cart.js</div></th><th><div>ecommerce/js/checkout.js</div></th><th><div>ecommerce/js/config.js</div></th><th><div>ecommerce/js/jquery.min.js</div></th><th><div>ecommerce/js/modernizr.js</div></th><th><div>ecommerce/js/plugins.js</div></th><th><div>ecommerce/js/script.min.js</div></th><th><div class="cell-unresolvable-module">express</div></th><th><div class="cell-core-module">crypto</div></th>
+        <td class="top-right"></td>
+      </tr>
+    </thead>
+    <tbody>
+    
+      <tr>
+        <td class="first-cell">.dependency-cruiser.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">.dependency-cruiser.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">assets/js/auth-worker.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">assets/js/auth-worker.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">assets/js/cart.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">assets/js/cart.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">assets/js/checkout.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">assets/js/checkout.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">backend/server.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-error" title="not-to-unresolvable:
+backend/server.js -> cors"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-error" title="not-to-unresolvable:
+backend/server.js -> express"></td><td class="cell cell-true" title="backend/server.js -> crypto"></td>
+        <td class="first-cell">backend/server.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">cloudflare/worker/index.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">cloudflare/worker/index.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell cell-unresolvable-module">cors</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell cell-unresolvable-module">cors</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/SmoothScroll.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/SmoothScroll.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/auth.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/auth.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/cart.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/cart.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/checkout.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/checkout.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/config.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/config.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/jquery.min.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/jquery.min.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/modernizr.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/modernizr.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/plugins.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/plugins.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell">ecommerce/js/script.min.js</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell">ecommerce/js/script.min.js</td>
+      </tr>
+      <tr>
+        <td class="first-cell cell-unresolvable-module">express</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell cell-unresolvable-module">express</td>
+      </tr>
+      <tr>
+        <td class="first-cell cell-core-module">crypto</td>
+        <td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td><td class="cell cell-false"></td>
+        <td class="first-cell cell-core-module">crypto</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td class="bottom-left"></td>
+        <th><div>.dependency-cruiser.js</div></th><th><div>assets/js/auth-worker.js</div></th><th><div>assets/js/cart.js</div></th><th><div>assets/js/checkout.js</div></th><th><div>backend/server.js</div></th><th><div>cloudflare/worker/index.js</div></th><th><div class="cell-unresolvable-module">cors</div></th><th><div>ecommerce/js/SmoothScroll.js</div></th><th><div>ecommerce/js/auth.js</div></th><th><div>ecommerce/js/cart.js</div></th><th><div>ecommerce/js/checkout.js</div></th><th><div>ecommerce/js/config.js</div></th><th><div>ecommerce/js/jquery.min.js</div></th><th><div>ecommerce/js/modernizr.js</div></th><th><div>ecommerce/js/plugins.js</div></th><th><div>ecommerce/js/script.min.js</div></th><th><div class="cell-unresolvable-module">express</div></th><th><div class="cell-core-module">crypto</div></th>
+        <td class="bottom-right"></td>
+      </tr>
+    </tfoot>
+  </table>
+
+</body>
+</html>

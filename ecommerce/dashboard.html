@@ -119,9 +119,6 @@
     <li class="nav-item" role="presentation" id="tab-orders-item" style="display:none">
       <button class="nav-link" id="tab-orders" data-bs-toggle="tab" data-bs-target="#pane-orders" type="button" role="tab">Orders</button>
     </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="tab-creator" data-bs-toggle="tab" data-bs-target="#pane-creator" type="button" role="tab">Design Creator</button>
-    </li>
     <li class="nav-item" role="presentation" id="tab-printful-item" style="display:none">
       <button class="nav-link" id="tab-printful" data-bs-toggle="tab" data-bs-target="#pane-printful" type="button" role="tab">Printful</button>
     </li>
@@ -217,18 +214,25 @@
               </div>
 
               <div>
-                <label class="form-label" for="printfulSyncVariantInput">Printful Sync Variant ID <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional &mdash; single-variant products)</span></label>
-                <input id="printfulSyncVariantInput" class="form-control" type="text" placeholder="e.g. 6a0ff0f16447e7" />
-                <div class="form-text">For single-variant products. Use the per-size fields below for sized products.</div>
+                <label class="form-label">Printful Catalog Link <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(required to sell this product)</span></label>
+                <div id="printfulLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Save the product first, then link it to a real Printful garment.</div>
+                <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Link to Printful Catalog&#8230;</button>
               </div>
 
-              <div>
-                <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
-                <div id="printfulVariantFields" class="vstack gap-1">
-                  <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
+              <details>
+                <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
+                <div class="mt-2">
+                  <label class="form-label" for="printfulSyncVariantInput">Printful Sync Variant ID <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional &mdash; single-variant products)</span></label>
+                  <input id="printfulSyncVariantInput" class="form-control" type="text" placeholder="e.g. 6a0ff0f16447e7" />
                 </div>
-                <div class="form-text">Find IDs in Printful &#8594; Stores &#8594; Products &#8594; click a variant.</div>
-              </div>
+                <div class="mt-2">
+                  <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
+                  <div id="printfulVariantFields" class="vstack gap-1">
+                    <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
+                  </div>
+                  <div class="form-text">Normally set automatically by "Link to Printful Catalog" above &#8212; edit here only to override.</div>
+                </div>
+              </details>
 
               <div>
                 <label class="form-label" for="targetSelect">AR Target <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
@@ -240,11 +244,6 @@
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="publishInput">
                 <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
-              </div>
-
-              <div class="form-check" id="printfulPushGroup">
-                <input class="form-check-input" type="checkbox" id="printfulPushInput">
-                <label class="form-check-label" for="printfulPushInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Auto-Push to Printful on Save</label>
               </div>
 
               <div class="d-flex gap-2 pt-1">
@@ -262,7 +261,7 @@
           <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>Products</span>
             <div class="d-flex gap-2 flex-wrap align-items-center">
-              <input id="productSearch" class="form-control form-control-sm" type="text" placeholder="Search title / slug / printful id&hellip;" style="width:190px;font-size:.68rem">
+              <input id="productSearch" class="form-control form-control-sm" type="text" placeholder="Search title / slug&hellip;" style="width:190px;font-size:.68rem">
               <button id="refreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
             </div>
           </div>
@@ -275,7 +274,7 @@
                   <th class="d-none d-xl-table-cell">Brand</th>
                   <th>Price</th>
                   <th>Pub</th>
-                  <th>Printful ID</th>
+                  <th>Printful</th>
                   <th>AR</th>
                   <th class="text-end">Actions</th>
                 </tr>
@@ -295,47 +294,6 @@
 
     </div>
   </div><!-- /pane-products -->
-
-  <!-- ===== DESIGN CREATOR PANE ===== -->
-  <div class="tab-pane fade" id="pane-creator" role="tabpanel">
-    <div class="row g-4">
-      <div class="col-12 col-lg-6">
-        <div class="inrl-card">
-          <div class="inrl-card-header">Create a Printful T-Shirt</div>
-          <div class="p-4">
-            <form id="creatorForm" class="vstack gap-3">
-              <div>
-                <label class="form-label" for="creatorTitle">Product Title <span style="color:#ff4d4f">*</span></label>
-                <input id="creatorTitle" class="form-control" type="text" required />
-              </div>
-
-              <div>
-                <label class="form-label" for="creatorPrice">Retail Price <span style="color:#ff4d4f">*</span></label>
-                <input id="creatorPrice" class="form-control" type="number" step="0.01" min="0" required />
-              </div>
-
-              <div>
-                <label class="form-label" for="creatorBaseProduct">Base T-Shirt Model <span style="color:#ff4d4f">*</span></label>
-                <select id="creatorBaseProduct" class="form-select">
-                  <option value="auto" selected>Use Printful default catalog product</option>
-                  <option value="5000">Gildan 5000</option>
-                  <option value="3001">Bella+Canvas 3001</option>
-                  <option value="1717">Comfort Colors 1717</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="form-label" for="creatorDesign">Design File <span style="color:#ff4d4f">*</span></label>
-                <input id="creatorDesign" class="form-control" type="file" accept="image/*" required />
-              </div>
-
-              <button type="submit" class="btn btn-inrl">Create T-Shirt &amp; Push to Printful</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div><!-- /pane-creator -->
 
   <!-- ===== HOMEPAGE PANE ===== -->
   <div class="tab-pane fade" id="pane-homepage" role="tabpanel">
@@ -542,7 +500,6 @@
           <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>Webhook Health</span>
             <div class="d-flex gap-2">
-              <button id="printfulBackfillBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Sync Existing Catalog</button>
               <button id="printfulRegisterWebhookBtn" class="btn btn-sm btn-inrl" style="font-size:.62rem;padding:.22rem .65rem">Register Webhook</button>
               <button id="printfulHealthRefreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
             </div>
@@ -574,8 +531,8 @@
                   <th>Product</th>
                   <th>Brand</th>
                   <th>Price</th>
-                  <th>Sync Product ID</th>
-                  <th>Sync State</th>
+                  <th>Catalog Product</th>
+                  <th>Catalog Linked</th>
                   <th class="text-end">Action</th>
                 </tr>
               </thead>
@@ -621,7 +578,7 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0;color:#F5F5F0;">
       <div class="modal-header" style="border-bottom:2px solid #333;">
-        <h5 class="modal-title" style="font-family:'Averia Serif Libre',serif;color:#00ED0A">Edit / Re-Sync Printful Product</h5>
+        <h5 class="modal-title" style="font-family:'Averia Serif Libre',serif;color:#00ED0A">Edit Product Design/Price</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
@@ -641,7 +598,37 @@
       </div>
       <div class="modal-footer" style="border-top:2px solid #333;">
         <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" id="printfulModalSaveBtn" class="btn btn-inrl">Save &amp; Re-Sync</button>
+        <button type="button" id="printfulModalSaveBtn" class="btn btn-inrl">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="printfulCatalogPickerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0;color:#F5F5F0;">
+      <div class="modal-header" style="border-bottom:2px solid #333;">
+        <h5 class="modal-title" style="font-family:'Averia Serif Libre',serif;color:#00ED0A">Link to Printful Catalog</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pfPickerProductId" />
+        <div class="input-group mb-3">
+          <input id="pfPickerSearch" class="form-control" type="text" placeholder="Search Printful catalog&#8230; e.g. Bella Canvas 3001" />
+          <button type="button" id="pfPickerSearchBtn" class="btn btn-inrl-outline">Search</button>
+        </div>
+        <div id="pfPickerStatus" style="font-size:.7rem;color:#888;margin-bottom:8px"></div>
+        <div id="pfPickerResults" style="max-height:220px;overflow-y:auto;border:1px solid #333"></div>
+        <div id="pfPickerResolved" style="display:none;margin-top:14px">
+          <div style="font-size:.7rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Linked product</div>
+          <div id="pfPickerResolvedName" style="font-size:.8rem;margin-bottom:8px"></div>
+          <div id="pfPickerVariantGrid" class="vstack gap-1"></div>
+          <div id="pfPickerMissingHint" style="font-size:.68rem;color:#FEFD00;display:none;margin-top:6px">Some sizes couldn't be matched automatically &#8212; enter their Printful variant IDs above, then click "Save Overrides".</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:2px solid #333;justify-content:space-between">
+        <button type="button" id="pfPickerSaveOverridesBtn" class="btn btn-sm btn-inrl-outline" style="display:none;font-size:.62rem">Save Overrides</button>
+        <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Done</button>
       </div>
     </div>
   </div>
@@ -701,8 +688,6 @@
 
   function setFormProduct(p, isAdmin) {
     el('productId').value = p ? String(p.id) : '';
-    const pfPushId = document.getElementById('printfulPushProductId');
-    if (pfPushId) pfPushId.value = p ? String(p.id) : '';
     if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
     el('titleInput').value = p ? (p.title || '') : '';
     el('categoryInput').value = p ? (p.category || '') : '';
@@ -715,14 +700,21 @@
     el('imageFileInput').value = '';
     el('descInput').value = p ? (p.description || '') : '';
     el('publishInput').checked = !!(p && p.is_published);
-    el('printfulPushInput').checked = false;
-    const printfulPushGroup = el('printfulPushGroup');
-    if (printfulPushGroup) printfulPushGroup.style.display = isAdmin ? '' : 'none';
     el('printfulSyncVariantInput').value = p ? (p.printful_sync_variant_id || '') : '';
     const _pfSizes = p ? (p.sizes || '').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
     renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
     el('saveBtn').textContent = p ? 'Update' : 'Create';
+    const linkBtn = el('printfulLinkBtn');
+    const linkSummary = el('printfulLinkSummary');
+    if (linkBtn) linkBtn.disabled = !p;
+    if (linkSummary) {
+      linkSummary.textContent = !p
+        ? 'Save the product first, then link it to a real Printful garment.'
+        : (p.printful_variant_map || p.printful_sync_variant_id
+          ? 'Linked to Printful. Click below to re-link or change the garment.'
+          : 'Not linked yet — this product can’t be sold/fulfilled until it’s linked.');
+    }
     syncCategoryPresetFromInput();
   }
 
@@ -781,7 +773,6 @@
       var hay = [
         p.title || '',
         p.slug || '',
-        p.printful_sync_product_id != null ? String(p.printful_sync_product_id) : ''
       ].join(' ').toLowerCase();
       return hay.indexOf(q) !== -1;
     });
@@ -803,15 +794,15 @@
       const viewerLink = p.viewer_url || '/index.html';
       const storeLink = 'product.html?slug=' + encodeURIComponent((p.slug || '').toString()) + (!p.slug && p.id ? '&id=' + encodeURIComponent(String(p.id)) : '');
       const hasTarget = p.ar_target_id != null;
-      const pfSyncProductId = p.printful_sync_product_id != null ? String(p.printful_sync_product_id) : '';
+      const isPfLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id;
       return '<tr>' +
         '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(p.title || '') + '</td>' +
         '<td><code style="font-size:.7rem">' + escapeHtml(p.slug || '') + '</code></td>' +
         '<td class="d-none d-xl-table-cell" style="color:#888">' + escapeHtml(p.brand || '') + '</td>' +
         '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
         '<td><span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + (p.is_published ? '#00ED0A' : '#555') + '">' + (p.is_published ? 'Yes' : 'No') + '</span></td>' +
-        '<td>' + (pfSyncProductId
-          ? '<code style="font-size:.68rem">' + escapeHtml(pfSyncProductId) + '</code>'
+        '<td>' + (isPfLinked
+          ? '<span style="color:#00ED0A;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">LINKED</span>'
           : '<span style="background:#2a2a2a;color:#555;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">UNLINKED</span>') + '</td>' +
         '<td>' +
           '<a href="' + storeLink + '" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">Store</a> ' +
@@ -1162,7 +1153,6 @@
         image_url: el('imageUrlInput').value.trim(),
         description: el('descInput').value.trim(),
         is_published: el('publishInput').checked,
-        printful_push: !!el('printfulPushInput')?.checked,
         ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
       };
       // Only include printful_variant_map when inputs are rendered (undefined = no sizes loaded).
@@ -1208,73 +1198,6 @@
         showStatus(e.message || String(e), 'error');
       }
     });
-
-    const creatorForm = el('creatorForm');
-    if (creatorForm) {
-      const creatorSubmitBtn = creatorForm.querySelector('button[type="submit"]');
-      const creatorInputs = Array.from(creatorForm.querySelectorAll('input, select, button'));
-
-      function setCreatorBusy(isBusy) {
-        creatorInputs.forEach(function(elm) {
-          if (elm.tagName === 'BUTTON') elm.disabled = isBusy;
-          else elm.disabled = isBusy;
-        });
-        if (creatorSubmitBtn) {
-          creatorSubmitBtn.textContent = isBusy ? 'Creating…' : 'Create T-Shirt & Push to Printful';
-        }
-      }
-
-      creatorForm.addEventListener('submit', async function(ev) {
-        ev.preventDefault();
-        clearStatus();
-        const file = el('creatorDesign').files && el('creatorDesign').files.length ? el('creatorDesign').files[0] : null;
-        if (!file) {
-          showStatus('Please choose a design file.', 'error');
-          return;
-        }
-
-        const title = el('creatorTitle').value.trim();
-        const price = el('creatorPrice').value;
-        const baseProductId = el('creatorBaseProduct').value;
-
-        if (!title) {
-          showStatus('Product title required', 'error');
-          return;
-        }
-        if (!price) {
-          showStatus('Retail price required', 'error');
-          return;
-        }
-
-        setCreatorBusy(true);
-        showStatus('Uploading design and pushing to Printful…', 'info');
-
-        try {
-          const designUrl = await uploadProductImage(file, 'products');
-          const body = {
-            title,
-            price,
-            base_product_id: baseProductId === 'auto' ? '' : baseProductId,
-            design_url: designUrl,
-            site_url: window.location.origin,
-          };
-
-          const result = await apiFetch('/admin/printful/creator', { method: 'POST', body });
-          const createdId = result && result.item && result.item.id ? String(result.item.id) : '';
-          const syncId = result && result.sync_product_id ? String(result.sync_product_id) : '';
-          const successMsg = createdId || syncId
-            ? 'T-shirt created successfully. Product ID ' + createdId + (syncId ? ' • Printful sync product ' + syncId : '')
-            : 'T-shirt created and pushed to Printful.';
-          creatorForm.reset();
-          showStatus(successMsg, 'success');
-          await refresh();
-        } catch (e) {
-          showStatus(e.message || String(e), 'error');
-        } finally {
-          setCreatorBusy(false);
-        }
-      });
-    }
 
     el('productsTbody').addEventListener('click', async function(ev) {
       const btn = ev.target.closest('button[data-action]');
@@ -1652,43 +1575,25 @@
         await loadPrintfulWebhookHealth();
       }
 
-      async function backfillPrintfulCatalog() {
-        const res = await apiFetch('/admin/printful/backfill', { method: 'POST' });
-        await loadPrintfulProducts();
-        const msg =
-          'Catalog sync complete.\n' +
-          'Total: ' + String(res.total || 0) + '\n' +
-          'Created: ' + String(res.created || 0) + '\n' +
-          'Updated: ' + String(res.updated || 0) + '\n' +
-          'Skipped: ' + String(res.skipped || 0) + '\n' +
-          'Failed: ' + String(res.failed || 0);
-        alert(msg);
-        showStatus('Printful catalog backfill completed.', 'success');
-      }
-
       function renderPrintfulProductsTable() {
         var tbody = document.getElementById('printfulProductsTbody');
         if (!tbody) return;
         if (!printfulProducts.length) {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4" style="color:#555">No linked Printful products found yet. Auto-push or push a product first.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4" style="color:#555">No products linked to Printful yet. Edit a product and use "Link to Printful Catalog".</td></tr>';
           return;
         }
 
         tbody.innerHTML = printfulProducts.map(function(p) {
-          var hasSyncProduct = !!p.printful_sync_product_id;
-          var hasSyncVariant = !!p.printful_sync_variant_id;
-          var stateLabel = hasSyncProduct ? 'ready' : (hasSyncVariant ? 'variant-only' : 'unlinked');
-          var stateChip = hasSyncProduct
-            ? printfulStatusChip(stateLabel, '#00ED0A', 'rgba(0,237,10,.1)')
-            : printfulStatusChip(stateLabel, '#FEFD00', 'rgba(254,253,0,.1)');
-          var actionHtml = hasSyncProduct
-            ? '<button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit/Re-Sync</button>'
-            : '<span style="font-size:.62rem;color:#555">Push first</span>';
+          var isLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id;
+          var stateChip = isLinked
+            ? printfulStatusChip('linked', '#00ED0A', 'rgba(0,237,10,.1)')
+            : printfulStatusChip('unlinked', '#FEFD00', 'rgba(254,253,0,.1)');
+          var actionHtml = '<button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit Design/Price</button>';
           return '<tr>' +
             '<td><div style="font-weight:700">' + escapeHtml(p.title || '') + '</div><div style="font-size:.66rem;color:#666">/' + escapeHtml(p.slug || '') + '</div></td>' +
             '<td style="color:#888">' + escapeHtml(p.brand || '\u2014') + '</td>' +
             '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
-            '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_sync_product_id || '\u2014')) + '</code></td>' +
+            '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_catalog_product_id || '\u2014')) + '</code></td>' +
             '<td>' + stateChip + '</td>' +
             '<td class="text-end">' + actionHtml + '</td>' +
           '</tr>';
@@ -1722,20 +1627,130 @@
         var retailPrice = (document.getElementById('printfulModalRetailPrice').value || '').trim();
 
         const body = {};
-        if (printFileUrl && /^https:\/\//i.test(printFileUrl)) {
-          body.print_file_url = printFileUrl;
-        } else if (printFileUrl && printFileUrl !== originalPrintFileUrl) {
-          throw new Error('Print file URL must be an absolute https URL');
+        if (printFileUrl && printFileUrl !== originalPrintFileUrl) {
+          if (!/^https:\/\//i.test(printFileUrl)) throw new Error('Print file URL must be an absolute https URL');
+          body.image_url = printFileUrl;
         }
 
         if (retailPrice !== '') {
           var retailNum = Number(retailPrice);
           if (!Number.isFinite(retailNum) || retailNum < 0) throw new Error('Invalid retail price');
-          body.retail_price = retailNum;
+          body.price = retailNum;
         }
 
-        await apiFetch('/admin/printful/products/' + encodeURIComponent(id), { method: 'PUT', body });
+        // This is the same generic product-update endpoint the main form uses \u2014 Printful v2
+        // reads the design file fresh from D1 at order time, so there's nothing to "re-sync".
+        await apiFetch('/products/' + encodeURIComponent(id), { method: 'POST', body });
         if (printfulModalInstance) printfulModalInstance.hide();
+        await loadPrintfulProducts();
+        await refresh();
+      }
+
+      // ---- Link to Printful Catalog picker ----
+      var pfPickerModalEl = document.getElementById('printfulCatalogPickerModal');
+      var pfPickerModalInstance = pfPickerModalEl ? new bootstrap.Modal(pfPickerModalEl) : null;
+      var pfPickerLastResolved = null;
+
+      function pfPickerSetStatus(msg) {
+        var s = document.getElementById('pfPickerStatus');
+        if (s) s.textContent = msg || '';
+      }
+
+      function openPrintfulCatalogPicker(productId) {
+        document.getElementById('pfPickerProductId').value = String(productId || '');
+        document.getElementById('pfPickerSearch').value = '';
+        document.getElementById('pfPickerResults').innerHTML = '';
+        document.getElementById('pfPickerResolved').style.display = 'none';
+        document.getElementById('pfPickerSaveOverridesBtn').style.display = 'none';
+        pfPickerSetStatus('Search for the real garment this product should print on.');
+        pfPickerLastResolved = null;
+        if (pfPickerModalInstance) pfPickerModalInstance.show();
+      }
+
+      function renderPfPickerResults(items) {
+        var box = document.getElementById('pfPickerResults');
+        if (!items.length) {
+          box.innerHTML = '<div style="padding:12px;font-size:.7rem;color:#555">No matching catalog products.</div>';
+          return;
+        }
+        box.innerHTML = items.map(function(p) {
+          return '<div class="d-flex align-items-center gap-2 pf-picker-row" data-catalog-id="' + p.id + '" ' +
+            'style="padding:8px 10px;cursor:pointer;border-bottom:1px solid #222">' +
+            (p.image ? '<img src="' + escapeHtml(p.image) + '" style="width:36px;height:36px;object-fit:cover;border:1px solid #333">' : '') +
+            '<div><div style="font-size:.75rem">' + escapeHtml(p.name || '') + '</div>' +
+            '<div style="font-size:.62rem;color:#666">#' + escapeHtml(String(p.id)) + (p.variant_count ? ' \u2014 ' + p.variant_count + ' variants' : '') + '</div></div>' +
+          '</div>';
+        }).join('');
+      }
+
+      function renderPfPickerResolved(name, variantMap, missing) {
+        document.getElementById('pfPickerResolved').style.display = '';
+        document.getElementById('pfPickerResolvedName').textContent = name || '';
+        var sizes = Object.keys(variantMap || {}).concat(missing || []);
+        var grid = document.getElementById('pfPickerVariantGrid');
+        grid.innerHTML = sizes.map(function(size) {
+          var val = variantMap && variantMap[size] != null ? String(variantMap[size]) : '';
+          var isMissing = (missing || []).indexOf(size) !== -1;
+          return '<div class="d-flex align-items-center gap-2">' +
+            '<span style="min-width:36px;font-size:.65rem;text-transform:uppercase;font-weight:700;color:' + (isMissing ? '#FEFD00' : '#00ED0A') + '">' + escapeHtml(size) + '</span>' +
+            '<input class="form-control form-control-sm" type="text" data-pf-override-size="' + escapeHtml(size) + '" placeholder="Printful variant ID" value="' + escapeHtml(val) + '" />' +
+          '</div>';
+        }).join('');
+        var missingHint = document.getElementById('pfPickerMissingHint');
+        var overridesBtn = document.getElementById('pfPickerSaveOverridesBtn');
+        if (missing && missing.length) {
+          missingHint.style.display = '';
+          overridesBtn.style.display = '';
+        } else {
+          missingHint.style.display = 'none';
+          overridesBtn.style.display = 'none';
+        }
+      }
+
+      async function pfPickerSearch() {
+        var q = (document.getElementById('pfPickerSearch').value || '').trim();
+        pfPickerSetStatus('Searching\u2026');
+        document.getElementById('pfPickerResolved').style.display = 'none';
+        const res = await apiFetch('/admin/printful/catalog' + (q ? ('?search=' + encodeURIComponent(q)) : ''));
+        var items = Array.isArray(res && res.items) ? res.items : [];
+        renderPfPickerResults(items);
+        pfPickerSetStatus(items.length + ' catalog product(s) found.');
+      }
+
+      async function pfPickerLinkTo(catalogProductId) {
+        var productId = document.getElementById('pfPickerProductId').value;
+        if (!productId) throw new Error('Missing product id');
+        pfPickerSetStatus('Linking\u2026');
+        const res = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/link', {
+          method: 'POST',
+          body: { catalog_product_id: Number(catalogProductId) },
+        });
+        pfPickerLastResolved = { catalogProductId: Number(catalogProductId), map: res.printful_variant_map || {} };
+        renderPfPickerResolved('Catalog product #' + catalogProductId, res.printful_variant_map || {}, res.missing || []);
+        pfPickerSetStatus((res.missing && res.missing.length)
+          ? (res.missing.length + ' size(s) need a manual variant ID (see below).')
+          : 'All sizes linked.');
+        await loadPrintfulProducts();
+        await refresh();
+      }
+
+      async function pfPickerSaveOverrides() {
+        var productId = document.getElementById('pfPickerProductId').value;
+        if (!productId || !pfPickerLastResolved) throw new Error('Pick a catalog product first');
+        var inputs = document.querySelectorAll('#pfPickerVariantGrid input[data-pf-override-size]');
+        var overrides = {};
+        inputs.forEach(function(inp) {
+          var size = inp.getAttribute('data-pf-override-size');
+          var val = (inp.value || '').trim();
+          if (size && val) overrides[size] = val;
+        });
+        pfPickerSetStatus('Saving overrides\u2026');
+        const res = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/link', {
+          method: 'POST',
+          body: { catalog_product_id: pfPickerLastResolved.catalogProductId, catalog_variant_ids: overrides },
+        });
+        renderPfPickerResolved('Catalog product #' + pfPickerLastResolved.catalogProductId, res.printful_variant_map || {}, res.missing || []);
+        pfPickerSetStatus((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes linked.');
         await loadPrintfulProducts();
         await refresh();
       }
@@ -1845,20 +1860,6 @@
         });
       }
 
-      var printfulBackfillBtn = document.getElementById('printfulBackfillBtn');
-      if (printfulBackfillBtn) {
-        printfulBackfillBtn.addEventListener('click', async function() {
-          try {
-            printfulBackfillBtn.disabled = true;
-            await backfillPrintfulCatalog();
-          } catch (e) {
-            showStatus('Catalog sync failed: ' + (e.message || String(e)), 'error');
-          } finally {
-            printfulBackfillBtn.disabled = false;
-          }
-        });
-      }
-
       var printfulProductsRefreshBtn = document.getElementById('printfulProductsRefreshBtn');
       if (printfulProductsRefreshBtn) {
         printfulProductsRefreshBtn.addEventListener('click', async function() {
@@ -1888,12 +1889,55 @@
           try {
             printfulModalSaveBtn.disabled = true;
             await savePrintfulProductChanges();
-            showStatus('Printful product updated and re-synced.', 'success');
+            showStatus('Product updated.', 'success');
           } catch (e) {
             showStatus(e.message || String(e), 'error');
           } finally {
             printfulModalSaveBtn.disabled = false;
           }
+        });
+      }
+
+      // Link to Printful Catalog — opened from the product form (existing product) or
+      // from the Printful Product Manager table.
+      var printfulLinkBtn = document.getElementById('printfulLinkBtn');
+      if (printfulLinkBtn) {
+        printfulLinkBtn.addEventListener('click', function() {
+          var id = el('productId').value.trim();
+          if (!id) return;
+          openPrintfulCatalogPicker(id);
+        });
+      }
+
+      var pfPickerSearchBtn = document.getElementById('pfPickerSearchBtn');
+      if (pfPickerSearchBtn) {
+        pfPickerSearchBtn.addEventListener('click', function() {
+          pfPickerSearch().catch(function(e) { pfPickerSetStatus(e.message || String(e)); });
+        });
+      }
+      var pfPickerSearchInput = document.getElementById('pfPickerSearch');
+      if (pfPickerSearchInput) {
+        pfPickerSearchInput.addEventListener('keydown', function(ev) {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            pfPickerSearch().catch(function(e) { pfPickerSetStatus(e.message || String(e)); });
+          }
+        });
+      }
+      var pfPickerResultsEl = document.getElementById('pfPickerResults');
+      if (pfPickerResultsEl) {
+        pfPickerResultsEl.addEventListener('click', function(ev) {
+          var row = ev.target.closest('.pf-picker-row');
+          if (!row) return;
+          pfPickerLinkTo(row.getAttribute('data-catalog-id')).catch(function(e) {
+            pfPickerSetStatus(e.message || String(e));
+          });
+        });
+      }
+      var pfPickerSaveOverridesBtn = document.getElementById('pfPickerSaveOverridesBtn');
+      if (pfPickerSaveOverridesBtn) {
+        pfPickerSaveOverridesBtn.addEventListener('click', function() {
+          pfPickerSaveOverrides().catch(function(e) { pfPickerSetStatus(e.message || String(e)); });
         });
       }
 

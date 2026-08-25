@@ -13,10 +13,6 @@
       if (p === '/v2') p = '/';
       else if (p.startsWith('/v2/')) p = p.slice(3);
 
-      // Map legacy sync-product endpoints to v2 beta.
-      if (p === '/store/products') return '/sync-products';
-      if (p.startsWith('/store/products/')) return '/sync-products/' + p.slice('/store/products/'.length);
-
       return p;
     }
 
@@ -70,7 +66,7 @@
         throw new Error('Invalid catalog product id');
       }
       const data = await callPrintful(env, 'GET', `/products/${id}`);
-      return (data && data.result) || null;
+      return (data && (data.result ?? data.data)) || null;
     }
 
     async function listCatalogProducts(env) {
@@ -129,236 +125,110 @@
       return { resolved, missing };
     }
 
-    function resolveDesignFileUrl(product, options = {}) {
-      if (options.print_file_url) {
-        const u = String(options.print_file_url).trim();
-        if (!/^https:\/\//i.test(u)) {
-          throw new Error('print_file_url must be an absolute https URL');
-        }
-        return u;
-      }
-
-      const siteOrigin = String(options.site_origin || '').replace(/\/$/, '');
-      const candidates = [];
-
-      if (product.image_url) candidates.push(String(product.image_url).trim());
-      if (product.image_urls) {
-        try {
-          const arr = typeof product.image_urls === 'string' ? JSON.parse(product.image_urls) : product.image_urls;
-          if (Array.isArray(arr)) candidates.push(...arr.map(String));
-        } catch {}
-      }
-
-      for (let raw of candidates) {
-        if (!raw) continue;
-        if (/^https:\/\//i.test(raw)) return raw;
-        if (raw.startsWith('/api/product-image') && siteOrigin) {
-          return `${siteOrigin}${raw.startsWith('/') ? raw : '/' + raw}`;
-        }
-        if (raw.startsWith('/') && siteOrigin) {
-          return `${siteOrigin}${raw}`;
-        }
-      }
-
-      throw new Error(
-        'No public design URL found. Set product image_url to an https URL, ' +
-        'or pass print_file_url / site_origin when pushing to Printful.'
-      );
-    }
-
-    function buildSyncProductPayload(product, catalogVariants, options = {}) {
-      const placement = String(options.placement || 'front').trim() || 'front';
-      const designUrl = resolveDesignFileUrl(product, options);
-      const priceCents = Number(product.price_cents) || 0;
-      const retailPrice = (priceCents / 100).toFixed(2);
-      const thumbnail = designUrl;
-
-      const sync_variants = catalogVariants.map(({ size, variant_id }) => ({
-        external_id: String(size),
-        variant_id: Number(variant_id),
-        retail_price: retailPrice,
-        files: [{ type: placement, url: designUrl }],
-      }));
-
-      if (!sync_variants.length) {
-        throw new Error('No catalog variants resolved — check sizes, color, and catalog product id');
-      }
-
-      return {
-        sync_product: {
-          name: String(product.title || product.slug || 'Product').trim(),
-          thumbnail,
-        },
-        sync_variants,
-      };
-    }
-
-    async function pushProductToPrintful(env, product, options = {}) {
-      const catalogProductId = Number(options.catalog_product_id) || getPrintfulConfig(env).catalogProductId;
-
-      if (!catalogProductId) {
-        throw new Error(
-          'catalog_product_id required (pass in request body or set PRINTFUL_CATALOG_PRODUCT_ID). ' +
-          'Find IDs via GET /products in the Printful Catalog API.'
-        );
-      }
-
-      const sizes = String(product.sizes || '')
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
-
-      if (!sizes.length) throw new Error('Product has no sizes');
-
-      const catalogProduct = await fetchCatalogProduct(env, catalogProductId);
-      const overrideMap = options.catalog_variant_ids && typeof options.catalog_variant_ids === 'object'
-        ? options.catalog_variant_ids
-        : null;
-
-      const { resolved, missing } = resolveCatalogVariants(
-        catalogProduct,
-        sizes,
-        product.color || '',
-        overrideMap
-      );
-
-      if (missing.length) {
-        throw new Error(
-          `Could not match catalog variants for size(s): ${missing.join(', ')} ` +
-          `(color: ${product.color || 'any'}). Pass catalog_variant_ids to override.`
-        );
-      }
-
-      const payload = buildSyncProductPayload(product, resolved, options);
-      const qs = printfulStoreQuery(env);
-      const data = await callPrintful(env, 'POST', `/store/products${qs}`, payload);
-
-      const result = (data && data.result) || {};
-      const syncProduct = result.sync_product || {};
-      const syncVariants = Array.isArray(result.sync_variants) ? result.sync_variants : [];
-
-      const syncVariantMap = {};
-      let firstSyncVariantId = null;
-
-      for (const sv of syncVariants) {
-        const syncId = sv.id != null ? String(sv.id) : null;
-        if (!syncId) continue;
-        if (!firstSyncVariantId) firstSyncVariantId = syncId;
-
-        const ext = sv.external_id != null ? String(sv.external_id).trim() : '';
-        if (ext) syncVariantMap[ext] = syncId;
-
-        const catId = sv.variant_id != null ? Number(sv.variant_id) : null;
-        if (catId) {
-          const match = resolved.find(r => Number(r.variant_id) === catId);
-          if (match) syncVariantMap[match.size] = syncId;
-        }
-      }
-
-      return {
-        syncProductId: syncProduct.id != null ? Number(syncProduct.id) : null,
-        syncVariantId: firstSyncVariantId,
-        syncVariantMap,
-        raw: result,
-      };
-    }
-
-    async function listSyncProducts(env) {
-      const qs = printfulStoreQuery(env);
-      try {
-        const data = await callPrintful(env, 'GET', `/v2/sync-products${qs}`);
-        return (data && data.result) || (data && data.data) || [];
-      } catch {
-        const data = await callPrintful(env, 'GET', `/store/products${qs}`);
-        return (data && data.result) || [];
-      }
-    }
-
-    function normalizeRetailPrice(value, fallbackCents) {
-      if (value == null || value === '') {
-        return ((Number(fallbackCents) || 0) / 100).toFixed(2);
-      }
-      const n = Number(value);
-      if (!Number.isFinite(n) || n < 0) throw new Error('Invalid retail_price');
-      return n.toFixed(2);
-    }
-
-    async function updatePrintfulProduct(env, product, options = {}) {
-      const syncProductId = Number(product && product.printful_sync_product_id);
-      if (!Number.isFinite(syncProductId) || syncProductId <= 0) {
-        throw new Error('Product is not linked to a Printful sync product');
-      }
-
-      const qs = printfulStoreQuery(env);
-      const current = await callPrintful(env, 'GET', `/store/products/${syncProductId}${qs}`);
-      const currentResult = (current && current.result) || {};
-      const currentSyncProduct = currentResult.sync_product || {};
-      const currentVariants = Array.isArray(currentResult.sync_variants) ? currentResult.sync_variants : [];
-      if (!currentVariants.length) {
-        throw new Error('Printful sync product has no variants to update');
-      }
-
-      let designUrl = null;
-      if (options.print_file_url) {
-        designUrl = resolveDesignFileUrl(product, options);
-      }
-
-      const retailPrice = normalizeRetailPrice(options.retail_price, product && product.price_cents);
-      const placement = String(options.placement || 'front').trim() || 'front';
-
-      const sync_variants = currentVariants.map((sv) => {
-        const v = {
-          id: sv.id,
-          external_id: sv.external_id,
-          retail_price: retailPrice,
-        };
-        if (designUrl) {
-          v.files = [{ type: placement, url: designUrl }];
-        }
-        return v;
-      });
-
-      const payload = {
-        sync_product: {
-          id: currentSyncProduct.id,
-          name: String(product.title || currentSyncProduct.name || '').trim() || currentSyncProduct.name,
-          thumbnail: designUrl || currentSyncProduct.thumbnail,
-        },
-        sync_variants,
-      };
-
-      const data = await callPrintful(env, 'PUT', `/store/products/${syncProductId}${qs}`, payload);
-      const result = (data && data.result) || {};
-      const outVariants = Array.isArray(result.sync_variants) ? result.sync_variants : [];
-
-      const syncVariantMap = {};
-      let firstSyncVariantId = null;
-      for (const sv of outVariants) {
-        const syncId = sv.id != null ? String(sv.id) : null;
-        if (!syncId) continue;
-        if (!firstSyncVariantId) firstSyncVariantId = syncId;
-        const ext = sv.external_id != null ? String(sv.external_id).trim() : '';
-        if (ext) syncVariantMap[ext] = syncId;
-      }
-
-      return {
-        syncProductId,
-        syncVariantId: firstSyncVariantId,
-        syncVariantMap,
-        raw: result,
-      };
-    }
-
     return {
       getPrintfulConfig,
       printfulStoreQuery,
       callPrintful,
       fetchCatalogProduct,
       listCatalogProducts,
-      pushProductToPrintful,
-      updatePrintfulProduct,
-      listSyncProducts,
+      resolveCatalogVariants,
     };
+  })();
+
+  // Inline Stripe helper module — hosted Stripe Checkout only (no card data ever touches
+  // this Worker). Talks to Stripe's REST API directly via fetch + Web Crypto, matching the
+  // Printful module's style, since a Node-oriented SDK doesn't fit this single-file deploy.
+  const Stripe = (() => {
+    const STRIPE_BASE = 'https://api.stripe.com/v1';
+
+    function getStripeConfig(env) {
+      const secretKey = String(env?.STRIPE_SECRET_KEY || '').trim();
+      const webhookSecret = String(env?.STRIPE_WEBHOOK_SECRET || '').trim();
+      return { secretKey, webhookSecret };
+    }
+
+    // Stripe's REST API takes application/x-www-form-urlencoded with bracket notation
+    // for nested objects/arrays (e.g. line_items[0][price_data][unit_amount]=500).
+    function appendFormParam(params, key, value) {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.forEach((v, i) => appendFormParam(params, `${key}[${i}]`, v));
+      } else if (typeof value === 'object') {
+        for (const k of Object.keys(value)) appendFormParam(params, `${key}[${k}]`, value[k]);
+      } else {
+        params.append(key, String(value));
+      }
+    }
+
+    function toFormBody(obj) {
+      const params = new URLSearchParams();
+      for (const k of Object.keys(obj || {})) appendFormParam(params, k, obj[k]);
+      return params.toString();
+    }
+
+    async function callStripe(env, method, path, body) {
+      const { secretKey } = getStripeConfig(env);
+      if (!secretKey) throw new Error('STRIPE_SECRET_KEY is not configured');
+
+      let url = `${STRIPE_BASE}${path}`;
+      const opts = {
+        method,
+        headers: { Authorization: `Bearer ${secretKey}` },
+      };
+      if (body != null && method === 'GET') {
+        const qs = toFormBody(body);
+        if (qs) url += (url.includes('?') ? '&' : '?') + qs;
+      } else if (body != null) {
+        opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        opts.body = toFormBody(body);
+      }
+
+      const res = await fetch(url, opts);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = (json && json.error && json.error.message) || JSON.stringify(json);
+        throw new Error(`Stripe ${res.status}: ${msg}`);
+      }
+      return json;
+    }
+
+    async function createCheckoutSession(env, params) {
+      return callStripe(env, 'POST', '/checkout/sessions', params);
+    }
+
+    async function retrieveCheckoutSession(env, sessionId) {
+      return callStripe(env, 'GET', `/checkout/sessions/${encodeURIComponent(sessionId)}`, null);
+    }
+
+    // Verifies the `Stripe-Signature` header per Stripe's documented scheme:
+    // header is `t=<timestamp>,v1=<hmac-sha256 hex of "timestamp.rawBody">[,v1=...]`.
+    async function verifyWebhookSignature(rawBody, sigHeader, secret, toleranceSeconds = 300) {
+      if (!sigHeader || !secret) return false;
+      const parsed = String(sigHeader).split(',').reduce((acc, part) => {
+        const eq = part.indexOf('=');
+        if (eq === -1) return acc;
+        const k = part.slice(0, eq).trim();
+        const v = part.slice(eq + 1).trim();
+        if (k === 't') acc.t = v;
+        else if (k === 'v1') acc.v1.push(v);
+        return acc;
+      }, { t: null, v1: [] });
+      if (!parsed.t || !parsed.v1.length) return false;
+
+      const timestamp = parseInt(parsed.t, 10);
+      if (!Number.isFinite(timestamp)) return false;
+      if (Math.abs(Date.now() / 1000 - timestamp) > toleranceSeconds) return false;
+
+      const key = await crypto.subtle.importKey(
+        'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${parsed.t}.${rawBody}`));
+      const expectedHex = Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      return parsed.v1.some((v1) => timingSafeEqual(v1, expectedHex));
+    }
+
+    return { getStripeConfig, createCheckoutSession, retrieveCheckoutSession, verifyWebhookSignature };
   })();
 
   // ES Module format: expose fetch and inject env bindings into globals per request
@@ -385,6 +255,17 @@
     globalThis.PRINTFUL_STORE_ID             = env.PRINTFUL_STORE_ID;
     globalThis.PRINTFUL_WEBHOOK_SECRET       = env.PRINTFUL_WEBHOOK_SECRET;
     globalThis.PRINTFUL_CATALOG_PRODUCT_ID   = env.PRINTFUL_CATALOG_PRODUCT_ID;
+    // Stripe
+    globalThis.STRIPE_SECRET_KEY             = env.STRIPE_SECRET_KEY;
+    globalThis.STRIPE_WEBHOOK_SECRET         = env.STRIPE_WEBHOOK_SECRET;
+  }
+
+  /** Build env object for Stripe module (reads per-request globals). */
+  function stripeEnv() {
+    return {
+      STRIPE_SECRET_KEY: globalThis.STRIPE_SECRET_KEY,
+      STRIPE_WEBHOOK_SECRET: globalThis.STRIPE_WEBHOOK_SECRET,
+    };
   }
 
   /** Build env object for Printful module (reads per-request globals). */
@@ -692,9 +573,10 @@
   // ---------- /api/* router ----------
 
   async function handleApi(request, pathname) {
-    // Webhooks — token-validated internally, no session cookie required
+    // Webhooks — token/signature-validated internally, no session cookie required
     if (request.method === 'POST' && pathname === '/api/webhooks/printful') return apiPrintfulWebhook(request);
     if (request.method === 'POST' && pathname === '/api/admin/printful/webhook') return apiPrintfulWebhook(request);
+    if (request.method === 'POST' && pathname === '/api/webhooks/stripe') return apiStripeWebhook(request);
 
     // Auth
     if (request.method === 'POST' && pathname === '/api/auth/bootstrap-admin') return apiBootstrapAdmin(request);
@@ -705,7 +587,13 @@
     if (request.method === 'POST' && pathname === '/api/auth/change-password') return apiChangePassword(request);
 
     // Orders (shop)
+    if (request.method === 'POST' && pathname === '/api/checkout/session')     return apiCreateCheckoutSession(request);
     if (request.method === 'POST' && pathname === '/api/orders')               return apiCreateOrder(request);
+    if (request.method === 'GET'  && /^\/api\/orders\/([^/]+)\/status$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[3]);
+      const sessionId = new URL(request.url).searchParams.get('session_id');
+      return apiGetOrderStatusPublic(request, id, sessionId);
+    }
     if (request.method === 'GET'  && /^\/api\/orders\/[^/]+$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetOrder(request, id);
@@ -716,24 +604,22 @@
     if (request.method === 'GET'  && pathname === '/api/admin/users')          return apiAdminListUsers(request);
     if (request.method === 'GET'  && pathname === '/api/admin/orders')         return apiAdminListOrders(request);
     // Printful admin
-    if (request.method === 'POST' && pathname === '/api/admin/printful/sync')             return apiPrintfulSync(request);
-    if (request.method === 'POST' && pathname === '/api/admin/printful/backfill')         return apiPrintfulBackfill(request);
     if (request.method === 'GET'  && pathname === '/api/admin/printful/webhooks')          return apiPrintfulWebhookHealth(request);
     if (request.method === 'GET'  && pathname === '/api/admin/printful/products')          return apiPrintfulListLinkedProducts(request);
-    if (request.method === 'PUT'  && /^\/api\/admin\/printful\/products\/\d+$/.test(pathname)) {
-      const productId = parseInt(pathname.split('/')[5], 10);
-      return apiPrintfulUpdateProduct(request, productId);
-    }
     if (request.method === 'POST' && pathname === '/api/admin/printful/webhook/register')  return apiPrintfulWebhookRegister(request);
-    if (request.method === 'POST' && pathname === '/api/admin/printful/creator')          return apiCreatePrintfulCreatorProduct(request);
-    if (request.method === 'POST' && pathname === '/api/admin/printful/products/push')     return apiPrintfulPushProduct(request);
-    if (request.method === 'POST' && /^\/api\/admin\/printful\/products\/\d+\/push$/.test(pathname)) {
-      const productId = parseInt(pathname.split('/')[5], 10);
-      return apiPrintfulPushProduct(request, productId);
-    }
     if (request.method === 'POST' && /^\/api\/admin\/printful\/orders\/[^/]+\/sync$/.test(pathname)) {
       const printfulOrderId = decodeURIComponent(pathname.split('/')[5]);
       return apiPrintfulOrderSync(request, printfulOrderId);
+    }
+    // Printful catalog linking (v2 catalog-direct model — no "push"/"sync product" step)
+    if (request.method === 'GET'  && pathname === '/api/admin/printful/catalog')           return apiPrintfulBrowseCatalog(request);
+    if (request.method === 'GET'  && /^\/api\/admin\/printful\/catalog\/\d+$/.test(pathname)) {
+      const catalogProductId = parseInt(pathname.split('/')[5], 10);
+      return apiPrintfulGetCatalogProduct(request, catalogProductId);
+    }
+    if (request.method === 'POST' && /^\/api\/admin\/printful\/products\/\d+\/link$/.test(pathname)) {
+      const productId = parseInt(pathname.split('/')[5], 10);
+      return apiPrintfulLinkProduct(request, productId);
     }
 
     // Targets
@@ -1317,24 +1203,70 @@
     return Printful.callPrintful(printfulEnv(), method, path, body);
   }
 
-  async function submitPrintfulOrder(orderId, cart, customer) {
+  // Re-resolves one cart line {slug, size, qty} against D1 — the only trusted source for
+  // price, design file, and Printful catalog variant. Never trust client-supplied price/
+  // image/variant values; the client only ever gets to say *which* product+size+qty.
+  async function resolveOrderItemFromD1(raw, request) {
+    const o = raw && typeof raw === 'object' ? raw : {};
+    const slug = String(o.slug || '').trim();
+    const size = String(o.size || '').trim();
+    const qty = Math.max(1, Math.min(99, parseInt(o.qty, 10) || 0));
+    if (!slug) throw new Error('Cart item is missing a product slug');
+    if (!qty) throw new Error(`Invalid quantity for ${slug}`);
+
+    const row = await dbGet(
+      `select id, slug, title, price_cents, currency, image_url, is_published,
+              printful_variant_map, printful_sync_variant_id
+       from products where slug = ?`,
+      slug
+    );
+    if (!row || !row.is_published) throw new Error(`Product not available: ${slug}`);
+
+    let variantMap = null;
+    if (row.printful_variant_map) {
+      try { variantMap = JSON.parse(row.printful_variant_map); } catch {}
+    }
+    const mapped = size && variantMap && variantMap[size] != null ? Number(variantMap[size]) : NaN;
+    const fallback = row.printful_sync_variant_id != null ? Number(row.printful_sync_variant_id) : NaN;
+    const catalogVariantId = Number.isFinite(mapped) && mapped > 0 ? mapped
+      : (Number.isFinite(fallback) && fallback > 0 ? fallback : null);
+
+    const imageUrl = row.image_url ? normalizePublicUrl(String(row.image_url), request) : '';
+
+    return {
+      slug: row.slug,
+      size: size || null,
+      name: row.title + (size ? ` (${size})` : ''),
+      qty,
+      price_cents: Math.max(0, Number(row.price_cents) || 0),
+      currency: row.currency || 'USD',
+      image_url: imageUrl || null,
+      catalog_variant_id: catalogVariantId,
+    };
+  }
+
+  // Printful API v2 does not support "sync products" — orders must reference a
+  // catalog_variant_id with source:"catalog" and an explicit print file placement,
+  // and a created order stays an unbilled draft until it is separately confirmed.
+  // `items` must already be resolved (resolveOrderItemFromD1 output) — no client-trusted
+  // values are read here.
+  async function submitPrintfulOrder(orderId, resolvedItems, customer) {
     const key = typeof PRINTFUL_API_KEY === 'string' ? PRINTFUL_API_KEY.trim() : '';
     if (!key) {
-      console.warn('[printful] PRINTFUL_API_KEY not set — skipping fulfillment for order', orderId);
-      return null;
+      throw new Error('PRINTFUL_API_KEY is not configured — order was not sent to Printful');
     }
 
-    const items = cart
-      .filter(item => item.printful_sync_variant_id)
-      .map(item => ({
-        sync_variant_id: Number(item.printful_sync_variant_id),
-        quantity: item.qty,
-        retail_price: (Number(item.price) || 0).toFixed(2),
+    const items = resolvedItems
+      .filter(it => it.catalog_variant_id && it.image_url)
+      .map(it => ({
+        quantity: it.qty,
+        catalog_variant_id: Number(it.catalog_variant_id),
+        source: 'catalog',
+        placements: [{ placement: 'front', technique: 'dtg', layers: [{ type: 'file', url: it.image_url }] }],
       }));
 
     if (!items.length) {
-      console.warn('[printful] Order', orderId, '— no items have printful_sync_variant_id; skipping');
-      return null;
+      throw new Error('No order items resolved to a Printful catalog variant + design file');
     }
 
     const countryCode = toCountryCode(customer.country);
@@ -1350,15 +1282,29 @@
         email: customer.email,
       },
       items,
-      retail_costs: {
-        currency: customer.currency || 'USD',
-      },
     };
 
-    const result = await callPrintful('POST', '/orders', payload);
-    return result;
+    // v2 wraps the payload under "data"; keep a "result" fallback for API drift/older shapes.
+    const pfBody = (resp) => (resp && (resp.data ?? resp.result)) || null;
+
+    const created = await callPrintful('POST', '/orders', payload);
+    const createdBody = pfBody(created);
+    const draftId = createdBody && createdBody.id;
+    if (!draftId) return { result: createdBody, confirmed: false };
+
+    // Draft orders are never produced, shipped, or billed until confirmed.
+    try {
+      const confirmed = await callPrintful('POST', `/orders/${draftId}/confirm`, {});
+      return { result: pfBody(confirmed) || createdBody, confirmed: true };
+    } catch (confirmErr) {
+      console.error('[printful] Order', orderId, '— draft', draftId, 'created but confirm failed:', String(confirmErr));
+      return { result: createdBody, confirmed: false };
+    }
   }
 
+  // Admin-only manual/comp order path still accepts a client-supplied price (a trusted
+  // admin, not a customer, is entering these values) — kept distinct from the public
+  // checkout path, which always re-prices from D1 via resolveOrderItemFromD1.
   function normalizeCartItem(raw) {
     const o = raw && typeof raw === 'object' ? raw : {};
     const id = o.id != null ? String(o.id).trim() : '';
@@ -1392,17 +1338,10 @@
     return Math.round(total);
   }
 
-  async function apiCreateOrder(request) {
-    const ip = getClientIP(request);
-    if (!rateLimitCheck('order:' + ip, RATE_LIMIT_MAX_ORDER)) {
-      return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
-    }
-    const body = await readJson(request);
-    const cartIn = Array.isArray(body.cart) ? body.cart : [];
-    const cart = cartIn.map(normalizeCartItem).filter(Boolean);
-    if (!cart.length) return jsonResponse({ error: 'cart is required' }, 400, request);
-
-    const customer = body.customer && typeof body.customer === 'object' ? body.customer : {};
+  // Shared customer-address validation for both the admin manual-order path and the
+  // public Stripe checkout-session path. Throws on invalid input.
+  function validateCustomer(body) {
+    const customer = body && body.customer && typeof body.customer === 'object' ? body.customer : {};
     const firstName = clampStr(customer.firstName, 80);
     const lastName = clampStr(customer.lastName, 80);
     const email = String(customer.email || '').trim().toLowerCase();
@@ -1411,75 +1350,299 @@
     const country = clampStr(customer.country, 80);
     const state = clampStr(customer.state, 80);
     const zip = clampStr(customer.zip, 20);
-    if (!firstName || !lastName) return jsonResponse({ error: 'firstName and lastName required' }, 400, request);
-    if (!isValidEmail(email)) return jsonResponse({ error: 'Valid email required' }, 400, request);
-    if (!address || !country || !state || !zip) return jsonResponse({ error: 'address, country, state, zip required' }, 400, request);
+    if (!firstName || !lastName) throw new Error('firstName and lastName required');
+    if (!isValidEmail(email)) throw new Error('Valid email required');
+    if (!address || !country || !state || !zip) throw new Error('address, country, state, zip required');
+    return { firstName, lastName, email, address, city, country, state, zip };
+  }
+
+  // Inserts a row into `orders`, dropping any column D1 reports missing (pre-migration
+  // deploys degrade gracefully — the order still records — instead of hard-failing) and
+  // retrying once per missing column.
+  async function insertOrderRow(fields) {
+    let cols = Object.keys(fields);
+    for (let attempt = 0; attempt <= cols.length; attempt++) {
+      const sql = `insert into orders (${cols.join(', ')}) values (${cols.map(() => '?').join(', ')})`;
+      try {
+        await dbRun(sql, ...cols.map(c => fields[c]));
+        return;
+      } catch (e) {
+        const msg = String(e || '').toLowerCase();
+        if (msg.includes('no such table') && msg.includes('orders')) throw e;
+        const missingCol = cols.find(c => msg.includes('no such column') && msg.includes(c.toLowerCase()));
+        if (!missingCol) throw e;
+        cols = cols.filter(c => c !== missingCol);
+      }
+    }
+  }
+
+  // POST /api/orders — admin-only manual/comp order recorder. This never talks to Printful
+  // or Stripe; it just records an order row. Real customer orders always go through
+  // apiCreateCheckoutSession, which is the only path that can trigger real Printful
+  // production (gated on confirmed Stripe payment).
+  async function apiCreateOrder(request) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+
+    const body = await readJson(request);
+    const cartIn = Array.isArray(body.cart) ? body.cart : [];
+    const cart = cartIn.map(normalizeCartItem).filter(Boolean);
+    if (!cart.length) return jsonResponse({ error: 'cart is required' }, 400, request);
+
+    let customer;
+    try { customer = validateCustomer(body); }
+    catch (e) { return jsonResponse({ error: String(e && e.message ? e.message : e) }, 400, request); }
 
     const currency = String(body.currency || 'USD').trim().toUpperCase() || 'USD';
     const totalCents = computeOrderTotalCents(cart);
     if (totalCents == null) return jsonResponse({ error: 'Invalid cart pricing' }, 400, request);
+
+    const orderId = randomId('ord_');
+    const now = new Date().toISOString();
+
+    try {
+      await insertOrderRow({
+        id: orderId, user_id: null, email: customer.email, first_name: customer.firstName,
+        last_name: customer.lastName, address: customer.address, city: customer.city,
+        country: customer.country, state: customer.state, zip: customer.zip,
+        currency, total_cents: totalCents, items_json: JSON.stringify(cart),
+        status: 'created', created_at: now,
+      });
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
+        return jsonResponse({ error: 'DB migration required: create orders table (run sql/orders_migration.sql)' }, 500, request);
+      }
+      throw e;
+    }
+
+    return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency }, 201, request);
+  }
+
+  // Called only after a Stripe payment is confirmed (from the Stripe webhook). Submits the
+  // order's already-resolved items to Printful and records the result. A successful
+  // submission both creates AND confirms the Printful order — confirmation is what actually
+  // starts production/shipping and bills the store's Printful payment method.
+  async function finalizeOrderPrintfulSubmission(orderId) {
+    const row = await dbGet(
+      `select id, email, first_name, last_name, address, city, country, state, zip, currency, items_json
+       from orders where id = ?`,
+      orderId
+    );
+    if (!row) return null;
+
+    let items = [];
+    try { items = JSON.parse(row.items_json) || []; } catch {}
+
+    let printfulOrderId = null;
+    try {
+      const pfResult = await submitPrintfulOrder(orderId, items, {
+        firstName: row.first_name, lastName: row.last_name, email: row.email,
+        address: row.address, city: row.city, country: row.country, state: row.state, zip: row.zip,
+      });
+      if (pfResult && pfResult.result && pfResult.result.id) {
+        printfulOrderId = String(pfResult.result.id);
+        await dbRun(
+          `update orders set printful_order_id = ?, printful_status = ?, status = ? where id = ?`,
+          printfulOrderId, pfResult.confirmed ? 'pending' : 'error', 'pending_fulfillment', orderId
+        ).catch(() => {/* ignore if columns not yet migrated */});
+      }
+    } catch (pfErr) {
+      console.error('[printful] Failed to submit paid order', orderId, String(pfErr));
+      await dbRun(`update orders set printful_status = ? where id = ?`, 'error', orderId).catch(() => {});
+    }
+    return printfulOrderId;
+  }
+
+  // POST /api/checkout/session — the real customer checkout entry point. Resolves every
+  // cart line from D1 (price, design file, Printful catalog variant — never the client's
+  // values), records a pending_payment order, and creates a hosted Stripe Checkout Session.
+  // Printful is NOT contacted here — that only happens once Stripe confirms payment
+  // (see apiStripeWebhook / finalizeOrderPrintfulSubmission).
+  async function apiCreateCheckoutSession(request) {
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('order:' + ip, RATE_LIMIT_MAX_ORDER)) {
+      return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
+    }
+
+    const stConfig = Stripe.getStripeConfig(stripeEnv());
+    if (!stConfig.secretKey) return jsonResponse({ error: 'STRIPE_SECRET_KEY not configured' }, 500, request);
+
+    const body = await readJson(request);
+
+    let customer;
+    try { customer = validateCustomer(body); }
+    catch (e) { return jsonResponse({ error: String(e && e.message ? e.message : e) }, 400, request); }
+
+    const cartIn = Array.isArray(body.cart) ? body.cart : [];
+    if (!cartIn.length) return jsonResponse({ error: 'cart is required' }, 400, request);
+    if (cartIn.length > 50) return jsonResponse({ error: 'Too many cart items' }, 400, request);
+
+    let resolvedItems;
+    try {
+      resolvedItems = [];
+      for (const raw of cartIn) resolvedItems.push(await resolveOrderItemFromD1(raw, request));
+    } catch (e) {
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 400, request);
+    }
+
+    // Refuse to charge for anything that could never actually ship — every line must
+    // resolve to a real Printful catalog variant before Stripe is ever involved.
+    const unfulfillable = resolvedItems.filter(it => !it.catalog_variant_id).map(it => it.slug);
+    if (unfulfillable.length) {
+      return jsonResponse({ error: `Not available for purchase yet: ${unfulfillable.join(', ')}` }, 400, request);
+    }
+
+    const totalCents = resolvedItems.reduce((sum, it) => sum + it.price_cents * it.qty, 0);
+    if (!Number.isFinite(totalCents) || totalCents <= 0) return jsonResponse({ error: 'Invalid cart pricing' }, 400, request);
+
+    const currency = (resolvedItems[0] && resolvedItems[0].currency) || 'USD';
+    const siteUrl = String(body.site_url || new URL(request.url).origin).replace(/\/$/, '');
 
     const sess = await getSessionUser(request);
     const orderId = randomId('ord_');
     const now = new Date().toISOString();
 
     try {
-      // city / printful columns added by printful_migration.sql; fall back gracefully.
-      await dbRun(
-        `insert into orders (id, user_id, email, first_name, last_name, address, city, country, state, zip, currency, total_cents, items_json, status, created_at)
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        orderId,
-        sess?.user?.id || null,
-        email,
-        firstName,
-        lastName,
-        address,
-        city,
-        country,
-        state,
-        zip,
-        currency,
-        totalCents,
-        JSON.stringify(cart),
-        'created',
-        now
-      );
+      await insertOrderRow({
+        id: orderId, user_id: sess?.user?.id || null, email: customer.email,
+        first_name: customer.firstName, last_name: customer.lastName, address: customer.address,
+        city: customer.city, country: customer.country, state: customer.state, zip: customer.zip,
+        currency, total_cents: totalCents, items_json: JSON.stringify(resolvedItems),
+        status: 'pending_payment', payment_status: 'unpaid', created_at: now,
+      });
     } catch (e) {
       const msg = String(e || '');
       if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
         return jsonResponse({ error: 'DB migration required: create orders table (run sql/orders_migration.sql)' }, 500, request);
       }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('city')) {
-        // city column not yet added — fall back to insert without it
-        await dbRun(
-          `insert into orders (id, user_id, email, first_name, last_name, address, country, state, zip, currency, total_cents, items_json, status, created_at)
-          values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          orderId, sess?.user?.id || null, email, firstName, lastName,
-          address, country, state, zip, currency, totalCents, JSON.stringify(cart), 'created', now
-        );
-      } else {
-        throw e;
-      }
+      throw e;
     }
 
-    // Submit to Printful for print & fulfilment (fire-and-forget; never block the order response).
-    let printfulOrderId = null;
+    let session;
     try {
-      const pfResult = await submitPrintfulOrder(orderId, cart, {
-        firstName, lastName, email, address, city, country, state, zip, currency
+      session = await Stripe.createCheckoutSession(stripeEnv(), {
+        mode: 'payment',
+        customer_email: customer.email,
+        success_url: `${siteUrl}/order-confirmation.html?order_id=${encodeURIComponent(orderId)}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/checkout.html?cancelled=1`,
+        'metadata[order_id]': orderId,
+        line_items: resolvedItems.map(it => ({
+          quantity: it.qty,
+          price_data: {
+            currency: (it.currency || currency).toLowerCase(),
+            unit_amount: it.price_cents,
+            product_data: { name: it.name, images: it.image_url ? [it.image_url] : undefined },
+          },
+        })),
       });
-      if (pfResult && pfResult.result && pfResult.result.id) {
-        printfulOrderId = String(pfResult.result.id);
-        await dbRun(
-          `update orders set printful_order_id = ?, printful_status = ?, status = ? where id = ?`,
-          printfulOrderId, 'draft', 'pending_fulfillment', orderId
-        ).catch(() => {/* ignore if columns not yet migrated */});
-      }
-    } catch (pfErr) {
-      console.error('[printful] Failed to create order for', orderId, String(pfErr));
+    } catch (e) {
+      await dbRun(`update orders set status = ? where id = ?`, 'stripe_error', orderId).catch(() => {});
+      return jsonResponse({ error: `Payment session could not be created: ${String(e && e.message ? e.message : e)}` }, 502, request);
     }
 
-    return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency, printful_order_id: printfulOrderId }, 201, request);
+    await dbRun(`update orders set stripe_session_id = ? where id = ?`, session.id, orderId).catch(() => {});
+
+    return jsonResponse({ ok: true, order_id: orderId, checkout_url: session.url }, 201, request);
+  }
+
+  // POST /api/webhooks/stripe — no session auth (server-to-server), authenticated instead
+  // by verifying Stripe's HMAC signature on the raw body before any D1 write.
+  async function apiStripeWebhook(request) {
+    const rawBody = await request.text();
+    const sigHeader = request.headers.get('Stripe-Signature');
+    const stConfig = Stripe.getStripeConfig(stripeEnv());
+
+    const valid = await Stripe.verifyWebhookSignature(rawBody, sigHeader, stConfig.webhookSecret);
+    if (!valid) return new Response('Invalid signature', { status: 400 });
+
+    let event;
+    try { event = JSON.parse(rawBody); } catch { return new Response('Bad payload', { status: 400 }); }
+
+    try {
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data && event.data.object;
+        const orderId = session && session.metadata && session.metadata.order_id;
+        if (orderId) {
+          const order = await dbGet('select id, payment_status, total_cents from orders where id = ?', orderId).catch(() => null);
+          if (order && order.payment_status !== 'paid') {
+            const amountOk = session.amount_total == null || Number(session.amount_total) === Number(order.total_cents);
+            if (!amountOk) {
+              console.error('[stripe] Order', orderId, 'amount mismatch: session', session.amount_total, 'vs order', order.total_cents);
+            } else {
+              await dbRun(
+                `update orders set payment_status = ?, status = ?, stripe_payment_intent_id = ?, paid_at = ? where id = ?`,
+                'paid', 'paid', session.payment_intent || null, new Date().toISOString(), orderId
+              ).catch(() => {});
+              await finalizeOrderPrintfulSubmission(orderId);
+            }
+          }
+        }
+      } else if (event.type === 'checkout.session.expired') {
+        const session = event.data && event.data.object;
+        const orderId = session && session.metadata && session.metadata.order_id;
+        if (orderId) {
+          await dbRun(`update orders set status = ? where id = ?`, 'payment_expired', orderId).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.error('[stripe] Webhook handling error:', String(e));
+    }
+
+    return new Response('OK', { status: 200 });
+  }
+
+  // GET /api/orders/:id/status?session_id=... — guest-safe order status lookup. The Stripe
+  // Checkout Session id (only ever seen by the paying customer's own browser, via Stripe's
+  // redirect) acts as a bearer capability token for this one order — deliberately returns a
+  // minimal, PII-light shape since it isn't gated by a login session.
+  async function apiGetOrderStatusPublic(request, id, sessionId) {
+    const rawId = String(id || '').trim();
+    const sid = String(sessionId || '').trim();
+    if (!rawId || !sid) return jsonResponse({ error: 'order id and session_id required' }, 400, request);
+
+    let row;
+    try {
+      row = await dbGet(
+        `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
+                total_cents, currency, items_json, stripe_session_id
+         from orders where id = ?`,
+        rawId
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column')) {
+        row = await dbGet(
+          `select id, status, printful_status, tracking_number, tracking_url, carrier,
+                  total_cents, currency, items_json, stripe_session_id
+           from orders where id = ?`,
+          rawId
+        ).catch(() => null);
+      } else { throw e; }
+    }
+
+    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (!row.stripe_session_id || row.stripe_session_id !== sid) {
+      return jsonResponse({ error: 'Not found' }, 404, request);
+    }
+
+    let items = [];
+    try {
+      items = (JSON.parse(row.items_json) || []).map(it => ({ name: it.name, qty: it.qty, price_cents: it.price_cents }));
+    } catch {}
+
+    return jsonResponse({
+      order_id: row.id,
+      status: row.status || null,
+      payment_status: row.payment_status || null,
+      printful_status: row.printful_status || null,
+      tracking_number: row.tracking_number || null,
+      tracking_url: row.tracking_url || null,
+      carrier: row.carrier || null,
+      total_cents: row.total_cents,
+      currency: row.currency || 'USD',
+      items,
+    }, 200, request);
   }
 
   // ---------- Admin APIs ----------
@@ -1525,373 +1688,7 @@
     return jsonResponse({ items: rows || [], limit, offset }, 200, request);
   }
 
-  function extractPrintfulSyncProductFromData(data) {
-    const d = data && typeof data === 'object' ? data : {};
-    const syncProduct = (d.sync_product && typeof d.sync_product === 'object') ? d.sync_product : {};
-    const syncVariants = Array.isArray(d.sync_variants)
-      ? d.sync_variants
-      : (Array.isArray(syncProduct.sync_variants) ? syncProduct.sync_variants : []);
-    const rawPrintfulId = syncProduct.id != null ? syncProduct.id : (d.sync_product_id != null ? d.sync_product_id : d.id);
-    const printfulProductId = Number(rawPrintfulId);
-    return { syncProduct, syncVariants, printfulProductId };
-  }
-
-  async function resolveUniqueProductSlug(seed, printfulProductId, excludeId) {
-    const base = String(seed || '').trim() || `printful-product-${printfulProductId}`;
-    let candidate = base;
-    let i = 2;
-    while (true) {
-      const row = await dbGet('select id from products where slug = ?', candidate);
-      if (!row || (excludeId != null && Number(row.id) === Number(excludeId))) return candidate;
-      candidate = `${base}-${i++}`;
-    }
-  }
-
-  async function upsertPrintfulSyncProductToD1(data) {
-    const extracted = extractPrintfulSyncProductFromData(data);
-    const syncProduct = extracted.syncProduct;
-    const syncVariants = extracted.syncVariants;
-    const printfulProductId = extracted.printfulProductId;
-    if (!Number.isFinite(printfulProductId) || printfulProductId <= 0) return { action: 'skipped' };
-
-    const title = String(syncProduct.name || data.name || '').trim() || `Printful Product ${printfulProductId}`;
-    const baseSlug = normalizeSlug(title) || `printful-product-${printfulProductId}`;
-    const thumbnailUrl = String(syncProduct.thumbnail_url || syncProduct.thumbnail || data.thumbnail_url || '').trim() || null;
-
-    let priceCents = 0;
-    let firstSyncVariantId = null;
-    for (const v of syncVariants) {
-      if (firstSyncVariantId == null && v && v.id != null) {
-        const sv = Number(v.id);
-        if (Number.isFinite(sv) && sv > 0) firstSyncVariantId = sv;
-      }
-      const n = Number(v && v.retail_price);
-      if (Number.isFinite(n) && n >= 0) {
-        priceCents = Math.round(n * 100);
-        break;
-      }
-    }
-
-    const existing = await dbGet('select id, slug from products where printful_sync_product_id = ?', printfulProductId);
-    if (existing && existing.id != null) {
-      const slug = existing.slug ? String(existing.slug) : await resolveUniqueProductSlug(baseSlug, printfulProductId, existing.id);
-      await dbRun(
-        `update products
-         set title = ?, slug = ?, price_cents = ?, currency = ?, image_url = ?,
-             printful_sync_product_id = ?, printful_sync_variant_id = ?,
-             updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-         where id = ?`,
-        title,
-        slug,
-        priceCents,
-        'USD',
-        thumbnailUrl,
-        printfulProductId,
-        firstSyncVariantId,
-        existing.id
-      );
-      return { action: 'updated', id: Number(existing.id), printful_sync_product_id: printfulProductId };
-    }
-
-    const slug = await resolveUniqueProductSlug(baseSlug, printfulProductId, null);
-    await dbRun(
-      `insert into products (
-         brand_id, title, slug, category, color, sizes, description,
-         price_cents, currency, image_url, image_urls, image_data,
-         is_published, ar_target_id, printful_sync_product_id, printful_sync_variant_id
-       ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      null,
-      title,
-      slug,
-      null,
-      null,
-      null,
-      null,
-      priceCents,
-      'USD',
-      thumbnailUrl,
-      null,
-      null,
-      0,
-      null,
-      printfulProductId,
-      firstSyncVariantId
-    );
-    return { action: 'created', printful_sync_product_id: printfulProductId };
-  }
-
-  async function hidePrintfulProductInD1(data) {
-    const extracted = extractPrintfulSyncProductFromData(data);
-    const printfulProductId = extracted.printfulProductId;
-    if (!Number.isFinite(printfulProductId) || printfulProductId <= 0) return { action: 'skipped' };
-    await dbRun(
-      `update products
-       set is_published = 0,
-           updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-       where printful_sync_product_id = ?`,
-      printfulProductId
-    );
-    return { action: 'hidden', printful_sync_product_id: printfulProductId };
-  }
-
-  async function insertCreatorProductRow({ title, slug, sizesText, priceCents, designUrl, syncProductId, firstSyncVariantId, variantMapJson }) {
-    const baseArgs = [
-      null,
-      title,
-      slug,
-      'T-Shirts',
-      null,
-      sizesText || null,
-      null,
-      priceCents,
-      'USD',
-      designUrl,
-      null,
-      null,
-      1,
-      null,
-    ];
-
-    const attempts = [
-      {
-        sql: `insert into products (
-          brand_id, title, slug, category, color, sizes, description,
-          price_cents, currency, image_url, image_urls, image_data,
-          is_published, ar_target_id, printful_sync_product_id, printful_sync_variant_id, printful_variant_map
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
-        args: [
-          ...baseArgs,
-          Number.isFinite(syncProductId) && syncProductId > 0 ? syncProductId : null,
-          Number.isFinite(firstSyncVariantId) && firstSyncVariantId > 0 ? firstSyncVariantId : null,
-          variantMapJson || null,
-        ],
-      },
-      {
-        sql: `insert into products (
-          brand_id, title, slug, category, color, sizes, description,
-          price_cents, currency, image_url, image_urls, image_data,
-          is_published, ar_target_id, printful_sync_product_id, printful_sync_variant_id
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
-        args: [
-          ...baseArgs,
-          Number.isFinite(syncProductId) && syncProductId > 0 ? syncProductId : null,
-          Number.isFinite(firstSyncVariantId) && firstSyncVariantId > 0 ? firstSyncVariantId : null,
-        ],
-      },
-      {
-        sql: `insert into products (
-          brand_id, title, slug, category, color, sizes, description,
-          price_cents, currency, image_url, image_urls, image_data,
-          is_published, ar_target_id
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
-        args: baseArgs,
-      },
-    ];
-
-    let lastError = null;
-    for (const attempt of attempts) {
-      try {
-        await dbRun(attempt.sql, ...attempt.args);
-        return;
-      } catch (e) {
-        lastError = e;
-        const msg = String(e || '').toLowerCase();
-        if (!msg.includes('no such column') || !msg.includes('printful_')) {
-          throw e;
-        }
-      }
-    }
-    throw lastError;
-  }
-
-  async function fetchCreatorProductRow() {
-    try {
-      return await dbGet(
-        `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map,
-                p.created_at, p.updated_at, b.name as brand
-        from products p
-        left join brands b on b.id = p.brand_id
-        where p.rowid = last_insert_rowid()`
-      );
-    } catch (e) {
-      const msg = String(e || '').toLowerCase();
-      if (msg.includes('no such column') && msg.includes('printful_')) {
-        return await dbGet(
-          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                  p.is_published, p.ar_target_id,
-                  p.created_at, p.updated_at, b.name as brand
-          from products p
-          left join brands b on b.id = p.brand_id
-          where p.rowid = last_insert_rowid()`
-        );
-      }
-      throw e;
-    }
-  }
-
   // POST /api/webhooks/printful and /api/admin/printful/webhook — receive Printful event notifications.
-  async function apiCreatePrintfulCreatorProduct(request) {
-    const { sess, error } = await requireAdminSession(request);
-    if (error) return error;
-
-    const body = await readJson(request);
-    const title = String(body.title || '').trim();
-    const priceValue = body.price != null && body.price !== '' ? String(body.price).trim() : '';
-    const baseProductId = String(body.base_product_id != null ? body.base_product_id : '').trim();
-    const rawDesignUrl = String(body.design_url || '').trim();
-    const siteUrl = String(body.site_url || new URL(request.url).origin).replace(/\/$/, '');
-    const designUrl = normalizePublicUrl(rawDesignUrl, request, siteUrl);
-
-    if (!title) return jsonResponse({ error: 'title required' }, 400, request);
-    if (!designUrl) return jsonResponse({ error: 'design_url required' }, 400, request);
-    if (!priceValue) return jsonResponse({ error: 'price required' }, 400, request);
-
-    const priceCents = parsePriceCents({ price: priceValue });
-    if (priceCents == null) return jsonResponse({ error: 'Invalid price' }, 400, request);
-
-    const numericBaseProductId = baseProductId && baseProductId !== 'auto' ? Number(baseProductId) : null;
-
-    const pfEnv = printfulEnv();
-    const pfConfig = Printful.getPrintfulConfig(pfEnv);
-    if (!pfConfig.apiKey) {
-      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
-    }
-
-    try {
-      const candidateCatalogIds = [];
-      if (Number.isFinite(numericBaseProductId) && numericBaseProductId > 0) candidateCatalogIds.push(numericBaseProductId);
-      if (Number.isFinite(pfConfig.catalogProductId) && pfConfig.catalogProductId > 0) {
-        const fallbackId = Number(pfConfig.catalogProductId);
-        if (!candidateCatalogIds.includes(fallbackId)) candidateCatalogIds.push(fallbackId);
-      }
-
-      let catalogProduct = null;
-      let lastCatalogError = null;
-      for (const candidateId of candidateCatalogIds) {
-        try {
-          const catalogData = await Printful.callPrintful(pfEnv, 'GET', `/products/${candidateId}`);
-          catalogProduct = (catalogData && catalogData.result) || null;
-          if (catalogProduct) break;
-        } catch (e) {
-          const msg = String(e && e.message ? e.message : e || '');
-          lastCatalogError = msg;
-          if (!/Printful 404/i.test(msg) && !/not found/i.test(msg)) {
-            throw e;
-          }
-        }
-      }
-
-      if (!catalogProduct) {
-        try {
-          const catalogProducts = await Printful.listCatalogProducts(pfEnv);
-          const ranked = (Array.isArray(catalogProducts) ? catalogProducts : [])
-            .filter(item => item && Array.isArray(item.variants) && item.variants.length)
-            .sort((a, b) => {
-              const aName = String(a && (a.name || a.title || '')).toLowerCase();
-              const bName = String(b && (b.name || b.title || '')).toLowerCase();
-              const aScore = /shirt|tee|t-shirt|unisex|classic/.test(aName) ? 1 : 0;
-              const bScore = /shirt|tee|t-shirt|unisex|classic/.test(bName) ? 1 : 0;
-              return bScore - aScore;
-            });
-          if (ranked.length) {
-            catalogProduct = ranked[0];
-          }
-        } catch (e) {
-          const msg = String(e && e.message ? e.message : e || '');
-          if (!/Printful 404/i.test(msg) && !/not found/i.test(msg)) {
-            lastCatalogError = msg;
-          }
-        }
-      }
-
-      if (!catalogProduct) {
-        const tried = candidateCatalogIds.length ? candidateCatalogIds.join(', ') : 'none';
-        const detail = lastCatalogError || 'No valid Printful catalog product could be resolved';
-        return jsonResponse({
-          error: `Unable to resolve a valid Printful catalog product. Tried: ${tried}. ${detail}. Configure PRINTFUL_CATALOG_PRODUCT_ID to a valid catalog product ID for this store.`
-        }, 400, request);
-      }
-
-      const catalogVariants = Array.isArray(catalogProduct && catalogProduct.variants) ? catalogProduct.variants : [];
-
-      if (!catalogVariants.length) {
-        return jsonResponse({ error: 'No catalog variants found for the selected base product' }, 400, request);
-      }
-
-      const retailPrice = (priceCents / 100).toFixed(2);
-      const syncVariants = [];
-      const variantMap = {};
-
-      for (const variant of catalogVariants) {
-        const variantId = Number(variant && variant.id);
-        const sizeLabel = String(variant && (variant.size || variant.name || variant.id || '')).trim();
-        if (!Number.isFinite(variantId) || variantId <= 0) continue;
-        const externalId = sizeLabel || String(variantId);
-        syncVariants.push({
-          external_id: externalId,
-          variant_id: variantId,
-          retail_price: retailPrice,
-          files: [{ type: 'front', url: designUrl }],
-        });
-        variantMap[externalId] = String(variantId);
-      }
-
-      if (!syncVariants.length) {
-        return jsonResponse({ error: 'No valid Printful variants could be resolved from the selected base product' }, 400, request);
-      }
-
-      const payload = {
-        sync_product: {
-          name: title,
-          thumbnail: designUrl,
-        },
-        sync_variants: syncVariants,
-      };
-
-      const data = await Printful.callPrintful(pfEnv, 'POST', '/v2/sync-products', payload);
-      const result = (data && data.result) || {};
-      const syncProduct = result.sync_product || {};
-      const createdSyncVariants = Array.isArray(result.sync_variants) ? result.sync_variants : [];
-
-      const syncProductId = Number(syncProduct.id != null ? syncProduct.id : data && data.id);
-      const firstSyncVariantId = createdSyncVariants.length
-        ? Number(createdSyncVariants[0] && createdSyncVariants[0].id)
-        : null;
-
-      const createdVariantMap = {};
-      for (const syncVariant of createdSyncVariants) {
-        const syncVariantId = syncVariant && syncVariant.id != null ? String(syncVariant.id) : '';
-        const externalId = syncVariant && syncVariant.external_id != null ? String(syncVariant.external_id).trim() : '';
-        if (syncVariantId && externalId) createdVariantMap[externalId] = syncVariantId;
-      }
-
-      const sizesText = Object.keys(createdVariantMap).join(', ');
-      const slug = await resolveUniqueProductSlug(normalizeSlug(title) || `printful-creator-${syncProductId || 'product'}`, syncProductId, null);
-      const variantMapJson = Object.keys(createdVariantMap).length ? JSON.stringify(createdVariantMap) : null;
-
-      await insertCreatorProductRow({
-        title,
-        slug,
-        sizesText,
-        priceCents,
-        designUrl,
-        syncProductId: Number.isFinite(syncProductId) && syncProductId > 0 ? syncProductId : null,
-        firstSyncVariantId: Number.isFinite(firstSyncVariantId) && firstSyncVariantId > 0 ? firstSyncVariantId : null,
-        variantMapJson,
-      });
-
-      const row = await fetchCreatorProductRow();
-
-      return jsonResponse({ ok: true, item: row || null, sync_product_id: syncProductId, sync_variant_id: firstSyncVariantId, printful_variant_map: createdVariantMap }, 200, request);
-    } catch (e) {
-      const msg = String(e && e.message ? e.message : e || 'Printful request failed');
-      return jsonResponse({ error: msg }, 502, request);
-    }
-  }
-
   async function apiPrintfulWebhook(request) {
     const rawBody = await request.text();
 
@@ -1967,15 +1764,6 @@
             'failed',
             printfulOrderId
           );
-          break;
-        }
-        case 'product_synced':
-        case 'product_updated': {
-          await upsertPrintfulSyncProductToD1(data);
-          break;
-        }
-        case 'product_deleted': {
-          await hidePrintfulProductInD1(data);
           break;
         }
         default:
@@ -2264,7 +2052,6 @@
     const printfulVariantMap = body.printful_variant_map != null
       ? (typeof body.printful_variant_map === 'object' ? JSON.stringify(body.printful_variant_map) : String(body.printful_variant_map).trim() || null)
       : null;
-    const printfulPush = body.printful_push === true || body.printful_push === 1 || body.printful_push === '1' || String(body.printful_push || '').trim().toLowerCase() === 'true';
     if (imageUrlsArr == null && body.image_urls != null) return jsonResponse({ error: 'Invalid image_urls (max 5)' }, 400, request);
     if (imageData) {
       if (imageData.length > 2_000_000) return jsonResponse({ error: 'image too large' }, 413, request);
@@ -2364,81 +2151,9 @@
       if (row.has_image_data != null) delete row.has_image_data;
     }
 
-    const printful = {
-      attempted: false,
-      pushed: false,
-      error: null,
-      printful_sync_product_id: null,
-      printful_sync_variant_id: null,
-      printful_variant_map: null,
-    };
-
-    if (printfulPush) {
-      printful.attempted = true;
-
-      if (sess.user.role !== 'admin') {
-        printful.error = 'Only admin can auto-push to Printful on save';
-      } else {
-        const pfEnv = printfulEnv();
-        if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
-          printful.error = 'PRINTFUL_API_KEY not configured';
-        } else if (!row) {
-          printful.error = 'Product created but could not be reloaded for Printful push';
-        } else {
-          try {
-            const siteUrl = (body.site_url || new URL(request.url).origin).replace(/\/$/, '');
-            const options = {
-              catalog_product_id: body.catalog_product_id,
-              catalog_variant_ids: body.catalog_variant_ids,
-              print_file_url: body.print_file_url,
-              placement: body.placement || 'front',
-              site_origin: siteUrl,
-            };
-
-            const pushed = await Printful.pushProductToPrintful(pfEnv, row, options);
-            const variantMapJson = Object.keys(pushed.syncVariantMap || {}).length
-              ? JSON.stringify(pushed.syncVariantMap)
-              : null;
-            const firstVariant = pushed.syncVariantId || null;
-
-            try {
-              await dbRun(
-                `update products set printful_sync_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
-                        updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-                 where id = ?`,
-                pushed.syncProductId,
-                firstVariant,
-                variantMapJson,
-                row.id
-              );
-            } catch (dbErr) {
-              const msg = String(dbErr || '');
-              if (msg.includes('printful_variant_map')) {
-                await dbRun(
-                  `update products set printful_sync_product_id = ?, printful_sync_variant_id = ? where id = ?`,
-                  pushed.syncProductId, firstVariant, row.id
-                );
-              } else {
-                throw dbErr;
-              }
-            }
-
-            row.printful_sync_product_id = pushed.syncProductId;
-            row.printful_sync_variant_id = firstVariant;
-            row.printful_variant_map = pushed.syncVariantMap || null;
-
-            printful.pushed = true;
-            printful.printful_sync_product_id = pushed.syncProductId;
-            printful.printful_sync_variant_id = firstVariant;
-            printful.printful_variant_map = pushed.syncVariantMap || null;
-          } catch (pushErr) {
-            printful.error = String(pushErr && pushErr.message ? pushErr.message : pushErr || 'Printful push failed');
-          }
-        }
-      }
-    }
-
-    return jsonResponse({ ok: true, item: row || null, printful }, 201, request);
+    // Printful linking is a separate step now (POST /api/admin/printful/products/:id/link),
+    // done after the product exists — no push-on-save here (v2 has no "sync product" to push).
+    return jsonResponse({ ok: true, item: row || null }, 201, request);
   }
 
   async function apiUpdateProduct(request, id) {
@@ -3399,26 +3114,26 @@
     try {
       rows = await dbAll(
         `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
-                p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map,
+                p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map,
                 p.updated_at, p.created_at, b.name as brand
          from products p
          left join brands b on b.id = p.brand_id
-         where p.printful_sync_product_id is not null
+         where p.printful_variant_map is not null or p.printful_sync_variant_id is not null
          order by p.updated_at desc, p.created_at desc`
       );
     } catch (e) {
       const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_product_id')) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
         return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
       }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_catalog_product_id')) {
         rows = await dbAll(
           `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  p.printful_sync_product_id, p.printful_sync_variant_id,
+                  p.printful_sync_variant_id, p.printful_variant_map,
                   p.updated_at, p.created_at, b.name as brand
            from products p
            left join brands b on b.id = p.brand_id
-           where p.printful_sync_product_id is not null
+           where p.printful_variant_map is not null or p.printful_sync_variant_id is not null
            order by p.updated_at desc, p.created_at desc`
         );
       } else {
@@ -3434,7 +3149,7 @@
       currency: r.currency || 'USD',
       image_url: r.image_url || null,
       image_urls: parseImageUrlsFromRow(r.image_urls),
-      printful_sync_product_id: r.printful_sync_product_id || null,
+      printful_catalog_product_id: r.printful_catalog_product_id || null,
       printful_sync_variant_id: r.printful_sync_variant_id || null,
       printful_variant_map: r.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_map) : null,
       brand: r.brand || null,
@@ -3442,137 +3157,12 @@
       created_at: r.created_at || null,
     }));
 
-    return jsonResponse(items, 200, request);
+    return jsonResponse({ items }, 200, request);
   }
 
-  // PUT /api/admin/printful/products/:id — update local product values and re-sync to Printful.
-  async function apiPrintfulUpdateProduct(request, productId) {
-    const { error } = await requireAdminSession(request);
-    if (error) return error;
-
-    const pfEnv = printfulEnv();
-    if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
-      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
-    }
-    if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
-
-    const body = await readJson(request);
-
-    const hasPrintFile = body.print_file_url != null;
-    const printFileUrl = hasPrintFile ? String(body.print_file_url || '').trim() : null;
-    if (hasPrintFile && printFileUrl && !/^https:\/\//i.test(printFileUrl)) {
-      return jsonResponse({ error: 'print_file_url must be an absolute https URL' }, 400, request);
-    }
-
-    const hasRetailPrice = body.retail_price != null && body.retail_price !== '';
-    let retailPriceNum = null;
-    let priceCents = null;
-    if (hasRetailPrice) {
-      retailPriceNum = Number(body.retail_price);
-      if (!Number.isFinite(retailPriceNum) || retailPriceNum < 0) {
-        return jsonResponse({ error: 'Invalid retail_price' }, 400, request);
-      }
-      priceCents = Math.round(retailPriceNum * 100);
-    }
-
-    let row;
-    try {
-      row = await dbGet(
-        `select id, title, slug, sizes, color, price_cents, currency, image_url, image_urls,
-                printful_sync_product_id, printful_sync_variant_id, printful_variant_map
-         from products where id = ?`,
-        productId
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful')) {
-        return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
-      }
-      throw e;
-    }
-    if (!row) return jsonResponse({ error: 'Product not found' }, 404, request);
-    if (!row.printful_sync_product_id) {
-      return jsonResponse({ error: 'Product is not linked to Printful' }, 400, request);
-    }
-
-    const fields = [];
-    const params = [];
-    if (hasPrintFile) {
-      fields.push('image_url = ?');
-      params.push(printFileUrl || null);
-      row.image_url = printFileUrl || null;
-    }
-    if (hasRetailPrice) {
-      fields.push('price_cents = ?');
-      params.push(priceCents);
-      row.price_cents = priceCents;
-    }
-    if (fields.length) {
-      fields.push(`updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))`);
-      params.push(productId);
-      await dbRun(`update products set ${fields.join(', ')} where id = ?`, ...params);
-    }
-
-    const options = {
-      placement: body.placement || 'front',
-    };
-    if (hasPrintFile && printFileUrl) options.print_file_url = printFileUrl;
-    if (hasRetailPrice) options.retail_price = retailPriceNum;
-
-    try {
-      const pushed = await Printful.updatePrintfulProduct(pfEnv, row, options);
-
-      let variantMapJson = null;
-      if (pushed.syncVariantMap && Object.keys(pushed.syncVariantMap).length) {
-        variantMapJson = JSON.stringify(pushed.syncVariantMap);
-      } else if (row.printful_variant_map) {
-        variantMapJson = row.printful_variant_map;
-      }
-
-      try {
-        await dbRun(
-          `update products set printful_sync_variant_id = ?, printful_variant_map = ?,
-                  updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-           where id = ?`,
-          pushed.syncVariantId || row.printful_sync_variant_id || null,
-          variantMapJson,
-          productId
-        );
-      } catch (dbErr) {
-        const msg = String(dbErr || '');
-        if (msg.includes('printful_variant_map')) {
-          await dbRun(
-            `update products set printful_sync_variant_id = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-             where id = ?`,
-            pushed.syncVariantId || row.printful_sync_variant_id || null,
-            productId
-          );
-        } else {
-          throw dbErr;
-        }
-      }
-
-      return jsonResponse({
-        ok: true,
-        product_id: productId,
-        printful_sync_product_id: row.printful_sync_product_id,
-        printful_sync_variant_id: pushed.syncVariantId || row.printful_sync_variant_id || null,
-        printful_variant_map: pushed.syncVariantMap || null,
-      }, 200, request);
-    } catch (e) {
-      return jsonResponse({ error: String(e) }, 500, request);
-    }
-  }
-
-
-  /**
-   * POST /api/admin/printful/products/push
-   * POST /api/admin/printful/products/:id/push
-   *
-   * Option B (Push): create a Printful Sync Product from a local D1 product.
-   * Body: { product_id?, catalog_product_id?, catalog_variant_ids?, print_file_url?, placement?, site_url? }
-   */
-  async function apiPrintfulPushProduct(request, routeProductId) {
+  // GET /api/admin/printful/catalog?search=<q> — browse real Printful catalog products.
+  // v2's catalog is read-only; there is no "push"/"sync product" step in this model.
+  async function apiPrintfulBrowseCatalog(request) {
     const { error } = await requireAdminSession(request);
     if (error) return error;
 
@@ -3581,195 +3171,137 @@
       return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
     }
 
-    const body = await readJson(request);
-    const productId = routeProductId || (body.product_id != null ? Number(body.product_id) : null);
-    if (!productId || !Number.isFinite(productId)) {
-      return jsonResponse({ error: 'product_id required' }, 400, request);
-    }
+    const url = new URL(request.url);
+    const search = String(url.searchParams.get('search') || '').trim().toLowerCase();
 
-    let row;
+    let products;
     try {
-      row = await dbGet(
-        `select id, title, slug, category, color, sizes, price_cents, currency, image_url, image_urls,
-                printful_sync_product_id, printful_sync_variant_id, printful_variant_map
-         from products where id = ?`,
-        productId
-      );
+      products = await Printful.listCatalogProducts(pfEnv);
     } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful')) {
-        return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
-      }
-      throw e;
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
     }
-    if (!row) return jsonResponse({ error: 'Product not found' }, 404, request);
 
-    const siteUrl = (body.site_url || new URL(request.url).origin).replace(/\/$/, '');
-    const options = {
-      catalog_product_id: body.catalog_product_id,
-      catalog_variant_ids: body.catalog_variant_ids,
-      print_file_url: body.print_file_url,
-      placement: body.placement || 'front',
-      site_origin: siteUrl,
-    };
+    const items = (Array.isArray(products) ? products : [])
+      .filter(p => !search || String((p && (p.name || p.title)) || '').toLowerCase().includes(search))
+      .slice(0, 100)
+      .map(p => ({
+        id: p.id,
+        name: p.name || p.title || `Product ${p.id}`,
+        image: p.image || p.image_url || null,
+        variant_count: Number(p.variant_count) || (Array.isArray(p.variants) ? p.variants.length : null),
+      }));
 
-    try {
-      const pushed = await Printful.pushProductToPrintful(pfEnv, row, options);
-      const variantMapJson = Object.keys(pushed.syncVariantMap || {}).length
-        ? JSON.stringify(pushed.syncVariantMap)
-        : null;
-      const firstVariant = pushed.syncVariantId || null;
-
-      try {
-        await dbRun(
-          `update products set printful_sync_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
-                  updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-           where id = ?`,
-          pushed.syncProductId,
-          firstVariant,
-          variantMapJson,
-          productId
-        );
-      } catch (dbErr) {
-        const msg = String(dbErr || '');
-        if (msg.includes('printful_variant_map')) {
-          await dbRun(
-            `update products set printful_sync_product_id = ?, printful_sync_variant_id = ? where id = ?`,
-            pushed.syncProductId, firstVariant, productId
-          );
-        } else {
-          throw dbErr;
-        }
-      }
-
-      return jsonResponse({
-        ok: true,
-        product_id: productId,
-        printful_sync_product_id: pushed.syncProductId,
-        printful_sync_variant_id: firstVariant,
-        printful_variant_map: pushed.syncVariantMap,
-      }, 200, request);
-    } catch (e) {
-      return jsonResponse({ error: String(e) }, 500, request);
-    }
+    return jsonResponse({ items }, 200, request);
   }
 
-  async function apiPrintfulSync(request) {
+  // GET /api/admin/printful/catalog/:id — full size/color variant grid for one catalog product.
+  async function apiPrintfulGetCatalogProduct(request, catalogProductId) {
     const { error } = await requireAdminSession(request);
     if (error) return error;
-    const apiKey = globalThis.PRINTFUL_API_KEY;
-    const storeId = typeof PRINTFUL_STORE_ID === 'string' ? PRINTFUL_STORE_ID : '';
-    if (!apiKey) return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
-    try {
-      const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
-      const data = await callPrintful('GET', `/v2/sync-products${qs}`);
-      const syncProducts = (data && data.result) || (data && data.data) || [];
-      let synced = 0;
-      for (const sp of Array.isArray(syncProducts) ? syncProducts : []) {
-        const syncProductId = sp.id;
-        const name = sp.name || '';
-        let variants = [];
-        try {
-          const vdata = await callPrintful('GET', `/v2/sync-products/${syncProductId}${qs}`);
-          variants = (vdata && vdata.result && vdata.result.sync_variants) ||
-                     (vdata && vdata.data  && vdata.data.sync_variants) || [];
-        } catch {}
-        for (const v of variants) {
-          const variantId = v.id;
-          const slug = normalizeSlug(name);
-          if (!slug) continue;
-          try {
-            await dbRun(
-              `update products set printful_sync_product_id = ?, printful_sync_variant_id = ?
-               where slug = ?`,
-              syncProductId, variantId, slug
-            );
-          } catch {}
-          synced++;
-        }
-      }
-      return jsonResponse({ ok: true, synced }, 200, request);
-    } catch (e) {
-      return jsonResponse({ error: String(e) }, 500, request);
+    if (!catalogProductId || !Number.isFinite(catalogProductId)) {
+      return jsonResponse({ error: 'Invalid catalog product id' }, 400, request);
     }
-  }
-
-  async function apiPrintfulBackfill(request) {
-    const { error } = await requireAdminSession(request);
-    if (error) return error;
 
     const pfEnv = printfulEnv();
     if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
       return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
     }
 
-    const qs = Printful.printfulStoreQuery(pfEnv);
-    let list = [];
+    let product;
     try {
-      const data = await callPrintful('GET', `/v2/sync-products${qs}`);
-      const raw = (data && (data.result ?? data.data)) || [];
-      if (Array.isArray(raw)) {
-        list = raw;
-      } else if (raw && Array.isArray(raw.items)) {
-        list = raw.items;
-      } else {
-        list = [];
-      }
+      product = await Printful.fetchCatalogProduct(pfEnv, catalogProductId);
     } catch (e) {
-      return jsonResponse({ error: String(e) }, 500, request);
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
     }
+    if (!product) return jsonResponse({ error: 'Catalog product not found' }, 404, request);
 
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    let failed = 0;
-    const errors = [];
-
-    for (const item of list) {
-      const itemId = Number((item && item.id != null) ? item.id : (item && item.sync_product && item.sync_product.id));
-      const errorId = Number.isFinite(itemId) && itemId > 0 ? String(itemId) : 'unknown';
-      try {
-        let dataForUpsert = {
-          sync_product: (item && item.sync_product) ? item.sync_product : item,
-          sync_variants: Array.isArray(item && item.sync_variants) ? item.sync_variants : [],
-        };
-
-        if (Number.isFinite(itemId) && itemId > 0) {
-          try {
-            const detail = await callPrintful('GET', `/v2/sync-products/${itemId}${qs}`);
-            const detailResult = (detail && (detail.result ?? detail.data)) || {};
-            dataForUpsert = {
-              sync_product: (detailResult && detailResult.sync_product) ? detailResult.sync_product : dataForUpsert.sync_product,
-              sync_variants: Array.isArray(detailResult && detailResult.sync_variants)
-                ? detailResult.sync_variants
-                : dataForUpsert.sync_variants,
-            };
-          } catch {
-            // Fallback to list item payload when detail fetch fails.
-          }
-        }
-
-        const r = await upsertPrintfulSyncProductToD1(dataForUpsert);
-        if (r.action === 'created') created++;
-        else if (r.action === 'updated') updated++;
-        else skipped++;
-      } catch (e) {
-        failed++;
-        if (errors.length < 20) {
-          errors.push({ printful_sync_product_id: errorId, error: String(e && e.message ? e.message : e) });
-        }
-      }
-    }
+    const variants = (Array.isArray(product.variants) ? product.variants : []).map(v => ({
+      id: v.id,
+      size: v.size || null,
+      color: v.color || null,
+      color_code: v.color_code || null,
+      image: v.image || null,
+      price: v.price || null,
+    }));
 
     return jsonResponse({
-      ok: true,
-      total: list.length,
-      created,
-      updated,
-      skipped,
-      failed,
-      errors,
+      id: product.id,
+      name: product.name || product.title || `Product ${product.id}`,
+      image: product.image || product.image_url || null,
+      variants,
     }, 200, request);
+  }
+
+  // POST /api/admin/printful/products/:id/link — resolve {size: catalog_variant_id} for a
+  // product against a real Printful catalog product and store it. No Printful write call at
+  // all: v2 catalog products are read-only references, so there's nothing to "push".
+  async function apiPrintfulLinkProduct(request, productId) {
+    const { sess, error } = await requirePrivilegedSession(request);
+    if (error) return error;
+    if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
+      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+    }
+
+    const product = await dbGet('select id, brand_id, title, sizes, color from products where id = ?', productId);
+    if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (sess.user.role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+
+    const body = await readJson(request);
+    const catalogProductId = Number(body.catalog_product_id);
+    if (!Number.isFinite(catalogProductId) || catalogProductId <= 0) {
+      return jsonResponse({ error: 'catalog_product_id required' }, 400, request);
+    }
+    const overrideMap = body.catalog_variant_ids && typeof body.catalog_variant_ids === 'object'
+      ? body.catalog_variant_ids
+      : null;
+
+    const sizes = String(product.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!sizes.length) return jsonResponse({ error: 'Product has no sizes' }, 400, request);
+
+    let catalogProduct;
+    try {
+      catalogProduct = await Printful.fetchCatalogProduct(pfEnv, catalogProductId);
+    } catch (e) {
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
+    }
+    if (!catalogProduct) return jsonResponse({ error: 'Catalog product not found' }, 404, request);
+
+    const { resolved, missing } = Printful.resolveCatalogVariants(catalogProduct, sizes, product.color || '', overrideMap);
+
+    const variantMap = {};
+    for (const r of resolved) variantMap[r.size] = String(r.variant_id);
+    const variantMapJson = Object.keys(variantMap).length ? JSON.stringify(variantMap) : null;
+    const firstVariant = resolved.length ? Number(resolved[0].variant_id) : null;
+
+    try {
+      await dbRun(
+        `update products set printful_catalog_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
+                updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+         where id = ?`,
+        catalogProductId, firstVariant, variantMapJson, productId
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_catalog_product_id')) {
+        return jsonResponse({ error: 'DB migration required: run sql/stripe_migration.sql' }, 500, request);
+      }
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        await dbRun(
+          `update products set printful_sync_variant_id = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+          firstVariant, productId
+        );
+      } else {
+        throw e;
+      }
+    }
+
+    return jsonResponse({ ok: true, printful_variant_map: variantMap, missing }, 200, request);
   }
 
   async function apiPrintfulOrderSync(request, printfulOrderId) {
@@ -3811,31 +3343,46 @@
     try {
       row = await dbGet(
         `select p.id, p.slug, p.title, p.color, p.sizes, p.price_cents, p.currency,
-                p.printful_sync_product_id, p.printful_sync_variant_id, p.is_published
+                p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.is_published
          from products p where ${whereClause}`,
         param
       );
     } catch (e) {
       const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful')) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        row = await dbGet(
+          `select p.id, p.slug, p.title, p.color, p.sizes, p.price_cents, p.currency,
+                  p.printful_sync_product_id, p.printful_sync_variant_id, p.is_published
+           from products p where ${whereClause}`,
+          param
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful')) {
         return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
+      } else {
+        throw e;
       }
-      throw e;
     }
     if (!row || !row.is_published) return jsonResponse({ error: 'Not found' }, 404, request);
     const sizes = (row.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
     const color = row.color || '';
-    const variants = sizes.map(size => ({
-      id: `${row.slug || row.id}-${size.toLowerCase().replace(/\s+/g, '-')}`,
-      name: `${row.title} \u2014 ${color} / ${size}`,
-      size,
-      color,
-      price_cents: row.price_cents || 0,
-      currency: row.currency || 'USD',
-      // Single variant per product for now; multi-variant Printful sync will update these
-      printful_sync_product_id: row.printful_sync_product_id || null,
-      printful_sync_variant_id:  row.printful_sync_variant_id  || null,
-    }));
+    const variantMap = row.printful_variant_map
+      ? (function (v) { try { return JSON.parse(v); } catch (e) { return null; } })(row.printful_variant_map)
+      : null;
+    const variants = sizes.map(size => {
+      const mapped = variantMap && variantMap[size] != null ? String(variantMap[size]).trim() : '';
+      return {
+        id: `${row.slug || row.id}-${size.toLowerCase().replace(/\s+/g, '-')}`,
+        name: `${row.title} \u2014 ${color} / ${size}`,
+        size,
+        color,
+        price_cents: row.price_cents || 0,
+        currency: row.currency || 'USD',
+        printful_sync_product_id: row.printful_sync_product_id || null,
+        // Prefer the per-size mapping (multi-variant products); fall back to the
+        // single product-level id for single-variant products.
+        printful_sync_variant_id: mapped || row.printful_sync_variant_id || null,
+      };
+    });
     return withCache(
       jsonResponse({ product: { id: row.id, slug: row.slug }, variants }, 200, request),
       'public, max-age=60, s-maxage=300'
@@ -3930,4 +3477,3 @@
       return jsonResponse({ error: String(e) }, 500, request);
     }
   }
-
