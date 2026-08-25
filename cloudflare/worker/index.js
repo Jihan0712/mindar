@@ -1,4 +1,4 @@
-  // Cloudflare Worker: R2 assets + auth/targets/viewer APIs (Cloudflare-only backend)
+// Cloudflare Worker: R2 assets + auth/targets/viewer APIs (Cloudflare-only backend)
 
   // Inline Printful helper module so this worker can run in single-file deployments
   // where sibling ES modules are not uploaded alongside worker.js.
@@ -1391,21 +1391,13 @@
   // Inserts a row into `orders`, dropping any column D1 reports missing (pre-migration
   // deploys degrade gracefully — the order still records — instead of hard-failing) and
   // retrying once per missing column.
+  // Direct insert — all columns here (base schema + printful_migration.sql + orders_migration.sql
+  // + stripe_migration.sql) are required for the order flow to work at all, so there's no
+  // graceful-degradation path: if a column is missing, this throws and the caller surfaces it.
   async function insertOrderRow(fields) {
-    let cols = Object.keys(fields);
-    for (let attempt = 0; attempt <= cols.length; attempt++) {
-      const sql = `insert into orders (${cols.join(', ')}) values (${cols.map(() => '?').join(', ')})`;
-      try {
-        await dbRun(sql, ...cols.map(c => fields[c]));
-        return;
-      } catch (e) {
-        const msg = String(e || '').toLowerCase();
-        if (msg.includes('no such table') && msg.includes('orders')) throw e;
-        const missingCol = cols.find(c => msg.includes('no such column') && msg.includes(c.toLowerCase()));
-        if (!missingCol) throw e;
-        cols = cols.filter(c => c !== missingCol);
-      }
-    }
+    const cols = Object.keys(fields);
+    const sql = `insert into orders (${cols.join(', ')}) values (${cols.map(() => '?').join(', ')})`;
+    await dbRun(sql, ...cols.map(c => fields[c]));
   }
 
   // POST /api/orders — admin-only manual/comp order recorder. This never talks to Printful
@@ -1548,7 +1540,10 @@
       if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
         return jsonResponse({ error: 'DB migration required: create orders table (run sql/orders_migration.sql)' }, 500, request);
       }
-      throw e;
+      if (msg.toLowerCase().includes('no such column')) {
+        return jsonResponse({ error: 'DB migration required: run sql/stripe_migration.sql', detail: msg }, 500, request);
+      }
+      return jsonResponse({ error: 'Could not create order', detail: msg }, 500, request);
     }
 
     let session;
@@ -1573,7 +1568,14 @@
       return jsonResponse({ error: `Payment session could not be created: ${String(e && e.message ? e.message : e)}` }, 502, request);
     }
 
-    await dbRun(`update orders set stripe_session_id = ? where id = ?`, session.id, orderId).catch(() => {});
+    // stripe_session_id is how the confirmation page and webhook find this order back —
+    // fail loudly rather than silently proceeding with a session the order can never be
+    // matched to.
+    try {
+      await dbRun(`update orders set stripe_session_id = ? where id = ?`, session.id, orderId);
+    } catch (e) {
+      return jsonResponse({ error: 'Could not link payment session to order', detail: String(e || '') }, 500, request);
+    }
 
     return jsonResponse({ ok: true, order_id: orderId, checkout_url: session.url }, 201, request);
   }
@@ -1596,8 +1598,10 @@
         const session = event.data && event.data.object;
         const orderId = session && session.metadata && session.metadata.order_id;
         if (orderId) {
-          const order = await dbGet('select id, payment_status, total_cents from orders where id = ?', orderId).catch(() => null);
-          if (order && order.payment_status !== 'paid') {
+          const order = await dbGet('select id, payment_status, total_cents from orders where id = ?', orderId);
+          if (!order) {
+            console.error('[stripe] Webhook for unknown order', orderId);
+          } else if (order.payment_status !== 'paid') {
             const amountOk = session.amount_total == null || Number(session.amount_total) === Number(order.total_cents);
             if (!amountOk) {
               console.error('[stripe] Order', orderId, 'amount mismatch: session', session.amount_total, 'vs order', order.total_cents);
@@ -1605,7 +1609,7 @@
               await dbRun(
                 `update orders set payment_status = ?, status = ?, stripe_payment_intent_id = ?, paid_at = ? where id = ?`,
                 'paid', 'paid', session.payment_intent || null, new Date().toISOString(), orderId
-              ).catch(() => {});
+              );
               await finalizeOrderPrintfulSubmission(orderId);
             }
           }
@@ -1614,11 +1618,11 @@
         const session = event.data && event.data.object;
         const orderId = session && session.metadata && session.metadata.order_id;
         if (orderId) {
-          await dbRun(`update orders set status = ? where id = ?`, 'payment_expired', orderId).catch(() => {});
+          await dbRun(`update orders set status = ? where id = ?`, 'payment_expired', orderId);
         }
       }
     } catch (e) {
-      console.error('[stripe] Webhook handling error:', String(e));
+      console.error('[stripe] Webhook handling error:', String(e && e.stack ? e.stack : e));
     }
 
     return new Response('OK', { status: 200 });
@@ -1633,25 +1637,12 @@
     const sid = String(sessionId || '').trim();
     if (!rawId || !sid) return jsonResponse({ error: 'order id and session_id required' }, 400, request);
 
-    let row;
-    try {
-      row = await dbGet(
-        `select id, email, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
-                total_cents, currency, items_json, stripe_session_id, created_at
-         from orders where id = ?`,
-        rawId
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column')) {
-        row = await dbGet(
-          `select id, email, status, printful_status, tracking_number, tracking_url, carrier,
-                  total_cents, currency, items_json, stripe_session_id, created_at
-           from orders where id = ?`,
-          rawId
-        ).catch(() => null);
-      } else { throw e; }
-    }
+    const row = await dbGet(
+      `select id, email, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
+              total_cents, currency, items_json, stripe_session_id, created_at
+       from orders where id = ?`,
+      rawId
+    );
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
     if (!row.stripe_session_id || row.stripe_session_id !== sid) {
@@ -3033,24 +3024,12 @@
     const rawEmail = String(email || '').trim().toLowerCase();
     if (!rawId || !rawEmail) return jsonResponse({ error: 'order id and email required' }, 400, request);
 
-    let row;
-    try {
-      row = await dbGet(
-        `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at,
-                printful_status, tracking_number, tracking_url, carrier, shipped_at
-         from orders where id = ?`,
-        rawId
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column')) {
-        row = await dbGet(
-          `select id, email, first_name, last_name, currency, total_cents, items_json, status, created_at
-           from orders where id = ?`,
-          rawId
-        ).catch(() => null);
-      } else { throw e; }
-    }
+    const row = await dbGet(
+      `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at,
+              printful_status, tracking_number, tracking_url, carrier, shipped_at
+       from orders where id = ?`,
+      rawId
+    );
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
     if (String(row.email || '').trim().toLowerCase() !== rawEmail) {
@@ -3096,7 +3075,7 @@
       `select id, user_id, email, currency, total_cents, items_json, payment_status
        from orders where id = ?`,
       rawId
-    ).catch(() => null);
+    );
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
 
     const sess = await getSessionUser(request);
@@ -3136,66 +3115,64 @@
       return jsonResponse({ error: `Payment session could not be created: ${String(e && e.message ? e.message : e)}` }, 502, request);
     }
 
-    await dbRun(`update orders set stripe_session_id = ? where id = ?`, session.id, rawId).catch(() => {});
+    try {
+      await dbRun(`update orders set stripe_session_id = ? where id = ?`, session.id, rawId);
+    } catch (e) {
+      return jsonResponse({ error: 'Could not link payment session to order', detail: String(e || '') }, 500, request);
+    }
 
     return jsonResponse({ ok: true, checkout_url: session.url }, 200, request);
   }
 
-  // GET /api/orders/mine — the logged-in customer's own order history, matched by account
-  // (user_id), not by manually typing an order id + email. Only covers orders placed while
-  // signed in; guest-checkout orders aren't tied to an account and stay reachable only via
-  // GET /api/orders/:id/track?email=...
+  // GET /api/orders/mine — the logged-in customer's own order history, matched by the
+  // account's own email (not user_id) — surfaces every order ever placed under that email,
+  // including guest orders placed before the account existed, and reuses the exact lookup
+  // shape apiGetOrderTrackPublic already relies on successfully.
   async function apiListMyOrders(request) {
     const sess = await getSessionUser(request);
     if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
 
-    let rows;
+    const email = String(sess.user.email || '').trim().toLowerCase();
+    if (!email) return jsonResponse({ items: [] }, 200, request);
+
+    // TEMP: wrapped in try/catch so a real D1 error surfaces as JSON instead of an opaque
+    // Cloudflare 1101 crash page. Remove the catch once this is confirmed stable.
     try {
-      rows = await dbAll(
+      const rows = await dbAll(
         `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
                 total_cents, currency, items_json, created_at
-         from orders where user_id = ?
+         from orders where lower(trim(email)) = ?
          order by created_at desc
          limit 100`,
-        sess.user.id
+        email
       );
+
+      const items = (rows || []).map((r) => {
+        let orderItems = [];
+        try {
+          orderItems = (JSON.parse(r.items_json) || []).map(it => ({
+            name: it.name, qty: it.qty, price_cents: it.price_cents, image_url: it.image_url || null,
+          }));
+        } catch {}
+        return {
+          id: r.id,
+          status: r.status || null,
+          payment_status: r.payment_status || null,
+          printful_status: r.printful_status || null,
+          tracking_number: r.tracking_number || null,
+          tracking_url: r.tracking_url || null,
+          carrier: r.carrier || null,
+          total_cents: r.total_cents,
+          currency: r.currency || 'USD',
+          created_at: r.created_at || null,
+          items: orderItems,
+        };
+      });
+
+      return jsonResponse({ items }, 200, request);
     } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column')) {
-        rows = await dbAll(
-          `select id, status, printful_status, tracking_number, tracking_url, carrier,
-                  total_cents, currency, items_json, created_at
-           from orders where user_id = ?
-           order by created_at desc
-           limit 100`,
-          sess.user.id
-        ).catch(() => []);
-      } else { throw e; }
+      return jsonResponse({ error: 'apiListMyOrders failed', detail: String(e && e.stack ? e.stack : e) }, 500, request);
     }
-
-    const items = (rows || []).map((r) => {
-      let orderItems = [];
-      try {
-        orderItems = (JSON.parse(r.items_json) || []).map(it => ({
-          name: it.name, qty: it.qty, price_cents: it.price_cents, image_url: it.image_url || null,
-        }));
-      } catch {}
-      return {
-        id: r.id,
-        status: r.status || null,
-        payment_status: r.payment_status || null,
-        printful_status: r.printful_status || null,
-        tracking_number: r.tracking_number || null,
-        tracking_url: r.tracking_url || null,
-        carrier: r.carrier || null,
-        total_cents: r.total_cents,
-        currency: r.currency || 'USD',
-        created_at: r.created_at || null,
-        items: orderItems,
-      };
-    });
-
-    return jsonResponse({ items }, 200, request);
   }
 
   async function apiPrintfulWebhookRegister(request) {
