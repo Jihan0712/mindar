@@ -3806,15 +3806,22 @@
 
     let styleId, placement, technique;
     try {
-      // /mockup-styles groups results BY PLACEMENT — each group carries its own
-      // placement/technique (e.g. "front"/"dtg", or "embroidery_chest_left"/"embroidery"
-      // for garments that don't support DTG at all) plus a nested mockup_styles[] array
-      // holding the actual selectable style objects. The group itself has no "id".
-      const placementGroups = await Printful.listMockupStyles(pfEnv, product.printful_catalog_product_id);
-      const frontGroup = placementGroups.find(g => String(g.placement || '').toLowerCase() === 'front') || placementGroups[0];
+      // Printful's documented response shape for this endpoint has been wrong twice
+      // already (first assumed flat, then assumed grouped-by-placement with a nested
+      // mockup_styles[]) — call it raw here instead of going through listMockupStyles'
+      // unwrapping, so a resolution failure can report exactly what came back instead of
+      // guessing a third shape blind.
+      const raw = await Printful.callPrintful(pfEnv, 'GET', `/catalog-products/${Number(product.printful_catalog_product_id)}/mockup-styles`);
+      const placementGroups = (raw && (raw.data ?? raw.result)) || [];
+      const list = Array.isArray(placementGroups) ? placementGroups : [];
+      const frontGroup = list.find(g => String(g && g.placement || '').toLowerCase() === 'front') || list[0];
       const styles = frontGroup && Array.isArray(frontGroup.mockup_styles) ? frontGroup.mockup_styles : [];
       if (!frontGroup || !styles.length || styles[0].id == null) {
-        return jsonResponse({ error: 'No mockup styles available for this garment' }, 502, request);
+        // Fold the raw response into the error message itself (not a separate field) —
+        // the dashboard's apiFetch() only ever surfaces `error`, so this is the only way
+        // the actual shape reaches the UI instead of getting silently dropped.
+        const rawStr = JSON.stringify(raw).slice(0, 900);
+        return jsonResponse({ error: `No mockup styles available for this garment. Raw response: ${rawStr}` }, 502, request);
       }
       styleId = styles[0].id;
       placement = frontGroup.placement || 'front';
