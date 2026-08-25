@@ -257,7 +257,20 @@
   export default {
     async fetch(request, env, ctx) {
       setEnvGlobals(env);
-      return handleRequest(request);
+      try {
+        return await handleRequest(request);
+      } catch (e) {
+        // Without this, any uncaught exception anywhere in the request chain becomes an
+        // opaque Cloudflare "Worker threw exception" page with no detail at all — this
+        // converts it into a real, debuggable JSON error instead.
+        console.error('[fetch] Uncaught error:', e && e.stack ? e.stack : String(e));
+        const headers = new Headers({ 'Content-Type': 'application/json' });
+        try { headers.set('Access-Control-Allow-Origin', buildCorsHeaders(request).get('Access-Control-Allow-Origin') || ''); } catch {}
+        return new Response(JSON.stringify({
+          error: 'Internal server error',
+          detail: String(e && e.stack ? e.stack : e),
+        }), { status: 500, headers });
+      }
     }
   };
 
@@ -1637,12 +1650,26 @@
     const sid = String(sessionId || '').trim();
     if (!rawId || !sid) return jsonResponse({ error: 'order id and session_id required' }, 400, request);
 
-    const row = await dbGet(
-      `select id, email, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
+    // The Printful migration (sql/printful_migration.sql) adds tracking columns to orders.
+    // If it hasn't been run yet, fall back to the base columns so this endpoint still works
+    // instead of throwing "no such column" and crashing the whole request.
+    const FULL_SQL = `select id, email, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
               total_cents, currency, items_json, stripe_session_id, created_at
-       from orders where id = ?`,
-      rawId
-    );
+       from orders where id = ?`;
+    const BASE_SQL = `select id, email, status, payment_status, total_cents, currency, items_json, stripe_session_id, created_at
+       from orders where id = ?`;
+
+    let row;
+    try {
+      row = await dbGet(FULL_SQL, rawId);
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column')) {
+        row = await dbGet(BASE_SQL, rawId);
+      } else {
+        throw e;
+      }
+    }
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
     if (!row.stripe_session_id || row.stripe_session_id !== sid) {
@@ -3024,12 +3051,26 @@
     const rawEmail = String(email || '').trim().toLowerCase();
     if (!rawId || !rawEmail) return jsonResponse({ error: 'order id and email required' }, 400, request);
 
-    const row = await dbGet(
-      `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at,
+    // The Printful migration (sql/printful_migration.sql) adds tracking columns to orders.
+    // If it hasn't been run yet, fall back to the base columns so this endpoint still works
+    // instead of throwing "no such column" and crashing the whole request.
+    const FULL_SQL = `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at,
               printful_status, tracking_number, tracking_url, carrier, shipped_at
-       from orders where id = ?`,
-      rawId
-    );
+       from orders where id = ?`;
+    const BASE_SQL = `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at
+       from orders where id = ?`;
+
+    let row;
+    try {
+      row = await dbGet(FULL_SQL, rawId);
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column')) {
+        row = await dbGet(BASE_SQL, rawId);
+      } else {
+        throw e;
+      }
+    }
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
     if (String(row.email || '').trim().toLowerCase() !== rawEmail) {
@@ -3135,44 +3176,54 @@
     const email = String(sess.user.email || '').trim().toLowerCase();
     if (!email) return jsonResponse({ items: [] }, 200, request);
 
-    // TEMP: wrapped in try/catch so a real D1 error surfaces as JSON instead of an opaque
-    // Cloudflare 1101 crash page. Remove the catch once this is confirmed stable.
+    // The Printful migration (sql/printful_migration.sql) adds tracking columns to orders.
+    // If it hasn't been run yet, fall back to the base columns so this endpoint still works
+    // instead of throwing "no such column" and crashing the whole request.
+    const FULL_SQL = `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
+              total_cents, currency, items_json, created_at
+       from orders where lower(trim(email)) = ?
+       order by created_at desc
+       limit 100`;
+    const BASE_SQL = `select id, status, payment_status, total_cents, currency, items_json, created_at
+       from orders where lower(trim(email)) = ?
+       order by created_at desc
+       limit 100`;
+
+    let rows;
     try {
-      const rows = await dbAll(
-        `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
-                total_cents, currency, items_json, created_at
-         from orders where lower(trim(email)) = ?
-         order by created_at desc
-         limit 100`,
-        email
-      );
-
-      const items = (rows || []).map((r) => {
-        let orderItems = [];
-        try {
-          orderItems = (JSON.parse(r.items_json) || []).map(it => ({
-            name: it.name, qty: it.qty, price_cents: it.price_cents, image_url: it.image_url || null,
-          }));
-        } catch {}
-        return {
-          id: r.id,
-          status: r.status || null,
-          payment_status: r.payment_status || null,
-          printful_status: r.printful_status || null,
-          tracking_number: r.tracking_number || null,
-          tracking_url: r.tracking_url || null,
-          carrier: r.carrier || null,
-          total_cents: r.total_cents,
-          currency: r.currency || 'USD',
-          created_at: r.created_at || null,
-          items: orderItems,
-        };
-      });
-
-      return jsonResponse({ items }, 200, request);
+      rows = await dbAll(FULL_SQL, email);
     } catch (e) {
-      return jsonResponse({ error: 'apiListMyOrders failed', detail: String(e && e.stack ? e.stack : e) }, 500, request);
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column')) {
+        rows = await dbAll(BASE_SQL, email);
+      } else {
+        throw e;
+      }
     }
+
+    const items = (rows || []).map((r) => {
+      let orderItems = [];
+      try {
+        orderItems = (JSON.parse(r.items_json) || []).map(it => ({
+          name: it.name, qty: it.qty, price_cents: it.price_cents, image_url: it.image_url || null,
+        }));
+      } catch {}
+      return {
+        id: r.id,
+        status: r.status || null,
+        payment_status: r.payment_status || null,
+        printful_status: r.printful_status || null,
+        tracking_number: r.tracking_number || null,
+        tracking_url: r.tracking_url || null,
+        carrier: r.carrier || null,
+        total_cents: r.total_cents,
+        currency: r.currency || 'USD',
+        created_at: r.created_at || null,
+        items: orderItems,
+      };
+    });
+
+    return jsonResponse({ items }, 200, request);
   }
 
   async function apiPrintfulWebhookRegister(request) {

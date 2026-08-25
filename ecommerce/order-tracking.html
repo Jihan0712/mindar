@@ -109,7 +109,10 @@
     <div class="container" style="max-width:680px">
 
       <div id="myOrdersSection" style="display:none;border:3px solid rgba(245,245,240,.08);padding:48px 40px;margin-bottom:40px">
-        <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;border-top:3px solid #00ED0A;padding-top:10px;margin-bottom:24px">Your Orders</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-top:3px solid #00ED0A;padding-top:10px;margin-bottom:24px">
+          <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A">Your Orders</div>
+          <a href="#" id="showTrackForm" style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(245,245,240,.4);text-decoration:none">Look up a different order &rarr;</a>
+        </div>
         <div id="myOrdersList"></div>
       </div>
 
@@ -329,6 +332,7 @@
       const sectionEl = document.getElementById('myOrdersSection');
       const listEl = document.getElementById('myOrdersList');
       const introEl = document.getElementById('lookupIntro');
+      const manualFormEl = document.querySelector('#trackForm')?.closest('div[style*="border:3px solid rgba(245,245,240,.08)"]');
       if (!sectionEl || !listEl) return;
 
       try {
@@ -338,15 +342,28 @@
         const orders = Array.isArray(data.items) ? data.items : [];
         if (!orders.length) {
           listEl.innerHTML = '<p style="font-size:13px;color:rgba(245,245,240,.4)">No orders on your account yet.</p>';
+          // No orders — keep manual form visible, show "Your Orders" section with empty state
+          sectionEl.style.display = '';
+          if (introEl) introEl.textContent = 'Looking up a different order (placed as a guest, or under another email)? Use the form below.';
         } else {
           listEl.innerHTML = orders.map(function(o) {
             return '<div style="margin-bottom:16px">' + buildOrderCardHtml(o, 'Order ' + (o.id || '')) + '</div>';
           }).join('');
+          // Has orders — show "Your Orders" section, HIDE manual form
+          sectionEl.style.display = '';
+          if (manualFormEl) manualFormEl.style.display = 'none';
+          if (introEl) introEl.textContent = 'Looking up a different order (placed as a guest, or under another email)? Use the form below.';
         }
-        sectionEl.style.display = '';
-        if (introEl) introEl.textContent = 'Looking up a different order (placed as a guest, or under another email)? Use the form below.';
       } catch (e) {}
     }
+
+    // Toggle to show manual lookup form again
+    document.getElementById('showTrackForm')?.addEventListener('click', function(e) {
+      e.preventDefault();
+      const manualFormEl = document.querySelector('#trackForm')?.closest('div[style*="border:3px solid rgba(245,245,240,.08)"]');
+      if (manualFormEl) manualFormEl.style.display = '';
+      // Also make sure "Your Orders" section stays visible (user might want to reference it)
+    });
 
     async function submitTrack() {
       if (_trackLookupActive) return;
