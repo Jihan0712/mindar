@@ -46,7 +46,7 @@
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'X-PF-Language': 'EN',
+          'X-PF-Language': 'en_US',
         },
       };
       if (body != null) opts.body = JSON.stringify(body);
@@ -60,24 +60,46 @@
       return json;
     }
 
+    // v2's catalog endpoints are paginated (max 100/page) with no server-side name search,
+    // so browsing/searching means walking every page once per request.
+    async function fetchAllPaginated(env, path) {
+      const limit = 100;
+      let offset = 0;
+      let all = [];
+      while (true) {
+        const sep = path.includes('?') ? '&' : '?';
+        const data = await callPrintful(env, 'GET', `${path}${sep}limit=${limit}&offset=${offset}`);
+        const items = (data && (data.data ?? data.result)) || [];
+        const list = Array.isArray(items) ? items : [];
+        all = all.concat(list);
+        const total = data && data.paging && Number.isFinite(Number(data.paging.total))
+          ? Number(data.paging.total)
+          : null;
+        offset += limit;
+        if (!list.length) break;
+        if (total != null && all.length >= total) break;
+        if (total == null && list.length < limit) break;
+        if (offset > 5000) break; // safety cap against runaway pagination
+      }
+      return all;
+    }
+
+    // GET /v2/catalog-products/{id} does not include an embedded variants array —
+    // variants are a separate paginated resource.
     async function fetchCatalogProduct(env, catalogProductId) {
       const id = Number(catalogProductId);
       if (!Number.isFinite(id) || id <= 0) {
         throw new Error('Invalid catalog product id');
       }
-      const data = await callPrintful(env, 'GET', `/products/${id}`);
-      return (data && (data.result ?? data.data)) || null;
+      const data = await callPrintful(env, 'GET', `/catalog-products/${id}`);
+      const product = (data && (data.data ?? data.result)) || null;
+      if (!product) return null;
+      const variants = await fetchAllPaginated(env, `/catalog-products/${id}/catalog-variants`);
+      return { ...product, variants };
     }
 
     async function listCatalogProducts(env) {
-      const data = await callPrintful(env, 'GET', '/products');
-      const payload = data && (data.result ?? data.data ?? data);
-      if (Array.isArray(payload)) return payload;
-      if (payload && typeof payload === 'object') {
-        if (Array.isArray(payload.products)) return payload.products;
-        if (Array.isArray(payload.items)) return payload.items;
-      }
-      return [];
+      return fetchAllPaginated(env, '/catalog-products');
     }
 
     function normalizeSizeLabel(s) {

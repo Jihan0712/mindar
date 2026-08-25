@@ -1717,6 +1717,15 @@
         pfPickerSetStatus(items.length + ' catalog product(s) found.');
       }
 
+      // If the product currently open in the left-hand edit form is the one we just
+      // linked, refresh the form's own fields (link summary + variant inputs) so the
+      // admin sees the result immediately instead of stale "not linked yet" state.
+      function syncOpenFormAfterLink(productId) {
+        if (String(el('productId').value || '').trim() !== String(productId)) return;
+        var p = products.find(function(x) { return String(x.id) === String(productId); });
+        if (p) setFormProduct(p, isAdmin);
+      }
+
       async function pfPickerLinkTo(catalogProductId) {
         var productId = document.getElementById('pfPickerProductId').value;
         if (!productId) throw new Error('Missing product id');
@@ -1732,6 +1741,7 @@
           : 'All sizes linked.');
         await loadPrintfulProducts();
         await refresh();
+        syncOpenFormAfterLink(productId);
       }
 
       async function pfPickerSaveOverrides() {
@@ -1753,6 +1763,7 @@
         pfPickerSetStatus((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes linked.');
         await loadPrintfulProducts();
         await refresh();
+        syncOpenFormAfterLink(productId);
       }
 
       function printfulOrderStatusChip(status) {
