@@ -1,20 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <title>Order Confirmation | INRL</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Order Confirmation — INRL</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="style.css">
-  <script src="/assets/js/auth-worker.js?v=20260401"></script>
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <!-- NAVBAR -->
   <nav class="navbar navbar-expand-lg fixed-top p-3">
     <div class="container-fluid">
       <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:36px"></a>
@@ -29,63 +28,93 @@
             <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
             <li class="nav-item"><a class="nav-link" href="shop.html">Shop</a></li>
             <li class="nav-item"><a class="nav-link" href="order-tracking.html">Track Order</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogin" href="login.html">Login</a></li>
+            <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navArDashboard" href="/admin.html" style="display:none">AR Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
           </ul>
         </div>
       </div>
     </div>
   </nav>
 
-  <!-- CONFIRMATION SECTION -->
-  <section style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:100px 16px 60px;background:#1C1C1C">
-    <div style="width:100%;max-width:520px">
+  <section class="py-5" style="min-height:100vh;display:flex;align-items:center;margin-top:76px">
+    <div class="container" style="max-width:640px">
 
-      <div class="text-center mb-4">
-        <a href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:48px"></a>
+      <!-- CONFIRMING -->
+      <div id="stateConfirming" style="border:3px solid #1C1C1C;padding:48px 40px;box-shadow:6px 6px 0 #1C1C1C;text-align:center">
+        <div class="spinner-border mb-3" role="status" style="color:#1C1C1C;width:2.5rem;height:2.5rem"></div>
+        <h1 class="text-uppercase mb-2" style="font-size:26px">Confirming Payment&hellip;</h1>
+        <p class="text-body-secondary mb-0">Hang tight &mdash; this usually takes just a few seconds.</p>
       </div>
 
-      <div style="border:3px solid rgba(245,245,240,.15);box-shadow:6px 6px 0 rgba(0,237,10,.15);padding:40px 36px;background:#212121">
+      <!-- PAID -->
+      <div id="statePaid" style="display:none">
+        <div style="border:3px solid #1C1C1C;padding:40px;box-shadow:6px 6px 0 #1C1C1C;background:#FEFD00;margin-bottom:24px">
+          <div style="font-size:38px;line-height:1">&#10003;</div>
+          <h1 class="text-uppercase mb-1 mt-2" style="font-size:28px">Order Confirmed</h1>
+          <p class="mb-0" style="font-size:14px">Thanks &mdash; your order is paid and on its way to production.</p>
+        </div>
 
-        <div id="stateConfirming">
-          <div class="text-center mb-3">
-            <div class="spinner-border" role="status" style="color:#00ED0A;width:2.5rem;height:2.5rem"></div>
+        <div style="border:3px solid #1C1C1C;padding:32px;box-shadow:6px 6px 0 #1C1C1C;margin-bottom:24px">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3 pb-3" style="border-bottom:2px solid #1C1C1C">
+            <div>
+              <div class="text-uppercase text-body-secondary" style="font-size:11px;letter-spacing:.1em">Order ID</div>
+              <code id="orderIdOut" style="font-size:14px"></code>
+            </div>
+            <div class="text-md-end">
+              <div class="text-uppercase text-body-secondary" style="font-size:11px;letter-spacing:.1em">Placed</div>
+              <div id="dateOut" style="font-size:14px"></div>
+            </div>
           </div>
-          <h1 class="text-uppercase text-center mb-1" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#F5F5F0;letter-spacing:-0.03em">Confirming Payment&hellip;</h1>
-          <p class="text-center" style="font-size:13px;color:rgba(245,245,240,.4)">This usually takes a few seconds.</p>
-        </div>
 
-        <div id="statePaid" style="display:none">
-          <h1 class="text-uppercase mb-1" style="font-family:'Averia Serif Libre',serif;font-size:26px;color:#00ED0A;letter-spacing:-0.03em">Order Confirmed</h1>
-          <p style="font-size:13px;color:rgba(245,245,240,.5);margin-bottom:20px">Printful is printing and preparing your order for shipment.</p>
-          <div style="font-size:13px;color:rgba(245,245,240,.7);margin-bottom:6px">Order ID: <code id="orderIdOut" style="color:#00ED0A"></code></div>
-          <ul id="itemsOut" class="list-unstyled" style="font-size:13px;color:rgba(245,245,240,.7);margin:12px 0"></ul>
-          <div class="d-flex justify-content-between" style="border-top:2px solid rgba(245,245,240,.15);padding-top:12px;margin-top:12px;font-size:14px;color:#F5F5F0">
-            <strong class="text-uppercase">Total</strong>
-            <strong id="totalOut"></strong>
+          <ul id="itemsOut" class="list-unstyled mb-3"></ul>
+
+          <div class="d-flex justify-content-between align-items-center pt-3" style="border-top:2px solid #1C1C1C">
+            <strong class="text-uppercase">Total Paid</strong>
+            <strong class="fs-4" id="totalOut"></strong>
           </div>
-          <a id="trackLink" href="order-tracking.html" class="btn w-100 mt-4" style="background:#00ED0A;color:#1C1C1C;border:3px solid #1C1C1C;font-family:'Roboto Mono',monospace;font-weight:700;text-transform:uppercase;font-size:13px;letter-spacing:.1em;padding:12px">Track Your Order</a>
         </div>
 
-        <div id="statePending" style="display:none">
-          <h1 class="text-uppercase mb-1" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#FEFD00;letter-spacing:-0.03em">Still Processing</h1>
-          <p style="font-size:13px;color:rgba(245,245,240,.5)">Your payment is taking a bit longer to confirm than usual. You'll get a confirmation once it clears — no need to try again. You can check status any time on the order tracking page.</p>
-          <a id="trackLinkPending" href="order-tracking.html" class="btn btn-outline-light w-100 mt-3" style="border-radius:0;font-family:'Roboto Mono',monospace;font-size:13px;text-transform:uppercase;letter-spacing:.08em">Check Order Status</a>
+        <div style="border:3px solid #1C1C1C;padding:32px;box-shadow:6px 6px 0 #1C1C1C;margin-bottom:24px">
+          <h2 class="text-uppercase mb-3" style="font-size:16px">What Happens Next</h2>
+          <ol class="mb-0" style="padding-left:20px;font-size:14px">
+            <li class="mb-2"><strong>Printing.</strong> Your design goes straight into production &mdash; no extra steps on your end.</li>
+            <li class="mb-2"><strong>Shipping.</strong> Once it ships, you'll get a tracking number and carrier here and via email.</li>
+            <li class="mb-0"><strong>Delivery.</strong> Track progress any time on the order tracking page below.</li>
+          </ol>
         </div>
 
-        <div id="stateError" style="display:none">
-          <h1 class="text-uppercase mb-1" style="font-family:'Averia Serif Libre',serif;font-size:24px;color:#ff4d4f;letter-spacing:-0.03em">Something Went Wrong</h1>
-          <p id="errorMsg" style="font-size:13px;color:rgba(245,245,240,.5)"></p>
-          <a href="checkout.html" class="btn btn-outline-light w-100 mt-3" style="border-radius:0;font-family:'Roboto Mono',monospace;font-size:13px;text-transform:uppercase;letter-spacing:.08em">Back to Checkout</a>
+        <div class="d-flex flex-column flex-sm-row gap-2">
+          <a id="trackLink" href="order-tracking.html" class="btn btn-primary text-uppercase flex-fill">Track Your Order</a>
+          <a href="shop.html" class="btn btn-outline-dark text-uppercase flex-fill">Continue Shopping</a>
         </div>
-
       </div>
+
+      <!-- STILL PENDING (webhook hasn't landed yet) -->
+      <div id="statePending" style="display:none;border:3px solid #1C1C1C;padding:40px;box-shadow:6px 6px 0 #1C1C1C;text-align:center">
+        <h1 class="text-uppercase mb-2" style="font-size:24px">Still Processing</h1>
+        <p class="text-body-secondary">Your payment is taking a little longer than usual to confirm. You don't need to try again &mdash; you'll get a confirmation as soon as it clears, or you can check status any time below.</p>
+        <a id="trackLinkPending" href="order-tracking.html" class="btn btn-outline-dark text-uppercase mt-2">Check Order Status</a>
+      </div>
+
+      <!-- ERROR -->
+      <div id="stateError" style="display:none;border:3px solid #1C1C1C;padding:40px;box-shadow:6px 6px 0 #1C1C1C;text-align:center">
+        <h1 class="text-uppercase mb-2" style="font-size:24px;color:#c0392b">Something Went Wrong</h1>
+        <p id="errorMsg" class="text-body-secondary"></p>
+        <a href="checkout.html" class="btn btn-outline-dark text-uppercase mt-2">Back to Checkout</a>
+      </div>
+
     </div>
   </section>
 
-  <!-- FOOTER -->
   <footer id="footer">
     <div class="container">
       <div class="row py-5">
-        <div class="col-md-3 col-sm-6 mb-4"><div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:36px"></div><p>Next-gen digital identity and fashion.</p></div>
+        <div class="col-md-3 col-sm-6 mb-4">
+          <div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:36px"></div>
+          <p>Next-gen digital identity and fashion.</p>
+        </div>
         <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Quick Links</h5><ul class="list-unstyled"><li class="mb-2"><a href="index.html">Home</a></li><li class="mb-2"><a href="shop.html">Shop</a></li><li class="mb-2"><a href="about.html">About</a></li><li class="mb-2"><a href="contact.html">Contact</a></li></ul></div>
         <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Help & Info</h5><ul class="list-unstyled"><li class="mb-2"><a href="order-tracking.html">Track Order</a></li><li class="mb-2"><a href="faqs.html">FAQs</a></li><li class="mb-2"><a href="contact.html">Contact Us</a></li></ul></div>
         <div class="col-md-3 col-sm-6 mb-4"><h5 class="text-uppercase mb-4">Contact</h5><p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p></div>
@@ -95,8 +124,12 @@
   </footer>
 
   <script src="js/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
   <script src="js/cart.js"></script>
+  <script>
+  (async function initAuthNav(){var loginEl=document.getElementById('navLogin');var dashEl=document.getElementById('navDashboard');var logoutEl=document.getElementById('navLogout');try{var me=await auth.me();var user=me&&me.email?me:null;if(loginEl)loginEl.style.display=user?'none':'';var canDash=user&&(user.role==='admin'||user.role==='brand');if(dashEl)dashEl.style.display=canDash?'':'none';var arDashEl=document.getElementById('navArDashboard');if(arDashEl)arDashEl.style.display=canDash?'':'none';if(logoutEl){logoutEl.style.display=user?'':'none';logoutEl.addEventListener('click',async function(e){e.preventDefault();await auth.logout();location.reload()})}}catch(e){}})();
+  CartUI.render();
+  </script>
   <script>
     (function () {
       const qs = new URLSearchParams(location.search);
@@ -118,20 +151,37 @@
         catch { return '$' + v.toFixed(2); }
       }
 
+      function formatDate(iso) {
+        if (!iso) return '';
+        try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)); }
+        catch { return iso; }
+      }
+
       function showPaid(data) {
         document.getElementById('orderIdOut').textContent = data.order_id || orderId || '';
+        document.getElementById('dateOut').textContent = formatDate(data.created_at) || '—';
         document.getElementById('totalOut').textContent = formatMoney(data.total_cents, data.currency);
+
         const itemsOut = document.getElementById('itemsOut');
         itemsOut.innerHTML = (data.items || []).map(function (it) {
-          return '<li class="d-flex justify-content-between"><span>' + (it.name || '') + ' &times; ' + it.qty + '</span><span>' +
-            formatMoney((it.price_cents || 0) * (it.qty || 1)) + '</span></li>';
+          const img = it.image_url
+            ? '<img src="' + it.image_url + '" alt="" style="width:48px;height:48px;object-fit:cover;border:1px solid #1C1C1C;flex-shrink:0">'
+            : '<div style="width:48px;height:48px;background:#eee;border:1px solid #1C1C1C;flex-shrink:0"></div>';
+          return '<li class="d-flex align-items-center gap-3 py-2" style="border-bottom:1px solid rgba(28,28,28,.1)">' +
+            img +
+            '<div class="flex-grow-1"><div style="font-size:14px;font-weight:600">' + (it.name || '') + '</div>' +
+            '<div class="text-body-secondary" style="font-size:12px">Qty: ' + (it.qty || 1) + '</div></div>' +
+            '<div style="font-size:14px">' + formatMoney((it.price_cents || 0) * (it.qty || 1)) + '</div>' +
+          '</li>';
         }).join('');
+
         const trackLink = document.getElementById('trackLink');
         if (trackLink && data.order_id) trackLink.href = 'order-tracking.html?order=' + encodeURIComponent(data.order_id);
 
         // Payment is confirmed — safe to clear the cart now and record local order history.
         try {
           if (window.Cart) Cart.clear();
+          if (window.CartUI) CartUI.render();
           const ORDERS_KEY = 'mindar_orders_v1';
           const prev = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
           if (!prev.some(o => o.order_id === data.order_id)) {

@@ -1627,7 +1627,7 @@
     try {
       row = await dbGet(
         `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
-                total_cents, currency, items_json, stripe_session_id
+                total_cents, currency, items_json, stripe_session_id, created_at
          from orders where id = ?`,
         rawId
       );
@@ -1636,7 +1636,7 @@
       if (msg.toLowerCase().includes('no such column')) {
         row = await dbGet(
           `select id, status, printful_status, tracking_number, tracking_url, carrier,
-                  total_cents, currency, items_json, stripe_session_id
+                  total_cents, currency, items_json, stripe_session_id, created_at
            from orders where id = ?`,
           rawId
         ).catch(() => null);
@@ -1650,7 +1650,9 @@
 
     let items = [];
     try {
-      items = (JSON.parse(row.items_json) || []).map(it => ({ name: it.name, qty: it.qty, price_cents: it.price_cents }));
+      items = (JSON.parse(row.items_json) || []).map(it => ({
+        name: it.name, qty: it.qty, price_cents: it.price_cents, image_url: it.image_url || null,
+      }));
     } catch {}
 
     return jsonResponse({
@@ -1663,6 +1665,7 @@
       carrier: row.carrier || null,
       total_cents: row.total_cents,
       currency: row.currency || 'USD',
+      created_at: row.created_at || null,
       items,
     }, 200, request);
   }
