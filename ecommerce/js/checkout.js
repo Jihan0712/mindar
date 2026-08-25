@@ -66,6 +66,7 @@
       status('Preparing secure payment…', false);
       const res = await fetch(`${API_BASE}/api/checkout/session`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
