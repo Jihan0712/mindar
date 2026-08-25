@@ -158,7 +158,9 @@
 
     // GET /v2/catalog-products/{id}/mockup-styles — mockup_style_ids is a required field
     // on mockup-task creation, so this is how the worker discovers a valid one instead of
-    // hardcoding a style id that may not exist for every garment.
+    // hardcoding a style id that may not exist for every garment. Returns an array grouped
+    // BY PLACEMENT — each item is {placement, technique, mockup_styles: [{id, ...}], ...},
+    // not a flat list of style objects; the group itself has no "id".
     async function listMockupStyles(env, catalogProductId) {
       const data = await callPrintful(env, 'GET', `/catalog-products/${Number(catalogProductId)}/mockup-styles`);
       const list = (data && (data.data ?? data.result)) || [];
@@ -3802,12 +3804,21 @@
     const pfEnv = printfulEnv();
     if (!Printful.getPrintfulConfig(pfEnv).apiKey) return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
 
-    let styleId;
+    let styleId, placement, technique;
     try {
-      const styles = await Printful.listMockupStyles(pfEnv, product.printful_catalog_product_id);
-      const front = styles.find(s => String(s.placement || '').toLowerCase() === 'front') || styles[0];
-      if (!front || front.id == null) return jsonResponse({ error: 'No mockup styles available for this garment' }, 502, request);
-      styleId = front.id;
+      // /mockup-styles groups results BY PLACEMENT — each group carries its own
+      // placement/technique (e.g. "front"/"dtg", or "embroidery_chest_left"/"embroidery"
+      // for garments that don't support DTG at all) plus a nested mockup_styles[] array
+      // holding the actual selectable style objects. The group itself has no "id".
+      const placementGroups = await Printful.listMockupStyles(pfEnv, product.printful_catalog_product_id);
+      const frontGroup = placementGroups.find(g => String(g.placement || '').toLowerCase() === 'front') || placementGroups[0];
+      const styles = frontGroup && Array.isArray(frontGroup.mockup_styles) ? frontGroup.mockup_styles : [];
+      if (!frontGroup || !styles.length || styles[0].id == null) {
+        return jsonResponse({ error: 'No mockup styles available for this garment' }, 502, request);
+      }
+      styleId = styles[0].id;
+      placement = frontGroup.placement || 'front';
+      technique = frontGroup.technique || 'dtg';
     } catch (e) {
       return jsonResponse({ error: `Could not load mockup styles: ${String(e && e.message ? e.message : e)}` }, 502, request);
     }
@@ -3820,8 +3831,8 @@
         catalogProductId: product.printful_catalog_product_id,
         catalogVariantIds: catalogVariantIds.slice(0, 1),
         mockupStyleIds: [styleId],
-        placement: 'front',
-        technique: 'dtg',
+        placement,
+        technique,
         imageUrl,
       });
     } catch (e) {
