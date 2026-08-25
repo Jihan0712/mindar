@@ -730,6 +730,10 @@
     if (request.method === 'GET'  && pathname === '/api/homepage')             return apiGetHomepage(request);
     if (request.method === 'POST' && pathname === '/api/homepage')             return apiUpdateHomepage(request);
 
+    // Site branding/theme (colors, logo, name) — admin-editable
+    if (request.method === 'GET'  && pathname === '/api/theme')                return apiGetTheme(request);
+    if (request.method === 'POST' && pathname === '/api/theme')                return apiUpdateTheme(request);
+
     // R2 asset proxy — /api/r2/<key> routes through Worker regardless of Cloudflare route config
     if (request.method === 'GET' && pathname.startsWith('/api/r2/')) {
       const key = pathname.slice('/api/r2/'.length).replace(/^\/+/, '');
@@ -928,6 +932,96 @@
     }
 
     return jsonResponse({ ok: true, content: normalized, updated_at: now, updated_by: sess.user.email || sess.user.id }, 200, request);
+  }
+
+  // Site-wide branding (colors/logo/name), admin-editable from the dashboard's Branding
+  // tab. Same site_content key/JSON storage as the homepage content above — no schema
+  // migration needed, just a new key.
+  const HEX_COLOR_RE = /^#[0-9a-fA-F]{3,8}$/;
+
+  function clampHexColor(s) {
+    const v = String(s || '').trim();
+    return HEX_COLOR_RE.test(v) ? v : '';
+  }
+
+  function normalizeThemePayload(body) {
+    const colorsIn = body && typeof body.colors === 'object' && body.colors ? body.colors : {};
+    const colors = {
+      primary: clampHexColor(colorsIn.primary),
+      accent: clampHexColor(colorsIn.accent),
+      dark: clampHexColor(colorsIn.dark),
+      light: clampHexColor(colorsIn.light),
+    };
+    return {
+      colors,
+      logoUrl: clampStr(body && body.logoUrl, 800),
+      siteName: clampStr(body && body.siteName, 60),
+      tagline: clampStr(body && body.tagline, 200),
+    };
+  }
+
+  function defaultThemeContent() {
+    return normalizeThemePayload({
+      colors: { primary: '#00ED0A', accent: '#FEFD00', dark: '#1C1C1C', light: '#F5F5F0' },
+      logoUrl: 'images/main-logo.png',
+      siteName: 'INRL',
+      tagline: 'Next-gen digital identity and fashion. Bold design, no compromise.',
+    });
+  }
+
+  async function apiGetTheme(request) {
+    try {
+      const row = await dbGet('select json, updated_at from site_content where key = ?', 'theme');
+      if (!row || !row.json) {
+        return withCache(
+          jsonResponse({ ok: true, theme: defaultThemeContent(), updated_at: null }, 200, request),
+          'public, max-age=60, s-maxage=300'
+        );
+      }
+      let parsed = null;
+      try { parsed = JSON.parse(String(row.json)); } catch { parsed = null; }
+      const theme = parsed && typeof parsed === 'object' ? normalizeThemePayload(parsed) : defaultThemeContent();
+      return withCache(
+        jsonResponse({ ok: true, theme, updated_at: row.updated_at || null }, 200, request),
+        'public, max-age=60, s-maxage=300'
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
+        return jsonResponse({ error: 'DB migration required: create site_content table (run sql/homepage_content_migration.sql)' }, 500, request);
+      }
+      throw e;
+    }
+  }
+
+  async function apiUpdateTheme(request) {
+    const sess = await getSessionUser(request);
+    if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (sess.user.role !== 'admin') return jsonResponse({ error: 'Forbidden' }, 403, request);
+
+    const body = await readJson(request);
+    const normalized = normalizeThemePayload(body);
+    const now = new Date().toISOString();
+
+    try {
+      await dbRun(
+        `insert into site_content (key, json, updated_at, updated_by)
+        values (?, ?, ?, ?)
+        on conflict(key) do update set json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+        'theme',
+        JSON.stringify(normalized),
+        now,
+        sess.user.email || sess.user.id
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
+        return jsonResponse({ error: 'DB migration required: create site_content table (run sql/homepage_content_migration.sql)' }, 500, request);
+      }
+      throw e;
+    }
+
+    return jsonResponse({ ok: true, theme: normalized, updated_at: now }, 200, request);
   }
 
   function parseImageDataUrl(dataUrl) {

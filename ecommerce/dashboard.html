@@ -116,6 +116,9 @@
     <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">
       <button class="nav-link" id="tab-homepage" data-bs-toggle="tab" data-bs-target="#pane-homepage" type="button" role="tab">Homepage Editor</button>
     </li>
+    <li class="nav-item" role="presentation" id="tab-branding-item" style="display:none">
+      <button class="nav-link" id="tab-branding" data-bs-toggle="tab" data-bs-target="#pane-branding" type="button" role="tab">Branding</button>
+    </li>
     <li class="nav-item" role="presentation" id="tab-orders-item" style="display:none">
       <button class="nav-link" id="tab-orders" data-bs-toggle="tab" data-bs-target="#pane-orders" type="button" role="tab">Orders</button>
     </li>
@@ -391,6 +394,66 @@
       </div>
     </div>
   </div><!-- /pane-homepage -->
+
+  <!-- ===== BRANDING PANE ===== -->
+  <div class="tab-pane fade" id="pane-branding" role="tabpanel">
+    <div class="inrl-card">
+      <div class="inrl-card-header d-flex justify-content-between align-items-center">
+        <span>Branding</span>
+        <div class="d-flex gap-2">
+          <button id="brandingLoadBtn" class="btn btn-sm btn-inrl-outline" type="button" style="font-size:.62rem;padding:.22rem .65rem">Load</button>
+          <button id="brandingSaveBtn" class="btn btn-sm btn-inrl" type="button" style="font-size:.62rem;padding:.22rem .65rem">Save</button>
+        </div>
+      </div>
+      <div class="p-4">
+
+        <div class="inrl-section-title first">Site identity</div>
+        <div class="row g-3">
+          <div class="col-12 col-lg-6">
+            <label class="form-label" for="brandingSiteName">Site name</label>
+            <input id="brandingSiteName" class="form-control" type="text" placeholder="e.g. INRL" />
+          </div>
+          <div class="col-12 col-lg-6">
+            <label class="form-label">Logo</label>
+            <div class="input-group">
+              <input id="brandingLogoUrl" class="form-control" type="text" placeholder="URL or upload &#8594;" />
+              <label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">
+                Upload
+                <input type="file" accept="image/*" data-branding-upload="logo" style="display:none">
+              </label>
+            </div>
+            <img id="brandingLogoPreview" src="" alt="" style="display:none;margin-top:8px;max-height:48px;border:1px solid #333;object-fit:contain;background:#1C1C1C;padding:6px">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="brandingTagline">Tagline</label>
+            <input id="brandingTagline" class="form-control" type="text" placeholder="Shown in the footer" />
+          </div>
+        </div>
+
+        <div class="inrl-section-title">Colors</div>
+        <div class="row g-3">
+          <div class="col-6 col-lg-3">
+            <label class="form-label" for="brandingColorPrimary">Primary</label>
+            <input id="brandingColorPrimary" class="form-control form-control-color" type="color" value="#00ED0A" />
+          </div>
+          <div class="col-6 col-lg-3">
+            <label class="form-label" for="brandingColorAccent">Accent</label>
+            <input id="brandingColorAccent" class="form-control form-control-color" type="color" value="#FEFD00" />
+          </div>
+          <div class="col-6 col-lg-3">
+            <label class="form-label" for="brandingColorDark">Dark</label>
+            <input id="brandingColorDark" class="form-control form-control-color" type="color" value="#1C1C1C" />
+          </div>
+          <div class="col-6 col-lg-3">
+            <label class="form-label" for="brandingColorLight">Light</label>
+            <input id="brandingColorLight" class="form-control form-control-color" type="color" value="#F5F5F0" />
+          </div>
+        </div>
+        <div style="font-size:.65rem;color:#666;margin-top:.75rem">Changes apply site-wide (storefront nav, footer, buttons) after saving and a page reload.</div>
+
+      </div>
+    </div>
+  </div><!-- /pane-branding -->
 
   <!-- ===== ORDERS PANE (admin only) ===== -->
   <div class="tab-pane fade" id="pane-orders" role="tabpanel">
@@ -1064,6 +1127,9 @@
     const tabHomepageItem = document.getElementById('tab-homepage-item');
     if (tabHomepageItem) tabHomepageItem.style.display = isAdmin ? '' : 'none';
 
+    const tabBrandingItem = document.getElementById('tab-branding-item');
+    if (tabBrandingItem) tabBrandingItem.style.display = isAdmin ? '' : 'none';
+
     el('logoutBtn').addEventListener('click', async function(ev) {
       ev.preventDefault();
       await auth.logout();
@@ -1386,6 +1452,79 @@
         if (!homepageLoaded) {
           homepageLoaded = true;
           try { await loadHomepage(); } catch (e) { showStatus('Homepage failed to load: ' + (e.message || e), 'error'); }
+        }
+      });
+
+      // ---- Branding editor (admin only) ----
+      async function loadBranding() {
+        clearStatus();
+        const res = await apiFetch('/theme');
+        const theme = (res && res.theme) || {};
+        const colors = theme.colors || {};
+        el('brandingSiteName').value = theme.siteName || '';
+        el('brandingLogoUrl').value = theme.logoUrl || '';
+        el('brandingTagline').value = theme.tagline || '';
+        el('brandingColorPrimary').value = colors.primary || '#00ED0A';
+        el('brandingColorAccent').value = colors.accent || '#FEFD00';
+        el('brandingColorDark').value = colors.dark || '#1C1C1C';
+        el('brandingColorLight').value = colors.light || '#F5F5F0';
+        const logoUrl = theme.logoUrl || '';
+        const preview = el('brandingLogoPreview');
+        if (preview) { preview.src = logoUrl; preview.style.display = logoUrl ? '' : 'none'; }
+        showStatus('Branding loaded.', 'success');
+      }
+
+      async function saveBranding() {
+        clearStatus();
+        const payload = {
+          siteName: el('brandingSiteName').value.trim(),
+          logoUrl: el('brandingLogoUrl').value.trim(),
+          tagline: el('brandingTagline').value.trim(),
+          colors: {
+            primary: el('brandingColorPrimary').value,
+            accent: el('brandingColorAccent').value,
+            dark: el('brandingColorDark').value,
+            light: el('brandingColorLight').value,
+          },
+        };
+        await apiFetch('/theme', { method: 'POST', body: payload });
+        showStatus('Branding saved.', 'success');
+      }
+
+      document.getElementById('brandingLoadBtn').addEventListener('click', async function() {
+        try { await loadBranding(); } catch (e) { showStatus(e.message || String(e), 'error'); }
+      });
+      document.getElementById('brandingSaveBtn').addEventListener('click', async function() {
+        try { await saveBranding(); } catch (e) { showStatus(e.message || String(e), 'error'); }
+      });
+
+      document.querySelector('#pane-branding').addEventListener('change', async function(ev) {
+        const input = ev.target;
+        if (input.type !== 'file' || input.dataset.brandingUpload !== 'logo') return;
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const label = input.closest('label');
+        const origText = label ? label.childNodes[0].textContent.trim() : '';
+        if (label) label.childNodes[0].textContent = ' Uploading…';
+        try {
+          const url = await uploadProductImage(file, 'branding');
+          const urlInput = document.getElementById('brandingLogoUrl');
+          const preview = document.getElementById('brandingLogoPreview');
+          if (urlInput) urlInput.value = url;
+          if (preview) { preview.src = url; preview.style.display = ''; }
+        } catch (e) {
+          showStatus('Logo upload failed: ' + (e.message || e), 'error');
+        } finally {
+          if (label) label.childNodes[0].textContent = ' ' + (origText || 'Upload');
+          input.value = '';
+        }
+      });
+
+      let brandingLoaded = false;
+      document.getElementById('tab-branding').addEventListener('shown.bs.tab', async function() {
+        if (!brandingLoaded) {
+          brandingLoaded = true;
+          try { await loadBranding(); } catch (e) { showStatus('Branding failed to load: ' + (e.message || e), 'error'); }
         }
       });
 
