@@ -76,32 +76,44 @@
 
     /* ---- Sidebar shell ---- */
     .inrl-dash-shell { display:flex; align-items:stretch; min-height:100vh; }
-    .inrl-sidebar { flex:0 0 240px; width:240px; background:#111; border-right:3px solid #333; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
-    .inrl-sidebar-header { padding:1.25rem 1.1rem 1rem; border-bottom:3px solid #333; }
-    .inrl-sidebar-header .inrl-brand { display:block; margin-bottom:.15rem; }
-    .inrl-sidebar-header .inrl-subtitle { font-size:.62rem; text-transform:uppercase; letter-spacing:.09em; color:#555; }
-    .inrl-sidebar-nav { flex:1 1 auto; padding:.75rem .6rem; gap:.15rem; }
-    .inrl-sidebar-nav .nav-link { display:flex; align-items:center; gap:.6rem; color:#888; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.68rem; letter-spacing:.08em; font-weight:700; border:none; border-left:3px solid transparent; border-radius:0; padding:.65rem .75rem; background:transparent; text-align:left; transition:color .12s,background .12s,border-color .12s; }
-    .inrl-sidebar-nav .nav-link .inrl-nav-icon { flex:0 0 auto; width:16px; height:16px; opacity:.7; }
-    .inrl-sidebar-nav .nav-link:hover { color:#ccc; background:rgba(255,255,255,.04); }
-    .inrl-sidebar-nav .nav-link.active { color:#00ED0A; background:rgba(0,237,10,.06); border-left-color:#00ED0A; }
+    .inrl-sidebar { flex:0 0 264px; width:264px; background:#111; border-right:3px solid #333; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .inrl-sidebar-header { padding:1.4rem 1.25rem 1.1rem; border-bottom:3px solid #333; }
+    .inrl-sidebar-header .inrl-brand { display:flex; align-items:center; gap:.55rem; margin-bottom:.55rem; }
+    .inrl-sidebar-header .inrl-brand-mark { flex:0 0 auto; width:32px; height:32px; background:#00ED0A; color:#1C1C1C; display:flex; align-items:center; justify-content:center; font-family:'Averia Serif Libre',serif; font-weight:700; font-size:1.15rem; }
+    .inrl-sidebar-header .inrl-brand-name { font-family:'Averia Serif Libre',serif; font-size:1.25rem; font-weight:700; color:#F5F5F0; letter-spacing:.02em; }
+    .inrl-sidebar-header .inrl-subtitle { font-size:.64rem; text-transform:uppercase; letter-spacing:.12em; color:#00ED0A; font-weight:700; }
+    .inrl-sidebar-nav { flex:1 1 auto; padding:1.1rem .8rem; gap:.3rem; }
+    .inrl-sidebar-nav .inrl-nav-group-label { font-size:.58rem; text-transform:uppercase; letter-spacing:.12em; color:#444; font-weight:700; padding:.4rem .75rem .3rem; margin-top:.5rem; }
+    .inrl-sidebar-nav .inrl-nav-group-label:first-child { margin-top:0; }
+    .inrl-sidebar-nav .nav-link { display:flex; align-items:center; gap:.7rem; color:#999; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.7rem; letter-spacing:.06em; font-weight:700; border:none; border-radius:0; padding:.7rem .75rem; background:transparent; text-align:left; transition:color .12s,background .12s,transform .12s; }
+    .inrl-sidebar-nav .nav-link .inrl-nav-icon { flex:0 0 auto; width:18px; height:18px; opacity:.75; transition:opacity .12s; }
+    .inrl-sidebar-nav .nav-link:hover { color:#F5F5F0; background:rgba(255,255,255,.05); }
+    .inrl-sidebar-nav .nav-link:hover .inrl-nav-icon { opacity:1; }
+    .inrl-sidebar-nav .nav-link.active { color:#1C1C1C; background:#00ED0A; box-shadow:3px 3px 0 rgba(0,237,10,.25); }
     .inrl-sidebar-nav .nav-link.active .inrl-nav-icon { opacity:1; }
-    .inrl-sidebar-footer { border-top:3px solid #333; padding:.9rem 1.1rem 1.1rem; }
-    .inrl-sidebar-footer .inrl-user-email { font-size:.65rem; color:#888; word-break:break-all; margin-bottom:.15rem; }
-    .inrl-sidebar-footer .inrl-user-role { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; color:#555; margin-bottom:.75rem; }
-    .inrl-sidebar-footer .inrl-quicklinks { display:flex; flex-direction:column; gap:.35rem; margin-bottom:.75rem; }
-    .inrl-sidebar-footer .inrl-quicklinks a { font-size:.65rem; text-transform:uppercase; letter-spacing:.06em; color:#777; text-decoration:none; }
+    .inrl-sidebar-nav .nav-link.active:hover { color:#1C1C1C; background:#00ED0A; }
+    .inrl-sidebar-footer { border-top:3px solid #333; padding:1rem 1.25rem 1.25rem; }
+    .inrl-sidebar-footer .inrl-user-row { display:flex; align-items:center; gap:.6rem; margin-bottom:.9rem; }
+    .inrl-sidebar-footer .inrl-user-avatar { flex:0 0 auto; width:30px; height:30px; background:#212121; border:2px solid #333; color:#00ED0A; display:flex; align-items:center; justify-content:center; font-family:'Roboto Mono',monospace; font-weight:700; font-size:.72rem; text-transform:uppercase; }
+    .inrl-sidebar-footer .inrl-user-meta { min-width:0; }
+    .inrl-sidebar-footer .inrl-user-email { font-size:.66rem; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .inrl-sidebar-footer .inrl-user-role { font-size:.58rem; text-transform:uppercase; letter-spacing:.08em; color:#555; }
+    .inrl-sidebar-footer .inrl-quicklinks { display:flex; flex-direction:column; gap:.5rem; margin-bottom:.9rem; }
+    .inrl-sidebar-footer .inrl-quicklinks a { font-size:.65rem; text-transform:uppercase; letter-spacing:.06em; color:#777; text-decoration:none; transition:color .12s; }
     .inrl-sidebar-footer .inrl-quicklinks a:hover { color:#00ED0A; }
     .inrl-dash-main { flex:1 1 auto; min-width:0; padding:1.5rem 2rem 3rem; max-width:1400px; }
     @media (max-width:991.98px) {
       .inrl-dash-shell { flex-direction:column; }
       .inrl-sidebar { position:static; width:100%; height:auto; flex-direction:row; align-items:center; flex-wrap:wrap; }
-      .inrl-sidebar-header { border-bottom:none; border-right:3px solid #333; padding:.75rem 1rem; flex:0 0 auto; }
-      .inrl-sidebar-nav { display:flex; flex-direction:row; overflow-x:auto; padding:.5rem; flex:1 1 auto; }
-      .inrl-sidebar-nav .nav-link { border-left:none; border-bottom:3px solid transparent; white-space:nowrap; }
-      .inrl-sidebar-nav .nav-link.active { border-left-color:transparent; border-bottom-color:#00ED0A; }
+      .inrl-sidebar-header { border-bottom:none; border-right:3px solid #333; padding:.65rem 1rem; }
+      .inrl-sidebar-header .inrl-brand { margin-bottom:.2rem; }
+      .inrl-sidebar-header .inrl-subtitle { display:none; }
+      .inrl-sidebar-nav { display:flex; flex-direction:row; overflow-x:auto; padding:.5rem; flex:1 1 auto; gap:.25rem; }
+      .inrl-sidebar-nav .inrl-nav-group-label { display:none; }
+      .inrl-sidebar-nav .nav-link { white-space:nowrap; }
+      .inrl-sidebar-nav .nav-link.active { box-shadow:none; }
       .inrl-sidebar-footer { border-top:none; border-left:3px solid #333; display:flex; align-items:center; gap:.75rem; padding:.6rem 1rem; flex:0 0 auto; }
-      .inrl-sidebar-footer .inrl-user-email, .inrl-sidebar-footer .inrl-user-role { margin-bottom:0; }
+      .inrl-sidebar-footer .inrl-user-row { margin-bottom:0; }
       .inrl-sidebar-footer .inrl-quicklinks { flex-direction:row; gap:.6rem; margin-bottom:0; }
       .inrl-dash-main { padding:1.25rem 1rem 2.5rem; }
     }
@@ -114,18 +126,30 @@
   <!-- SIDEBAR -->
   <aside class="inrl-sidebar">
     <div class="inrl-sidebar-header">
-      <a class="inrl-brand" href="/ecommerce/index.html">INRL</a>
+      <a class="inrl-brand" href="/ecommerce/index.html">
+        <span class="inrl-brand-mark">I</span>
+        <span class="inrl-brand-name">INRL</span>
+      </a>
       <div class="inrl-subtitle">Product Dashboard</div>
     </div>
 
     <!-- Tabs (Bootstrap tab triggers — same ids/targets as before, just styled as a sidebar) -->
     <ul class="nav flex-column inrl-sidebar-nav" id="dashTabs" role="tablist">
+      <li class="inrl-nav-group-label" role="presentation">Catalog</li>
       <li class="nav-item" role="presentation">
         <button class="nav-link active" id="tab-products" data-bs-toggle="tab" data-bs-target="#pane-products" type="button" role="tab">
           <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7l8 4 8-4Z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg>
           Products
         </button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-create-product" data-bs-toggle="tab" data-bs-target="#pane-create-product" type="button" role="tab">
+          <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Create Product
+        </button>
+      </li>
+
+      <li class="inrl-nav-group-label" id="navGroupContent" role="presentation" style="display:none">Content</li>
       <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">
         <button class="nav-link" id="tab-homepage" data-bs-toggle="tab" data-bs-target="#pane-homepage" type="button" role="tab">
           <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18"/><path d="M8 14h8"/></svg>
@@ -138,6 +162,8 @@
           Branding
         </button>
       </li>
+
+      <li class="inrl-nav-group-label" id="navGroupOps" role="presentation" style="display:none">Operations</li>
       <li class="nav-item" role="presentation" id="tab-orders-item" style="display:none">
         <button class="nav-link" id="tab-orders" data-bs-toggle="tab" data-bs-target="#pane-orders" type="button" role="tab">
           <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
@@ -153,8 +179,13 @@
     </ul>
 
     <div class="inrl-sidebar-footer">
-      <div class="inrl-user-email" id="userEmail"></div>
-      <div class="inrl-user-role" id="userRole"></div>
+      <div class="inrl-user-row">
+        <div class="inrl-user-avatar" id="userAvatar">&#8226;</div>
+        <div class="inrl-user-meta">
+          <div class="inrl-user-email" id="userEmail"></div>
+          <div class="inrl-user-role" id="userRole"></div>
+        </div>
+      </div>
       <div class="inrl-quicklinks">
         <a href="/ecommerce/index.html">Store</a>
         <a href="/admin.html">AR Dashboard &#x2197;</a>
@@ -174,12 +205,83 @@
 
   <!-- ===== PRODUCTS PANE ===== -->
   <div class="tab-pane fade show active" id="pane-products" role="tabpanel">
-    <div class="row g-4">
 
-      <!-- CREATE / EDIT FORM -->
-      <div class="col-12 col-lg-5">
+    <!-- STATS -->
+    <div class="row g-3 mb-4" id="productsStats">
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value neutral" id="statProductsTotal">0</div>
+          <div class="order-stat-label">Total Products</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value" id="statProductsPublished">0</div>
+          <div class="order-stat-label">Published</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value warn" id="statProductsDraft">0</div>
+          <div class="order-stat-label">Draft</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="order-stat">
+          <div class="order-stat-value" id="statProductsLinked">0</div>
+          <div class="order-stat-label">Printful Linked</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS TABLE -->
+    <div class="inrl-card">
+      <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span>Products</span>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+          <input id="productSearch" class="form-control form-control-sm" type="text" placeholder="Search title / slug&hellip;" style="width:190px;font-size:.68rem">
+          <button id="refreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
+          <button id="newProductBtn" class="btn btn-sm btn-inrl" style="font-size:.62rem;padding:.22rem .65rem" type="button">+ New Product</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="width:52px"></th>
+              <th>Title</th>
+              <th>Slug</th>
+              <th class="d-none d-xl-table-cell">Brand</th>
+              <th>Price</th>
+              <th>Pub</th>
+              <th>Printful</th>
+              <th>AR</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="productsTbody"></tbody>
+        </table>
+      </div>
+      <div class="d-flex justify-content-between align-items-center px-3 py-2" id="productsPaginationBar" style="border-top:1px solid #2a2a2a">
+        <span id="productsPageInfo" style="font-size:.65rem;color:#555"></span>
+        <div class="d-flex gap-2">
+          <button id="productsPrevBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Prev</button>
+          <button id="productsNextBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Next</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pane-products -->
+
+  <!-- ===== CREATE / EDIT PRODUCT PANE ===== -->
+  <div class="tab-pane fade" id="pane-create-product" role="tabpanel">
+    <div class="row g-4 justify-content-center">
+      <div class="col-12 col-xl-8">
         <div class="inrl-card">
-          <div class="inrl-card-header">Create / Edit Product</div>
+          <div class="inrl-card-header d-flex justify-content-between align-items-center">
+            <span id="productFormHeading">Create Product</span>
+            <a href="#" id="backToProductsLink" style="font-size:.62rem;color:#666;text-decoration:none;text-transform:uppercase;letter-spacing:.06em">&larr; Back to Products</a>
+          </div>
           <div class="p-4">
             <form id="productForm" class="vstack gap-3">
               <input type="hidden" id="productId" value="">
@@ -308,46 +410,8 @@
           </div>
         </div>
       </div>
-
-      <!-- PRODUCTS TABLE -->
-      <div class="col-12 col-lg-7">
-        <div class="inrl-card">
-          <div class="inrl-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span>Products</span>
-            <div class="d-flex gap-2 flex-wrap align-items-center">
-              <input id="productSearch" class="form-control form-control-sm" type="text" placeholder="Search title / slug&hellip;" style="width:190px;font-size:.68rem">
-              <button id="refreshBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Refresh</button>
-            </div>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Slug</th>
-                  <th class="d-none d-xl-table-cell">Brand</th>
-                  <th>Price</th>
-                  <th>Pub</th>
-                  <th>Printful</th>
-                  <th>AR</th>
-                  <th class="text-end">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="productsTbody"></tbody>
-            </table>
-          </div>
-          <div class="d-flex justify-content-between align-items-center px-3 py-2" id="productsPaginationBar" style="border-top:1px solid #2a2a2a">
-            <span id="productsPageInfo" style="font-size:.65rem;color:#555"></span>
-            <div class="d-flex gap-2">
-              <button id="productsPrevBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Prev</button>
-              <button id="productsNextBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Next</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
-  </div><!-- /pane-products -->
+  </div><!-- /pane-create-product -->
 
   <!-- ===== HOMEPAGE PANE ===== -->
   <div class="tab-pane fade" id="pane-homepage" role="tabpanel">
@@ -840,7 +904,14 @@
       ' (' + summary.worstPct.toFixed(0) + '%)' + warn + '</span>';
   }
 
+  function showTab(triggerId) {
+    const trigger = document.getElementById(triggerId);
+    if (trigger && window.bootstrap && bootstrap.Tab) bootstrap.Tab.getOrCreateInstance(trigger).show();
+  }
+
   function setFormProduct(p, isAdmin) {
+    const formHeading = el('productFormHeading');
+    if (formHeading) formHeading.textContent = p ? ('Edit: ' + (p.title || 'Product')) : 'Create Product';
     el('productId').value = p ? String(p.id) : '';
     if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
     el('titleInput').value = p ? (p.title || '') : '';
@@ -963,7 +1034,22 @@
     });
   }
 
+  function renderProductsStats(items) {
+    const totalEl = el('statProductsTotal');
+    if (!totalEl) return; // stats block not present (shouldn't happen, but don't hard-fail render)
+    const list = items || [];
+    const published = list.filter(function(p) { return p.is_published; }).length;
+    const linked = list.filter(function(p) {
+      return !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id;
+    }).length;
+    totalEl.textContent = String(list.length);
+    el('statProductsPublished').textContent = String(published);
+    el('statProductsDraft').textContent = String(list.length - published);
+    el('statProductsLinked').textContent = String(linked);
+  }
+
   function renderProducts(items, isAdmin) {
+    renderProductsStats(items);
     var filtered = getFilteredProducts(items || []);
     var pageCount = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PAGE_SIZE));
     if (productsPage >= pageCount) productsPage = pageCount - 1;
@@ -973,14 +1059,18 @@
     const tbody = el('productsTbody');
     tbody.innerHTML = '';
     if (!slice.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4" style="color:#555">No products found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4" style="color:#555">No products found.</td></tr>';
     } else {
       tbody.innerHTML = slice.map(function(p) {
       const viewerLink = p.viewer_url || '/index.html';
       const storeLink = 'product.html?slug=' + encodeURIComponent((p.slug || '').toString()) + (!p.slug && p.id ? '&id=' + encodeURIComponent(String(p.id)) : '');
       const hasTarget = p.ar_target_id != null;
       const isPfLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id;
+      const thumb = p.image_url
+        ? '<img src="' + escapeHtml(p.image_url) + '" alt="" style="width:36px;height:36px;object-fit:cover;border:1px solid #333;display:block">'
+        : '<div style="width:36px;height:36px;background:#181818;border:1px solid #333"></div>';
       return '<tr>' +
+        '<td>' + thumb + '</td>' +
         '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(p.title || '') + '</td>' +
         '<td><code style="font-size:.7rem">' + escapeHtml(p.slug || '') + '</code></td>' +
         '<td class="d-none d-xl-table-cell" style="color:#888">' + escapeHtml(p.brand || '') + '</td>' +
@@ -1243,6 +1333,8 @@
     if (!user) return;
     el('userEmail').textContent = user.email || '';
     el('userRole').textContent = user.role || '';
+    const userAvatarEl = el('userAvatar');
+    if (userAvatarEl) userAvatarEl.textContent = (user.email || '?').trim().charAt(0).toUpperCase();
     const isAdmin = user.role === 'admin';
     el('brandGroup').style.display = isAdmin ? '' : 'none';
 
@@ -1251,6 +1343,12 @@
 
     const tabBrandingItem = document.getElementById('tab-branding-item');
     if (tabBrandingItem) tabBrandingItem.style.display = isAdmin ? '' : 'none';
+
+    // Sidebar section labels — shown whenever any item in that group is visible.
+    const navGroupContent = document.getElementById('navGroupContent');
+    if (navGroupContent) navGroupContent.style.display = isAdmin ? '' : 'none';
+    const navGroupOps = document.getElementById('navGroupOps');
+    if (navGroupOps) navGroupOps.style.display = isAdmin ? '' : 'none';
 
     el('logoutBtn').addEventListener('click', async function(ev) {
       ev.preventDefault();
@@ -1307,6 +1405,21 @@
 
     el('resetBtn').addEventListener('click', function() { setFormProduct(null, isAdmin); });
     setFormProduct(null, isAdmin);
+
+    var newProductBtn = el('newProductBtn');
+    if (newProductBtn) {
+      newProductBtn.addEventListener('click', function() {
+        setFormProduct(null, isAdmin);
+        showTab('tab-create-product');
+      });
+    }
+    var backToProductsLink = el('backToProductsLink');
+    if (backToProductsLink) {
+      backToProductsLink.addEventListener('click', function(ev) {
+        ev.preventDefault();
+        showTab('tab-products');
+      });
+    }
 
     const sizesInputEl = el('sizesInput');
     if (sizesInputEl) {
@@ -1405,7 +1518,7 @@
 
       if (action === 'edit' && p) {
         setFormProduct(p, isAdmin);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        showTab('tab-create-product');
         return;
       }
 
