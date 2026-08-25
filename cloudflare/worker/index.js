@@ -621,6 +621,7 @@
       const email = new URL(request.url).searchParams.get('email');
       return apiGetOrderTrackPublic(request, id, email);
     }
+    if (request.method === 'GET'  && pathname === '/api/orders/mine')          return apiListMyOrders(request);
     if (request.method === 'GET'  && /^\/api\/orders\/[^/]+$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetOrder(request, id);
@@ -3072,6 +3073,63 @@
         shipped_at:       row.shipped_at       || null,
       }
     }, 200, request);
+  }
+
+  // GET /api/orders/mine — the logged-in customer's own order history, matched by account
+  // (user_id), not by manually typing an order id + email. Only covers orders placed while
+  // signed in; guest-checkout orders aren't tied to an account and stay reachable only via
+  // GET /api/orders/:id/track?email=...
+  async function apiListMyOrders(request) {
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+    let rows;
+    try {
+      rows = await dbAll(
+        `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
+                total_cents, currency, items_json, created_at
+         from orders where user_id = ?
+         order by created_at desc
+         limit 100`,
+        sess.user.id
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column')) {
+        rows = await dbAll(
+          `select id, status, printful_status, tracking_number, tracking_url, carrier,
+                  total_cents, currency, items_json, created_at
+           from orders where user_id = ?
+           order by created_at desc
+           limit 100`,
+          sess.user.id
+        ).catch(() => []);
+      } else { throw e; }
+    }
+
+    const items = (rows || []).map((r) => {
+      let orderItems = [];
+      try {
+        orderItems = (JSON.parse(r.items_json) || []).map(it => ({
+          name: it.name, qty: it.qty, price_cents: it.price_cents, image_url: it.image_url || null,
+        }));
+      } catch {}
+      return {
+        id: r.id,
+        status: r.status || null,
+        payment_status: r.payment_status || null,
+        printful_status: r.printful_status || null,
+        tracking_number: r.tracking_number || null,
+        tracking_url: r.tracking_url || null,
+        carrier: r.carrier || null,
+        total_cents: r.total_cents,
+        currency: r.currency || 'USD',
+        created_at: r.created_at || null,
+        items: orderItems,
+      };
+    });
+
+    return jsonResponse({ items }, 200, request);
   }
 
   async function apiPrintfulWebhookRegister(request) {
