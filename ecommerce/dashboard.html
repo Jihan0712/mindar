@@ -219,8 +219,8 @@
 
               <div>
                 <label class="form-label">Printful Catalog Link <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(required to sell this product)</span></label>
-                <div id="printfulLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Save the product first, then link it to a real Printful garment.</div>
-                <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Link to Printful Catalog&#8230;</button>
+                <div id="printfulLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Not linked yet — clicking below saves this product first, then lets you link it to a real Printful garment.</div>
+                <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
               </div>
 
               <details>
@@ -810,12 +810,10 @@
     el('saveBtn').textContent = p ? 'Update' : 'Create';
     currentProductCostMap = p ? findPrintfulCostMap(p.id) : null;
     updateMarginHint();
-    const linkBtn = el('printfulLinkBtn');
     const linkSummary = el('printfulLinkSummary');
-    if (linkBtn) linkBtn.disabled = !p;
     if (linkSummary) {
       linkSummary.textContent = !p
-        ? 'Save the product first, then link it to a real Printful garment.'
+        ? 'Not linked yet — clicking below saves this product first, then lets you link it to a real Printful garment.'
         : (p.printful_variant_map || p.printful_sync_variant_id
           ? 'Linked to Printful. Click below to re-link or change the garment.'
           : 'Not linked yet — this product can’t be sold/fulfilled until it’s linked.');
@@ -1270,9 +1268,11 @@
       syncCategoryPresetFromInput();
     }
 
-    el('productForm').addEventListener('submit', async function(ev) {
-      ev.preventDefault();
-      clearStatus();
+    // Builds the product payload from the form and creates/updates it — shared by the
+    // form's own submit handler and the "Link to Printful Catalog" button, which needs
+    // to save a brand-new (unsaved) product first so it has an id to link against.
+    // Throws on validation/save failure; caller is responsible for showStatus(...).
+    async function saveProductFromForm() {
       const id = el('productId').value.trim();
       const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
       const _pfMap = collectPrintfulVariantMap();
@@ -1295,37 +1295,39 @@
       body.printful_sync_variant_id = el('printfulSyncVariantInput').value.trim() || null;
       if (isAdmin) body.brand = el('brandInput').value.trim();
 
-      try {
-        requireField('Title', body.title);
-        requireField('Category', body.category);
-        requireField('Color', body.color);
-        requireField('Sizing', body.sizes);
-        requireField('Price', body.price);
-      } catch (e) {
-        showStatus(e.message || String(e), 'error');
-        return;
+      requireField('Title', body.title);
+      requireField('Category', body.category);
+      requireField('Color', body.color);
+      requireField('Sizing', body.sizes);
+      requireField('Price', body.price);
+
+      if (imageFiles.length > 5) throw new Error('Max 5 images per product');
+      if (imageFiles.length) {
+        for (const f of imageFiles) {
+          if (!String(f.type || '').toLowerCase().startsWith('image/')) throw new Error('Invalid image file');
+        }
+        const urls = [];
+        for (const f of imageFiles) {
+          urls.push(await uploadProductImage(f));
+        }
+        body.image_urls = urls;
+        body.image_url = urls[0] || '';
       }
 
+      if (!id) {
+        const res = await apiFetch('/products', { method: 'POST', body });
+        return { id: res && res.item ? res.item.id : null, created: true };
+      }
+      await apiFetch('/products/' + encodeURIComponent(id), { method: 'POST', body });
+      return { id, created: false };
+    }
+
+    el('productForm').addEventListener('submit', async function(ev) {
+      ev.preventDefault();
+      clearStatus();
       try {
-        if (imageFiles.length > 5) throw new Error('Max 5 images per product');
-        if (imageFiles.length) {
-          for (const f of imageFiles) {
-            if (!String(f.type || '').toLowerCase().startsWith('image/')) throw new Error('Invalid image file');
-          }
-          const urls = [];
-          for (const f of imageFiles) {
-            urls.push(await uploadProductImage(f));
-          }
-          body.image_urls = urls;
-          body.image_url = urls[0] || '';
-        }
-        if (!id) {
-          await apiFetch('/products', { method: 'POST', body });
-          showStatus('Product created.', 'success');
-        } else {
-          await apiFetch('/products/' + encodeURIComponent(id), { method: 'POST', body });
-          showStatus('Product updated.', 'success');
-        }
+        const result = await saveProductFromForm();
+        showStatus(result.created ? 'Product created.' : 'Product updated.', 'success');
         setFormProduct(null, isAdmin);
         await refresh();
       } catch (e) {
@@ -2122,14 +2124,31 @@
         });
       }
 
-      // Link to Printful Catalog — opened from the product form (existing product) or
-      // from the Printful Product Manager table.
+      // Link to Printful Catalog — opened from the product form or from the Printful
+      // Product Manager table. On a brand-new, not-yet-saved product there's no id to
+      // link against yet, so this saves it first (same validation as the Save button)
+      // and then opens the picker against the newly created product.
       var printfulLinkBtn = document.getElementById('printfulLinkBtn');
       if (printfulLinkBtn) {
-        printfulLinkBtn.addEventListener('click', function() {
+        printfulLinkBtn.addEventListener('click', async function() {
           var id = el('productId').value.trim();
-          if (!id) return;
-          openPrintfulCatalogPicker(id);
+          if (id) { openPrintfulCatalogPicker(id); return; }
+
+          clearStatus();
+          printfulLinkBtn.disabled = true;
+          try {
+            showStatus('Saving product before linking…', 'info');
+            const result = await saveProductFromForm();
+            if (!result.id) throw new Error('Product saved but no id was returned');
+            el('productId').value = String(result.id);
+            showStatus('Product created.', 'success');
+            await refresh();
+            openPrintfulCatalogPicker(String(result.id));
+          } catch (e) {
+            showStatus(e.message || String(e), 'error');
+          } finally {
+            printfulLinkBtn.disabled = false;
+          }
         });
       }
 

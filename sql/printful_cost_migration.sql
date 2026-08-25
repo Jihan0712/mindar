@@ -9,4 +9,4 @@
 --
 -- Run this in the Cloudflare D1 Console for your database.
 
-ALTER TABLE products ADD COLUMN IF NOT EXISTS printful_variant_cost_map TEXT NULL;
+ALTER TABLE products ADD COLUMN printful_variant_cost_map TEXT NULL;
