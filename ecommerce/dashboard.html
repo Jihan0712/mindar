@@ -223,6 +223,13 @@
                 <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
               </div>
 
+              <div>
+                <label class="form-label">Design Preview <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(real Printful mockup of the design on the linked garment)</span></label>
+                <div id="mockupStatus" style="font-size:.68rem;color:#555;margin-bottom:6px">Save with a linked garment and a design image to preview it here.</div>
+                <button type="button" id="mockupPreviewBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Preview on Printful&#8230;</button>
+                <div id="mockupPreviewImages" class="d-flex flex-wrap gap-2" style="margin-top:10px"></div>
+              </div>
+
               <details>
                 <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
                 <div class="mt-2">
@@ -810,6 +817,16 @@
     el('saveBtn').textContent = p ? 'Update' : 'Create';
     currentProductCostMap = p ? findPrintfulCostMap(p.id) : null;
     updateMarginHint();
+    // Clear any mockup preview from whichever product was open before — plain DOM
+    // resets here since generateAndShowMockup()/renderMockupImages() live inside main()'s
+    // scope (alongside the rest of the Printful picker UI) and this function doesn't.
+    const mockupImagesEl = el('mockupPreviewImages');
+    if (mockupImagesEl) mockupImagesEl.innerHTML = '';
+    const mockupStatusEl = el('mockupStatus');
+    if (mockupStatusEl) {
+      mockupStatusEl.textContent = 'Save with a linked garment and a design image to preview it here.';
+      mockupStatusEl.style.color = '#555';
+    }
     const linkSummary = el('printfulLinkSummary');
     if (linkSummary) {
       linkSummary.textContent = !p
@@ -1866,6 +1883,94 @@
         if (s) s.textContent = msg || '';
       }
 
+      // Called right after a product gets (re)linked to Printful — auto-shows a mockup
+      // preview if it already has a design image, so linking a design that's already
+      // uploaded feels like one fluent step instead of "link, then remember to also hit
+      // Preview". Silent: a freshly linked product with no image yet is a normal, common
+      // case, not an error worth surfacing.
+      function maybeAutoPreviewAfterLink(productId) {
+        var p = products.find(function(x) { return String(x.id) === String(productId); });
+        if (p && p.image_url) generateAndShowMockup(productId, p.image_url, { silent: true });
+      }
+
+      function setMockupStatus(msg, color) {
+        var el2 = document.getElementById('mockupStatus');
+        if (!el2) return;
+        el2.textContent = msg || '';
+        el2.style.color = color || '#555';
+      }
+
+      function renderMockupImages(urls) {
+        var box = document.getElementById('mockupPreviewImages');
+        if (!box) return;
+        box.innerHTML = (urls || []).map(function(url) {
+          return '<img src="' + escapeHtml(url) + '" alt="Printful mockup preview" ' +
+            'style="width:160px;height:160px;object-fit:contain;background:#111;border:1px solid #333">';
+        }).join('');
+      }
+
+      // Kicks off a real Printful mockup render (POST .../mockup) and polls the task
+      // (GET .../mockup-tasks/:id) until it resolves. Mockup generation is documented as
+      // "resource intensive" with lower rate limits than normal endpoints, so this is only
+      // ever triggered by an explicit action (the Preview button, or right after a fresh
+      // link) — never on every form render/edit-open.
+      var mockupPollTimer = null;
+      async function generateAndShowMockup(productId, imageUrl, opts) {
+        opts = opts || {};
+        if (mockupPollTimer) { clearTimeout(mockupPollTimer); mockupPollTimer = null; }
+        if (!productId) { if (!opts.silent) setMockupStatus('Save the product first.', '#ff4d4f'); return; }
+        if (!imageUrl) {
+          if (!opts.silent) setMockupStatus('This product has no design image yet — add one and save first.', '#FEFD00');
+          return;
+        }
+        renderMockupImages([]);
+        setMockupStatus('Starting Printful mockup render…');
+        var btn = document.getElementById('mockupPreviewBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const startRes = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/mockup', {
+            method: 'POST',
+            body: { image_url: imageUrl },
+          });
+          const taskId = startRes && startRes.task_id;
+          if (!taskId) throw new Error('No mockup task id returned');
+
+          var attemptsLeft = 20; // ~30s at 1.5s/poll — mockup rendering is usually a few seconds
+          const poll = async function() {
+            const res = await apiFetch('/admin/printful/mockup-tasks/' + encodeURIComponent(taskId));
+            const status = String(res && res.status || '').toLowerCase();
+            if (res && res.image_urls && res.image_urls.length) {
+              renderMockupImages(res.image_urls);
+              setMockupStatus('Preview ready.', '#00ED0A');
+              if (btn) btn.disabled = false;
+              return;
+            }
+            if (status.includes('fail') || status.includes('error') || (res && res.failure_reasons && res.failure_reasons.length)) {
+              const reason = res && res.failure_reasons && res.failure_reasons[0];
+              setMockupStatus('Mockup generation failed' + (reason ? ': ' + reason : '.'), '#ff4d4f');
+              if (btn) btn.disabled = false;
+              return;
+            }
+            if (attemptsLeft <= 0) {
+              setMockupStatus('Still rendering — click Preview again in a bit.', '#FEFD00');
+              if (btn) btn.disabled = false;
+              return;
+            }
+            attemptsLeft--;
+            setMockupStatus('Rendering… (' + status + ')');
+            mockupPollTimer = setTimeout(function() { poll().catch(function(e) {
+              setMockupStatus(e.message || String(e), '#ff4d4f');
+              if (btn) btn.disabled = false;
+            }); }, 1500);
+          };
+          await poll();
+        } catch (e) {
+          if (!opts.silent) setMockupStatus(e.message || String(e), '#ff4d4f');
+          else setMockupStatus('Preview not available yet.', '#555');
+          if (btn) btn.disabled = false;
+        }
+      }
+
       function openPrintfulCatalogPicker(productId) {
         document.getElementById('pfPickerProductId').value = String(productId || '');
         document.getElementById('pfPickerSearch').value = '';
@@ -1957,6 +2062,7 @@
         await loadPrintfulProducts();
         await refresh();
         syncOpenFormAfterLink(productId);
+        maybeAutoPreviewAfterLink(productId);
       }
 
       async function pfPickerSaveOverrides() {
@@ -1979,6 +2085,7 @@
         await loadPrintfulProducts();
         await refresh();
         syncOpenFormAfterLink(productId);
+        maybeAutoPreviewAfterLink(productId);
       }
 
       function printfulOrderStatusChip(status) {
@@ -2149,6 +2256,15 @@
           } finally {
             printfulLinkBtn.disabled = false;
           }
+        });
+      }
+
+      var mockupPreviewBtn = document.getElementById('mockupPreviewBtn');
+      if (mockupPreviewBtn) {
+        mockupPreviewBtn.addEventListener('click', function() {
+          var id = el('productId').value.trim();
+          var imageUrl = (el('imageUrlInput').value || '').trim();
+          generateAndShowMockup(id, imageUrl);
         });
       }
 

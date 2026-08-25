@@ -156,6 +156,43 @@
       return { resolved, missing };
     }
 
+    // GET /v2/catalog-products/{id}/mockup-styles — mockup_style_ids is a required field
+    // on mockup-task creation, so this is how the worker discovers a valid one instead of
+    // hardcoding a style id that may not exist for every garment.
+    async function listMockupStyles(env, catalogProductId) {
+      const data = await callPrintful(env, 'GET', `/catalog-products/${Number(catalogProductId)}/mockup-styles`);
+      const list = (data && (data.data ?? data.result)) || [];
+      return Array.isArray(list) ? list : [];
+    }
+
+    // POST /v2/mockup-tasks — kicks off async mockup rendering (a design printed onto a
+    // real photo of the garment). Returns a task id; the mockup itself isn't ready yet,
+    // it has to be polled via getMockupTask.
+    async function createMockupTask(env, { catalogProductId, catalogVariantIds, mockupStyleIds, placement, technique, imageUrl, format }) {
+      const payload = {
+        format: format || 'jpg',
+        products: [{
+          source: 'catalog',
+          mockup_style_ids: mockupStyleIds,
+          catalog_product_id: Number(catalogProductId),
+          catalog_variant_ids: catalogVariantIds.map(Number),
+          placements: [{
+            placement: placement || 'front',
+            technique: technique || 'dtg',
+            layers: [{ type: 'file', url: imageUrl }],
+          }],
+        }],
+      };
+      const data = await callPrintful(env, 'POST', '/mockup-tasks', payload);
+      return (data && (data.data ?? data.result)) || data;
+    }
+
+    // GET /v2/mockup-tasks?id=... — poll until status leaves "pending"/"processing".
+    async function getMockupTask(env, taskId) {
+      const data = await callPrintful(env, 'GET', `/mockup-tasks?id=${encodeURIComponent(taskId)}`);
+      return (data && (data.data ?? data.result)) || data;
+    }
+
     return {
       getPrintfulConfig,
       printfulStoreQuery,
@@ -163,6 +200,9 @@
       fetchCatalogProduct,
       listCatalogProducts,
       resolveCatalogVariants,
+      listMockupStyles,
+      createMockupTask,
+      getMockupTask,
     };
   })();
 
@@ -678,6 +718,14 @@
     if (request.method === 'POST' && /^\/api\/admin\/printful\/products\/\d+\/link$/.test(pathname)) {
       const productId = parseInt(pathname.split('/')[5], 10);
       return apiPrintfulLinkProduct(request, productId);
+    }
+    if (request.method === 'POST' && /^\/api\/admin\/printful\/products\/\d+\/mockup$/.test(pathname)) {
+      const productId = parseInt(pathname.split('/')[5], 10);
+      return apiPrintfulCreateMockup(request, productId);
+    }
+    if (request.method === 'GET' && /^\/api\/admin\/printful\/mockup-tasks\/[^/]+$/.test(pathname)) {
+      const taskId = decodeURIComponent(pathname.split('/')[5]);
+      return apiPrintfulGetMockupTask(request, taskId);
     }
 
     // Targets
@@ -1631,8 +1679,12 @@
     }
 
     // Refuse to charge for anything that could never actually ship — every line must
-    // resolve to a real Printful catalog variant before Stripe is ever involved.
-    const unfulfillable = resolvedItems.filter(it => !it.catalog_variant_id).map(it => it.slug);
+    // resolve to a real Printful catalog variant AND have a design file before Stripe is
+    // ever involved. Without the image_url check, a linked-but-imageless product could be
+    // paid for and then silently dropped from the Printful order at submission time
+    // (submitPrintfulOrder filters on catalog_variant_id && image_url) — the customer
+    // would be charged for an item that never gets made.
+    const unfulfillable = resolvedItems.filter(it => !it.catalog_variant_id || !it.image_url).map(it => it.slug);
     if (unfulfillable.length) {
       return jsonResponse({ error: `Not available for purchase yet: ${unfulfillable.join(', ')}` }, 400, request);
     }
@@ -3712,6 +3764,110 @@
     }
 
     return jsonResponse({ ok: true, printful_variant_map: variantMap, printful_variant_cost_map: costMap, missing }, 200, request);
+  }
+
+  // POST /api/admin/printful/products/:id/mockup — kicks off a real Printful mockup render
+  // (the design printed onto an actual photo of the linked garment) for the product's
+  // current design image. Requires the product to already be linked (printful_catalog_
+  // product_id + printful_variant_map) — that's what supplies the catalog_product_id and
+  // catalog_variant_ids the mockup task needs. Fire-and-poll: this only starts the task,
+  // see apiPrintfulGetMockupTask for the result.
+  async function apiPrintfulCreateMockup(request, productId) {
+    const { sess, error } = await requirePrivilegedSession(request);
+    if (error) return error;
+    if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
+
+    const product = await dbGet(
+      'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map from products where id = ?',
+      productId
+    );
+    if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (sess.user.role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+    if (!product.printful_catalog_product_id) {
+      return jsonResponse({ error: 'Link this product to a Printful catalog garment first' }, 400, request);
+    }
+
+    const body = await readJson(request);
+    const imageUrl = clampStr(body.image_url, 800) || product.image_url;
+    if (!imageUrl) return jsonResponse({ error: 'This product has no design image to preview' }, 400, request);
+
+    let variantMap = {};
+    try { variantMap = product.printful_variant_map ? JSON.parse(product.printful_variant_map) : {}; } catch {}
+    const catalogVariantIds = Object.values(variantMap).map(v => Number(v)).filter(Number.isFinite);
+    if (!catalogVariantIds.length) return jsonResponse({ error: 'No linked Printful variants to preview' }, 400, request);
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+
+    let styleId;
+    try {
+      const styles = await Printful.listMockupStyles(pfEnv, product.printful_catalog_product_id);
+      const front = styles.find(s => String(s.placement || '').toLowerCase() === 'front') || styles[0];
+      if (!front || front.id == null) return jsonResponse({ error: 'No mockup styles available for this garment' }, 502, request);
+      styleId = front.id;
+    } catch (e) {
+      return jsonResponse({ error: `Could not load mockup styles: ${String(e && e.message ? e.message : e)}` }, 502, request);
+    }
+
+    let task;
+    try {
+      // One representative variant is enough for a design preview — this isn't generating
+      // a mockup per size, just showing what the print looks like on the garment.
+      task = await Printful.createMockupTask(pfEnv, {
+        catalogProductId: product.printful_catalog_product_id,
+        catalogVariantIds: catalogVariantIds.slice(0, 1),
+        mockupStyleIds: [styleId],
+        placement: 'front',
+        technique: 'dtg',
+        imageUrl,
+      });
+    } catch (e) {
+      return jsonResponse({ error: `Mockup generation failed: ${String(e && e.message ? e.message : e)}` }, 502, request);
+    }
+
+    if (!task || task.id == null) return jsonResponse({ error: 'Printful did not return a mockup task id' }, 502, request);
+    return jsonResponse({ ok: true, task_id: task.id, status: task.status || 'pending' }, 200, request);
+  }
+
+  // GET /api/admin/printful/mockup-tasks/:taskId — poll a task started by apiPrintfulCreateMockup.
+  // NOTE: Printful's v2-beta docs don't fully document the shape of a completed task's
+  // catalog_variant_mockups entries, so this parses defensively across a few plausible
+  // field names rather than assuming one exact shape.
+  async function apiPrintfulGetMockupTask(request, taskId) {
+    const { error } = await requirePrivilegedSession(request);
+    if (error) return error;
+    if (!taskId) return jsonResponse({ error: 'task id required' }, 400, request);
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+
+    let task;
+    try {
+      task = await Printful.getMockupTask(pfEnv, taskId);
+    } catch (e) {
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
+    }
+    if (!task) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const mockups = Array.isArray(task.catalog_variant_mockups) ? task.catalog_variant_mockups : [];
+    const imageUrls = [];
+    for (const m of mockups) {
+      const nested = Array.isArray(m && m.mockups) ? m.mockups : (m ? [m] : []);
+      for (const n of nested) {
+        const url = n && (n.mockup_url || n.url || n.image_url);
+        if (url) imageUrls.push(url);
+      }
+    }
+
+    return jsonResponse({
+      ok: true,
+      status: task.status || 'unknown',
+      image_urls: imageUrls,
+      failure_reasons: Array.isArray(task.failure_reasons) ? task.failure_reasons : [],
+    }, 200, request);
   }
 
   async function apiPrintfulOrderSync(request, printfulOrderId) {
