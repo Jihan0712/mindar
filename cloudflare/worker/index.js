@@ -616,6 +616,11 @@
       const sessionId = new URL(request.url).searchParams.get('session_id');
       return apiGetOrderStatusPublic(request, id, sessionId);
     }
+    if (request.method === 'GET'  && /^\/api\/orders\/([^/]+)\/track$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[3]);
+      const email = new URL(request.url).searchParams.get('email');
+      return apiGetOrderTrackPublic(request, id, email);
+    }
     if (request.method === 'GET'  && /^\/api\/orders\/[^/]+$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetOrder(request, id);
@@ -1626,7 +1631,7 @@
     let row;
     try {
       row = await dbGet(
-        `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
+        `select id, email, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
                 total_cents, currency, items_json, stripe_session_id, created_at
          from orders where id = ?`,
         rawId
@@ -1635,7 +1640,7 @@
       const msg = String(e || '');
       if (msg.toLowerCase().includes('no such column')) {
         row = await dbGet(
-          `select id, status, printful_status, tracking_number, tracking_url, carrier,
+          `select id, email, status, printful_status, tracking_number, tracking_url, carrier,
                   total_cents, currency, items_json, stripe_session_id, created_at
            from orders where id = ?`,
           rawId
@@ -1657,6 +1662,7 @@
 
     return jsonResponse({
       order_id: row.id,
+      email: row.email || null,
       status: row.status || null,
       payment_status: row.payment_status || null,
       printful_status: row.printful_status || null,
@@ -3005,6 +3011,60 @@
         items,
         status: row.status,
         created_at: row.created_at,
+        printful_status:  row.printful_status  || null,
+        tracking_number:  row.tracking_number  || null,
+        tracking_url:     row.tracking_url     || null,
+        carrier:          row.carrier          || null,
+        shipped_at:       row.shipped_at       || null,
+      }
+    }, 200, request);
+  }
+
+  // GET /api/orders/:id/track?email=... — guest-safe order lookup by order id + the email
+  // used at checkout. No login session required; the email match is the ownership proof
+  // (the standard "track my order" pattern most guest-checkout shops use).
+  async function apiGetOrderTrackPublic(request, id, email) {
+    const rawId = String(id || '').trim();
+    const rawEmail = String(email || '').trim().toLowerCase();
+    if (!rawId || !rawEmail) return jsonResponse({ error: 'order id and email required' }, 400, request);
+
+    let row;
+    try {
+      row = await dbGet(
+        `select id, email, first_name, last_name, currency, total_cents, items_json, status, created_at,
+                printful_status, tracking_number, tracking_url, carrier, shipped_at
+         from orders where id = ?`,
+        rawId
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column')) {
+        row = await dbGet(
+          `select id, email, first_name, last_name, currency, total_cents, items_json, status, created_at
+           from orders where id = ?`,
+          rawId
+        ).catch(() => null);
+      } else { throw e; }
+    }
+
+    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (String(row.email || '').trim().toLowerCase() !== rawEmail) {
+      return jsonResponse({ error: 'Not found' }, 404, request);
+    }
+
+    let items = [];
+    try { items = JSON.parse(row.items_json) || []; } catch {}
+
+    return jsonResponse({
+      order: {
+        id: row.id,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        currency: row.currency || 'USD',
+        total_cents: row.total_cents,
+        items,
+        status: row.status || null,
+        created_at: row.created_at || null,
         printful_status:  row.printful_status  || null,
         tracking_number:  row.tracking_number  || null,
         tracking_url:     row.tracking_url     || null,

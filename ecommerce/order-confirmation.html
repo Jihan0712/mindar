@@ -176,7 +176,11 @@
         }).join('');
 
         const trackLink = document.getElementById('trackLink');
-        if (trackLink && data.order_id) trackLink.href = 'order-tracking.html?order=' + encodeURIComponent(data.order_id);
+        if (trackLink && data.order_id) {
+          var trackUrl = 'order-tracking.html?order=' + encodeURIComponent(data.order_id);
+          if (data.email) trackUrl += '&email=' + encodeURIComponent(data.email);
+          trackLink.href = trackUrl;
+        }
 
         // Payment is confirmed — safe to clear the cart now and record local order history.
         try {
