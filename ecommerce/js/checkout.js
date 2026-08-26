@@ -41,6 +41,17 @@
     if (!validate()) return;
     const items = Cart.list();
     if (!items.length) { status('Your cart is empty.', true); return; }
+
+    // Cart items added before slug tracking was fixed on the shop/homepage quick-add
+    // buttons can still be sitting in someone's localStorage with no slug — catch that
+    // here with an actionable message instead of letting the server reject the whole order.
+    const badItems = items.filter((item) => !item.slug);
+    if (badItems.length) {
+      const names = badItems.map((item) => item.name).join(', ');
+      status(`Remove and re-add "${names}" to your cart — it was added before we could track its product link. Everything else in your cart is fine.`, true);
+      return;
+    }
+
     const customer = {
       firstName: document.getElementById('firstName').value.trim(),
       lastName: document.getElementById('lastName').value.trim(),

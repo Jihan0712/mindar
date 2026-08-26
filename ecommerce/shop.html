@@ -186,7 +186,7 @@
         var variantMap = item.variantMap || {};
         var pfVariantId = (size && variantMap[size]) ? variantMap[size] : (item.pfVariant || null);
         var cartId = item.sku ? ('sku-'+item.sku+'-'+size) : ('sku-'+slugify(item.name)+'-'+size);
-        Cart.add({id:cartId,name:item.name+' ('+size+')',price:item.price,image:item.image,qty:1,printful_sync_variant_id:pfVariantId});
+        Cart.add({id:cartId,slug:item.sku||'',size:size,name:item.name+' ('+size+')',price:item.price,image:item.image,qty:1,printful_sync_variant_id:pfVariantId});
         CartUI.render();
         var modalEl = document.getElementById('shopSizePickerModal');
         if (modalEl && window.bootstrap) { var bsModal = bootstrap.Modal.getInstance(modalEl); if (bsModal) bsModal.hide(); }
@@ -217,7 +217,7 @@
         return;
       }
       var resolvedVariant=(sizes.length===1&&variantMap[sizes[0]])?variantMap[sizes[0]]:pfVariant;
-      Cart.add({id:id,name:name+(sizes.length===1?' ('+sizes[0]+')':''),price:price,image:image,qty:1,printful_sync_variant_id:resolvedVariant});CartUI.render();
+      Cart.add({id:id,slug:sku,size:sizes.length===1?sizes[0]:null,name:name+(sizes.length===1?' ('+sizes[0]+')':''),price:price,image:image,qty:1,printful_sync_variant_id:resolvedVariant});CartUI.render();
     });
     bindShopControls();renderShopProducts();CartUI.render();
   </script>

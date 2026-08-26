@@ -484,7 +484,7 @@
         var card = btn.closest('.na-card');
         if (!card) return;
         var cardId = 'sku-' + (card.dataset.slug || slugify(card.dataset.name || 'product'));
-        Cart.add({id: cardId, name: card.dataset.name || 'Product', price: parseFloat(card.dataset.price || '0'), image: card.dataset.img || '', qty: 1});
+        Cart.add({id: cardId, slug: card.dataset.slug || '', name: card.dataset.name || 'Product', price: parseFloat(card.dataset.price || '0'), image: card.dataset.img || '', qty: 1});
         CartUI.render();
         return;
       }

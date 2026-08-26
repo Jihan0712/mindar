@@ -117,6 +117,48 @@
       .inrl-sidebar-footer .inrl-quicklinks { flex-direction:row; gap:.6rem; margin-bottom:0; }
       .inrl-dash-main { padding:1.25rem 1rem 2.5rem; }
     }
+
+    /* ---- Product designer canvas (Create/Edit Product) ---- */
+    .pd-shell { display:flex; align-items:stretch; background:#111; border:3px solid #333; border-bottom:none; min-height:560px; }
+    .pd-rail { flex:0 0 78px; background:#0b0b0b; border-right:2px solid #2a2a2a; display:flex; flex-direction:column; padding:.75rem .2rem; gap:.1rem; }
+    .pd-rail-btn { display:flex; flex-direction:column; align-items:center; gap:.3rem; background:transparent; border:none; color:#777; font-family:'Roboto Mono',monospace; font-size:.56rem; text-transform:uppercase; letter-spacing:.04em; font-weight:700; padding:.65rem .2rem; cursor:pointer; transition:color .12s; }
+    .pd-rail-btn svg { width:20px; height:20px; opacity:.8; }
+    .pd-rail-btn:hover { color:#ccc; }
+    .pd-rail-btn.active { color:#00ED0A; }
+    .pd-rail-btn.active svg { opacity:1; }
+    .pd-panel { flex:0 0 300px; max-width:300px; border-right:2px solid #2a2a2a; padding:1.2rem 1.15rem; overflow-y:auto; }
+    .pd-panel-title { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1rem; font-weight:700; margin-bottom:1.1rem; }
+    .pd-canvas-wrap { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
+    .pd-canvas-topbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.75rem 1.25rem; border-bottom:2px solid #2a2a2a; flex-wrap:wrap; }
+    .pd-view-tabs { display:flex; gap:.4rem; flex-wrap:wrap; }
+    .pd-view-tab { background:transparent; border:2px solid #333; color:#888; font-family:'Roboto Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; padding:.4rem .95rem; cursor:pointer; transition:color .12s,background .12s,border-color .12s; }
+    .pd-view-tab:hover { color:#ccc; }
+    .pd-view-tab.active { color:#1C1C1C; background:#00ED0A; border-color:#00ED0A; }
+    .pd-back-link { font-size:.62rem; color:#666; text-decoration:none; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+    .pd-back-link:hover { color:#00ED0A; }
+    .pd-canvas { flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; background:repeating-linear-gradient(45deg,#161616,#161616 12px,#111 12px,#111 24px); min-height:380px; }
+    .pd-garment { position:relative; width:300px; max-width:100%; }
+    .pd-shirt-svg { width:100%; height:auto; display:block; filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)); }
+    .pd-dropzone { position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); width:44%; aspect-ratio:1/1; border-radius:50%; border:2px dashed #00ED0A; background:rgba(0,237,10,.06); display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; transition:background .15s,border-color .15s; }
+    .pd-dropzone.pd-dragover { background:rgba(0,237,10,.18); border-color:#00ED0A; }
+    .pd-dropzone-inner { text-align:center; font-size:.6rem; text-transform:uppercase; letter-spacing:.04em; color:#00ED0A; font-weight:700; padding:.5rem; line-height:1.5; }
+    .pd-dropzone-inner svg { width:20px; height:20px; margin-bottom:.35rem; }
+    .pd-design-img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:6%; }
+    .pd-bottombar { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:3px solid #333; background:#111; padding:.85rem 1.25rem; flex-wrap:wrap; }
+    .pd-bottombar-info { display:flex; align-items:center; gap:.75rem; min-width:0; }
+    .pd-bottom-thumb { width:44px; height:44px; object-fit:cover; background:#1c1c1c; border:2px solid #333; flex:0 0 auto; }
+    .pd-bottom-title { font-size:.8rem; font-weight:700; color:#F5F5F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px; }
+    .pd-bottom-price { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:.9rem; font-weight:700; }
+    .pd-bottombar-actions { display:flex; gap:.5rem; align-items:center; }
+    .pd-layer-row { display:flex; align-items:center; gap:.6rem; border:2px solid #2a2a2a; background:#181818; padding:.5rem .6rem; margin-bottom:.5rem; }
+    .pd-layer-thumb { width:36px; height:36px; object-fit:cover; background:#111; border:1px solid #333; flex:0 0 auto; }
+    .pd-layer-name { flex:1 1 auto; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:#ccc; font-weight:700; }
+    .pd-layer-empty { font-size:.68rem; color:#555; text-align:center; padding:2.5rem .5rem; }
+    @media (max-width:1199.98px) {
+      .pd-shell { flex-direction:column; }
+      .pd-rail { flex-direction:row; overflow-x:auto; }
+      .pd-panel { max-width:none; flex:0 0 auto; border-right:none; border-bottom:2px solid #2a2a2a; }
+    }
   </style>
 </head>
 <body>
@@ -275,142 +317,218 @@
 
   <!-- ===== CREATE / EDIT PRODUCT PANE ===== -->
   <div class="tab-pane fade" id="pane-create-product" role="tabpanel">
-    <div class="row g-4 justify-content-center">
-      <div class="col-12 col-xl-8">
-        <div class="inrl-card">
-          <div class="inrl-card-header d-flex justify-content-between align-items-center">
-            <span id="productFormHeading">Create Product</span>
-            <a href="#" id="backToProductsLink" style="font-size:.62rem;color:#666;text-decoration:none;text-transform:uppercase;letter-spacing:.06em">&larr; Back to Products</a>
+    <form id="productForm">
+      <input type="hidden" id="productId" value="">
+
+      <div class="pd-shell">
+
+        <!-- Icon rail -->
+        <div class="pd-rail" id="pdRail" role="tablist">
+          <button type="button" class="pd-rail-btn active" data-pd-panel="product" title="Product">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 .55.45 1 1 1h10a1 1 0 0 0 1-1V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23Z"/></svg>
+            <span>Product</span>
+          </button>
+          <button type="button" class="pd-rail-btn" data-pd-panel="uploads" title="Uploads">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Uploads</span>
+          </button>
+          <button type="button" class="pd-rail-btn" data-pd-panel="details" title="Details">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+            <span>Details</span>
+          </button>
+          <button type="button" class="pd-rail-btn" data-pd-panel="printful" title="Printful">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><rect x="6" y="14" width="12" height="7"/></svg>
+            <span>Printful</span>
+          </button>
+          <button type="button" class="pd-rail-btn" data-pd-panel="layers" title="Layers">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <span>Layers</span>
+          </button>
+        </div>
+
+        <!-- Context panel -->
+        <div class="pd-panel">
+
+          <div class="pd-panel-section" data-pd-section="product">
+            <div class="pd-panel-title" id="productFormHeading">Create Product</div>
+
+            <div class="mb-3">
+              <label class="form-label" for="categoryPreset">Category Preset</label>
+              <select id="categoryPreset" class="form-select">
+                <option value="">(custom)</option>
+                <option value="Men">Men</option>
+                <option value="Women">Women</option>
+                <option value="Accessories">Accessories</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="categoryInput">Category <span style="color:#ff4d4f">*</span></label>
+              <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
+              <datalist id="categoryDatalist">
+                <option value="Men"></option>
+                <option value="Women"></option>
+                <option value="Accessories"></option>
+              </datalist>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="colorInput">Color <span style="color:#ff4d4f">*</span></label>
+              <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="sizesInput">Sizing <span style="color:#ff4d4f">*</span></label>
+              <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
+              <div class="form-text">Comma-separated sizes.</div>
+            </div>
+
+            <div>
+              <label class="form-label" for="slugInput">Slug</label>
+              <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
+              <div class="form-text">AR viewer: <code>/index.html?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
+            </div>
           </div>
-          <div class="p-4">
-            <form id="productForm" class="vstack gap-3">
-              <input type="hidden" id="productId" value="">
 
-              <div id="brandGroup" style="display:none">
-                <label class="form-label" for="brandInput">Brand <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
-                <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
-              </div>
+          <div class="pd-panel-section" data-pd-section="uploads" hidden>
+            <div class="pd-panel-title">Storefront Photos</div>
+            <div class="mb-3">
+              <label class="form-label" for="imageUrlInput">Image URL</label>
+              <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
+            </div>
+            <div>
+              <label class="form-label" for="imageFileInput">Upload Images</label>
+              <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
+              <div class="form-text">Up to 5 images shown on the storefront. Stored in R2. This is separate from the print design on the canvas &#8594;</div>
+            </div>
+          </div>
 
-              <div>
-                <label class="form-label" for="titleInput">Title <span style="color:#ff4d4f">*</span></label>
-                <input id="titleInput" class="form-control" type="text" required />
-              </div>
+          <div class="pd-panel-section" data-pd-section="details" hidden>
+            <div class="pd-panel-title">Details</div>
 
-              <div>
-                <label class="form-label" for="categoryPreset">Category Preset</label>
-                <select id="categoryPreset" class="form-select">
-                  <option value="">(custom)</option>
-                  <option value="Men">Men</option>
-                  <option value="Women">Women</option>
-                  <option value="Accessories">Accessories</option>
-                </select>
-                <div class="form-text">Use a preset to match shop pages, or enter a custom category.</div>
-              </div>
+            <div id="brandGroup" class="mb-3" style="display:none">
+              <label class="form-label" for="brandInput">Brand <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
+              <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
+            </div>
 
-              <div>
-                <label class="form-label" for="categoryInput">Category <span style="color:#ff4d4f">*</span></label>
-                <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
-                <datalist id="categoryDatalist">
-                  <option value="Men"></option>
-                  <option value="Women"></option>
-                  <option value="Accessories"></option>
-                </datalist>
-              </div>
+            <div class="mb-3">
+              <label class="form-label" for="titleInput">Title <span style="color:#ff4d4f">*</span></label>
+              <input id="titleInput" class="form-control" type="text" required />
+            </div>
 
-              <div>
-                <label class="form-label" for="colorInput">Color <span style="color:#ff4d4f">*</span></label>
-                <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
-              </div>
-
-              <div>
-                <label class="form-label" for="sizesInput">Sizing <span style="color:#ff4d4f">*</span></label>
-                <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
-                <div class="form-text">Comma-separated sizes.</div>
-              </div>
-
-              <div>
-                <label class="form-label" for="slugInput">Slug</label>
-                <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
-                <div class="form-text">AR viewer: <code>/index.html?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
-              </div>
-
-              <div>
-                <label class="form-label" for="priceInput">Price <span style="color:#ff4d4f">*</span></label>
-                <div class="input-group">
-                  <span class="input-group-text">$</span>
-                  <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" required />
-                  <select id="currencyInput" class="form-select" style="max-width:110px">
-                    <option value="USD">USD</option>
-                  </select>
-                </div>
-                <div id="marginHint" style="display:none;font-size:.65rem;margin-top:.35rem"></div>
-              </div>
-
-              <div>
-                <label class="form-label" for="imageUrlInput">Image URL</label>
-                <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
-              </div>
-
-              <div>
-                <label class="form-label" for="imageFileInput">Upload Images</label>
-                <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
-                <div class="form-text">Up to 5 images. Stored in R2.</div>
-              </div>
-
-              <div>
-                <label class="form-label" for="descInput">Description</label>
-                <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
-              </div>
-
-              <div>
-                <label class="form-label">Printful Catalog Link <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(required to sell this product)</span></label>
-                <div id="printfulLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Not linked yet — clicking below saves this product first, then lets you link it to a real Printful garment.</div>
-                <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
-              </div>
-
-              <div>
-                <label class="form-label">Design Preview <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(real Printful mockup of the design on the linked garment)</span></label>
-                <div id="mockupStatus" style="font-size:.68rem;color:#555;margin-bottom:6px">Save with a linked garment and a design image to preview it here.</div>
-                <button type="button" id="mockupPreviewBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Preview on Printful&#8230;</button>
-                <div id="mockupPreviewImages" class="d-flex flex-wrap gap-2" style="margin-top:10px"></div>
-              </div>
-
-              <details>
-                <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
-                <div class="mt-2">
-                  <label class="form-label" for="printfulSyncVariantInput">Printful Sync Variant ID <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional &mdash; single-variant products)</span></label>
-                  <input id="printfulSyncVariantInput" class="form-control" type="text" placeholder="e.g. 6a0ff0f16447e7" />
-                </div>
-                <div class="mt-2">
-                  <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
-                  <div id="printfulVariantFields" class="vstack gap-1">
-                    <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
-                  </div>
-                  <div class="form-text">Normally set automatically by "Link to Printful Catalog" above &#8212; edit here only to override.</div>
-                </div>
-              </details>
-
-              <div>
-                <label class="form-label" for="targetSelect">AR Target <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
-                <select id="targetSelect" class="form-select">
-                  <option value="">(none)</option>
+            <div class="mb-3">
+              <label class="form-label" for="priceInput">Price <span style="color:#ff4d4f">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text">$</span>
+                <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" required />
+                <select id="currencyInput" class="form-select" style="max-width:110px">
+                  <option value="USD">USD</option>
                 </select>
               </div>
+              <div id="marginHint" style="display:none;font-size:.65rem;margin-top:.35rem"></div>
+            </div>
 
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="publishInput">
-                <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
-              </div>
+            <div class="mb-3">
+              <label class="form-label" for="descInput">Description</label>
+              <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
+            </div>
 
-              <div class="d-flex gap-2 pt-1">
-                <button class="btn btn-inrl flex-fill" type="submit" id="saveBtn">Save</button>
-                <button class="btn btn-inrl-outline" type="button" id="resetBtn">Reset</button>
+            <div class="mb-3">
+              <label class="form-label" for="targetSelect">AR Target <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
+              <select id="targetSelect" class="form-select">
+                <option value="">(none)</option>
+              </select>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="publishInput">
+              <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
+            </div>
+          </div>
+
+          <div class="pd-panel-section" data-pd-section="printful" hidden>
+            <div class="pd-panel-title">Printful</div>
+
+            <div class="mb-3">
+              <label class="form-label">Catalog Link <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(required to sell this product)</span></label>
+              <div id="printfulLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Not linked yet — clicking below saves this product first, then lets you link it to a real Printful garment.</div>
+              <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Design Preview <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(real Printful mockup for the active canvas view)</span></label>
+              <div id="mockupStatus" style="font-size:.68rem;color:#555;margin-bottom:6px">Save with a linked garment and a design image to preview it here.</div>
+              <button type="button" id="mockupPreviewBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Preview on Printful&#8230;</button>
+              <div id="mockupPreviewImages" class="d-flex flex-wrap gap-2" style="margin-top:10px"></div>
+            </div>
+
+            <details>
+              <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
+              <div class="mt-2">
+                <label class="form-label" for="printfulSyncVariantInput">Printful Sync Variant ID <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional &mdash; single-variant products)</span></label>
+                <input id="printfulSyncVariantInput" class="form-control" type="text" placeholder="e.g. 6a0ff0f16447e7" />
               </div>
-            </form>
+              <div class="mt-2">
+                <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
+                <div id="printfulVariantFields" class="vstack gap-1">
+                  <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
+                </div>
+                <div class="form-text">Normally set automatically by "Link to Printful Catalog" above &#8212; edit here only to override.</div>
+              </div>
+            </details>
+          </div>
+
+          <div class="pd-panel-section" data-pd-section="layers" hidden>
+            <div class="pd-panel-title">Layers</div>
+            <div id="pdLayersList"></div>
+          </div>
+
+        </div>
+
+        <!-- Canvas -->
+        <div class="pd-canvas-wrap">
+          <div class="pd-canvas-topbar">
+            <div class="pd-view-tabs" id="pdViewTabs">
+              <button type="button" class="pd-view-tab active" data-pd-view="front">Front</button>
+              <button type="button" class="pd-view-tab" data-pd-view="back">Back</button>
+            </div>
+            <a href="#" id="backToProductsLink" class="pd-back-link">&larr; Back to Products</a>
+          </div>
+          <div class="pd-canvas">
+            <div class="pd-garment">
+              <svg class="pd-shirt-svg" viewBox="0 0 300 300" fill="none" stroke="#3a3a3a" stroke-width="3" stroke-linejoin="round">
+                <path fill="#1c1c1c" d="M100 20 L60 45 L20 85 L45 115 L70 100 L70 270 L230 270 L230 100 L255 115 L280 85 L240 45 L200 20 C200 40 175 55 150 55 C125 55 100 40 100 20 Z"/>
+              </svg>
+              <div class="pd-dropzone" id="pdDropzone">
+                <div class="pd-dropzone-inner" id="pdDropzoneInner">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <div>Upload or drop your<br>design here</div>
+                </div>
+                <img id="pdDesignImg" class="pd-design-img hidden" alt="Design preview">
+              </div>
+            </div>
+          </div>
+          <input type="file" id="pdCanvasFileInput" accept="image/*" class="hidden">
+        </div>
+
+      </div>
+
+      <!-- Bottom bar -->
+      <div class="pd-bottombar">
+        <div class="pd-bottombar-info">
+          <img id="pdBottomThumb" class="pd-bottom-thumb hidden" alt="">
+          <div>
+            <div class="pd-bottom-title" id="pdBottomTitle">Untitled product</div>
+            <div class="pd-bottom-price" id="pdBottomPrice">$0.00</div>
           </div>
         </div>
+        <div class="pd-bottombar-actions">
+          <button class="btn btn-sm btn-inrl-outline" type="button" id="resetBtn">Reset</button>
+          <button class="btn btn-sm btn-inrl-outline" type="button" id="pdSaveTemplateBtn">Save template</button>
+          <button class="btn btn-inrl" type="submit" id="saveBtn">Publish</button>
+        </div>
       </div>
-    </div>
+    </form>
   </div><!-- /pane-create-product -->
 
   <!-- ===== HOMEPAGE PANE ===== -->
@@ -825,6 +943,67 @@
   let printfulProducts = [];
   let currentProductCostMap = null;
 
+  // Design-canvas state for the Create/Edit Product pane — which view (front/back) is
+  // active, and the per-placement Printful print-file source images. Independent of the
+  // storefront gallery (image_url/image_urls): this is what gets sent to Printful's mockup
+  // API, not what customers see on the shop page.
+  let designImages = {};
+  let pdActiveView = 'front';
+
+  function pdPanelSwitch(panel) {
+    document.querySelectorAll('#pdRail .pd-rail-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-pd-panel') === panel);
+    });
+    document.querySelectorAll('.pd-panel-section').forEach(function(sec) {
+      sec.hidden = sec.getAttribute('data-pd-section') !== panel;
+    });
+  }
+
+  function pdRenderCanvas() {
+    const img = el('pdDesignImg');
+    const inner = el('pdDropzoneInner');
+    const url = designImages[pdActiveView];
+    if (url) {
+      img.src = url;
+      img.classList.remove('hidden');
+      inner.style.display = 'none';
+    } else {
+      img.src = '';
+      img.classList.add('hidden');
+      inner.style.display = '';
+    }
+    document.querySelectorAll('#pdViewTabs .pd-view-tab').forEach(function(tab) {
+      tab.classList.toggle('active', tab.getAttribute('data-pd-view') === pdActiveView);
+    });
+  }
+
+  function pdRenderLayers() {
+    const box = el('pdLayersList');
+    if (!box) return;
+    const url = designImages[pdActiveView];
+    if (!url) {
+      box.innerHTML = '<div class="pd-layer-empty">Your design layers will appear here.</div>';
+      return;
+    }
+    box.innerHTML =
+      '<div class="pd-layer-row">' +
+        '<img class="pd-layer-thumb" src="' + escapeHtml(url) + '" alt="">' +
+        '<div class="pd-layer-name">' + escapeHtml(pdActiveView) + ' design</div>' +
+        '<button type="button" class="btn btn-sm btn-danger-inrl" data-pd-remove-layer style="font-size:.58rem;padding:.2rem .5rem">Remove</button>' +
+      '</div>';
+  }
+
+  function pdUpdateBottomBar() {
+    const title = (el('titleInput').value || '').trim();
+    el('pdBottomTitle').textContent = title || 'Untitled product';
+    const cents = Math.round(Number(el('priceInput').value || 0) * 100);
+    el('pdBottomPrice').textContent = formatMoney(cents, el('currencyInput').value);
+    const thumb = el('pdBottomThumb');
+    const thumbUrl = (el('imageUrlInput').value || '').trim() || designImages.front || designImages.back || '';
+    if (thumbUrl) { thumb.src = thumbUrl; thumb.classList.remove('hidden'); }
+    else { thumb.src = ''; thumb.classList.add('hidden'); }
+  }
+
   const CATEGORY_PRESETS = ['Men', 'Women', 'Accessories'];
 
   function normalizeCategoryValue(v) {
@@ -929,9 +1108,13 @@
     const _pfSizes = p ? (p.sizes || '').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
     renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
-    el('saveBtn').textContent = p ? 'Update' : 'Create';
     currentProductCostMap = p ? findPrintfulCostMap(p.id) : null;
     updateMarginHint();
+    designImages = (p && p.printful_design_images) ? Object.assign({}, p.printful_design_images) : {};
+    pdActiveView = 'front';
+    pdRenderCanvas();
+    pdRenderLayers();
+    pdUpdateBottomBar();
     // Clear any mockup preview from whichever product was open before — plain DOM
     // resets here since generateAndShowMockup()/renderMockupImages() live inside main()'s
     // scope (alongside the rest of the Printful picker UI) and this function doesn't.
@@ -1430,9 +1613,77 @@
     }
 
     const priceInputEl = el('priceInput');
-    if (priceInputEl) priceInputEl.addEventListener('input', updateMarginHint);
+    if (priceInputEl) priceInputEl.addEventListener('input', function() { updateMarginHint(); pdUpdateBottomBar(); });
     const currencyInputEl = el('currencyInput');
-    if (currencyInputEl) currencyInputEl.addEventListener('change', updateMarginHint);
+    if (currencyInputEl) currencyInputEl.addEventListener('change', function() { updateMarginHint(); pdUpdateBottomBar(); });
+    const titleInputEl = el('titleInput');
+    if (titleInputEl) titleInputEl.addEventListener('input', pdUpdateBottomBar);
+    const imageUrlInputEl = el('imageUrlInput');
+    if (imageUrlInputEl) imageUrlInputEl.addEventListener('input', pdUpdateBottomBar);
+
+    // ---- Design canvas: icon rail, view tabs, drag-and-drop design upload, layers ----
+    document.querySelectorAll('#pdRail .pd-rail-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { pdPanelSwitch(btn.getAttribute('data-pd-panel')); });
+    });
+
+    document.querySelectorAll('#pdViewTabs .pd-view-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        pdActiveView = tab.getAttribute('data-pd-view');
+        pdRenderCanvas();
+        pdRenderLayers();
+        setMockupStatusForActiveView();
+      });
+    });
+
+    async function handlePdDesignFile(file) {
+      if (!file || !String(file.type || '').toLowerCase().startsWith('image/')) {
+        showStatus('Invalid image file', 'error');
+        return;
+      }
+      const dz = el('pdDropzone');
+      dz.style.opacity = '.5';
+      try {
+        const url = await uploadProductImage(file, 'designs');
+        designImages[pdActiveView] = url;
+        pdRenderCanvas();
+        pdRenderLayers();
+        pdUpdateBottomBar();
+      } catch (e) {
+        showStatus(e.message || String(e), 'error');
+      } finally {
+        dz.style.opacity = '';
+      }
+    }
+
+    var pdDropzone = el('pdDropzone');
+    var pdCanvasFileInput = el('pdCanvasFileInput');
+    if (pdDropzone && pdCanvasFileInput) {
+      pdDropzone.addEventListener('click', function() { pdCanvasFileInput.click(); });
+      pdCanvasFileInput.addEventListener('change', function() {
+        const f = pdCanvasFileInput.files && pdCanvasFileInput.files[0];
+        pdCanvasFileInput.value = '';
+        if (f) handlePdDesignFile(f);
+      });
+      pdDropzone.addEventListener('dragover', function(ev) { ev.preventDefault(); pdDropzone.classList.add('pd-dragover'); });
+      pdDropzone.addEventListener('dragleave', function() { pdDropzone.classList.remove('pd-dragover'); });
+      pdDropzone.addEventListener('drop', function(ev) {
+        ev.preventDefault();
+        pdDropzone.classList.remove('pd-dragover');
+        const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+        if (f) handlePdDesignFile(f);
+      });
+    }
+
+    var pdLayersList = el('pdLayersList');
+    if (pdLayersList) {
+      pdLayersList.addEventListener('click', function(ev) {
+        if (!ev.target.closest('[data-pd-remove-layer]')) return;
+        delete designImages[pdActiveView];
+        pdRenderCanvas();
+        pdRenderLayers();
+        pdUpdateBottomBar();
+      });
+    }
 
     const categoryPresetEl = el('categoryPreset');
     const categoryInputEl = el('categoryInput');
@@ -1467,6 +1718,7 @@
       // null means inputs exist but all cleared — that intentionally wipes the map.
       if (_pfMap !== undefined) body.printful_variant_map = _pfMap;
       body.printful_sync_variant_id = el('printfulSyncVariantInput').value.trim() || null;
+      body.printful_design_images = designImages;
       if (isAdmin) body.brand = el('brandInput').value.trim();
 
       requireField('Title', body.title);
@@ -1496,8 +1748,7 @@
       return { id, created: false };
     }
 
-    el('productForm').addEventListener('submit', async function(ev) {
-      ev.preventDefault();
+    async function performSave() {
       clearStatus();
       try {
         const result = await saveProductFromForm();
@@ -1507,7 +1758,22 @@
       } catch (e) {
         showStatus(e.message || String(e), 'error');
       }
+    }
+
+    el('productForm').addEventListener('submit', function(ev) {
+      ev.preventDefault();
+      performSave();
     });
+
+    // "Publish" (the form's submit button) always forces is_published on before saving —
+    // clicking a submit button dispatches its own click event before the form's submit
+    // event, so this runs first and performSave() picks up the updated checkbox state.
+    el('saveBtn').addEventListener('click', function() { el('publishInput').checked = true; });
+
+    // "Save template" saves whatever the Published checkbox currently says (usually
+    // unchecked for a fresh product) — a plain draft save, no publish side effect.
+    var pdSaveTemplateBtn = el('pdSaveTemplateBtn');
+    if (pdSaveTemplateBtn) pdSaveTemplateBtn.addEventListener('click', performSave);
 
     el('productsTbody').addEventListener('click', async function(ev) {
       const btn = ev.target.closest('button[data-action]');
@@ -2047,7 +2313,8 @@
       // case, not an error worth surfacing.
       function maybeAutoPreviewAfterLink(productId) {
         var p = products.find(function(x) { return String(x.id) === String(productId); });
-        if (p && p.image_url) generateAndShowMockup(productId, p.image_url, { silent: true });
+        var frontImg = p && ((p.printful_design_images && p.printful_design_images.front) || p.image_url);
+        if (frontImg) generateAndShowMockup(productId, frontImg, { silent: true, placement: 'front' });
       }
 
       function setMockupStatus(msg, color) {
@@ -2064,6 +2331,15 @@
           return '<img src="' + escapeHtml(url) + '" alt="Printful mockup preview" ' +
             'style="width:160px;height:160px;object-fit:contain;background:#111;border:1px solid #333">';
         }).join('');
+      }
+
+      // Switching canvas views (front/back) clears whatever mockup preview was showing —
+      // a rendered front mockup is meaningless once the admin is looking at the back view.
+      function setMockupStatusForActiveView() {
+        renderMockupImages([]);
+        setMockupStatus(designImages[pdActiveView]
+          ? 'Click Preview to render the ' + pdActiveView + ' view on Printful.'
+          : 'Upload a ' + pdActiveView + ' design on the canvas first.');
       }
 
       // Kicks off a real Printful mockup render (POST .../mockup) and polls the task
@@ -2087,7 +2363,7 @@
         try {
           const startRes = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/mockup', {
             method: 'POST',
-            body: { image_url: imageUrl },
+            body: { image_url: imageUrl, placement: opts.placement || 'front' },
           });
           const taskId = startRes && startRes.task_id;
           if (!taskId) throw new Error('No mockup task id returned');
@@ -2428,8 +2704,8 @@
       if (mockupPreviewBtn) {
         mockupPreviewBtn.addEventListener('click', function() {
           var id = el('productId').value.trim();
-          var imageUrl = (el('imageUrlInput').value || '').trim();
-          generateAndShowMockup(id, imageUrl);
+          var imageUrl = designImages[pdActiveView] || (pdActiveView === 'front' ? (el('imageUrlInput').value || '').trim() : '');
+          generateAndShowMockup(id, imageUrl, { placement: pdActiveView });
         });
       }
 

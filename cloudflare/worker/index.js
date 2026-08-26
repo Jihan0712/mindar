@@ -2059,7 +2059,7 @@
     let sql = `
       select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
             case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-        p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.created_at, p.updated_at,
+        p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_design_images, p.created_at, p.updated_at,
             b.name as brand
       from products p
       left join brands b on b.id = p.brand_id
@@ -2092,9 +2092,13 @@
       rows = await dbAll(sql, ...params);
     } catch (e) {
       const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
+        // design-images migration not yet run — retry without it
+        const sql2 = sql.replace(', p.printful_design_images', '');
+        rows = await dbAll(sql2, ...params);
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
         // variant map migration not yet run — retry without it
-        const sql2 = sql.replace(', p.printful_variant_map', '');
+        const sql2 = sql.replace(', p.printful_variant_map', '').replace(', p.printful_design_images', '');
         rows = await dbAll(sql2, ...params);
       } else if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls') || msg.includes('printful_sync_variant_id'))) {
         // Backward-compatible fallback if DB hasn't been migrated yet.
@@ -2138,6 +2142,7 @@
         printful_sync_product_id: r.printful_sync_product_id || null,
         printful_sync_variant_id: r.printful_sync_variant_id || null,
         printful_variant_map: r.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_map) : null,
+        printful_design_images: r.printful_design_images ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_design_images) : null,
         brand: r.brand || null,
         viewer_url,
         created_at: r.created_at,
@@ -2268,6 +2273,9 @@
     const printfulVariantMap = body.printful_variant_map != null
       ? (typeof body.printful_variant_map === 'object' ? JSON.stringify(body.printful_variant_map) : String(body.printful_variant_map).trim() || null)
       : null;
+    const printfulDesignImages = body.printful_design_images != null
+      ? (typeof body.printful_design_images === 'object' ? JSON.stringify(body.printful_design_images) : String(body.printful_design_images).trim() || null)
+      : null;
     if (imageUrlsArr == null && body.image_urls != null) return jsonResponse({ error: 'Invalid image_urls (max 5)' }, 400, request);
     if (imageData) {
       if (imageData.length > 2_000_000) return jsonResponse({ error: 'image too large' }, 413, request);
@@ -2307,7 +2315,7 @@
 
     try {
       await dbRun(
-        'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id, printful_variant_map) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id, printful_variant_map, printful_design_images) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         brandId,
         title,
         slug,
@@ -2323,15 +2331,22 @@
         isPublished,
         targetId,
         printfulVariantId,
-        printfulVariantMap
+        printfulVariantMap,
+        printfulDesignImages
       );
     } catch (e) {
       const msg = String(e || '');
       if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
         return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
       }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        // variant map migration not yet run — insert without printful_variant_map
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
+        // design-images migration not yet run — insert without printful_design_images
+        await dbRun(
+          'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id, printful_variant_map) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId, printfulVariantId, printfulVariantMap
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        // variant map migration not yet run — insert without printful_variant_map/printful_design_images
         await dbRun(
           'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId, printfulVariantId
@@ -2347,15 +2362,33 @@
       }
     }
 
-    const row = await dbGet(
-      `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-              case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-              p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map,
-              p.created_at, p.updated_at, b.name as brand
-      from products p
-      left join brands b on b.id = p.brand_id
-      where p.rowid = last_insert_rowid()`
-    );
+    let row;
+    try {
+      row = await dbGet(
+        `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
+                case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
+                p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_design_images,
+                p.created_at, p.updated_at, b.name as brand
+        from products p
+        left join brands b on b.id = p.brand_id
+        where p.rowid = last_insert_rowid()`
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
+        row = await dbGet(
+          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
+                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
+                  p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map,
+                  p.created_at, p.updated_at, b.name as brand
+          from products p
+          left join brands b on b.id = p.brand_id
+          where p.rowid = last_insert_rowid()`
+        );
+      } else {
+        throw e;
+      }
+    }
 
     if (row) {
       const parsedImageUrls = parseImageUrlsFromRow(row.image_urls);
@@ -2364,6 +2397,7 @@
       else row.image_url = firstUrl || null;
       row.image_urls = parsedImageUrls;
       row.printful_variant_map = row.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_variant_map) : null;
+      row.printful_design_images = row.printful_design_images ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_design_images) : null;
       if (row.has_image_data != null) delete row.has_image_data;
     }
 
@@ -2474,6 +2508,14 @@
       params.push(v);
     }
 
+    if (body.printful_design_images !== undefined) {
+      const v = body.printful_design_images != null
+        ? (typeof body.printful_design_images === 'object' ? JSON.stringify(body.printful_design_images) : String(body.printful_design_images).trim() || null)
+        : null;
+      fields.push('printful_design_images = ?');
+      params.push(v);
+    }
+
     if (!fields.length) return jsonResponse({ ok: true }, 200, request);
     fields.push("updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
 
@@ -2487,14 +2529,23 @@
       if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
         return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
       }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        // printful_variant_map column not yet added — retry update without it.
-        const pfIdx = fields.indexOf('printful_variant_map = ?');
-        if (pfIdx !== -1) {
-          const rf = [...fields]; rf.splice(pfIdx, 1);
-          const rp = [...params]; rp.splice(pfIdx, 1);
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
+        // design-images column not yet added — retry update without it.
+        const diIdx = fields.indexOf('printful_design_images = ?');
+        if (diIdx !== -1) {
+          const rf = [...fields]; rf.splice(diIdx, 1);
+          const rp = [...params]; rp.splice(diIdx, 1);
           await dbRun(`update products set ${rf.join(', ')} where id = ?`, ...rp, id);
         }
+        // fall through to re-fetch and return — design images not saved until migration is run
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+        // printful_variant_map column not yet added — retry update without it (and design_images, same migration gap).
+        const rf = [...fields]; const rp = [...params];
+        [ 'printful_variant_map = ?', 'printful_design_images = ?' ].forEach(function(col) {
+          const idx = rf.indexOf(col);
+          if (idx !== -1) { rf.splice(idx, 1); rp.splice(idx, 1); }
+        });
+        await dbRun(`update products set ${rf.join(', ')} where id = ?`, ...rp, id);
         // fall through to re-fetch and return — variant map not saved until migration is run
       } else {
         throw e;
@@ -2506,7 +2557,7 @@
       row = await dbGet(
         `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
                 case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.created_at, p.updated_at, b.name as brand
+                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_design_images, p.created_at, p.updated_at, b.name as brand
         from products p
         left join brands b on b.id = p.brand_id
         where p.id = ?`,
@@ -2514,7 +2565,17 @@
       );
     } catch (e) {
       const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
+        row = await dbGet(
+          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
+                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
+                  p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.created_at, p.updated_at, b.name as brand
+          from products p
+          left join brands b on b.id = p.brand_id
+          where p.id = ?`,
+          id
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
         row = await dbGet(
           `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
                   case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
@@ -2543,6 +2604,7 @@
       if (!firstUrl && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}&i=0`;
       else row.image_url = firstUrl || row.image_url || null;
       row.image_urls = parsedImageUrls;
+      row.printful_design_images = row.printful_design_images ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_design_images) : null;
       if (row.has_image_data != null) delete row.has_image_data;
     }
     return jsonResponse({ ok: true, item: row || null }, 200, request);
@@ -3078,7 +3140,7 @@
 
   const UPLOAD_MAX_SIZE = 50 * 1024 * 1024; // 50 MB
   const UPLOAD_ALLOWED_TYPES = ['image/', 'video/', 'application/octet-stream', 'model/'];
-  const UPLOAD_ALLOWED_PATHS = ['videos', 'images', 'minds', 'products', 'homepage', 'banners'];
+  const UPLOAD_ALLOWED_PATHS = ['videos', 'images', 'minds', 'products', 'homepage', 'banners', 'designs'];
 
   async function handleUpload(request) {
     try {
@@ -3780,10 +3842,23 @@
     if (error) return error;
     if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
 
-    const product = await dbGet(
-      'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map from products where id = ?',
-      productId
-    );
+    let product;
+    try {
+      product = await dbGet(
+        'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map, printful_design_images from products where id = ?',
+        productId
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
+        product = await dbGet(
+          'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map from products where id = ?',
+          productId
+        );
+      } else {
+        throw e;
+      }
+    }
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
     if (sess.user.role === 'brand') {
       const brandIds = (sess.user.brands || []).map(b => b.id);
@@ -3794,7 +3869,10 @@
     }
 
     const body = await readJson(request);
-    const imageUrl = clampStr(body.image_url, 800) || product.image_url;
+    const requestedPlacement = String(body.placement || 'front').trim().toLowerCase() || 'front';
+    let designImages = {};
+    try { designImages = product.printful_design_images ? JSON.parse(product.printful_design_images) : {}; } catch {}
+    const imageUrl = clampStr(body.image_url, 800) || designImages[requestedPlacement] || product.image_url;
     if (!imageUrl) return jsonResponse({ error: 'This product has no design image to preview' }, 400, request);
 
     let variantMap = {};
@@ -3815,9 +3893,13 @@
       const raw = await Printful.callPrintful(pfEnv, 'GET', `/catalog-products/${Number(product.printful_catalog_product_id)}/mockup-styles`);
       const placementGroups = (raw && (raw.data ?? raw.result)) || [];
       const list = Array.isArray(placementGroups) ? placementGroups : [];
-      const frontGroup = list.find(g => String(g && g.placement || '').toLowerCase() === 'front') || list[0];
-      const styles = frontGroup && Array.isArray(frontGroup.mockup_styles) ? frontGroup.mockup_styles : [];
-      if (!frontGroup || !styles.length || styles[0].id == null) {
+      const matchedGroup = list.find(g => String(g && g.placement || '').toLowerCase() === requestedPlacement);
+      if (!matchedGroup) {
+        const available = list.map(g => g && g.placement).filter(Boolean).join(', ') || 'none';
+        return jsonResponse({ error: `This garment doesn't support a '${requestedPlacement}' print placement. Available: ${available}.` }, 400, request);
+      }
+      const styles = Array.isArray(matchedGroup.mockup_styles) ? matchedGroup.mockup_styles : [];
+      if (!styles.length || styles[0].id == null) {
         // Fold the raw response into the error message itself (not a separate field) —
         // the dashboard's apiFetch() only ever surfaces `error`, so this is the only way
         // the actual shape reaches the UI instead of getting silently dropped.
@@ -3825,8 +3907,8 @@
         return jsonResponse({ error: `No mockup styles available for this garment. Raw response: ${rawStr}` }, 502, request);
       }
       styleId = styles[0].id;
-      placement = frontGroup.placement || 'front';
-      technique = frontGroup.technique || 'dtg';
+      placement = matchedGroup.placement || requestedPlacement;
+      technique = matchedGroup.technique || 'dtg';
     } catch (e) {
       return jsonResponse({ error: `Could not load mockup styles: ${String(e && e.message ? e.message : e)}` }, 502, request);
     }
