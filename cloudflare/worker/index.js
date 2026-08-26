@@ -3439,28 +3439,32 @@
     if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
 
     const email = String(sess.user.email || '').trim().toLowerCase();
-    if (!email) return jsonResponse({ items: [] }, 200, request);
+    const userId = sess.user.id;
+    if (!email && !userId) return jsonResponse({ items: [] }, 200, request);
 
+    // Match by account email OR by user_id — checkout records user_id for anyone logged
+    // in at the time of purchase, even if they typed a different email into the checkout
+    // form than the one on their account. Matching email alone missed those orders.
     // The Printful migration (sql/printful_migration.sql) adds tracking columns to orders.
     // If it hasn't been run yet, fall back to the base columns so this endpoint still works
     // instead of throwing "no such column" and crashing the whole request.
     const FULL_SQL = `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
               total_cents, currency, items_json, created_at
-       from orders where lower(trim(email)) = ?
+       from orders where user_id = ? or lower(trim(email)) = ?
        order by created_at desc
        limit 100`;
     const BASE_SQL = `select id, status, payment_status, total_cents, currency, items_json, created_at
-       from orders where lower(trim(email)) = ?
+       from orders where user_id = ? or lower(trim(email)) = ?
        order by created_at desc
        limit 100`;
 
     let rows;
     try {
-      rows = await dbAll(FULL_SQL, email);
+      rows = await dbAll(FULL_SQL, userId, email);
     } catch (e) {
       const msg = String(e || '');
       if (msg.toLowerCase().includes('no such column')) {
-        rows = await dbAll(BASE_SQL, email);
+        rows = await dbAll(BASE_SQL, userId, email);
       } else {
         throw e;
       }
