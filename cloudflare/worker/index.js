@@ -60,6 +60,75 @@
       return json;
     }
 
+    // ---- v1 API (Sync Products) ----
+    // v2 has no equivalent to v1's "Sync Products" (products designed directly in
+    // Printful's own dashboard at printful.com, then pulled in here via the API) — v2's
+    // own docs list this under "Retired Resources": "Product management, with sync
+    // products or product templates, is not available in version 2 of the API yet." So
+    // importing a sync product means calling v1 directly, alongside (not instead of) the
+    // v2 calls above — both API versions accept the same private-token auth.
+    const PRINTFUL_V1_BASE = 'https://api.printful.com';
+
+    async function callPrintfulV1(env, method, path, body) {
+      const { apiKey, storeId } = getPrintfulConfig(env);
+      if (!apiKey) throw new Error('PRINTFUL_API_KEY is not configured');
+
+      let p = String(path || '').trim();
+      if (!p.startsWith('/')) p = '/' + p;
+
+      const opts = {
+        method,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      };
+      // v1 scopes an account-level token to one store via this header (a store-level
+      // token — the common case — already implies its own store and ignores it); v2 uses
+      // a ?store_id= query param instead (see printfulStoreQuery above).
+      if (storeId) opts.headers['X-PF-Store-Id'] = storeId;
+      if (body != null) opts.body = JSON.stringify(body);
+
+      const res = await fetch(`${PRINTFUL_V1_BASE}${p}`, opts);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = (json && json.error && json.error.message) || JSON.stringify(json);
+        throw new Error(`Printful v1 ${res.status}: ${msg}`);
+      }
+      return json;
+    }
+
+    // GET /store/products — v1's paginated list of sync products (each with variant/
+    // synced counts and a thumbnail) created directly in Printful's own dashboard.
+    async function listSyncProducts(env) {
+      const limit = 100;
+      let offset = 0;
+      let all = [];
+      while (true) {
+        const data = await callPrintfulV1(env, 'GET', `/store/products?limit=${limit}&offset=${offset}`);
+        const list = Array.isArray(data && data.result) ? data.result : [];
+        all = all.concat(list);
+        const total = data && data.paging && Number.isFinite(Number(data.paging.total))
+          ? Number(data.paging.total)
+          : null;
+        offset += limit;
+        if (!list.length) break;
+        if (total != null && all.length >= total) break;
+        if (total == null && list.length < limit) break;
+        if (offset > 5000) break; // safety cap against runaway pagination
+      }
+      return all;
+    }
+
+    // GET /store/products/{id} — full sync_product + sync_variants[] detail, including
+    // each variant's already-attached print file and Printful-rendered preview/thumbnail
+    // images (files[].preview_url / files[].thumbnail_url) — no separate mockup-generation
+    // call is needed for these, Printful already rendered them when the product was made.
+    async function getSyncProduct(env, id) {
+      const data = await callPrintfulV1(env, 'GET', `/store/products/${Number(id)}`);
+      return (data && data.result) || null;
+    }
+
     // v2's catalog endpoints are paginated (max 100/page) with no server-side name search,
     // so browsing/searching means walking every page once per request.
     async function fetchAllPaginated(env, path) {
@@ -156,6 +225,54 @@
       return { resolved, missing };
     }
 
+    // Same matching approach as resolveCatalogVariants above, adapted to a v1 sync
+    // product's own sync_variants[] (each already has size/color directly on it, no
+    // nested catalog lookup needed) — maps this local product's sizes to the sync variant
+    // ids Printful will actually fulfill against.
+    function resolveSyncVariants(syncProduct, sizes, color, overrideMap) {
+      const variants = Array.isArray(syncProduct?.sync_variants) ? syncProduct.sync_variants : [];
+      const colorNorm = normalizeColorLabel(color);
+      const resolved = [];
+      const missing = [];
+
+      const priceById = (id) => {
+        const v = variants.find(v => Number(v.id) === Number(id));
+        return v && v.retail_price != null ? v.retail_price : null;
+      };
+
+      for (const size of sizes) {
+        const sizeNorm = normalizeSizeLabel(size);
+        if (!sizeNorm) continue;
+
+        if (overrideMap && overrideMap[sizeNorm] != null) {
+          const syncVariantId = Number(overrideMap[sizeNorm]);
+          resolved.push({ size, sync_variant_id: syncVariantId, price: priceById(syncVariantId) });
+          continue;
+        }
+        if (overrideMap && overrideMap[size] != null) {
+          const syncVariantId = Number(overrideMap[size]);
+          resolved.push({ size, sync_variant_id: syncVariantId, price: priceById(syncVariantId) });
+          continue;
+        }
+
+        const match = variants.find(v => {
+          const vSize = normalizeSizeLabel(v.size);
+          const vColor = normalizeColorLabel(v.color);
+          if (vSize !== sizeNorm) return false;
+          if (!colorNorm) return true;
+          return vColor === colorNorm || vColor.includes(colorNorm) || colorNorm.includes(vColor);
+        });
+
+        if (match && match.id) {
+          resolved.push({ size, sync_variant_id: Number(match.id), price: match.retail_price != null ? match.retail_price : null });
+        } else {
+          missing.push(size);
+        }
+      }
+
+      return { resolved, missing };
+    }
+
     // GET /v2/catalog-products/{id}/mockup-styles — mockup_style_ids is a required field
     // on mockup-task creation, so this is how the worker discovers a valid one instead of
     // hardcoding a style id that may not exist for every garment. Returns an array grouped
@@ -200,12 +317,16 @@
       getPrintfulConfig,
       printfulStoreQuery,
       callPrintful,
+      callPrintfulV1,
       fetchCatalogProduct,
       listCatalogProducts,
       resolveCatalogVariants,
+      resolveSyncVariants,
       listMockupStyles,
       createMockupTaskRaw,
       getMockupTaskRaw,
+      listSyncProducts,
+      getSyncProduct,
     };
   })();
 
@@ -733,6 +854,16 @@
     if (request.method === 'GET' && /^\/api\/admin\/printful\/mockup-tasks\/[^/]+$/.test(pathname)) {
       const taskId = decodeURIComponent(pathname.split('/')[5]);
       return apiPrintfulGetMockupTask(request, taskId);
+    }
+    // Printful Sync Products (v1 — products designed on printful.com itself, imported here)
+    if (request.method === 'GET'  && pathname === '/api/admin/printful/sync-products')  return apiPrintfulListSyncProducts(request);
+    if (request.method === 'GET'  && /^\/api\/admin\/printful\/sync-products\/\d+$/.test(pathname)) {
+      const syncProductId = parseInt(pathname.split('/')[5], 10);
+      return apiPrintfulGetSyncProduct(request, syncProductId);
+    }
+    if (request.method === 'POST' && /^\/api\/admin\/printful\/products\/\d+\/link-sync$/.test(pathname)) {
+      const productId = parseInt(pathname.split('/')[5], 10);
+      return apiPrintfulLinkSyncProduct(request, productId);
     }
 
     // Targets
@@ -1410,6 +1541,10 @@
     return Printful.callPrintful(printfulEnv(), method, path, body);
   }
 
+  async function callPrintfulV1(method, path, body) {
+    return Printful.callPrintfulV1(printfulEnv(), method, path, body);
+  }
+
   // Re-resolves one cart line {slug, size, qty} against D1 — the only trusted source for
   // price, design file, and Printful catalog variant. Never trust client-supplied price/
   // image/variant values; the client only ever gets to say *which* product+size+qty.
@@ -1425,13 +1560,22 @@
     try {
       row = await dbGet(
         `select id, slug, title, price_cents, currency, image_url, is_published,
-                printful_variant_map, printful_sync_variant_id, printful_design_images
+                printful_variant_map, printful_sync_variant_id, printful_design_images, printful_sync_variant_map
          from products where slug = ?`,
         slug
       );
     } catch (e) {
       const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_map')) {
+        // sync-variant-map migration not yet run — retry without it (products linked via
+        // Printful Sync Products just resolve as unfulfillable until it's applied).
+        row = await dbGet(
+          `select id, slug, title, price_cents, currency, image_url, is_published,
+                  printful_variant_map, printful_sync_variant_id, printful_design_images
+           from products where slug = ?`,
+          slug
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
         row = await dbGet(
           `select id, slug, title, price_cents, currency, image_url, is_published,
                   printful_variant_map, printful_sync_variant_id
@@ -1452,6 +1596,17 @@
     const fallback = row.printful_sync_variant_id != null ? Number(row.printful_sync_variant_id) : NaN;
     const catalogVariantId = Number.isFinite(mapped) && mapped > 0 ? mapped
       : (Number.isFinite(fallback) && fallback > 0 ? fallback : null);
+
+    // Products imported from Printful's own site (Sync Products, v1-only — see the
+    // Printful module) resolve a sync_variant_id instead of a catalog_variant_id. A
+    // product is linked via exactly one of the two models, never both, but resolve this
+    // independently of catalog_variant_id above so submitPrintfulOrder can tell them apart.
+    let syncVariantMap = null;
+    if (row.printful_sync_variant_map) {
+      try { syncVariantMap = JSON.parse(row.printful_sync_variant_map); } catch {}
+    }
+    const mappedSync = size && syncVariantMap && syncVariantMap[size] != null ? Number(syncVariantMap[size]) : NaN;
+    const syncVariantId = Number.isFinite(mappedSync) && mappedSync > 0 ? mappedSync : null;
 
     const imageUrl = row.image_url ? normalizePublicUrl(String(row.image_url), request) : '';
 
@@ -1481,60 +1636,50 @@
       image_url: imageUrl || null,
       design_images: normalizedDesignImages,
       catalog_variant_id: catalogVariantId,
+      sync_variant_id: syncVariantId,
     };
   }
 
-  // Printful API v2 does not support "sync products" — orders must reference a
-  // catalog_variant_id with source:"catalog" and an explicit print file placement,
-  // and a created order stays an unbilled draft until it is separately confirmed.
-  // `items` must already be resolved (resolveOrderItemFromD1 output) — no client-trusted
-  // values are read here.
-  async function submitPrintfulOrder(orderId, resolvedItems, customer) {
-    const key = typeof PRINTFUL_API_KEY === 'string' ? PRINTFUL_API_KEY.trim() : '';
-    if (!key) {
-      throw new Error('PRINTFUL_API_KEY is not configured — order was not sent to Printful');
-    }
-
-    const items = resolvedItems
-      .filter(it => it.catalog_variant_id && (it.image_url || it.design_images))
-      .map(it => {
-        // Prefer the per-placement design map (Create Product > Images step) — one
-        // placement entry per design the admin actually set up — over the single
-        // front-only placement built from the plain storefront photo, which stays as the
-        // fallback for products that were linked to Printful but never given a design.
-        const placements = it.design_images
-          ? Object.entries(it.design_images).map(([placement, url]) => ({
-              placement,
-              technique: 'dtg',
-              layers: [{ type: 'file', url }],
-            }))
-          : [{ placement: 'front', technique: 'dtg', layers: [{ type: 'file', url: it.image_url }] }];
-        return {
-          quantity: it.qty,
-          catalog_variant_id: Number(it.catalog_variant_id),
-          source: 'catalog',
-          placements,
-        };
-      });
-
-    if (!items.length) {
-      throw new Error('No order items resolved to a Printful catalog variant + design file');
-    }
-
-    const countryCode = toCountryCode(customer.country);
-    const payload = {
-      external_id: orderId,
-      recipient: {
-        name: [customer.firstName, customer.lastName].filter(Boolean).join(' '),
-        address1: customer.address,
-        city: customer.city || '',
-        state_code: customer.state,
-        country_code: countryCode,
-        zip: customer.zip,
-        email: customer.email,
-      },
-      items,
+  function printfulRecipient(customer, countryCode) {
+    return {
+      name: [customer.firstName, customer.lastName].filter(Boolean).join(' '),
+      address1: customer.address,
+      city: customer.city || '',
+      state_code: customer.state,
+      country_code: countryCode,
+      zip: customer.zip,
+      email: customer.email,
     };
+  }
+
+  // v2 catalog-direct submission — orders must reference a catalog_variant_id with
+  // source:"catalog" and an explicit print file placement, and a created order stays an
+  // unbilled draft until it is separately confirmed. Used for products linked via
+  // "Link to Printful Catalog" (with or without a positioned design from the product
+  // designer) — `catalogItems` must already be resolved (resolveOrderItemFromD1 output),
+  // pre-filtered to items with a catalog_variant_id.
+  async function submitPrintfulOrderV2(orderId, catalogItems, customer, countryCode) {
+    const items = catalogItems.map(it => {
+      // Prefer the per-placement design map (Create Product > Images step) — one
+      // placement entry per design the admin actually set up — over the single
+      // front-only placement built from the plain storefront photo, which stays as the
+      // fallback for products that were linked to Printful but never given a design.
+      const placements = it.design_images
+        ? Object.entries(it.design_images).map(([placement, url]) => ({
+            placement,
+            technique: 'dtg',
+            layers: [{ type: 'file', url }],
+          }))
+        : [{ placement: 'front', technique: 'dtg', layers: [{ type: 'file', url: it.image_url }] }];
+      return {
+        quantity: it.qty,
+        catalog_variant_id: Number(it.catalog_variant_id),
+        source: 'catalog',
+        placements,
+      };
+    });
+
+    const payload = { external_id: orderId, recipient: printfulRecipient(customer, countryCode), items };
 
     // v2 wraps the payload under "data"; keep a "result" fallback for API drift/older shapes.
     const pfBody = (resp) => (resp && (resp.data ?? resp.result)) || null;
@@ -1549,9 +1694,80 @@
       const confirmed = await callPrintful('POST', `/orders/${draftId}/confirm`, {});
       return { result: pfBody(confirmed) || createdBody, confirmed: true };
     } catch (confirmErr) {
-      console.error('[printful] Order', orderId, '— draft', draftId, 'created but confirm failed:', String(confirmErr));
+      console.error('[printful v2] Order', orderId, '— draft', draftId, 'created but confirm failed:', String(confirmErr));
       return { result: createdBody, confirmed: false };
     }
+  }
+
+  // v1 Sync Products submission — for products imported from Printful's own site (see
+  // apiPrintfulLinkSyncProduct). The print file is already attached to the sync variant
+  // on Printful's side, so an item here is just {sync_variant_id, quantity} — no
+  // placements/design file needed at all, unlike the v2 path above. Same create-then-
+  // confirm draft flow as v2 (confirmed via a real docs check this session, not assumed).
+  async function submitPrintfulOrderV1(orderId, syncItems, customer, countryCode) {
+    const items = syncItems.map(it => ({
+      quantity: it.qty,
+      sync_variant_id: Number(it.sync_variant_id),
+    }));
+
+    const payload = { external_id: orderId, recipient: printfulRecipient(customer, countryCode), items };
+    const pfBody = (resp) => (resp && (resp.result ?? resp.data)) || null;
+
+    const created = await callPrintfulV1('POST', '/orders', payload);
+    const createdBody = pfBody(created);
+    const draftId = createdBody && createdBody.id;
+    if (!draftId) return { result: createdBody, confirmed: false };
+
+    try {
+      const confirmed = await callPrintfulV1('POST', `/orders/${draftId}/confirm`, {});
+      return { result: pfBody(confirmed) || createdBody, confirmed: true };
+    } catch (confirmErr) {
+      console.error('[printful v1] Order', orderId, '— draft', draftId, 'created but confirm failed:', String(confirmErr));
+      return { result: createdBody, confirmed: false };
+    }
+  }
+
+  // Splits resolved items by which Printful API model they were linked through (a product
+  // is linked via exactly one of the two — see resolveOrderItemFromD1) and submits each
+  // group as its own Printful order, independently, since v1 and v2 are entirely separate
+  // API calls that can't be merged into one payload. A cart mixing both kinds of linked
+  // products can therefore result in up to two real Printful orders for one store order —
+  // both are attempted even if one fails, so a v1 hiccup doesn't also block an otherwise-
+  // fine v2 half (and vice versa). `resolvedItems` must already be resolved
+  // (resolveOrderItemFromD1 output) — no client-trusted values are read here.
+  async function submitPrintfulOrder(orderId, resolvedItems, customer) {
+    const key = typeof PRINTFUL_API_KEY === 'string' ? PRINTFUL_API_KEY.trim() : '';
+    if (!key) {
+      throw new Error('PRINTFUL_API_KEY is not configured — order was not sent to Printful');
+    }
+
+    const syncItems = resolvedItems.filter(it => it.sync_variant_id);
+    const catalogItems = resolvedItems.filter(it => !it.sync_variant_id && it.catalog_variant_id && (it.image_url || it.design_images));
+
+    if (!syncItems.length && !catalogItems.length) {
+      throw new Error('No order items resolved to a Printful catalog variant + design file, or a linked Printful Sync Product');
+    }
+
+    const countryCode = toCountryCode(customer.country);
+    const out = { v1: null, v2: null };
+
+    if (syncItems.length) {
+      try {
+        out.v1 = await submitPrintfulOrderV1(orderId, syncItems, customer, countryCode);
+      } catch (e) {
+        console.error('[printful v1] Order', orderId, 'sync-item submission failed:', String(e));
+        out.v1 = { result: null, confirmed: false, error: String(e && e.message ? e.message : e) };
+      }
+    }
+    if (catalogItems.length) {
+      try {
+        out.v2 = await submitPrintfulOrderV2(orderId, catalogItems, customer, countryCode);
+      } catch (e) {
+        console.error('[printful v2] Order', orderId, 'catalog-item submission failed:', String(e));
+        out.v2 = { result: null, confirmed: false, error: String(e && e.message ? e.message : e) };
+      }
+    }
+    return out;
   }
 
   // Admin-only manual/comp order path still accepts a client-supplied price (a trusted
@@ -1679,23 +1895,51 @@
     try { items = JSON.parse(row.items_json) || []; } catch {}
 
     let printfulOrderId = null;
+    let printfulOrderIdV1 = null;
     try {
       const pfResult = await submitPrintfulOrder(orderId, items, {
         firstName: row.first_name, lastName: row.last_name, email: row.email,
         address: row.address, city: row.city, country: row.country, state: row.state, zip: row.zip,
       });
-      if (pfResult && pfResult.result && pfResult.result.id) {
-        printfulOrderId = String(pfResult.result.id);
-        await dbRun(
-          `update orders set printful_order_id = ?, printful_status = ?, status = ? where id = ?`,
-          printfulOrderId, pfResult.confirmed ? 'pending' : 'error', 'pending_fulfillment', orderId
-        ).catch(() => {/* ignore if columns not yet migrated */});
+
+      const v2 = pfResult && pfResult.v2;
+      const v1 = pfResult && pfResult.v1;
+      printfulOrderId = v2 && v2.result && v2.result.id ? String(v2.result.id) : null;
+      printfulOrderIdV1 = v1 && v1.result && v1.result.id ? String(v1.result.id) : null;
+
+      // 'pending' only once every half that was actually attempted (a mixed cart submits
+      // both; a single-model cart only ever attempts one) confirmed successfully — any
+      // failed/unconfirmed half surfaces as 'error' so it lands in the admin's Requires
+      // Attention queue instead of looking silently fine.
+      const v2Ok = !v2 || (v2.confirmed && printfulOrderId);
+      const v1Ok = !v1 || (v1.confirmed && printfulOrderIdV1);
+      const overallStatus = (v2Ok && v1Ok && (printfulOrderId || printfulOrderIdV1)) ? 'pending' : 'error';
+
+      if (printfulOrderId || printfulOrderIdV1) {
+        try {
+          await dbRun(
+            `update orders set printful_order_id = ?, printful_order_id_v1 = ?, printful_status = ?, status = ? where id = ?`,
+            printfulOrderId, printfulOrderIdV1, overallStatus, 'pending_fulfillment', orderId
+          );
+        } catch (e) {
+          const msg = String(e || '');
+          if (msg.toLowerCase().includes('no such column') && msg.includes('printful_order_id_v1')) {
+            // v1-order-id migration not yet run — fall back to just the (far more common)
+            // v2 column so that half still records correctly.
+            await dbRun(
+              `update orders set printful_order_id = ?, printful_status = ?, status = ? where id = ?`,
+              printfulOrderId, overallStatus, 'pending_fulfillment', orderId
+            ).catch(() => {/* ignore if columns not yet migrated at all */});
+          }
+        }
+      } else {
+        await dbRun(`update orders set printful_status = ? where id = ?`, 'error', orderId).catch(() => {});
       }
     } catch (pfErr) {
       console.error('[printful] Failed to submit paid order', orderId, String(pfErr));
       await dbRun(`update orders set printful_status = ? where id = ?`, 'error', orderId).catch(() => {});
     }
-    return printfulOrderId;
+    return { printful_order_id: printfulOrderId, printful_order_id_v1: printfulOrderIdV1 };
   }
 
   // POST /api/checkout/session — the real customer checkout entry point. Resolves every
@@ -1731,13 +1975,17 @@
     }
 
     // Refuse to charge for anything that could never actually ship — every line must
+    // either (a) resolve to a Printful Sync Product variant (imported from printful.com,
+    // print file already attached on Printful's side — nothing else needed), or (b)
     // resolve to a real Printful catalog variant AND have a design file (either the
-    // per-placement design map or, failing that, the plain storefront photo) before
+    // per-placement design map or, failing that, the plain storefront photo) — before
     // Stripe is ever involved. Without this check, a linked-but-imageless product could be
     // paid for and then silently dropped from the Printful order at submission time
-    // (submitPrintfulOrder filters on the same condition) — the customer would be charged
-    // for an item that never gets made.
-    const unfulfillable = resolvedItems.filter(it => !it.catalog_variant_id || !(it.image_url || it.design_images)).map(it => it.slug);
+    // (submitPrintfulOrder filters on the same conditions) — the customer would be
+    // charged for an item that never gets made.
+    const unfulfillable = resolvedItems
+      .filter(it => !it.sync_variant_id && (!it.catalog_variant_id || !(it.image_url || it.design_images)))
+      .map(it => it.slug);
     if (unfulfillable.length) {
       return jsonResponse({ error: `Not available for purchase yet: ${unfulfillable.join(', ')}` }, 400, request);
     }
@@ -3725,10 +3973,11 @@
       rows = await dbAll(
         `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
                 p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_variant_cost_map,
+                p.printful_sync_product_id, p.printful_sync_variant_map,
                 p.updated_at, p.created_at, b.name as brand
          from products p
          left join brands b on b.id = p.brand_id
-         where p.printful_variant_map is not null or p.printful_sync_variant_id is not null
+         where p.printful_variant_map is not null or p.printful_sync_variant_id is not null or p.printful_sync_variant_map is not null
          order by p.updated_at desc, p.created_at desc`
       );
     } catch (e) {
@@ -3736,8 +3985,22 @@
       if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
         return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
       }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_cost_map')) {
-        // Cost tracking migration not yet applied — retry without it.
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_map')) {
+        // sync-variant-map migration not yet run — retry without it (products linked via
+        // the Printful Sync Products import just won't show up in this list yet).
+        rows = await dbAll(
+          `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
+                  p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_variant_cost_map,
+                  p.printful_sync_product_id,
+                  p.updated_at, p.created_at, b.name as brand
+           from products p
+           left join brands b on b.id = p.brand_id
+           where p.printful_variant_map is not null or p.printful_sync_variant_id is not null
+           order by p.updated_at desc, p.created_at desc`
+        );
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_cost_map')) {
+        // Cost tracking migration not yet applied (older than sync-variant-map, so that's
+        // assumed missing too) — retry without either.
         rows = await dbAll(
           `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
                   p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map,
@@ -3774,6 +4037,8 @@
       printful_sync_variant_id: r.printful_sync_variant_id || null,
       printful_variant_map: r.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_map) : null,
       printful_variant_cost_map: r.printful_variant_cost_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_cost_map) : null,
+      printful_sync_product_id: r.printful_sync_product_id || null,
+      printful_sync_variant_map: r.printful_sync_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_sync_variant_map) : null,
       brand: r.brand || null,
       updated_at: r.updated_at || null,
       created_at: r.created_at || null,
@@ -3975,6 +4240,170 @@
     }
 
     return jsonResponse({ ok: true, printful_variant_map: variantMap, printful_variant_cost_map: costMap, missing }, 200, request);
+  }
+
+  // GET /api/admin/printful/sync-products — browse the admin's real Printful "Sync
+  // Products", created directly on printful.com's own product designer rather than
+  // through this dashboard (v1-only — see the Printful module's v1 section for why).
+  async function apiPrintfulListSyncProducts(request) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
+      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+    }
+
+    const url = new URL(request.url);
+    const search = String(url.searchParams.get('search') || '').trim().toLowerCase();
+
+    let products;
+    try {
+      products = await Printful.listSyncProducts(pfEnv);
+    } catch (e) {
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
+    }
+
+    const items = (Array.isArray(products) ? products : [])
+      .filter(p => !search || String((p && p.name) || '').toLowerCase().includes(search))
+      .slice(0, 100)
+      .map(p => ({
+        id: p.id,
+        name: p.name || `Product ${p.id}`,
+        thumbnail: p.thumbnail_url || null,
+        variant_count: Number(p.variants) || null,
+        synced_count: Number(p.synced) || null,
+      }));
+
+    return jsonResponse({ items }, 200, request);
+  }
+
+  // GET /api/admin/printful/sync-products/:id — full variant grid for one sync product,
+  // for the linking picker to show sizes/colors/prices before confirming a link.
+  async function apiPrintfulGetSyncProduct(request, syncProductId) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+    if (!syncProductId || !Number.isFinite(syncProductId)) {
+      return jsonResponse({ error: 'Invalid sync product id' }, 400, request);
+    }
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
+      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+    }
+
+    let product;
+    try {
+      product = await Printful.getSyncProduct(pfEnv, syncProductId);
+    } catch (e) {
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
+    }
+    if (!product) return jsonResponse({ error: 'Sync product not found' }, 404, request);
+
+    const syncProductMeta = product.sync_product || {};
+    const variants = Array.isArray(product.sync_variants) ? product.sync_variants : [];
+
+    return jsonResponse({
+      id: syncProductMeta.id ?? syncProductId,
+      name: syncProductMeta.name || `Product ${syncProductId}`,
+      thumbnail: syncProductMeta.thumbnail_url || null,
+      variants: variants.map(v => ({
+        id: v.id,
+        size: v.size || null,
+        color: v.color || null,
+        price: v.retail_price || null,
+        currency: v.currency || null,
+      })),
+    }, 200, request);
+  }
+
+  // POST /api/admin/printful/products/:id/link-sync — link a local product to a Printful
+  // Sync Product. Unlike catalog linking, the print file is already attached to each sync
+  // variant on Printful's side (the admin designed it there), so this also pulls
+  // Printful's own already-rendered preview images into the product's storefront gallery
+  // — nothing else in this dashboard needs to touch a design for a product linked this way.
+  async function apiPrintfulLinkSyncProduct(request, productId) {
+    const { sess, error } = await requirePrivilegedSession(request);
+    if (error) return error;
+    if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
+      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+    }
+
+    const product = await dbGet('select id, brand_id, title, sizes, color, image_urls from products where id = ?', productId);
+    if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (sess.user.role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+
+    const body = await readJson(request);
+    const syncProductId = Number(body.sync_product_id);
+    if (!Number.isFinite(syncProductId) || syncProductId <= 0) {
+      return jsonResponse({ error: 'sync_product_id required' }, 400, request);
+    }
+    const overrideMap = body.sync_variant_ids && typeof body.sync_variant_ids === 'object'
+      ? body.sync_variant_ids
+      : null;
+
+    const sizes = String(product.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!sizes.length) return jsonResponse({ error: 'Product has no sizes' }, 400, request);
+
+    let syncProduct;
+    try {
+      syncProduct = await Printful.getSyncProduct(pfEnv, syncProductId);
+    } catch (e) {
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
+    }
+    if (!syncProduct) return jsonResponse({ error: 'Sync product not found' }, 404, request);
+
+    const { resolved, missing } = Printful.resolveSyncVariants(syncProduct, sizes, product.color || '', overrideMap);
+
+    const variantMap = {};
+    for (const r of resolved) variantMap[r.size] = String(r.sync_variant_id);
+    const variantMapJson = Object.keys(variantMap).length ? JSON.stringify(variantMap) : null;
+
+    // Pull Printful's own already-rendered preview images into the storefront gallery —
+    // the admin designed this on printful.com, no need to make them re-upload what
+    // Printful already produced. Respects the existing 5-image cap; keeps any images
+    // already on the product rather than replacing them outright.
+    const variants = Array.isArray(syncProduct.sync_variants) ? syncProduct.sync_variants : [];
+    const previewUrls = [];
+    for (const v of variants) {
+      const files = Array.isArray(v.files) ? v.files : [];
+      for (const f of files) {
+        const url = f && (f.preview_url || f.thumbnail_url);
+        if (url && !previewUrls.includes(url)) previewUrls.push(url);
+      }
+    }
+    let existingImages = [];
+    try { existingImages = product.image_urls ? JSON.parse(product.image_urls) : []; } catch {}
+    if (!Array.isArray(existingImages)) existingImages = [];
+    const mergedImages = [...existingImages];
+    for (const url of previewUrls) {
+      if (mergedImages.length >= 5) break;
+      if (!mergedImages.includes(url)) mergedImages.push(url);
+    }
+    const imageUrlsJson = mergedImages.length ? JSON.stringify(mergedImages) : null;
+
+    try {
+      await dbRun(
+        `update products set printful_sync_product_id = ?, printful_sync_variant_map = ?, image_urls = ?,
+                updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+         where id = ?`,
+        syncProductId, variantMapJson, imageUrlsJson, productId
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_map')) {
+        return jsonResponse({ error: 'DB migration required: run sql/printful_sync_variant_map_migration.sql' }, 500, request);
+      }
+      throw e;
+    }
+
+    return jsonResponse({ ok: true, printful_sync_variant_map: variantMap, missing, image_urls: mergedImages }, 200, request);
   }
 
   // POST /api/admin/printful/products/:id/mockup — kicks off a real Printful mockup render

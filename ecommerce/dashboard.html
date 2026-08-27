@@ -683,6 +683,12 @@
               <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
             </div>
 
+            <div class="mb-3">
+              <label class="form-label">Import from Printful <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(designed directly on printful.com)</span></label>
+              <div id="printfulSyncLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Designed this on Printful's own site instead? Import it directly — sizes, pricing, and preview photos come from Printful automatically, no design upload needed here.</div>
+              <button type="button" id="printfulSyncLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Import from Printful Sync Products&#8230;</button>
+            </div>
+
             <details>
               <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
               <div class="mt-2">
@@ -1148,6 +1154,38 @@
       </div>
       <div class="modal-footer" style="border-top:2px solid #333;justify-content:space-between">
         <button type="button" id="pfPickerSaveOverridesBtn" class="btn btn-sm btn-inrl-outline" style="display:none;font-size:.62rem">Save Overrides</button>
+        <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="printfulSyncPickerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0;color:#F5F5F0;">
+      <div class="modal-header" style="border-bottom:2px solid #333;">
+        <h5 class="modal-title" style="font-family:'Averia Serif Libre',serif;color:#00ED0A">Import from Printful Sync Products</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pfSyncPickerProductId" />
+        <div class="form-text mb-2">Products you designed and saved directly on printful.com — not the ones already linked via the Catalog above.</div>
+        <div class="input-group mb-3">
+          <input id="pfSyncPickerSearch" class="form-control" type="text" placeholder="Search your Printful sync products&#8230;" />
+          <button type="button" id="pfSyncPickerSearchBtn" class="btn btn-inrl-outline">Search</button>
+        </div>
+        <div id="pfSyncPickerStatus" style="font-size:.7rem;color:#888;margin-bottom:8px"></div>
+        <div id="pfSyncPickerResults" style="max-height:220px;overflow-y:auto;border:1px solid #333"></div>
+        <div id="pfSyncPickerResolved" style="display:none;margin-top:14px">
+          <div style="font-size:.7rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Imported product</div>
+          <div id="pfSyncPickerResolvedName" style="font-size:.8rem;margin-bottom:8px"></div>
+          <div id="pfSyncPickerVariantGrid" class="vstack gap-1"></div>
+          <div id="pfSyncPickerMissingHint" style="font-size:.68rem;color:#FEFD00;display:none;margin-top:6px">Some sizes couldn't be matched automatically &#8212; enter their Printful sync variant IDs above, then click "Save Overrides".</div>
+          <div id="pfSyncPickerImagesHint" style="font-size:.68rem;color:#00ED0A;display:none;margin-top:6px"></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:2px solid #333;justify-content:space-between">
+        <button type="button" id="pfSyncPickerSaveOverridesBtn" class="btn btn-sm btn-inrl-outline" style="display:none;font-size:.62rem">Save Overrides</button>
         <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Done</button>
       </div>
     </div>
@@ -3516,6 +3554,129 @@
         maybeAutoPreviewAfterLink(productId);
       }
 
+      // ---- Printful Sync Products picker (v1 — designed on printful.com, imported here) ----
+      // Mirrors the catalog picker above closely, but there's no design/mockup step: the
+      // print file is already attached to each sync variant on Printful's side, so linking
+      // this way never touches designImages/pdDesignLayers or triggers a mockup preview.
+      var pfSyncPickerModalEl = document.getElementById('printfulSyncPickerModal');
+      var pfSyncPickerModalInstance = pfSyncPickerModalEl ? new bootstrap.Modal(pfSyncPickerModalEl) : null;
+      var pfSyncPickerLastResolved = null;
+
+      function pfSyncPickerSetStatus(msg) {
+        var s = document.getElementById('pfSyncPickerStatus');
+        if (s) s.textContent = msg || '';
+      }
+
+      function openPrintfulSyncPicker(productId) {
+        document.getElementById('pfSyncPickerProductId').value = String(productId || '');
+        document.getElementById('pfSyncPickerSearch').value = '';
+        document.getElementById('pfSyncPickerResults').innerHTML = '';
+        document.getElementById('pfSyncPickerResolved').style.display = 'none';
+        document.getElementById('pfSyncPickerSaveOverridesBtn').style.display = 'none';
+        pfSyncPickerSetStatus('Search for the product you designed on printful.com.');
+        pfSyncPickerLastResolved = null;
+        if (pfSyncPickerModalInstance) pfSyncPickerModalInstance.show();
+      }
+
+      function renderPfSyncPickerResults(items) {
+        var box = document.getElementById('pfSyncPickerResults');
+        if (!items.length) {
+          box.innerHTML = '<div style="padding:12px;font-size:.7rem;color:#555">No sync products found — design one on printful.com first.</div>';
+          return;
+        }
+        box.innerHTML = items.map(function(p) {
+          return '<div class="d-flex align-items-center gap-2 pf-sync-picker-row" data-sync-id="' + p.id + '" ' +
+            'style="padding:8px 10px;cursor:pointer;border-bottom:1px solid #222">' +
+            (p.thumbnail ? '<img src="' + escapeHtml(p.thumbnail) + '" style="width:36px;height:36px;object-fit:cover;border:1px solid #333">' : '') +
+            '<div><div style="font-size:.75rem">' + escapeHtml(p.name || '') + '</div>' +
+            '<div style="font-size:.62rem;color:#666">#' + escapeHtml(String(p.id)) + (p.variant_count ? ' — ' + p.variant_count + ' variants' : '') + '</div></div>' +
+          '</div>';
+        }).join('');
+      }
+
+      function renderPfSyncPickerResolved(name, variantMap, missing, imageUrls) {
+        document.getElementById('pfSyncPickerResolved').style.display = '';
+        document.getElementById('pfSyncPickerResolvedName').textContent = name || '';
+        var sizes = Object.keys(variantMap || {}).concat(missing || []);
+        var grid = document.getElementById('pfSyncPickerVariantGrid');
+        grid.innerHTML = sizes.map(function(size) {
+          var val = variantMap && variantMap[size] != null ? String(variantMap[size]) : '';
+          var isMissing = (missing || []).indexOf(size) !== -1;
+          return '<div class="d-flex align-items-center gap-2">' +
+            '<span style="min-width:36px;font-size:.65rem;text-transform:uppercase;font-weight:700;color:' + (isMissing ? '#FEFD00' : '#00ED0A') + '">' + escapeHtml(size) + '</span>' +
+            '<input class="form-control form-control-sm" type="text" data-pf-sync-override-size="' + escapeHtml(size) + '" placeholder="Printful sync variant ID" value="' + escapeHtml(val) + '" />' +
+          '</div>';
+        }).join('');
+        var missingHint = document.getElementById('pfSyncPickerMissingHint');
+        var overridesBtn = document.getElementById('pfSyncPickerSaveOverridesBtn');
+        if (missing && missing.length) {
+          missingHint.style.display = '';
+          overridesBtn.style.display = '';
+        } else {
+          missingHint.style.display = 'none';
+          overridesBtn.style.display = 'none';
+        }
+        var imagesHint = document.getElementById('pfSyncPickerImagesHint');
+        if (imagesHint) {
+          if (imageUrls && imageUrls.length) {
+            imagesHint.style.display = '';
+            imagesHint.textContent = imageUrls.length + ' preview image(s) pulled into the storefront gallery from Printful.';
+          } else {
+            imagesHint.style.display = 'none';
+          }
+        }
+      }
+
+      async function pfSyncPickerSearch() {
+        var q = (document.getElementById('pfSyncPickerSearch').value || '').trim();
+        pfSyncPickerSetStatus('Searching…');
+        document.getElementById('pfSyncPickerResolved').style.display = 'none';
+        const res = await apiFetch('/admin/printful/sync-products' + (q ? ('?search=' + encodeURIComponent(q)) : ''));
+        var items = Array.isArray(res && res.items) ? res.items : [];
+        renderPfSyncPickerResults(items);
+        pfSyncPickerSetStatus(items.length + ' sync product(s) found.');
+      }
+
+      async function pfSyncPickerLinkTo(syncProductId) {
+        var productId = document.getElementById('pfSyncPickerProductId').value;
+        if (!productId) throw new Error('Missing product id');
+        pfSyncPickerSetStatus('Importing…');
+        const res = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/link-sync', {
+          method: 'POST',
+          body: { sync_product_id: Number(syncProductId) },
+        });
+        pfSyncPickerLastResolved = { syncProductId: Number(syncProductId), map: res.printful_sync_variant_map || {} };
+        renderPfSyncPickerResolved('Sync product #' + syncProductId, res.printful_sync_variant_map || {}, res.missing || [], res.image_urls || []);
+        pfSyncPickerSetStatus((res.missing && res.missing.length)
+          ? (res.missing.length + ' size(s) need a manual variant ID (see below).')
+          : 'All sizes imported.');
+        await loadPrintfulProducts();
+        await refresh();
+        syncOpenFormAfterLink(productId);
+      }
+
+      async function pfSyncPickerSaveOverrides() {
+        var productId = document.getElementById('pfSyncPickerProductId').value;
+        if (!productId || !pfSyncPickerLastResolved) throw new Error('Pick a sync product first');
+        var inputs = document.querySelectorAll('#pfSyncPickerVariantGrid input[data-pf-sync-override-size]');
+        var overrides = {};
+        inputs.forEach(function(inp) {
+          var size = inp.getAttribute('data-pf-sync-override-size');
+          var val = (inp.value || '').trim();
+          if (size && val) overrides[size] = val;
+        });
+        pfSyncPickerSetStatus('Saving overrides…');
+        const res = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/link-sync', {
+          method: 'POST',
+          body: { sync_product_id: pfSyncPickerLastResolved.syncProductId, sync_variant_ids: overrides },
+        });
+        renderPfSyncPickerResolved('Sync product #' + pfSyncPickerLastResolved.syncProductId, res.printful_sync_variant_map || {}, res.missing || [], res.image_urls || []);
+        pfSyncPickerSetStatus((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes imported.');
+        await loadPrintfulProducts();
+        await refresh();
+        syncOpenFormAfterLink(productId);
+      }
+
       function printfulOrderStatusChip(status) {
         var s = String(status || '').toLowerCase();
         if (!s) return printfulStatusChip('empty', '#888', 'rgba(136,136,136,.1)');
@@ -3687,6 +3848,32 @@
         });
       }
 
+      // Import from Printful Sync Products — same save-first-if-new pattern as the
+      // catalog link button above.
+      var printfulSyncLinkBtn = document.getElementById('printfulSyncLinkBtn');
+      if (printfulSyncLinkBtn) {
+        printfulSyncLinkBtn.addEventListener('click', async function() {
+          var id = el('productId').value.trim();
+          if (id) { openPrintfulSyncPicker(id); return; }
+
+          clearStatus();
+          printfulSyncLinkBtn.disabled = true;
+          try {
+            showStatus('Saving product before importing…', 'info');
+            const result = await saveProductFromForm();
+            if (!result.id) throw new Error('Product saved but no id was returned');
+            el('productId').value = String(result.id);
+            showStatus('Product created.', 'success');
+            await refresh();
+            openPrintfulSyncPicker(String(result.id));
+          } catch (e) {
+            showStatus(e.message || String(e), 'error');
+          } finally {
+            printfulSyncLinkBtn.disabled = false;
+          }
+        });
+      }
+
       var mockupPreviewBtn = document.getElementById('mockupPreviewBtn');
       if (mockupPreviewBtn) mockupPreviewBtn.addEventListener('click', pdForceRefreshPreview);
 
@@ -3719,6 +3906,38 @@
       if (pfPickerSaveOverridesBtn) {
         pfPickerSaveOverridesBtn.addEventListener('click', function() {
           pfPickerSaveOverrides().catch(function(e) { pfPickerSetStatus(e.message || String(e)); });
+        });
+      }
+
+      var pfSyncPickerSearchBtn = document.getElementById('pfSyncPickerSearchBtn');
+      if (pfSyncPickerSearchBtn) {
+        pfSyncPickerSearchBtn.addEventListener('click', function() {
+          pfSyncPickerSearch().catch(function(e) { pfSyncPickerSetStatus(e.message || String(e)); });
+        });
+      }
+      var pfSyncPickerSearchInput = document.getElementById('pfSyncPickerSearch');
+      if (pfSyncPickerSearchInput) {
+        pfSyncPickerSearchInput.addEventListener('keydown', function(ev) {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            pfSyncPickerSearch().catch(function(e) { pfSyncPickerSetStatus(e.message || String(e)); });
+          }
+        });
+      }
+      var pfSyncPickerResultsEl = document.getElementById('pfSyncPickerResults');
+      if (pfSyncPickerResultsEl) {
+        pfSyncPickerResultsEl.addEventListener('click', function(ev) {
+          var row = ev.target.closest('.pf-sync-picker-row');
+          if (!row) return;
+          pfSyncPickerLinkTo(row.getAttribute('data-sync-id')).catch(function(e) {
+            pfSyncPickerSetStatus(e.message || String(e));
+          });
+        });
+      }
+      var pfSyncPickerSaveOverridesBtn = document.getElementById('pfSyncPickerSaveOverridesBtn');
+      if (pfSyncPickerSaveOverridesBtn) {
+        pfSyncPickerSaveOverridesBtn.addEventListener('click', function() {
+          pfSyncPickerSaveOverrides().catch(function(e) { pfSyncPickerSetStatus(e.message || String(e)); });
         });
       }
 
