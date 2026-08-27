@@ -2559,10 +2559,16 @@
     if (error) return error;
 
     const body = await readJson(request);
-    const title = (body.title || '').trim();
-    const category = (body.category || '').trim();
-    const color = (body.color || '').trim();
-    const sizes = (body.sizes || '').trim();
+    // Title/category/color/sizes are only truly required to *publish* a product — creating
+    // one is also how a brand-new, not-yet-designed product gets an id to link to a real
+    // Printful garment in the first place, so none of these can be a precondition for that.
+    // A blank title falls back to a placeholder (still NOT NULL at the DB level) that the
+    // Printful sync-import link overwrites with the real product name once picked.
+    const titleRaw = (body.title || '').trim();
+    const title = titleRaw || 'Untitled Product';
+    const category = (body.category || '').trim() || null;
+    const color = (body.color || '').trim() || null;
+    const sizes = (body.sizes || '').trim() || null;
     const description = (body.description || '').trim() || null;
     const currency = (body.currency || 'USD').trim().toUpperCase() || 'USD';
     const imageUrl = (body.image_url || '').trim() || null;
@@ -2591,12 +2597,8 @@
     const priceCents = parsePriceCents(body);
     if (priceCents == null) return jsonResponse({ error: 'Invalid price' }, 400, request);
 
-    let slug = normalizeSlug(body.slug || title);
-    if (!title) return jsonResponse({ error: 'title required' }, 400, request);
-    if (!slug) return jsonResponse({ error: 'slug required' }, 400, request);
-    if (!category) return jsonResponse({ error: 'category required' }, 400, request);
-    if (!color) return jsonResponse({ error: 'color required' }, 400, request);
-    if (!sizes) return jsonResponse({ error: 'sizes required' }, 400, request);
+    let slug = normalizeSlug(body.slug || titleRaw);
+    if (!slug) slug = 'draft-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
     let brandId = null;
     if (sess.user.role === 'admin') {
@@ -4332,7 +4334,7 @@
       return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
     }
 
-    const product = await dbGet('select id, brand_id, title, sizes, color, image_urls from products where id = ?', productId);
+    const product = await dbGet('select id, brand_id, title, sizes, color, price_cents, image_urls from products where id = ?', productId);
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
     if (sess.user.role === 'brand') {
       const brandIds = (sess.user.brands || []).map(b => b.id);
@@ -4348,9 +4350,6 @@
       ? body.sync_variant_ids
       : null;
 
-    const sizes = String(product.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (!sizes.length) return jsonResponse({ error: 'Product has no sizes' }, 400, request);
-
     let syncProduct;
     try {
       syncProduct = await Printful.getSyncProduct(pfEnv, syncProductId);
@@ -4358,18 +4357,36 @@
       return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
     }
     if (!syncProduct) return jsonResponse({ error: 'Sync product not found' }, 404, request);
+    const variants = Array.isArray(syncProduct.sync_variants) ? syncProduct.sync_variants : [];
 
-    const { resolved, missing } = Printful.resolveSyncVariants(syncProduct, sizes, product.color || '', overrideMap);
+    const existingSizes = String(product.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
 
-    const variantMap = {};
-    for (const r of resolved) variantMap[r.size] = String(r.sync_variant_id);
+    // No sizes typed locally yet (the common case now that linking can happen before any
+    // detail fields are filled in) — take every size Printful actually offers this sync
+    // product, instead of requiring something local to match against first.
+    let variantMap, missing, derivedSizes = null;
+    if (existingSizes.length) {
+      const resolvedRes = Printful.resolveSyncVariants(syncProduct, existingSizes, product.color || '', overrideMap);
+      variantMap = {};
+      for (const r of resolvedRes.resolved) variantMap[r.size] = String(r.sync_variant_id);
+      missing = resolvedRes.missing;
+    } else {
+      variantMap = {};
+      derivedSizes = [];
+      for (const v of variants) {
+        const size = String(v.size || '').trim();
+        if (!size || variantMap[size]) continue;
+        variantMap[size] = String(v.id);
+        derivedSizes.push(size);
+      }
+      missing = [];
+    }
     const variantMapJson = Object.keys(variantMap).length ? JSON.stringify(variantMap) : null;
 
     // Pull Printful's own already-rendered preview images into the storefront gallery —
     // the admin designed this on printful.com, no need to make them re-upload what
     // Printful already produced. Respects the existing 5-image cap; keeps any images
     // already on the product rather than replacing them outright.
-    const variants = Array.isArray(syncProduct.sync_variants) ? syncProduct.sync_variants : [];
     const previewUrls = [];
     for (const v of variants) {
       const files = Array.isArray(v.files) ? v.files : [];
@@ -4388,12 +4405,35 @@
     }
     const imageUrlsJson = mergedImages.length ? JSON.stringify(mergedImages) : null;
 
+    // "Necessary details" the admin hasn't set yet get pulled straight from Printful too —
+    // linking before typing anything should leave as little as possible left to fill in.
+    // Never overwrites a value the admin already typed, only fills in what's still blank.
+    const syncProductMeta = syncProduct.sync_product || {};
+    const currentTitle = String(product.title || '').trim();
+    const titleUpdate = (!currentTitle || currentTitle === 'Untitled Product') && syncProductMeta.name
+      ? String(syncProductMeta.name).trim()
+      : null;
+    const sizesUpdate = derivedSizes && derivedSizes.length ? derivedSizes.join(', ') : null;
+    const colorUpdate = !String(product.color || '').trim() && variants.length && variants[0].color
+      ? String(variants[0].color).trim()
+      : null;
+    const firstPrice = variants.length && variants[0].retail_price != null ? Number(variants[0].retail_price) : null;
+    const priceUpdate = !(product.price_cents > 0) && Number.isFinite(firstPrice)
+      ? Math.round(firstPrice * 100)
+      : null;
+
+    const setClauses = ['printful_sync_product_id = ?', 'printful_sync_variant_map = ?', 'image_urls = ?'];
+    const params = [syncProductId, variantMapJson, imageUrlsJson];
+    if (titleUpdate) { setClauses.push('title = ?'); params.push(titleUpdate); }
+    if (sizesUpdate) { setClauses.push('sizes = ?'); params.push(sizesUpdate); }
+    if (colorUpdate) { setClauses.push('color = ?'); params.push(colorUpdate); }
+    if (priceUpdate) { setClauses.push('price_cents = ?'); params.push(priceUpdate); }
+    params.push(productId);
+
     try {
       await dbRun(
-        `update products set printful_sync_product_id = ?, printful_sync_variant_map = ?, image_urls = ?,
-                updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-         where id = ?`,
-        syncProductId, variantMapJson, imageUrlsJson, productId
+        `update products set ${setClauses.join(', ')}, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+        ...params
       );
     } catch (e) {
       const msg = String(e || '');

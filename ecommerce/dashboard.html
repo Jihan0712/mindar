@@ -1616,10 +1616,13 @@
     }
 
     // Builds the product payload from the form and creates/updates it — shared by the
-    // form's own submit handler and the "Import from Printful Sync Products" button, which
-    // needs to save a brand-new (unsaved) product first so it has an id to link against.
+    // form's own submit handler (which always validates: publishing needs real details) and
+    // the "Import from Printful Sync Products" button (which doesn't: the flow is link to
+    // Printful first, then fill in the details it can't supply, so it saves with whatever's
+    // typed so far — even nothing — and lets Printful fill in sizes/price/photos afterward).
     // Throws on validation/save failure; caller is responsible for showStatus(...).
-    async function saveProductFromForm() {
+    async function saveProductFromForm(opts) {
+      const requireFields = !opts || opts.requireFields !== false;
       const id = el('productId').value.trim();
       const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
       const body = {
@@ -1637,11 +1640,13 @@
       };
       if (isAdmin) body.brand = el('brandInput').value.trim();
 
-      requireField('Title', body.title);
-      requireField('Category', body.category);
-      requireField('Color', body.color);
-      requireField('Sizing', body.sizes);
-      requireField('Price', body.price);
+      if (requireFields) {
+        requireField('Title', body.title);
+        requireField('Category', body.category);
+        requireField('Color', body.color);
+        requireField('Sizing', body.sizes);
+        requireField('Price', body.price);
+      }
 
       if (imageFiles.length > 5) throw new Error('Max 5 images per product');
       if (imageFiles.length) {
@@ -2764,8 +2769,9 @@
 
       // Import from Printful Sync Products — opened from the product form or from the
       // Printful Product Manager table. On a brand-new, not-yet-saved product there's no id
-      // to link against yet, so this saves it first (same validation as the Save button)
-      // and then opens the picker against the newly created product.
+      // to link against yet, so this creates one first — unvalidated, since the whole point
+      // is linking to Printful *before* filling in details it can supply itself (sizes,
+      // price, photos) — and then opens the picker against the newly created product.
       var printfulSyncLinkBtn = document.getElementById('printfulSyncLinkBtn');
       if (printfulSyncLinkBtn) {
         printfulSyncLinkBtn.addEventListener('click', async function() {
@@ -2775,8 +2781,8 @@
           clearStatus();
           printfulSyncLinkBtn.disabled = true;
           try {
-            showStatus('Saving product before importing…', 'info');
-            const result = await saveProductFromForm();
+            showStatus('Creating product…', 'info');
+            const result = await saveProductFromForm({ requireFields: false });
             if (!result.id) throw new Error('Product saved but no id was returned');
             el('productId').value = String(result.id);
             showStatus('Product created.', 'success');
