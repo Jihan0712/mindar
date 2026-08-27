@@ -136,14 +136,21 @@
     .pd-view-tab.active { color:#1C1C1C; background:#00ED0A; border-color:#00ED0A; }
     .pd-back-link { font-size:.62rem; color:#666; text-decoration:none; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
     .pd-back-link:hover { color:#00ED0A; }
-    .pd-canvas { flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; background:repeating-linear-gradient(45deg,#161616,#161616 12px,#111 12px,#111 24px); min-height:380px; }
+    .pd-canvas { flex:1 1 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1rem; background:repeating-linear-gradient(45deg,#161616,#161616 12px,#111 12px,#111 24px); min-height:380px; }
     .pd-garment { position:relative; width:300px; max-width:100%; }
     .pd-shirt-svg { width:100%; height:auto; display:block; filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)); }
-    .pd-dropzone { position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); width:44%; aspect-ratio:1/1; border-radius:50%; border:2px dashed #00ED0A; background:rgba(0,237,10,.06); display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; transition:background .15s,border-color .15s; }
+    /* Print-area guide — a rectangle, not a fixed circle, since its aspect ratio is set
+       per-placement from Printful's own print_area_width/height (see pdApplyPrintArea()).
+       Falls back to a generic square when no placement data is loaded yet (product not
+       linked to a Printful garment). */
+    .pd-dropzone { position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); width:44%; aspect-ratio:1/1; border-radius:4px; border:2px dashed #00ED0A; background:rgba(0,237,10,.06); display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; transition:background .15s,border-color .15s; }
     .pd-dropzone.pd-dragover { background:rgba(0,237,10,.18); border-color:#00ED0A; }
     .pd-dropzone-inner { text-align:center; font-size:.6rem; text-transform:uppercase; letter-spacing:.04em; color:#00ED0A; font-weight:700; padding:.5rem; line-height:1.5; }
     .pd-dropzone-inner svg { width:20px; height:20px; margin-bottom:.35rem; }
     .pd-design-img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:6%; }
+    .pd-quality-badge { display:none; align-items:center; gap:.4rem; font-family:'Roboto Mono',monospace; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-top:.85rem; }
+    .pd-quality-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+    .pd-print-area-label { position:absolute; bottom:-1.4rem; left:50%; transform:translateX(-50%); font-size:.56rem; color:#555; white-space:nowrap; }
     .pd-bottombar { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:3px solid #333; background:#111; padding:.85rem 1.25rem; flex-wrap:wrap; }
     .pd-bottombar-info { display:flex; align-items:center; gap:.75rem; min-width:0; }
     .pd-bottom-thumb { width:44px; height:44px; object-fit:cover; background:#1c1c1c; border:2px solid #333; flex:0 0 auto; }
@@ -505,7 +512,12 @@
                   <div>Upload or drop your<br>design here</div>
                 </div>
                 <img id="pdDesignImg" class="pd-design-img hidden" alt="Design preview">
+                <div class="pd-print-area-label" id="pdPrintAreaLabel"></div>
               </div>
+            </div>
+            <div class="pd-quality-badge" id="pdQualityBadge">
+              <span class="pd-quality-dot" id="pdQualityDot"></span>
+              <span id="pdQualityText"></span>
             </div>
           </div>
           <input type="file" id="pdCanvasFileInput" accept="image/*" class="hidden">
@@ -943,12 +955,17 @@
   let printfulProducts = [];
   let currentProductCostMap = null;
 
-  // Design-canvas state for the Create/Edit Product pane — which view (front/back) is
-  // active, and the per-placement Printful print-file source images. Independent of the
-  // storefront gallery (image_url/image_urls): this is what gets sent to Printful's mockup
-  // API, not what customers see on the shop page.
+  // Design-canvas state for the Create/Edit Product pane — which view (front/back/sleeve/
+  // etc.) is active, the per-placement Printful print-file source images, and the real
+  // placement metadata (print area size + target DPI) for whichever garment this product
+  // is linked to. Independent of the storefront gallery (image_url/image_urls): this is
+  // what gets sent to Printful's mockup API, not what customers see on the shop page.
   let designImages = {};
   let pdActiveView = 'front';
+  // [{placement, display_name, technique, print_area_width, print_area_height, dpi}, ...]
+  // — empty until a linked product's placements have loaded (see loadPdPlacements()).
+  let pdPlacements = [];
+  let pdPlacementsForCatalogId = null;
 
   function pdPanelSwitch(panel) {
     document.querySelectorAll('#pdRail .pd-rail-btn').forEach(function(btn) {
@@ -957,6 +974,92 @@
     document.querySelectorAll('.pd-panel-section').forEach(function(sec) {
       sec.hidden = sec.getAttribute('data-pd-section') !== panel;
     });
+  }
+
+  // Real placements (Front/Back/Right sleeve/Label panel/...) for whatever garment this
+  // product is linked to, straight from Printful's own catalog data — falls back to a
+  // generic Front/Back pair when nothing is linked yet so the canvas stays usable before
+  // the admin has picked a Printful garment.
+  async function loadPdPlacements(catalogProductId) {
+    if (!catalogProductId) {
+      pdPlacements = [];
+      pdPlacementsForCatalogId = null;
+      pdRenderViewTabs();
+      return;
+    }
+    if (pdPlacementsForCatalogId === catalogProductId) { pdRenderViewTabs(); return; } // already loaded
+    try {
+      const res = await apiFetch('/admin/printful/catalog/' + encodeURIComponent(catalogProductId) + '/placements');
+      pdPlacements = Array.isArray(res && res.placements) ? res.placements : [];
+      pdPlacementsForCatalogId = catalogProductId;
+    } catch (e) {
+      pdPlacements = [];
+      pdPlacementsForCatalogId = null;
+    }
+    pdRenderViewTabs();
+  }
+
+  function pdPlacementMeta(key) {
+    return pdPlacements.find(function(p) { return p.placement === key; }) || null;
+  }
+
+  function pdRenderViewTabs() {
+    const box = el('pdViewTabs');
+    if (!box) return;
+    const items = pdPlacements.length
+      ? pdPlacements.map(function(p) { return { key: p.placement, label: p.display_name || p.placement }; })
+      : [{ key: 'front', label: 'Front' }, { key: 'back', label: 'Back' }];
+    if (!items.some(function(i) { return i.key === pdActiveView; })) pdActiveView = items[0].key;
+    box.innerHTML = items.map(function(i) {
+      return '<button type="button" class="pd-view-tab' + (i.key === pdActiveView ? ' active' : '') + '" data-pd-view="' + escapeHtml(i.key) + '">' + escapeHtml(i.label) + '</button>';
+    }).join('');
+    pdRenderCanvas();
+  }
+
+  // Sizes the print-area guide rectangle to the active placement's real aspect ratio
+  // (from Printful's print_area_width/height) instead of a fixed circle, and labels it
+  // with the physical dimensions — same information Printful's own design tool shows.
+  function pdApplyPrintArea() {
+    const dropzone = el('pdDropzone');
+    const label = el('pdPrintAreaLabel');
+    if (!dropzone) return;
+    const meta = pdPlacementMeta(pdActiveView);
+    if (meta && meta.print_area_width && meta.print_area_height) {
+      dropzone.style.aspectRatio = String(meta.print_area_width / meta.print_area_height);
+      if (label) label.textContent = meta.print_area_width.toFixed(1) + '" × ' + meta.print_area_height.toFixed(1) + '"';
+    } else {
+      dropzone.style.aspectRatio = '1 / 1';
+      if (label) label.textContent = '';
+    }
+  }
+
+  // Loads the design image off-DOM just to read its natural pixel size, computes the
+  // effective print DPI against the active placement's physical print area, and renders
+  // a quality badge — the same "Print quality: Okay / 150 DPI" feedback Printful's own
+  // tool gives, using the print_area_width/dpi values their API already returns us.
+  function pdCheckQuality(url) {
+    const badge = el('pdQualityBadge');
+    if (!badge) return;
+    if (!url) { badge.style.display = 'none'; return; }
+    const meta = pdPlacementMeta(pdActiveView);
+    if (!meta || !meta.print_area_width) { badge.style.display = 'none'; return; }
+    const probe = new Image();
+    probe.onload = function () {
+      const effectiveDpi = probe.naturalWidth / meta.print_area_width;
+      const targetDpi = meta.dpi || 150;
+      const ratio = effectiveDpi / targetDpi;
+      const dot = el('pdQualityDot');
+      const text = el('pdQualityText');
+      let label, color;
+      if (ratio >= 0.9) { label = 'Good'; color = '#00ED0A'; }
+      else if (ratio >= 0.6) { label = 'Okay'; color = '#FEFD00'; }
+      else { label = 'Low'; color = '#ff4d4f'; }
+      if (dot) dot.style.background = color;
+      if (text) { text.textContent = 'Print quality: ' + label + ' / ' + Math.round(effectiveDpi) + ' DPI'; text.style.color = color; }
+      badge.style.display = 'flex';
+    };
+    probe.onerror = function () { badge.style.display = 'none'; };
+    probe.src = url;
   }
 
   function pdRenderCanvas() {
@@ -975,6 +1078,8 @@
     document.querySelectorAll('#pdViewTabs .pd-view-tab').forEach(function(tab) {
       tab.classList.toggle('active', tab.getAttribute('data-pd-view') === pdActiveView);
     });
+    pdApplyPrintArea();
+    pdCheckQuality(url);
   }
 
   function pdRenderLayers() {
@@ -1112,6 +1217,7 @@
     updateMarginHint();
     designImages = (p && p.printful_design_images) ? Object.assign({}, p.printful_design_images) : {};
     pdActiveView = 'front';
+    loadPdPlacements(p ? findPrintfulCatalogProductId(p.id) : null); // async — re-renders tabs/canvas itself once loaded
     pdRenderCanvas();
     pdRenderLayers();
     pdUpdateBottomBar();
@@ -1142,6 +1248,15 @@
   function findPrintfulCostMap(productId) {
     const match = printfulProducts.find(x => String(x.id) === String(productId));
     return (match && match.printful_variant_cost_map) || null;
+  }
+
+  // apiListProducts() (which populates the plain `products` array setFormProduct reads
+  // from) doesn't expose printful_catalog_product_id — only the dedicated
+  // /admin/printful/products listing does. Same cross-reference pattern as
+  // findPrintfulCostMap() above.
+  function findPrintfulCatalogProductId(productId) {
+    const match = printfulProducts.find(x => String(x.id) === String(productId));
+    return (match && match.printful_catalog_product_id) || null;
   }
 
   // Re-renders the margin hint under the price field from currentProductCostMap and
@@ -1626,14 +1741,20 @@
       btn.addEventListener('click', function() { pdPanelSwitch(btn.getAttribute('data-pd-panel')); });
     });
 
-    document.querySelectorAll('#pdViewTabs .pd-view-tab').forEach(function(tab) {
-      tab.addEventListener('click', function() {
+    // Delegated (not per-button) — pdRenderViewTabs() rebuilds these buttons whenever a
+    // product's real Printful placements load, so static per-element listeners would go
+    // stale the first time that happens.
+    var pdViewTabsEl = el('pdViewTabs');
+    if (pdViewTabsEl) {
+      pdViewTabsEl.addEventListener('click', function(ev) {
+        var tab = ev.target.closest('.pd-view-tab');
+        if (!tab) return;
         pdActiveView = tab.getAttribute('data-pd-view');
         pdRenderCanvas();
         pdRenderLayers();
         setMockupStatusForActiveView();
       });
-    });
+    }
 
     async function handlePdDesignFile(file) {
       if (!file || !String(file.type || '').toLowerCase().startsWith('image/')) {
@@ -2315,6 +2436,12 @@
         var p = products.find(function(x) { return String(x.id) === String(productId); });
         var frontImg = p && ((p.printful_design_images && p.printful_design_images.front) || p.image_url);
         if (frontImg) generateAndShowMockup(productId, frontImg, { silent: true, placement: 'front' });
+        // Freshly linked (or re-linked) — the garment may have changed, so the canvas's
+        // placement tabs / print-area guide need to reflect whatever this catalog product
+        // actually supports now.
+        if (String(el('productId').value || '').trim() === String(productId)) {
+          loadPdPlacements(findPrintfulCatalogProductId(productId));
+        }
       }
 
       function setMockupStatus(msg, color) {

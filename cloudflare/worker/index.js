@@ -718,6 +718,10 @@
       const catalogProductId = parseInt(pathname.split('/')[5], 10);
       return apiPrintfulGetCatalogProduct(request, catalogProductId);
     }
+    if (request.method === 'GET'  && /^\/api\/admin\/printful\/catalog\/\d+\/placements$/.test(pathname)) {
+      const catalogProductId = parseInt(pathname.split('/')[5], 10);
+      return apiPrintfulGetCatalogPlacements(request, catalogProductId);
+    }
     if (request.method === 'POST' && /^\/api\/admin\/printful\/products\/\d+\/link$/.test(pathname)) {
       const productId = parseInt(pathname.split('/')[5], 10);
       return apiPrintfulLinkProduct(request, productId);
@@ -3748,6 +3752,44 @@
       image: product.image || product.image_url || null,
       variants,
     }, 200, request);
+  }
+
+  // GET /api/admin/printful/catalog/:id/placements — the real print placements a garment
+  // supports (front/back/sleeves/label panels/etc.), each with its physical print-area size
+  // and target DPI, straight from Printful's own mockup-styles data (same call
+  // apiPrintfulCreateMockup already makes to resolve a style id) — lets the product-designer
+  // canvas show an accurate print-area guide and DPI check instead of a generic dropzone.
+  async function apiPrintfulGetCatalogPlacements(request, catalogProductId) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+    if (!catalogProductId || !Number.isFinite(catalogProductId)) {
+      return jsonResponse({ error: 'Invalid catalog product id' }, 400, request);
+    }
+
+    const pfEnv = printfulEnv();
+    if (!Printful.getPrintfulConfig(pfEnv).apiKey) {
+      return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
+    }
+
+    let groups;
+    try {
+      groups = await Printful.listMockupStyles(pfEnv, catalogProductId);
+    } catch (e) {
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
+    }
+
+    const placements = (Array.isArray(groups) ? groups : [])
+      .filter(g => g && g.placement && Array.isArray(g.mockup_styles) && g.mockup_styles.length)
+      .map(g => ({
+        placement: g.placement,
+        display_name: g.display_name || g.placement,
+        technique: g.technique || null,
+        print_area_width: Number(g.print_area_width) || null,
+        print_area_height: Number(g.print_area_height) || null,
+        dpi: Number(g.dpi) || null,
+      }));
+
+    return jsonResponse({ placements }, 200, request);
   }
 
   // POST /api/admin/printful/products/:id/link — resolve {size: catalog_variant_id} for a
