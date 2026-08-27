@@ -128,22 +128,23 @@
     .pd-back-link { font-size:.62rem; color:#666; text-decoration:none; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; margin-left:auto; }
     .pd-back-link:hover { color:#00ED0A; }
 
-    /* Flat single-screen layout — every section always visible, nothing collapsed. Main
-       column (image + details) on the left, Printful linking in a persistent right rail —
-       the two things that change least often (image, garment link) stay put while Details
-       is the one admins actually scroll/edit most. */
-    .pd-layout { display:grid; grid-template-columns:2fr 1fr; align-items:start; }
+    /* Flat single-screen layout — every section always visible, nothing collapsed, and
+       everything fits without scrolling: image sits beside Details (not stacked above it)
+       so the pane's height is set by its tallest column, not the sum of both, with Printful
+       linking in a persistent right rail. */
+    .pd-layout { display:grid; grid-template-columns:2fr 1fr; }
     @media (max-width:900px) { .pd-layout { grid-template-columns:1fr; } }
-    .pd-main { border-right:2px solid #2a2a2a; min-width:0; }
-    @media (max-width:900px) { .pd-main { border-right:none; border-bottom:2px solid #2a2a2a; } }
+    .pd-main { display:grid; grid-template-columns:1fr 1.4fr; border-right:2px solid #2a2a2a; min-width:0; }
+    @media (max-width:900px) { .pd-main { grid-template-columns:1fr; border-right:none; border-bottom:2px solid #2a2a2a; } }
     .pd-sidebar { min-width:0; }
-    .pd-panel { padding:1.75rem 2rem; background:#0d0d0d; border-bottom:2px solid #2a2a2a; }
-    .pd-main .pd-panel:last-child, .pd-sidebar .pd-panel:last-child { border-bottom:none; }
-    .pd-panel-title { font-family:'Roboto Mono',monospace; color:#00ED0A; font-weight:700; text-transform:uppercase; letter-spacing:.07em; font-size:.75rem; margin-bottom:.5rem; }
+    .pd-panel { padding:1.25rem 1.5rem; background:#0d0d0d; }
+    .pd-main .pd-panel:first-child { border-right:2px solid #2a2a2a; }
+    @media (max-width:900px) { .pd-main .pd-panel:first-child { border-right:none; border-bottom:2px solid #2a2a2a; } }
+    .pd-panel-title { font-family:'Roboto Mono',monospace; color:#00ED0A; font-weight:700; text-transform:uppercase; letter-spacing:.07em; font-size:.75rem; margin-bottom:.4rem; }
 
-    .pd-step-panel-sub { font-size:.72rem; color:#666; margin-bottom:1.5rem; max-width:640px; line-height:1.6; }
-    .pd-step-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; max-width:760px; }
-    .pd-step-form-grid > * { margin-bottom:1rem; }
+    .pd-step-panel-sub { font-size:.68rem; color:#666; margin-bottom:.9rem; line-height:1.5; }
+    .pd-step-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.25rem; }
+    .pd-step-form-grid > * { margin-bottom:.65rem; }
     .pd-step-form-grid > .pd-span-2 { grid-column:1 / -1; }
     @media (max-width:767.98px) { .pd-step-form-grid { grid-template-columns:1fr; } }
 
@@ -153,7 +154,6 @@
     .pd-bottom-title { font-size:.8rem; font-weight:700; color:#F5F5F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px; }
     .pd-bottom-price { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:.9rem; font-weight:700; }
     .pd-bottombar-actions { display:flex; gap:.5rem; align-items:center; }
-    .pd-images-layout { max-width:900px; }
 
     /* ---- Dashboard overview tab ---- */
     .dash-metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
@@ -487,13 +487,13 @@
               <div class="pd-panel-title">Storefront Photos</div>
               <div class="pd-step-panel-sub">Photos shown on the storefront &#8212; the print design itself comes from Printful once this product is linked.</div>
 
-              <div class="pd-images-layout">
-                <div class="row g-3">
-                  <div class="col-12 col-md-6">
+              <div>
+                <div class="row g-2">
+                  <div class="col-12">
                     <label class="form-label" for="imageUrlInput">Image URL</label>
                     <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
                   </div>
-                  <div class="col-12 col-md-6">
+                  <div class="col-12">
                     <label class="form-label" for="imageFileInput">Upload Images</label>
                     <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
                     <div class="form-text">Up to 5 images shown on the shop page.</div>
