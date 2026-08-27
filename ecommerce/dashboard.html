@@ -6,6 +6,7 @@
   <title>Product Dashboard | INRL</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fabric@5.5.2/dist/fabric.min.js" crossorigin="anonymous"></script>
   <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <style>
@@ -163,20 +164,27 @@
     .pd-preview-images.pd-has-image { display:flex; }
     .pd-preview-images img { max-width:100%; max-height:100%; object-fit:contain; border:1px solid #2a2a2a; }
     .pd-preview-status { font-size:.68rem; color:#555; padding:.6rem .9rem .8rem; border-top:2px solid #2a2a2a; min-height:2.4em; }
-    .pd-garment { position:relative; width:300px; max-width:100%; }
-    .pd-shirt-svg { width:100%; height:auto; display:block; filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)); }
-    /* Print-area guide — a rectangle, not a fixed circle, since its aspect ratio is set
-       per-placement from Printful's own print_area_width/height (see pdApplyPrintArea()).
-       Falls back to a generic square when no placement data is loaded yet (product not
-       linked to a Printful garment). */
-    .pd-dropzone { position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); width:44%; aspect-ratio:1/1; border-radius:4px; border:2px dashed #00ED0A; background:rgba(0,237,10,.06); display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; transition:background .15s,border-color .15s; }
-    .pd-dropzone.pd-dragover { background:rgba(0,237,10,.18); border-color:#00ED0A; }
-    .pd-dropzone-inner { text-align:center; font-size:.6rem; text-transform:uppercase; letter-spacing:.04em; color:#00ED0A; font-weight:700; padding:.5rem; line-height:1.5; }
-    .pd-dropzone-inner svg { width:20px; height:20px; margin-bottom:.35rem; }
-    .pd-design-img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:6%; }
+    /* .pd-garment no longer has a fixed size — its only normal-flow child is
+       .pd-canvas-frame (sized in px by pdApplyPrintArea() to match the placement's real
+       print-area aspect ratio), and .pd-canvas's flex align-items:center shrink-wraps it,
+       so the garment backdrop centers itself behind whatever size the safe zone currently
+       is. */
+    .pd-garment { position:relative; max-width:100%; }
+    .pd-shirt-svg { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:300px; max-width:100%; height:auto; display:block; filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)); z-index:0; pointer-events:none; }
+    /* The Fabric-managed canvas IS the print safe zone, 1:1 — its own pixel bounds are
+       exactly what toDataURL({multiplier}) exports (see pdApplyPrintArea()/
+       pdFlattenAndUpload()), so the dashed guide below is pure CSS chrome on Fabric's own
+       .canvas-container wrapper, never a Fabric object — structurally impossible for it to
+       end up baked into an export. */
+    .pd-canvas-frame { position:relative; z-index:1; }
+    .pd-canvas-frame .canvas-container { border:2px dashed #00ED0A; background:rgba(0,237,10,.06); border-radius:4px; transition:background .15s,border-color .15s; }
+    .pd-canvas-frame.pd-dragover .canvas-container { background:rgba(0,237,10,.18); border-color:#00ED0A; }
+    .pd-canvas-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:.6rem; text-transform:uppercase; letter-spacing:.04em; color:#00ED0A; font-weight:700; padding:.5rem; line-height:1.5; cursor:pointer; }
+    .pd-canvas-empty svg { width:20px; height:20px; margin-bottom:.35rem; }
     .pd-quality-badge { display:none; align-items:center; gap:.4rem; font-family:'Roboto Mono',monospace; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-top:.85rem; }
     .pd-quality-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
-    .pd-print-area-label { position:absolute; bottom:-1.4rem; left:50%; transform:translateX(-50%); font-size:.56rem; color:#555; white-space:nowrap; }
+    .pd-print-area-label { position:absolute; bottom:-1.4rem; left:50%; transform:translateX(-50%); font-size:.56rem; color:#555; white-space:nowrap; z-index:1; }
+    .pd-canvas-toolbar { display:flex; gap:.5rem; justify-content:center; margin-top:1.1rem; }
     .pd-bottombar { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:3px solid #333; background:#111; padding:.85rem 1.25rem; flex-wrap:wrap; }
     .pd-bottombar-info { display:flex; align-items:center; gap:.75rem; min-width:0; }
     .pd-bottom-thumb { width:44px; height:44px; object-fit:cover; background:#1c1c1c; border:2px solid #333; flex:0 0 auto; }
@@ -626,18 +634,23 @@
                 <svg class="pd-shirt-svg" viewBox="0 0 300 300" fill="none" stroke="#3a3a3a" stroke-width="3" stroke-linejoin="round">
                   <path fill="#1c1c1c" d="M100 20 L60 45 L20 85 L45 115 L70 100 L70 270 L230 270 L230 100 L255 115 L280 85 L240 45 L200 20 C200 40 175 55 150 55 C125 55 100 40 100 20 Z"/>
                 </svg>
-                <div class="pd-dropzone" id="pdDropzone">
-                  <div class="pd-dropzone-inner" id="pdDropzoneInner">
+                <div class="pd-canvas-frame" id="pdCanvasFrame">
+                  <canvas id="pdFabricCanvasEl"></canvas>
+                  <div class="pd-canvas-empty" id="pdCanvasEmpty">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <div>Upload or drop your<br>design here</div>
                   </div>
-                  <img id="pdDesignImg" class="pd-design-img hidden" alt="Design preview">
                   <div class="pd-print-area-label" id="pdPrintAreaLabel"></div>
                 </div>
               </div>
               <div class="pd-quality-badge" id="pdQualityBadge">
                 <span class="pd-quality-dot" id="pdQualityDot"></span>
                 <span id="pdQualityText"></span>
+              </div>
+              <div class="pd-canvas-toolbar">
+                <button type="button" class="btn btn-sm btn-inrl-outline" id="pdReplaceDesignBtn" style="font-size:.6rem;padding:.22rem .65rem">Replace Image</button>
+                <button type="button" class="btn btn-sm btn-danger-inrl" id="pdRemoveDesignBtn" style="font-size:.6rem;padding:.22rem .65rem">Remove</button>
+                <button type="button" class="btn btn-sm btn-inrl-outline" id="pdResetPositionBtn" style="font-size:.6rem;padding:.22rem .65rem">Reset Position</button>
               </div>
             </div>
             <input type="file" id="pdCanvasFileInput" accept="image/*" class="hidden">
@@ -1170,6 +1183,28 @@
   let pdPlacements = [];
   let pdPlacementsForCatalogId = null;
 
+  // Product-designer canvas (Fabric.js) — lets the admin drag/scale/rotate a design within
+  // the print-safe-zone instead of just uploading a flat image. Printful's API has no
+  // position/scale/rotation fields (v2 only accepts a plain file URL per placement), so
+  // positioning is "baked in": the canvas gets flattened to a print-resolution PNG and
+  // *that* is uploaded as designImages[placement] — Printful just prints it at 100%.
+  // pdDesignLayers holds the *editable* source, purely so reopening a product restores the
+  // canvas instead of starting over: {[placement]: {sourceUrl, left, top, scaleX, scaleY, angle}}.
+  let pdDesignLayers = {};
+  let pdFabricCanvas = null;
+  let pdActiveFabricImage = null;
+  // Resolved on-screen/print geometry for the active placement, shared by the export
+  // multiplier math and the quality badge so neither recomputes independently and risks
+  // drifting out of sync. Set by pdApplyPrintArea().
+  let pdCanvasGeom = { widthPx: 400, heightPx: 400, widthIn: null, heightIn: null, dpi: null, multiplier: 3 };
+  // Per-placement flatten bookkeeping: a monotonically-incrementing token guards against a
+  // slow upload finishing after a newer edit already started a fresh one (only the result
+  // whose token is still current gets applied); the debounce timers/promises let callers
+  // (tab switch, Save) flush a pending flatten deterministically instead of losing it.
+  let pdFlattenGeneration = {};
+  let pdFlattenTimers = {};
+  let pdPendingFlattens = {};
+
   const PD_STEPS = ['details', 'images', 'printful', 'preview'];
   let pdCurrentStepIndex = 0;
 
@@ -1236,70 +1271,284 @@
     pdRenderCanvas();
   }
 
-  // Sizes the print-area guide rectangle to the active placement's real aspect ratio
-  // (from Printful's print_area_width/height) instead of a fixed circle, and labels it
-  // with the physical dimensions — same information Printful's own design tool shows.
-  function pdApplyPrintArea() {
-    const dropzone = el('pdDropzone');
-    const label = el('pdPrintAreaLabel');
-    if (!dropzone) return;
-    const meta = pdPlacementMeta(pdActiveView);
-    if (meta && meta.print_area_width && meta.print_area_height) {
-      dropzone.style.aspectRatio = String(meta.print_area_width / meta.print_area_height);
-      if (label) label.textContent = meta.print_area_width.toFixed(1) + '" × ' + meta.print_area_height.toFixed(1) + '"';
-    } else {
-      dropzone.style.aspectRatio = '1 / 1';
-      if (label) label.textContent = '';
+  // Rewrites a stored asset URL to route through the Worker's own /api/r2/<key> proxy
+  // instead of a cross-origin ASSETS_DOMAIN host. Needed specifically for loading images
+  // into the Fabric canvas: canvas.toDataURL()/toBlob() throws a SecurityError ("tainted
+  // canvas") on any cross-origin image unless that host sends CORS headers, which an
+  // ASSETS_DOMAIN bucket may not — the Worker's /api/r2/ route always does (confirmed
+  // registered unconditionally, independent of whether ASSETS_DOMAIN is set). Every other
+  // place a design URL is displayed (mockup preview, etc.) keeps using the stored URL as-is.
+  function pdWorkerProxyUrl(url) {
+    if (!url) return url;
+    try {
+      const u = new URL(url, location.origin);
+      if (u.origin === location.origin) return url;
+      const key = u.pathname.replace(/^\/+/, '');
+      return location.origin + '/api/r2/' + key;
+    } catch {
+      return url;
     }
   }
 
-  // Loads the design image off-DOM just to read its natural pixel size, computes the
-  // effective print DPI against the active placement's physical print area, and renders
-  // a quality badge — the same "Print quality: Okay / 150 DPI" feedback Printful's own
-  // tool gives, using the print_area_width/dpi values their API already returns us.
-  function pdCheckQuality(url) {
+  function pdInitFabricCanvas() {
+    const canvasEl = el('pdFabricCanvasEl');
+    if (!canvasEl) return;
+    if (typeof fabric === 'undefined') {
+      console.error('Fabric.js failed to load — the design canvas will not be interactive.');
+      return;
+    }
+    pdFabricCanvas = new fabric.Canvas(canvasEl, {
+      selection: false,
+      enableRetinaScaling: false, // export multiplier math assumes canvas px == CSS px
+      preserveObjectStacking: true,
+    });
+    pdFabricCanvas.on('object:modified', function() {
+      pdSnapshotActiveTransform(pdActiveView);
+      pdScheduleFlatten(pdActiveView);
+    });
+    pdFabricCanvas.on('object:scaling', function() { pdCheckQuality(); });
+  }
+
+  // Sizes the Fabric canvas to the active placement's real print-area aspect ratio (from
+  // Printful's print_area_width/height, in inches) — the canvas's own pixel bounds *are*
+  // the print safe zone, so nothing extra is needed to know what to export later. Falls
+  // back to a generic 4:5 box + a flat 3x export multiplier before the product is linked
+  // to a real Printful garment (no print_area/dpi data yet).
+  function pdApplyPrintArea() {
+    const frame = el('pdCanvasFrame');
+    const emptyEl = el('pdCanvasEmpty');
+    const label = el('pdPrintAreaLabel');
+    const meta = pdPlacementMeta(pdActiveView);
+    const MAX_EDGE = 420;
+
+    let widthIn = null, heightIn = null, dpi = null, ratio;
+    if (meta && meta.print_area_width && meta.print_area_height) {
+      widthIn = meta.print_area_width;
+      heightIn = meta.print_area_height;
+      dpi = meta.dpi || 150;
+      ratio = widthIn / heightIn;
+      if (label) label.textContent = widthIn.toFixed(1) + '" × ' + heightIn.toFixed(1) + '"';
+    } else {
+      ratio = 4 / 5;
+      if (label) label.textContent = '';
+    }
+
+    const widthPx = ratio >= 1 ? MAX_EDGE : Math.round(MAX_EDGE * ratio);
+    const heightPx = ratio >= 1 ? Math.round(MAX_EDGE / ratio) : MAX_EDGE;
+
+    pdCanvasGeom = {
+      widthPx, heightPx, widthIn, heightIn, dpi,
+      multiplier: widthIn ? (widthIn * dpi) / widthPx : 3,
+    };
+
+    if (pdFabricCanvas) pdFabricCanvas.setDimensions({ width: widthPx, height: heightPx });
+    if (frame) { frame.style.width = widthPx + 'px'; frame.style.height = heightPx + 'px'; }
+    if (emptyEl) { emptyEl.style.width = widthPx + 'px'; emptyEl.style.height = heightPx + 'px'; }
+  }
+
+  // Reads the effective print DPI straight off the already-loaded fabric.Image (its
+  // natural pixel size vs. how large it's currently scaled on the canvas, converted to
+  // real inches via pdCanvasGeom) — no separate probe-image fetch needed, and updates live
+  // while the admin is scaling (see object:scaling in pdInitFabricCanvas).
+  function pdCheckQuality() {
     const badge = el('pdQualityBadge');
     if (!badge) return;
-    if (!url) { badge.style.display = 'none'; return; }
-    const meta = pdPlacementMeta(pdActiveView);
-    if (!meta || !meta.print_area_width) { badge.style.display = 'none'; return; }
-    const probe = new Image();
-    probe.onload = function () {
-      const effectiveDpi = probe.naturalWidth / meta.print_area_width;
-      const targetDpi = meta.dpi || 150;
-      const ratio = effectiveDpi / targetDpi;
-      const dot = el('pdQualityDot');
-      const text = el('pdQualityText');
-      let label, color;
-      if (ratio >= 0.9) { label = 'Good'; color = '#00ED0A'; }
-      else if (ratio >= 0.6) { label = 'Okay'; color = '#FEFD00'; }
-      else { label = 'Low'; color = '#ff4d4f'; }
-      if (dot) dot.style.background = color;
-      if (text) { text.textContent = 'Print quality: ' + label + ' / ' + Math.round(effectiveDpi) + ' DPI'; text.style.color = color; }
-      badge.style.display = 'flex';
-    };
-    probe.onerror = function () { badge.style.display = 'none'; };
-    probe.src = url;
+    const img = pdActiveFabricImage;
+    if (!img || !pdCanvasGeom.widthIn) { badge.style.display = 'none'; return; }
+    const scaledWidthIn = (img.getScaledWidth() / pdCanvasGeom.widthPx) * pdCanvasGeom.widthIn;
+    if (!scaledWidthIn) { badge.style.display = 'none'; return; }
+    const effectiveDpi = img.width / scaledWidthIn;
+    const targetDpi = pdCanvasGeom.dpi || 150;
+    const ratio = effectiveDpi / targetDpi;
+    const dot = el('pdQualityDot');
+    const text = el('pdQualityText');
+    let label, color;
+    if (ratio >= 0.9) { label = 'Good'; color = '#00ED0A'; }
+    else if (ratio >= 0.6) { label = 'Okay'; color = '#FEFD00'; }
+    else { label = 'Low'; color = '#ff4d4f'; }
+    if (dot) dot.style.background = color;
+    if (text) { text.textContent = 'Print quality: ' + label + ' / ' + Math.round(effectiveDpi) + ' DPI'; text.style.color = color; }
+    badge.style.display = 'flex';
+  }
+
+  // Loads a URL into a fabric.Image without touching the canvas — callers decide whether
+  // to actually add/activate it, so a caller that's since become stale (e.g. the admin
+  // switched placements while this was loading) can discard the result instead of
+  // corrupting whichever placement is now showing.
+  function pdLoadFabricImage(sourceUrl) {
+    return new Promise(function(resolve) {
+      fabric.Image.fromURL(pdWorkerProxyUrl(sourceUrl), function(img) { resolve(img || null); }, { crossOrigin: 'anonymous' });
+    });
+  }
+
+  function pdFitScale(img) {
+    return Math.min(pdFabricCanvas.getWidth() / img.width, pdFabricCanvas.getHeight() / img.height, 1);
   }
 
   function pdRenderCanvas() {
-    const img = el('pdDesignImg');
-    const inner = el('pdDropzoneInner');
-    const url = designImages[pdActiveView];
-    if (url) {
-      img.src = url;
-      img.classList.remove('hidden');
-      inner.style.display = 'none';
-    } else {
-      img.src = '';
-      img.classList.add('hidden');
-      inner.style.display = '';
-    }
+    pdApplyPrintArea();
     document.querySelectorAll('#pdViewTabs .pd-view-tab, #pdPreviewViewTabs .pd-view-tab').forEach(function(tab) {
       tab.classList.toggle('active', tab.getAttribute('data-pd-view') === pdActiveView);
     });
-    pdApplyPrintArea();
-    pdCheckQuality(url);
+    if (!pdFabricCanvas) return;
+
+    const renderingView = pdActiveView;
+    pdFabricCanvas.clear();
+    pdActiveFabricImage = null;
+
+    const layer = pdDesignLayers[renderingView];
+    const legacyUrl = !layer ? designImages[renderingView] : null;
+    const emptyEl = el('pdCanvasEmpty');
+
+    if (!layer && !legacyUrl) {
+      if (emptyEl) emptyEl.style.display = 'flex';
+      pdCheckQuality();
+      return;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    const sourceUrl = layer ? layer.sourceUrl : legacyUrl;
+    pdLoadFabricImage(sourceUrl).then(function(img) {
+      if (renderingView !== pdActiveView) return; // admin switched placements before this loaded
+      if (!img) { if (emptyEl) emptyEl.style.display = 'flex'; return; }
+      if (layer) {
+        img.set({ left: layer.left, top: layer.top, scaleX: layer.scaleX, scaleY: layer.scaleY, angle: layer.angle, originX: 'left', originY: 'top' });
+      } else {
+        // Legacy flattened-only product (saved before this editor existed) — no
+        // reconstructable transform, so fit it centered at a reasonable starting scale.
+        const scale = pdFitScale(img);
+        img.set({
+          left: (pdFabricCanvas.getWidth() - img.width * scale) / 2,
+          top: (pdFabricCanvas.getHeight() - img.height * scale) / 2,
+          scaleX: scale, scaleY: scale, originX: 'left', originY: 'top',
+        });
+      }
+      pdFabricCanvas.add(img);
+      pdFabricCanvas.setActiveObject(img);
+      pdActiveFabricImage = img;
+      pdFabricCanvas.requestRenderAll();
+      pdCheckQuality();
+      // Self-heal: a design was positioned (pdDesignLayers has it) but never successfully
+      // flattened (e.g. the admin switched away mid-upload last time) — catch up now that
+      // this placement is genuinely active again.
+      if (layer && !designImages[renderingView]) pdScheduleFlatten(renderingView);
+    });
+  }
+
+  // Synchronous — decoupled from the (debounced, async) upload in pdFlattenAndUpload so a
+  // transform is never lost even if the upload is still in flight or fails.
+  function pdSnapshotActiveTransform(placement) {
+    const img = pdActiveFabricImage;
+    if (!img) return;
+    const existing = pdDesignLayers[placement];
+    pdDesignLayers[placement] = {
+      sourceUrl: existing ? existing.sourceUrl : (designImages[placement] || ''),
+      left: img.left, top: img.top, scaleX: img.scaleX, scaleY: img.scaleY, angle: img.angle,
+    };
+  }
+
+  // ~500ms trailing debounce around pdFlattenAndUpload — not just nice-to-have: /upload is
+  // capped at 20/min per IP shared across every upload purpose, and a few quick successive
+  // nudges (drag-release, drag-release, rotate-release) could otherwise burn a meaningful
+  // chunk of that in seconds. object:modified already coalesces *within* one continuous
+  // gesture; this coalesces *across* several separate ones.
+  function pdScheduleFlatten(placement) {
+    if (pdFlattenTimers[placement]) clearTimeout(pdFlattenTimers[placement]);
+    const promise = new Promise(function(resolve) {
+      pdFlattenTimers[placement] = setTimeout(function() {
+        delete pdFlattenTimers[placement];
+        pdFlattenAndUpload(placement).then(resolve, resolve);
+      }, 500);
+    });
+    pdPendingFlattens[placement] = promise;
+    return promise;
+  }
+
+  // Cancels any pending debounce and runs+awaits the flatten immediately — used before
+  // switching the active placement tab and before Save, so a still-in-flight/scheduled
+  // flatten is never lost or (worse) left to resolve after the form has moved on to a
+  // different product (setFormProduct reassigns designImages/pdDesignLayers on every load).
+  function pdFlushPendingFlatten(placement) {
+    if (pdFlattenTimers[placement]) {
+      clearTimeout(pdFlattenTimers[placement]);
+      delete pdFlattenTimers[placement];
+      const promise = pdFlattenAndUpload(placement);
+      pdPendingFlattens[placement] = promise;
+      return promise;
+    }
+    return pdPendingFlattens[placement] || Promise.resolve();
+  }
+
+  // Exports the canvas (the print safe zone, 1:1 — see pdApplyPrintArea) at the placement's
+  // real print resolution and uploads it as designImages[placement], same shape as a plain
+  // upload always produced — Printful prints it at 100%, unaware any positioning happened.
+  // Guarded by a per-placement generation token: only the result of the *latest* flatten for
+  // a placement gets applied, so a slow upload that's since been superseded by a newer edit
+  // is silently dropped instead of overwriting the newer one.
+  async function pdFlattenAndUpload(placement) {
+    // The canvas is shared/reused across placements (see pdRenderCanvas) — it only ever
+    // shows pdActiveView's content, so exporting for any other placement would silently
+    // capture the wrong image. Safe to skip: whoever switched away leaves pdDesignLayers
+    // intact, and pdRenderCanvas() self-heals by scheduling a catch-up flatten next time
+    // that placement becomes active with no designImages entry yet.
+    if (placement !== pdActiveView) return;
+    if (!pdFabricCanvas || !pdActiveFabricImage) return;
+    const generation = (pdFlattenGeneration[placement] || 0) + 1;
+    pdFlattenGeneration[placement] = generation;
+
+    let dataUrl;
+    try {
+      dataUrl = pdFabricCanvas.toDataURL({ format: 'png', multiplier: pdCanvasGeom.multiplier });
+    } catch (e) {
+      const msg = e && e.message ? e.message : String(e);
+      const hint = /tainted|cross-origin|security/i.test(msg) ? ' (cross-origin image — check CORS on your asset host)' : '';
+      showStatus('Could not export the design: ' + msg + hint, 'error');
+      return;
+    }
+
+    let url;
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      url = await uploadProductImage(blob, 'designs');
+    } catch (e) {
+      showStatus('Design upload failed: ' + (e.message || String(e)), 'error');
+      return;
+    }
+    if (pdFlattenGeneration[placement] !== generation) return; // superseded by a newer edit
+
+    designImages[placement] = url;
+    pdRenderLayers();
+    pdUpdateBottomBar();
+    pdTryAutoPreview();
+  }
+
+  function pdRemoveDesign(placement) {
+    delete designImages[placement];
+    delete pdDesignLayers[placement];
+    if (pdFlattenTimers[placement]) { clearTimeout(pdFlattenTimers[placement]); delete pdFlattenTimers[placement]; }
+    pdFlattenGeneration[placement] = (pdFlattenGeneration[placement] || 0) + 1; // drop any in-flight upload for this placement
+    if (placement === pdActiveView) pdRenderCanvas();
+    pdRenderLayers();
+    pdUpdateBottomBar();
+    pdTryAutoPreview();
+  }
+
+  // Re-centers the active image at a fit-to-canvas scale and re-triggers a flatten —
+  // convenience for "start over" without re-uploading.
+  function pdResetActivePosition() {
+    const img = pdActiveFabricImage;
+    if (!img || !pdFabricCanvas) return;
+    const scale = Math.min(pdFabricCanvas.getWidth() / img.width, pdFabricCanvas.getHeight() / img.height, 1);
+    img.set({
+      left: (pdFabricCanvas.getWidth() - img.width * scale) / 2,
+      top: (pdFabricCanvas.getHeight() - img.height * scale) / 2,
+      scaleX: scale, scaleY: scale, angle: 0,
+    });
+    img.setCoords();
+    pdFabricCanvas.requestRenderAll();
+    pdSnapshotActiveTransform(pdActiveView);
+    pdScheduleFlatten(pdActiveView);
+    pdCheckQuality();
   }
 
   function pdRenderLayers() {
@@ -1435,7 +1684,14 @@
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
     currentProductCostMap = p ? findPrintfulCostMap(p.id) : null;
     updateMarginHint();
+    // Drop any pending flatten from whichever product was previously loaded — its timers
+    // would otherwise fire later and write into this (or the next) product's designImages.
+    Object.keys(pdFlattenTimers).forEach(function(k) { clearTimeout(pdFlattenTimers[k]); });
+    pdFlattenTimers = {};
+    pdPendingFlattens = {};
+    pdFlattenGeneration = {};
     designImages = (p && p.printful_design_images) ? Object.assign({}, p.printful_design_images) : {};
+    pdDesignLayers = (p && p.printful_design_layers) ? Object.assign({}, p.printful_design_layers) : {};
     pdActiveView = 'front';
     pdMockupCache = {};
     pdGoToStep('details');
@@ -1860,6 +2116,12 @@
     const isAdmin = user.role === 'admin';
     el('brandGroup').style.display = isAdmin ? '' : 'none';
 
+    // Product designer canvas — available to both roles (Products/Create Product aren't
+    // admin-only), so this lives outside the isAdmin branches below. Dimensions are set
+    // programmatically (pdApplyPrintArea()), so constructing it now while the Images step
+    // is hidden is fine.
+    pdInitFabricCanvas();
+
     const tabHomepageItem = document.getElementById('tab-homepage-item');
     if (tabHomepageItem) tabHomepageItem.style.display = isAdmin ? '' : 'none';
 
@@ -1992,7 +2254,10 @@
       box.addEventListener('click', function(ev) {
         var tab = ev.target.closest('.pd-view-tab');
         if (!tab) return;
-        pdActiveView = tab.getAttribute('data-pd-view');
+        var next = tab.getAttribute('data-pd-view');
+        if (next === pdActiveView) return;
+        pdFlushPendingFlatten(pdActiveView); // capture any pending edit before leaving this view
+        pdActiveView = next;
         pdRenderCanvas();
         pdRenderLayers();
         pdTryAutoPreview();
@@ -2006,50 +2271,84 @@
         showStatus('Invalid image file', 'error');
         return;
       }
-      const dz = el('pdDropzone');
-      dz.style.opacity = '.5';
+      const placement = pdActiveView;
+      const frame = el('pdCanvasFrame');
+      if (frame) frame.style.opacity = '.5';
       try {
-        const url = await uploadProductImage(file, 'designs');
-        designImages[pdActiveView] = url;
-        pdRenderCanvas();
+        const sourceUrl = await uploadProductImage(file, 'designs');
+        const img = await pdLoadFabricImage(sourceUrl);
+        if (!img) throw new Error('Could not load the uploaded image');
+        const scale = pdFitScale(img);
+        img.set({
+          left: (pdFabricCanvas.getWidth() - img.width * scale) / 2,
+          top: (pdFabricCanvas.getHeight() - img.height * scale) / 2,
+          scaleX: scale, scaleY: scale, angle: 0, originX: 'left', originY: 'top',
+        });
+        pdDesignLayers[placement] = { sourceUrl, left: img.left, top: img.top, scaleX: img.scaleX, scaleY: img.scaleY, angle: 0 };
+        if (placement === pdActiveView) {
+          pdFabricCanvas.clear();
+          pdFabricCanvas.add(img);
+          pdFabricCanvas.setActiveObject(img);
+          pdActiveFabricImage = img;
+          pdFabricCanvas.requestRenderAll();
+          const emptyEl = el('pdCanvasEmpty');
+          if (emptyEl) emptyEl.style.display = 'none';
+          pdCheckQuality();
+        }
+        // A deliberate upload should always produce a real designImages value even if the
+        // admin never nudges the image afterward — not gated behind the debounce. If they
+        // switched placements before this resolved, pdFlattenAndUpload no-ops safely and
+        // pdRenderCanvas's self-heal check catches it up next time this tab is active.
+        await pdFlattenAndUpload(placement);
         pdRenderLayers();
         pdUpdateBottomBar();
-        pdTryAutoPreview();
       } catch (e) {
         showStatus(e.message || String(e), 'error');
       } finally {
-        dz.style.opacity = '';
+        if (frame) frame.style.opacity = '';
       }
     }
 
-    var pdDropzone = el('pdDropzone');
+    var pdCanvasFrame = el('pdCanvasFrame');
     var pdCanvasFileInput = el('pdCanvasFileInput');
-    if (pdDropzone && pdCanvasFileInput) {
-      pdDropzone.addEventListener('click', function() { pdCanvasFileInput.click(); });
+    if (pdCanvasFrame && pdCanvasFileInput) {
+      pdCanvasFrame.addEventListener('click', function(ev) {
+        if (!ev.target.closest('#pdCanvasEmpty')) return; // clicking the loaded canvas manipulates the design instead
+        pdCanvasFileInput.click();
+      });
       pdCanvasFileInput.addEventListener('change', function() {
         const f = pdCanvasFileInput.files && pdCanvasFileInput.files[0];
         pdCanvasFileInput.value = '';
         if (f) handlePdDesignFile(f);
       });
-      pdDropzone.addEventListener('dragover', function(ev) { ev.preventDefault(); pdDropzone.classList.add('pd-dragover'); });
-      pdDropzone.addEventListener('dragleave', function() { pdDropzone.classList.remove('pd-dragover'); });
-      pdDropzone.addEventListener('drop', function(ev) {
+      pdCanvasFrame.addEventListener('dragover', function(ev) { ev.preventDefault(); pdCanvasFrame.classList.add('pd-dragover'); });
+      pdCanvasFrame.addEventListener('dragleave', function() { pdCanvasFrame.classList.remove('pd-dragover'); });
+      pdCanvasFrame.addEventListener('drop', function(ev) {
         ev.preventDefault();
-        pdDropzone.classList.remove('pd-dragover');
+        pdCanvasFrame.classList.remove('pd-dragover');
         const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
         if (f) handlePdDesignFile(f);
       });
+    }
+
+    var pdReplaceDesignBtnEl = el('pdReplaceDesignBtn');
+    if (pdReplaceDesignBtnEl && pdCanvasFileInput) {
+      pdReplaceDesignBtnEl.addEventListener('click', function() { pdCanvasFileInput.click(); });
+    }
+    var pdRemoveDesignBtnEl = el('pdRemoveDesignBtn');
+    if (pdRemoveDesignBtnEl) {
+      pdRemoveDesignBtnEl.addEventListener('click', function() { pdRemoveDesign(pdActiveView); });
+    }
+    var pdResetPositionBtnEl = el('pdResetPositionBtn');
+    if (pdResetPositionBtnEl) {
+      pdResetPositionBtnEl.addEventListener('click', pdResetActivePosition);
     }
 
     var pdLayersList = el('pdLayersList');
     if (pdLayersList) {
       pdLayersList.addEventListener('click', function(ev) {
         if (!ev.target.closest('[data-pd-remove-layer]')) return;
-        delete designImages[pdActiveView];
-        pdRenderCanvas();
-        pdRenderLayers();
-        pdUpdateBottomBar();
-        pdTryAutoPreview(); // clears the now-stale render for this view
+        pdRemoveDesign(pdActiveView);
       });
     }
 
@@ -2066,6 +2365,11 @@
     // to save a brand-new (unsaved) product first so it has an id to link against.
     // Throws on validation/save failure; caller is responsible for showStatus(...).
     async function saveProductFromForm() {
+      // A pending/in-flight flatten must resolve into designImages before it's read into
+      // the request body below — otherwise a still-debounced edit either gets left out of
+      // this save entirely, or (worse) resolves after setFormProduct() has already reset
+      // designImages for whatever product loads next and silently writes into that one.
+      await pdFlushPendingFlatten(pdActiveView);
       const id = el('productId').value.trim();
       const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
       const _pfMap = collectPrintfulVariantMap();
@@ -2087,6 +2391,7 @@
       if (_pfMap !== undefined) body.printful_variant_map = _pfMap;
       body.printful_sync_variant_id = el('printfulSyncVariantInput').value.trim() || null;
       body.printful_design_images = designImages;
+      body.printful_design_layers = pdDesignLayers;
       if (isAdmin) body.brand = el('brandInput').value.trim();
 
       requireField('Title', body.title);
