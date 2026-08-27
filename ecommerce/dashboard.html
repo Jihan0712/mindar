@@ -136,7 +136,21 @@
     .pd-view-tab.active { color:#1C1C1C; background:#00ED0A; border-color:#00ED0A; }
     .pd-back-link { font-size:.62rem; color:#666; text-decoration:none; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
     .pd-back-link:hover { color:#00ED0A; }
-    .pd-canvas { flex:1 1 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1rem; background:repeating-linear-gradient(45deg,#161616,#161616 12px,#111 12px,#111 24px); min-height:380px; }
+    .pd-canvas-split { flex:1 1 auto; display:flex; min-height:380px; }
+    .pd-canvas { flex:1 1 50%; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1rem; background:repeating-linear-gradient(45deg,#161616,#161616 12px,#111 12px,#111 24px); }
+    .pd-preview-pane { flex:1 1 50%; min-width:0; display:flex; flex-direction:column; border-left:2px solid #2a2a2a; background:#0d0d0d; }
+    .pd-preview-header { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .9rem; border-bottom:2px solid #2a2a2a; }
+    .pd-preview-title { font-family:'Roboto Mono',monospace; font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#888; }
+    .pd-preview-body { flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:1.25rem; overflow:auto; }
+    .pd-preview-empty { font-size:.68rem; color:#555; text-align:center; max-width:220px; line-height:1.6; }
+    .pd-preview-images { display:none; width:100%; height:100%; align-items:center; justify-content:center; }
+    .pd-preview-images.pd-has-image { display:flex; }
+    .pd-preview-images img { max-width:100%; max-height:100%; object-fit:contain; border:1px solid #2a2a2a; }
+    .pd-preview-status { font-size:.65rem; color:#555; padding:.5rem .9rem .75rem; border-top:2px solid #2a2a2a; min-height:2.2em; }
+    @media (max-width:1439.98px) {
+      .pd-canvas-split { flex-direction:column; }
+      .pd-preview-pane { border-left:none; border-top:2px solid #2a2a2a; min-height:280px; }
+    }
     .pd-garment { position:relative; width:300px; max-width:100%; }
     .pd-shirt-svg { width:100%; height:auto; display:block; filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)); }
     /* Print-area guide — a rectangle, not a fixed circle, since its aspect ratio is set
@@ -462,12 +476,7 @@
               <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
             </div>
 
-            <div class="mb-3">
-              <label class="form-label">Design Preview <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(real Printful mockup for the active canvas view)</span></label>
-              <div id="mockupStatus" style="font-size:.68rem;color:#555;margin-bottom:6px">Save with a linked garment and a design image to preview it here.</div>
-              <button type="button" id="mockupPreviewBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Preview on Printful&#8230;</button>
-              <div id="mockupPreviewImages" class="d-flex flex-wrap gap-2" style="margin-top:10px"></div>
-            </div>
+            <div style="font-size:.65rem;color:#555">The real Printful render for this view now shows next to the editor &#8594;</div>
 
             <details>
               <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
@@ -501,23 +510,41 @@
             </div>
             <a href="#" id="backToProductsLink" class="pd-back-link">&larr; Back to Products</a>
           </div>
-          <div class="pd-canvas">
-            <div class="pd-garment">
-              <svg class="pd-shirt-svg" viewBox="0 0 300 300" fill="none" stroke="#3a3a3a" stroke-width="3" stroke-linejoin="round">
-                <path fill="#1c1c1c" d="M100 20 L60 45 L20 85 L45 115 L70 100 L70 270 L230 270 L230 100 L255 115 L280 85 L240 45 L200 20 C200 40 175 55 150 55 C125 55 100 40 100 20 Z"/>
-              </svg>
-              <div class="pd-dropzone" id="pdDropzone">
-                <div class="pd-dropzone-inner" id="pdDropzoneInner">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <div>Upload or drop your<br>design here</div>
+          <div class="pd-canvas-split">
+            <div class="pd-canvas">
+              <div class="pd-garment">
+                <svg class="pd-shirt-svg" viewBox="0 0 300 300" fill="none" stroke="#3a3a3a" stroke-width="3" stroke-linejoin="round">
+                  <path fill="#1c1c1c" d="M100 20 L60 45 L20 85 L45 115 L70 100 L70 270 L230 270 L230 100 L255 115 L280 85 L240 45 L200 20 C200 40 175 55 150 55 C125 55 100 40 100 20 Z"/>
+                </svg>
+                <div class="pd-dropzone" id="pdDropzone">
+                  <div class="pd-dropzone-inner" id="pdDropzoneInner">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div>Upload or drop your<br>design here</div>
+                  </div>
+                  <img id="pdDesignImg" class="pd-design-img hidden" alt="Design preview">
+                  <div class="pd-print-area-label" id="pdPrintAreaLabel"></div>
                 </div>
-                <img id="pdDesignImg" class="pd-design-img hidden" alt="Design preview">
-                <div class="pd-print-area-label" id="pdPrintAreaLabel"></div>
+              </div>
+              <div class="pd-quality-badge" id="pdQualityBadge">
+                <span class="pd-quality-dot" id="pdQualityDot"></span>
+                <span id="pdQualityText"></span>
               </div>
             </div>
-            <div class="pd-quality-badge" id="pdQualityBadge">
-              <span class="pd-quality-dot" id="pdQualityDot"></span>
-              <span id="pdQualityText"></span>
+
+            <!-- Real Printful-rendered mockup for the active view — the actual answer to
+                 "what will this look like printed", refreshed automatically after a design
+                 upload or view switch (not a live/instant 3D render — Printful renders this
+                 server-side, taking a few seconds; see pdRefreshMockup()). -->
+            <div class="pd-preview-pane">
+              <div class="pd-preview-header">
+                <span class="pd-preview-title">Printful Render</span>
+                <button type="button" id="mockupPreviewBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .55rem">Refresh</button>
+              </div>
+              <div class="pd-preview-body" id="pdPreviewBody">
+                <div class="pd-preview-empty" id="pdPreviewEmpty">Upload a design and link this product to a Printful garment to see a real render here.</div>
+                <div id="mockupPreviewImages" class="pd-preview-images"></div>
+              </div>
+              <div id="mockupStatus" class="pd-preview-status"></div>
             </div>
           </div>
           <input type="file" id="pdCanvasFileInput" accept="image/*" class="hidden">
@@ -1225,7 +1252,9 @@
     // resets here since generateAndShowMockup()/renderMockupImages() live inside main()'s
     // scope (alongside the rest of the Printful picker UI) and this function doesn't.
     const mockupImagesEl = el('mockupPreviewImages');
-    if (mockupImagesEl) mockupImagesEl.innerHTML = '';
+    if (mockupImagesEl) { mockupImagesEl.innerHTML = ''; mockupImagesEl.classList.remove('pd-has-image'); }
+    const pdPreviewEmptyEl = el('pdPreviewEmpty');
+    if (pdPreviewEmptyEl) pdPreviewEmptyEl.style.display = '';
     const mockupStatusEl = el('mockupStatus');
     if (mockupStatusEl) {
       mockupStatusEl.textContent = 'Save with a linked garment and a design image to preview it here.';
@@ -1752,7 +1781,7 @@
         pdActiveView = tab.getAttribute('data-pd-view');
         pdRenderCanvas();
         pdRenderLayers();
-        setMockupStatusForActiveView();
+        pdTryAutoPreview();
       });
     }
 
@@ -1769,6 +1798,7 @@
         pdRenderCanvas();
         pdRenderLayers();
         pdUpdateBottomBar();
+        pdTryAutoPreview();
       } catch (e) {
         showStatus(e.message || String(e), 'error');
       } finally {
@@ -1803,6 +1833,7 @@
         pdRenderCanvas();
         pdRenderLayers();
         pdUpdateBottomBar();
+        pdTryAutoPreview(); // clears the now-stale render for this view
       });
     }
 
@@ -2453,11 +2484,14 @@
 
       function renderMockupImages(urls) {
         var box = document.getElementById('mockupPreviewImages');
+        var empty = document.getElementById('pdPreviewEmpty');
         if (!box) return;
-        box.innerHTML = (urls || []).map(function(url) {
-          return '<img src="' + escapeHtml(url) + '" alt="Printful mockup preview" ' +
-            'style="width:160px;height:160px;object-fit:contain;background:#111;border:1px solid #333">';
+        var list = urls || [];
+        box.innerHTML = list.map(function(url) {
+          return '<img src="' + escapeHtml(url) + '" alt="Printful mockup preview">';
         }).join('');
+        box.classList.toggle('pd-has-image', list.length > 0);
+        if (empty) empty.style.display = list.length ? 'none' : '';
       }
 
       // Switching canvas views (front/back) clears whatever mockup preview was showing —
@@ -2465,8 +2499,20 @@
       function setMockupStatusForActiveView() {
         renderMockupImages([]);
         setMockupStatus(designImages[pdActiveView]
-          ? 'Click Preview to render the ' + pdActiveView + ' view on Printful.'
+          ? 'Click Refresh to render the ' + pdActiveView + ' view on Printful.'
           : 'Upload a ' + pdActiveView + ' design on the canvas first.');
+      }
+
+      // Keeps the preview pane current without making the admin remember to click
+      // Refresh: called after a design upload and after switching placement tabs. Clears
+      // the stale preview from whatever view was showing before either way, so an old
+      // render never gets mistaken for a current one.
+      function pdTryAutoPreview() {
+        const id = el('productId').value.trim();
+        const imageUrl = designImages[pdActiveView];
+        if (!imageUrl) { setMockupStatusForActiveView(); return; }
+        if (!id) { renderMockupImages([]); setMockupStatus('Save the product, then it’ll preview automatically.', '#FEFD00'); return; }
+        generateAndShowMockup(id, imageUrl, { placement: pdActiveView });
       }
 
       // Kicks off a real Printful mockup render (POST .../mockup) and polls the task
@@ -2520,7 +2566,7 @@
               return;
             }
             if (attemptsLeft <= 0) {
-              setMockupStatus('Still rendering — click Preview again in a bit.', '#FEFD00');
+              setMockupStatus('Still rendering — click Refresh again in a bit.', '#FEFD00');
               if (btn) btn.disabled = false;
               return;
             }
@@ -2828,13 +2874,7 @@
       }
 
       var mockupPreviewBtn = document.getElementById('mockupPreviewBtn');
-      if (mockupPreviewBtn) {
-        mockupPreviewBtn.addEventListener('click', function() {
-          var id = el('productId').value.trim();
-          var imageUrl = designImages[pdActiveView] || (pdActiveView === 'front' ? (el('imageUrlInput').value || '').trim() : '');
-          generateAndShowMockup(id, imageUrl, { placement: pdActiveView });
-        });
-      }
+      if (mockupPreviewBtn) mockupPreviewBtn.addEventListener('click', pdTryAutoPreview);
 
       var pfPickerSearchBtn = document.getElementById('pfPickerSearchBtn');
       if (pfPickerSearchBtn) {
