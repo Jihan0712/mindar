@@ -6,7 +6,6 @@
   <title>Product Dashboard | INRL</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fabric@5.5.2/dist/fabric.min.js" crossorigin="anonymous"></script>
   <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <style>
@@ -159,55 +158,13 @@
     .pd-subsection-title { font-family:'Roboto Mono',monospace; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#888; margin:1.75rem 0 1rem; }
     .pd-subsection-title:first-child { margin-top:0; }
 
-    /* Design canvas (Images step) + Printful render (Preview step) — shared building blocks */
-    .pd-canvas-topbar { display:flex; align-items:center; gap:.75rem; margin-bottom:1.25rem; flex-wrap:wrap; }
-    .pd-view-tabs { display:flex; gap:.4rem; flex-wrap:wrap; }
-    .pd-view-tab { background:transparent; border:2px solid #333; color:#888; font-family:'Roboto Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; padding:.4rem .95rem; cursor:pointer; transition:color .12s,background .12s,border-color .12s; }
-    .pd-view-tab:hover { color:#ccc; }
-    .pd-view-tab.active { color:#1C1C1C; background:#00ED0A; border-color:#00ED0A; }
-    .pd-canvas { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1rem; background:repeating-linear-gradient(45deg,#161616,#161616 12px,#111 12px,#111 24px); border:2px solid #2a2a2a; min-height:360px; }
-    .pd-preview-pane { display:flex; flex-direction:column; border:2px solid #2a2a2a; background:#0d0d0d; min-height:360px; }
-    .pd-preview-header { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .9rem; border-bottom:2px solid #2a2a2a; }
-    .pd-preview-title { font-family:'Roboto Mono',monospace; font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#888; }
-    .pd-preview-body { flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:1.5rem; overflow:auto; }
-    .pd-preview-empty { font-size:.72rem; color:#555; text-align:center; max-width:320px; line-height:1.7; }
-    .pd-preview-images { display:none; width:100%; height:100%; align-items:center; justify-content:center; }
-    .pd-preview-images.pd-has-image { display:flex; }
-    .pd-preview-images img { max-width:100%; max-height:100%; object-fit:contain; border:1px solid #2a2a2a; }
-    .pd-preview-status { font-size:.68rem; color:#555; padding:.6rem .9rem .8rem; border-top:2px solid #2a2a2a; min-height:2.4em; }
-    /* .pd-garment no longer has a fixed size — its only normal-flow child is
-       .pd-canvas-frame (sized in px by pdApplyPrintArea() to match the placement's real
-       print-area aspect ratio), and .pd-canvas's flex align-items:center shrink-wraps it,
-       so the garment backdrop centers itself behind whatever size the safe zone currently
-       is. */
-    .pd-garment { position:relative; max-width:100%; }
-    .pd-shirt-svg { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:300px; max-width:100%; height:auto; display:block; filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)); z-index:0; pointer-events:none; }
-    /* The Fabric-managed canvas IS the print safe zone, 1:1 — its own pixel bounds are
-       exactly what toDataURL({multiplier}) exports (see pdApplyPrintArea()/
-       pdFlattenAndUpload()), so the dashed guide below is pure CSS chrome on Fabric's own
-       .canvas-container wrapper, never a Fabric object — structurally impossible for it to
-       end up baked into an export. */
-    .pd-canvas-frame { position:relative; z-index:1; }
-    .pd-canvas-frame .canvas-container { border:2px dashed #00ED0A; background:rgba(0,237,10,.06); border-radius:4px; transition:background .15s,border-color .15s; }
-    .pd-canvas-frame.pd-dragover .canvas-container { background:rgba(0,237,10,.18); border-color:#00ED0A; }
-    .pd-canvas-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:.6rem; text-transform:uppercase; letter-spacing:.04em; color:#00ED0A; font-weight:700; padding:.5rem; line-height:1.5; cursor:pointer; }
-    .pd-canvas-empty svg { width:20px; height:20px; margin-bottom:.35rem; }
-    .pd-quality-badge { display:none; align-items:center; gap:.4rem; font-family:'Roboto Mono',monospace; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-top:.85rem; }
-    .pd-quality-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
-    .pd-print-area-label { position:absolute; bottom:-1.4rem; left:50%; transform:translateX(-50%); font-size:.56rem; color:#555; white-space:nowrap; z-index:1; }
-    .pd-canvas-toolbar { display:flex; gap:.5rem; justify-content:center; margin-top:1.1rem; }
     .pd-bottombar { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:3px solid #333; background:#111; padding:.85rem 1.25rem; flex-wrap:wrap; }
     .pd-bottombar-info { display:flex; align-items:center; gap:.75rem; min-width:0; }
     .pd-bottom-thumb { width:44px; height:44px; object-fit:cover; background:#1c1c1c; border:2px solid #333; flex:0 0 auto; }
     .pd-bottom-title { font-size:.8rem; font-weight:700; color:#F5F5F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px; }
     .pd-bottom-price { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:.9rem; font-weight:700; }
     .pd-bottombar-actions { display:flex; gap:.5rem; align-items:center; }
-    .pd-layer-row { display:flex; align-items:center; gap:.6rem; border:2px solid #2a2a2a; background:#181818; padding:.5rem .6rem; margin-bottom:.5rem; }
-    .pd-layer-thumb { width:36px; height:36px; object-fit:cover; background:#111; border:1px solid #333; flex:0 0 auto; }
-    .pd-layer-name { flex:1 1 auto; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:#ccc; font-weight:700; }
-    .pd-layer-empty { font-size:.68rem; color:#555; text-align:center; padding:2.5rem .5rem; }
     .pd-images-layout { max-width:900px; }
-    .pd-preview-layout { max-width:700px; }
 
     /* ---- Dashboard overview tab ---- */
     .dash-metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
@@ -627,43 +584,9 @@
             </h2>
             <div class="accordion-collapse collapse" id="pdAcc-images" data-bs-parent="#pdAccordion">
               <div class="accordion-body">
-                <div class="pd-step-panel-sub">Upload the print-ready design Printful will use, and the photos shown on the storefront &#8212; two different things, both live here.</div>
+                <div class="pd-step-panel-sub">Photos shown on the storefront &#8212; the print design itself comes from Printful once this product is linked below.</div>
 
           <div class="pd-images-layout">
-            <div class="pd-subsection-title">Print Design</div>
-            <div class="pd-canvas-topbar">
-              <div class="pd-view-tabs" id="pdViewTabs">
-                <button type="button" class="pd-view-tab active" data-pd-view="front">Front</button>
-                <button type="button" class="pd-view-tab" data-pd-view="back">Back</button>
-              </div>
-            </div>
-            <div class="pd-canvas">
-              <div class="pd-garment">
-                <svg class="pd-shirt-svg" viewBox="0 0 300 300" fill="none" stroke="#3a3a3a" stroke-width="3" stroke-linejoin="round">
-                  <path fill="#1c1c1c" d="M100 20 L60 45 L20 85 L45 115 L70 100 L70 270 L230 270 L230 100 L255 115 L280 85 L240 45 L200 20 C200 40 175 55 150 55 C125 55 100 40 100 20 Z"/>
-                </svg>
-                <div class="pd-canvas-frame" id="pdCanvasFrame">
-                  <canvas id="pdFabricCanvasEl"></canvas>
-                  <div class="pd-canvas-empty" id="pdCanvasEmpty">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    <div>Upload or drop your<br>design here</div>
-                  </div>
-                  <div class="pd-print-area-label" id="pdPrintAreaLabel"></div>
-                </div>
-              </div>
-              <div class="pd-quality-badge" id="pdQualityBadge">
-                <span class="pd-quality-dot" id="pdQualityDot"></span>
-                <span id="pdQualityText"></span>
-              </div>
-              <div class="pd-canvas-toolbar">
-                <button type="button" class="btn btn-sm btn-inrl-outline" id="pdReplaceDesignBtn" style="font-size:.6rem;padding:.22rem .65rem">Replace Image</button>
-                <button type="button" class="btn btn-sm btn-danger-inrl" id="pdRemoveDesignBtn" style="font-size:.6rem;padding:.22rem .65rem">Remove</button>
-                <button type="button" class="btn btn-sm btn-inrl-outline" id="pdResetPositionBtn" style="font-size:.6rem;padding:.22rem .65rem">Reset Position</button>
-              </div>
-            </div>
-            <input type="file" id="pdCanvasFileInput" accept="image/*" class="hidden">
-            <div id="pdLayersList" class="mt-3"></div>
-
             <div class="pd-subsection-title">Storefront Photos</div>
             <div class="row g-3">
               <div class="col-12 col-md-6">
@@ -673,7 +596,7 @@
               <div class="col-12 col-md-6">
                 <label class="form-label" for="imageFileInput">Upload Images</label>
                 <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
-                <div class="form-text">Up to 5 images shown on the shop page &#8212; separate from the print design above.</div>
+                <div class="form-text">Up to 5 images shown on the shop page.</div>
               </div>
             </div>
           </div>
@@ -692,63 +615,9 @@
 
                 <div style="max-width:520px">
                   <div class="mb-3">
-                    <label class="form-label">Catalog Link <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(required to sell this product)</span></label>
-                    <div id="printfulLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Not linked yet — clicking below saves this product first, then lets you link it to a real Printful garment.</div>
-                    <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
-                  </div>
-
-                  <div class="mb-3">
                     <label class="form-label">Import from Printful <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(designed directly on printful.com)</span></label>
-                    <div id="printfulSyncLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Designed this on Printful's own site instead? Import it directly — sizes, pricing, and preview photos come from Printful automatically, no design upload needed here.</div>
+                    <div id="printfulSyncLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Design the product on Printful's own site first, then import it here — sizes, pricing, and preview photos come from Printful automatically.</div>
                     <button type="button" id="printfulSyncLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Import from Printful Sync Products&#8230;</button>
-                  </div>
-
-                  <details>
-                    <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
-                    <div class="mt-2">
-                      <label class="form-label" for="printfulSyncVariantInput">Printful Sync Variant ID <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional &mdash; single-variant products)</span></label>
-                      <input id="printfulSyncVariantInput" class="form-control" type="text" placeholder="e.g. 6a0ff0f16447e7" />
-                    </div>
-                    <div class="mt-2">
-                      <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
-                      <div id="printfulVariantFields" class="vstack gap-1">
-                        <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
-                      </div>
-                      <div class="form-text">Normally set automatically by "Link to Printful Catalog" above &#8212; edit here only to override.</div>
-                    </div>
-                  </details>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Preview -->
-          <div class="accordion-item">
-            <h2 class="accordion-header">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pdAcc-preview">Preview</button>
-            </h2>
-            <div class="accordion-collapse collapse" id="pdAcc-preview" data-bs-parent="#pdAccordion">
-              <div class="accordion-body">
-                <div class="pd-step-panel-sub">The real Printful render for this product &#8212; what it'll actually look like printed.</div>
-
-                <div class="pd-preview-layout">
-                  <div class="pd-canvas-topbar">
-                    <div class="pd-view-tabs" id="pdPreviewViewTabs"></div>
-                  </div>
-                  <!-- Real Printful-rendered mockup for the active view — the actual answer to
-                       "what will this look like printed", refreshed automatically after a design
-                       upload or view switch (not a live/instant 3D render — Printful renders this
-                       server-side, taking a few seconds; see pdRefreshMockup()). -->
-                  <div class="pd-preview-pane">
-                    <div class="pd-preview-header">
-                      <span class="pd-preview-title">Printful Render</span>
-                      <button type="button" id="mockupPreviewBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .55rem">Refresh</button>
-                    </div>
-                    <div class="pd-preview-body" id="pdPreviewBody">
-                      <div class="pd-preview-empty" id="pdPreviewEmpty">Upload a design and link this product to a Printful garment to see a real render here.</div>
-                      <div id="mockupPreviewImages" class="pd-preview-images"></div>
-                    </div>
-                    <div id="mockupStatus" class="pd-preview-status"></div>
                   </div>
                 </div>
               </div>
@@ -1074,8 +943,8 @@
                   <th>Brand</th>
                   <th>Price</th>
                   <th>Margin</th>
-                  <th>Catalog Product</th>
-                  <th>Catalog Linked</th>
+                  <th>Printful Product</th>
+                  <th>Linked</th>
                   <th class="text-end">Action</th>
                 </tr>
               </thead>
@@ -1148,36 +1017,6 @@
   </div>
 </div>
 
-<div class="modal fade" id="printfulCatalogPickerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0;color:#F5F5F0;">
-      <div class="modal-header" style="border-bottom:2px solid #333;">
-        <h5 class="modal-title" style="font-family:'Averia Serif Libre',serif;color:#00ED0A">Link to Printful Catalog</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="pfPickerProductId" />
-        <div class="input-group mb-3">
-          <input id="pfPickerSearch" class="form-control" type="text" placeholder="Search Printful catalog&#8230; e.g. Bella Canvas 3001" />
-          <button type="button" id="pfPickerSearchBtn" class="btn btn-inrl-outline">Search</button>
-        </div>
-        <div id="pfPickerStatus" style="font-size:.7rem;color:#888;margin-bottom:8px"></div>
-        <div id="pfPickerResults" style="max-height:220px;overflow-y:auto;border:1px solid #333"></div>
-        <div id="pfPickerResolved" style="display:none;margin-top:14px">
-          <div style="font-size:.7rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Linked product</div>
-          <div id="pfPickerResolvedName" style="font-size:.8rem;margin-bottom:8px"></div>
-          <div id="pfPickerVariantGrid" class="vstack gap-1"></div>
-          <div id="pfPickerMissingHint" style="font-size:.68rem;color:#FEFD00;display:none;margin-top:6px">Some sizes couldn't be matched automatically &#8212; enter their Printful variant IDs above, then click "Save Overrides".</div>
-        </div>
-      </div>
-      <div class="modal-footer" style="border-top:2px solid #333;justify-content:space-between">
-        <button type="button" id="pfPickerSaveOverridesBtn" class="btn btn-sm btn-inrl-outline" style="display:none;font-size:.62rem">Save Overrides</button>
-        <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Done</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div class="modal fade" id="printfulSyncPickerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0;color:#F5F5F0;">
@@ -1187,7 +1026,7 @@
       </div>
       <div class="modal-body">
         <input type="hidden" id="pfSyncPickerProductId" />
-        <div class="form-text mb-2">Products you designed and saved directly on printful.com — not the ones already linked via the Catalog above.</div>
+        <div class="form-text mb-2">Products you designed and saved directly on printful.com.</div>
         <div class="input-group mb-3">
           <input id="pfSyncPickerSearch" class="form-control" type="text" placeholder="Search your Printful sync products&#8230;" />
           <button type="button" id="pfSyncPickerSearchBtn" class="btn btn-inrl-outline">Search</button>
@@ -1221,393 +1060,16 @@
   let printfulProducts = [];
   let currentProductCostMap = null;
 
-  // Design-canvas state for the Create/Edit Product pane — which view (front/back/sleeve/
-  // etc.) is active, the per-placement Printful print-file source images, and the real
-  // placement metadata (print area size + target DPI) for whichever garment this product
-  // is linked to. Independent of the storefront gallery (image_url/image_urls): this is
-  // what gets sent to Printful's mockup API, not what customers see on the shop page.
-  let designImages = {};
-  let pdActiveView = 'front';
-  // Printful mockup renders are rate-limited harder than normal endpoints, so a successful
-  // render is kept here per placement (keyed to the exact design image it was rendered
-  // from) and reused when the admin just switches views/steps and back — only a design
-  // change or an explicit Refresh click should spend another real request. Reset whenever
-  // a different product is loaded into the form (see setFormProduct).
-  let pdMockupCache = {};
-  // [{placement, display_name, technique, print_area_width, print_area_height, dpi}, ...]
-  // — empty until a linked product's placements have loaded (see loadPdPlacements()).
-  let pdPlacements = [];
-  let pdPlacementsForCatalogId = null;
-
-  // Product-designer canvas (Fabric.js) — lets the admin drag/scale/rotate a design within
-  // the print-safe-zone instead of just uploading a flat image. Printful's API has no
-  // position/scale/rotation fields (v2 only accepts a plain file URL per placement), so
-  // positioning is "baked in": the canvas gets flattened to a print-resolution PNG and
-  // *that* is uploaded as designImages[placement] — Printful just prints it at 100%.
-  // pdDesignLayers holds the *editable* source, purely so reopening a product restores the
-  // canvas instead of starting over: {[placement]: {sourceUrl, left, top, scaleX, scaleY, angle}}.
-  let pdDesignLayers = {};
-  let pdFabricCanvas = null;
-  let pdActiveFabricImage = null;
-  // Resolved on-screen/print geometry for the active placement, shared by the export
-  // multiplier math and the quality badge so neither recomputes independently and risks
-  // drifting out of sync. Set by pdApplyPrintArea().
-  let pdCanvasGeom = { widthPx: 400, heightPx: 400, widthIn: null, heightIn: null, dpi: null, multiplier: 3 };
-  // Per-placement flatten bookkeeping: a monotonically-incrementing token guards against a
-  // slow upload finishing after a newer edit already started a fresh one (only the result
-  // whose token is still current gets applied); the debounce timers/promises let callers
-  // (tab switch, Save) flush a pending flatten deterministically instead of losing it.
-  let pdFlattenGeneration = {};
-  let pdFlattenTimers = {};
-  let pdPendingFlattens = {};
-
-  // Opens one accordion section (Details/Images/Printful/Preview) via Bootstrap's own
-  // Collapse API — data-bs-parent="#pdAccordion" on the markup makes this also close
-  // whichever other section was open, the same as a real click would, so this one call is
-  // a full replacement for the old pdGoToStep() step-machine.
+  // Opens one accordion section (Details/Images/Printful) via Bootstrap's own Collapse API
+  // — data-bs-parent="#pdAccordion" on the markup makes this also close whichever other
+  // section was open, the same as a real click would.
   function pdOpenAccordionSection(key) {
     const target = el('pdAcc-' + key);
     if (!target) return;
     bootstrap.Collapse.getOrCreateInstance(target, { toggle: false }).show();
   }
 
-  // Real placements (Front/Back/Right sleeve/Label panel/...) for whatever garment this
-  // product is linked to, straight from Printful's own catalog data — falls back to a
-  // generic Front/Back pair when nothing is linked yet so the canvas stays usable before
-  // the admin has picked a Printful garment.
-  async function loadPdPlacements(catalogProductId) {
-    if (!catalogProductId) {
-      pdPlacements = [];
-      pdPlacementsForCatalogId = null;
-      pdRenderViewTabs();
-      return;
-    }
-    if (pdPlacementsForCatalogId === catalogProductId) { pdRenderViewTabs(); return; } // already loaded
-    try {
-      const res = await apiFetch('/admin/printful/catalog/' + encodeURIComponent(catalogProductId) + '/placements');
-      pdPlacements = Array.isArray(res && res.placements) ? res.placements : [];
-      pdPlacementsForCatalogId = catalogProductId;
-    } catch (e) {
-      pdPlacements = [];
-      pdPlacementsForCatalogId = null;
-    }
-    pdRenderViewTabs();
-  }
 
-  function pdPlacementMeta(key) {
-    return pdPlacements.find(function(p) { return p.placement === key; }) || null;
-  }
-
-  function pdRenderViewTabs() {
-    const items = pdPlacements.length
-      ? pdPlacements.map(function(p) { return { key: p.placement, label: p.display_name || p.placement }; })
-      : [{ key: 'front', label: 'Front' }, { key: 'back', label: 'Back' }];
-    if (!items.some(function(i) { return i.key === pdActiveView; })) pdActiveView = items[0].key;
-    const html = items.map(function(i) {
-      return '<button type="button" class="pd-view-tab' + (i.key === pdActiveView ? ' active' : '') + '" data-pd-view="' + escapeHtml(i.key) + '">' + escapeHtml(i.label) + '</button>';
-    }).join('');
-    ['pdViewTabs', 'pdPreviewViewTabs'].forEach(function(id) {
-      const box = el(id);
-      if (box) box.innerHTML = html;
-    });
-    pdRenderCanvas();
-  }
-
-  // Rewrites a stored asset URL to route through the Worker's own /api/r2/<key> proxy
-  // instead of a cross-origin ASSETS_DOMAIN host. Needed specifically for loading images
-  // into the Fabric canvas: canvas.toDataURL()/toBlob() throws a SecurityError ("tainted
-  // canvas") on any cross-origin image unless that host sends CORS headers, which an
-  // ASSETS_DOMAIN bucket may not — the Worker's /api/r2/ route always does (confirmed
-  // registered unconditionally, independent of whether ASSETS_DOMAIN is set). Every other
-  // place a design URL is displayed (mockup preview, etc.) keeps using the stored URL as-is.
-  function pdWorkerProxyUrl(url) {
-    if (!url) return url;
-    try {
-      const u = new URL(url, location.origin);
-      if (u.origin === location.origin) return url;
-      const key = u.pathname.replace(/^\/+/, '');
-      return location.origin + '/api/r2/' + key;
-    } catch {
-      return url;
-    }
-  }
-
-  function pdInitFabricCanvas() {
-    const canvasEl = el('pdFabricCanvasEl');
-    if (!canvasEl) return;
-    if (typeof fabric === 'undefined') {
-      console.error('Fabric.js failed to load — the design canvas will not be interactive.');
-      return;
-    }
-    pdFabricCanvas = new fabric.Canvas(canvasEl, {
-      selection: false,
-      enableRetinaScaling: false, // export multiplier math assumes canvas px == CSS px
-      preserveObjectStacking: true,
-    });
-    pdFabricCanvas.on('object:modified', function() {
-      pdSnapshotActiveTransform(pdActiveView);
-      pdScheduleFlatten(pdActiveView);
-    });
-    pdFabricCanvas.on('object:scaling', function() { pdCheckQuality(); });
-  }
-
-  // Sizes the Fabric canvas to the active placement's real print-area aspect ratio (from
-  // Printful's print_area_width/height, in inches) — the canvas's own pixel bounds *are*
-  // the print safe zone, so nothing extra is needed to know what to export later. Falls
-  // back to a generic 4:5 box + a flat 3x export multiplier before the product is linked
-  // to a real Printful garment (no print_area/dpi data yet).
-  function pdApplyPrintArea() {
-    const frame = el('pdCanvasFrame');
-    const emptyEl = el('pdCanvasEmpty');
-    const label = el('pdPrintAreaLabel');
-    const meta = pdPlacementMeta(pdActiveView);
-    const MAX_EDGE = 420;
-
-    let widthIn = null, heightIn = null, dpi = null, ratio;
-    if (meta && meta.print_area_width && meta.print_area_height) {
-      widthIn = meta.print_area_width;
-      heightIn = meta.print_area_height;
-      dpi = meta.dpi || 150;
-      ratio = widthIn / heightIn;
-      if (label) label.textContent = widthIn.toFixed(1) + '" × ' + heightIn.toFixed(1) + '"';
-    } else {
-      ratio = 4 / 5;
-      if (label) label.textContent = '';
-    }
-
-    const widthPx = ratio >= 1 ? MAX_EDGE : Math.round(MAX_EDGE * ratio);
-    const heightPx = ratio >= 1 ? Math.round(MAX_EDGE / ratio) : MAX_EDGE;
-
-    pdCanvasGeom = {
-      widthPx, heightPx, widthIn, heightIn, dpi,
-      multiplier: widthIn ? (widthIn * dpi) / widthPx : 3,
-    };
-
-    if (pdFabricCanvas) pdFabricCanvas.setDimensions({ width: widthPx, height: heightPx });
-    if (frame) { frame.style.width = widthPx + 'px'; frame.style.height = heightPx + 'px'; }
-    if (emptyEl) { emptyEl.style.width = widthPx + 'px'; emptyEl.style.height = heightPx + 'px'; }
-  }
-
-  // Reads the effective print DPI straight off the already-loaded fabric.Image (its
-  // natural pixel size vs. how large it's currently scaled on the canvas, converted to
-  // real inches via pdCanvasGeom) — no separate probe-image fetch needed, and updates live
-  // while the admin is scaling (see object:scaling in pdInitFabricCanvas).
-  function pdCheckQuality() {
-    const badge = el('pdQualityBadge');
-    if (!badge) return;
-    const img = pdActiveFabricImage;
-    if (!img || !pdCanvasGeom.widthIn) { badge.style.display = 'none'; return; }
-    const scaledWidthIn = (img.getScaledWidth() / pdCanvasGeom.widthPx) * pdCanvasGeom.widthIn;
-    if (!scaledWidthIn) { badge.style.display = 'none'; return; }
-    const effectiveDpi = img.width / scaledWidthIn;
-    const targetDpi = pdCanvasGeom.dpi || 150;
-    const ratio = effectiveDpi / targetDpi;
-    const dot = el('pdQualityDot');
-    const text = el('pdQualityText');
-    let label, color;
-    if (ratio >= 0.9) { label = 'Good'; color = '#00ED0A'; }
-    else if (ratio >= 0.6) { label = 'Okay'; color = '#FEFD00'; }
-    else { label = 'Low'; color = '#ff4d4f'; }
-    if (dot) dot.style.background = color;
-    if (text) { text.textContent = 'Print quality: ' + label + ' / ' + Math.round(effectiveDpi) + ' DPI'; text.style.color = color; }
-    badge.style.display = 'flex';
-  }
-
-  // Loads a URL into a fabric.Image without touching the canvas — callers decide whether
-  // to actually add/activate it, so a caller that's since become stale (e.g. the admin
-  // switched placements while this was loading) can discard the result instead of
-  // corrupting whichever placement is now showing.
-  function pdLoadFabricImage(sourceUrl) {
-    return new Promise(function(resolve) {
-      fabric.Image.fromURL(pdWorkerProxyUrl(sourceUrl), function(img) { resolve(img || null); }, { crossOrigin: 'anonymous' });
-    });
-  }
-
-  function pdFitScale(img) {
-    return Math.min(pdFabricCanvas.getWidth() / img.width, pdFabricCanvas.getHeight() / img.height, 1);
-  }
-
-  function pdRenderCanvas() {
-    pdApplyPrintArea();
-    document.querySelectorAll('#pdViewTabs .pd-view-tab, #pdPreviewViewTabs .pd-view-tab').forEach(function(tab) {
-      tab.classList.toggle('active', tab.getAttribute('data-pd-view') === pdActiveView);
-    });
-    if (!pdFabricCanvas) return;
-
-    const renderingView = pdActiveView;
-    pdFabricCanvas.clear();
-    pdActiveFabricImage = null;
-
-    const layer = pdDesignLayers[renderingView];
-    const legacyUrl = !layer ? designImages[renderingView] : null;
-    const emptyEl = el('pdCanvasEmpty');
-
-    if (!layer && !legacyUrl) {
-      if (emptyEl) emptyEl.style.display = 'flex';
-      pdCheckQuality();
-      return;
-    }
-    if (emptyEl) emptyEl.style.display = 'none';
-
-    const sourceUrl = layer ? layer.sourceUrl : legacyUrl;
-    pdLoadFabricImage(sourceUrl).then(function(img) {
-      if (renderingView !== pdActiveView) return; // admin switched placements before this loaded
-      if (!img) { if (emptyEl) emptyEl.style.display = 'flex'; return; }
-      if (layer) {
-        img.set({ left: layer.left, top: layer.top, scaleX: layer.scaleX, scaleY: layer.scaleY, angle: layer.angle, originX: 'left', originY: 'top' });
-      } else {
-        // Legacy flattened-only product (saved before this editor existed) — no
-        // reconstructable transform, so fit it centered at a reasonable starting scale.
-        const scale = pdFitScale(img);
-        img.set({
-          left: (pdFabricCanvas.getWidth() - img.width * scale) / 2,
-          top: (pdFabricCanvas.getHeight() - img.height * scale) / 2,
-          scaleX: scale, scaleY: scale, originX: 'left', originY: 'top',
-        });
-      }
-      pdFabricCanvas.add(img);
-      pdFabricCanvas.setActiveObject(img);
-      pdActiveFabricImage = img;
-      pdFabricCanvas.requestRenderAll();
-      pdCheckQuality();
-      // Self-heal: a design was positioned (pdDesignLayers has it) but never successfully
-      // flattened (e.g. the admin switched away mid-upload last time) — catch up now that
-      // this placement is genuinely active again.
-      if (layer && !designImages[renderingView]) pdScheduleFlatten(renderingView);
-    });
-  }
-
-  // Synchronous — decoupled from the (debounced, async) upload in pdFlattenAndUpload so a
-  // transform is never lost even if the upload is still in flight or fails.
-  function pdSnapshotActiveTransform(placement) {
-    const img = pdActiveFabricImage;
-    if (!img) return;
-    const existing = pdDesignLayers[placement];
-    pdDesignLayers[placement] = {
-      sourceUrl: existing ? existing.sourceUrl : (designImages[placement] || ''),
-      left: img.left, top: img.top, scaleX: img.scaleX, scaleY: img.scaleY, angle: img.angle,
-    };
-  }
-
-  // ~500ms trailing debounce around pdFlattenAndUpload — not just nice-to-have: /upload is
-  // capped at 20/min per IP shared across every upload purpose, and a few quick successive
-  // nudges (drag-release, drag-release, rotate-release) could otherwise burn a meaningful
-  // chunk of that in seconds. object:modified already coalesces *within* one continuous
-  // gesture; this coalesces *across* several separate ones.
-  function pdScheduleFlatten(placement) {
-    if (pdFlattenTimers[placement]) clearTimeout(pdFlattenTimers[placement]);
-    const promise = new Promise(function(resolve) {
-      pdFlattenTimers[placement] = setTimeout(function() {
-        delete pdFlattenTimers[placement];
-        pdFlattenAndUpload(placement).then(resolve, resolve);
-      }, 500);
-    });
-    pdPendingFlattens[placement] = promise;
-    return promise;
-  }
-
-  // Cancels any pending debounce and runs+awaits the flatten immediately — used before
-  // switching the active placement tab and before Save, so a still-in-flight/scheduled
-  // flatten is never lost or (worse) left to resolve after the form has moved on to a
-  // different product (setFormProduct reassigns designImages/pdDesignLayers on every load).
-  function pdFlushPendingFlatten(placement) {
-    if (pdFlattenTimers[placement]) {
-      clearTimeout(pdFlattenTimers[placement]);
-      delete pdFlattenTimers[placement];
-      const promise = pdFlattenAndUpload(placement);
-      pdPendingFlattens[placement] = promise;
-      return promise;
-    }
-    return pdPendingFlattens[placement] || Promise.resolve();
-  }
-
-  // Exports the canvas (the print safe zone, 1:1 — see pdApplyPrintArea) at the placement's
-  // real print resolution and uploads it as designImages[placement], same shape as a plain
-  // upload always produced — Printful prints it at 100%, unaware any positioning happened.
-  // Guarded by a per-placement generation token: only the result of the *latest* flatten for
-  // a placement gets applied, so a slow upload that's since been superseded by a newer edit
-  // is silently dropped instead of overwriting the newer one.
-  async function pdFlattenAndUpload(placement) {
-    // The canvas is shared/reused across placements (see pdRenderCanvas) — it only ever
-    // shows pdActiveView's content, so exporting for any other placement would silently
-    // capture the wrong image. Safe to skip: whoever switched away leaves pdDesignLayers
-    // intact, and pdRenderCanvas() self-heals by scheduling a catch-up flatten next time
-    // that placement becomes active with no designImages entry yet.
-    if (placement !== pdActiveView) return;
-    if (!pdFabricCanvas || !pdActiveFabricImage) return;
-    const generation = (pdFlattenGeneration[placement] || 0) + 1;
-    pdFlattenGeneration[placement] = generation;
-
-    let dataUrl;
-    try {
-      dataUrl = pdFabricCanvas.toDataURL({ format: 'png', multiplier: pdCanvasGeom.multiplier });
-    } catch (e) {
-      const msg = e && e.message ? e.message : String(e);
-      const hint = /tainted|cross-origin|security/i.test(msg) ? ' (cross-origin image — check CORS on your asset host)' : '';
-      showStatus('Could not export the design: ' + msg + hint, 'error');
-      return;
-    }
-
-    let url;
-    try {
-      const blob = await (await fetch(dataUrl)).blob();
-      url = await uploadProductImage(blob, 'designs');
-    } catch (e) {
-      showStatus('Design upload failed: ' + (e.message || String(e)), 'error');
-      return;
-    }
-    if (pdFlattenGeneration[placement] !== generation) return; // superseded by a newer edit
-
-    designImages[placement] = url;
-    pdRenderLayers();
-    pdUpdateBottomBar();
-    pdTryAutoPreview();
-  }
-
-  function pdRemoveDesign(placement) {
-    delete designImages[placement];
-    delete pdDesignLayers[placement];
-    if (pdFlattenTimers[placement]) { clearTimeout(pdFlattenTimers[placement]); delete pdFlattenTimers[placement]; }
-    pdFlattenGeneration[placement] = (pdFlattenGeneration[placement] || 0) + 1; // drop any in-flight upload for this placement
-    if (placement === pdActiveView) pdRenderCanvas();
-    pdRenderLayers();
-    pdUpdateBottomBar();
-    pdTryAutoPreview();
-  }
-
-  // Re-centers the active image at a fit-to-canvas scale and re-triggers a flatten —
-  // convenience for "start over" without re-uploading.
-  function pdResetActivePosition() {
-    const img = pdActiveFabricImage;
-    if (!img || !pdFabricCanvas) return;
-    const scale = Math.min(pdFabricCanvas.getWidth() / img.width, pdFabricCanvas.getHeight() / img.height, 1);
-    img.set({
-      left: (pdFabricCanvas.getWidth() - img.width * scale) / 2,
-      top: (pdFabricCanvas.getHeight() - img.height * scale) / 2,
-      scaleX: scale, scaleY: scale, angle: 0,
-    });
-    img.setCoords();
-    pdFabricCanvas.requestRenderAll();
-    pdSnapshotActiveTransform(pdActiveView);
-    pdScheduleFlatten(pdActiveView);
-    pdCheckQuality();
-  }
-
-  function pdRenderLayers() {
-    const box = el('pdLayersList');
-    if (!box) return;
-    const url = designImages[pdActiveView];
-    if (!url) {
-      box.innerHTML = '<div class="pd-layer-empty">Your design layers will appear here.</div>';
-      return;
-    }
-    box.innerHTML =
-      '<div class="pd-layer-row">' +
-        '<img class="pd-layer-thumb" src="' + escapeHtml(url) + '" alt="">' +
-        '<div class="pd-layer-name">' + escapeHtml(pdActiveView) + ' design</div>' +
-        '<button type="button" class="btn btn-sm btn-danger-inrl" data-pd-remove-layer style="font-size:.58rem;padding:.2rem .5rem">Remove</button>' +
-      '</div>';
-  }
 
   function pdUpdateBottomBar() {
     const title = (el('titleInput').value || '').trim();
@@ -1615,7 +1077,7 @@
     const cents = Math.round(Number(el('priceInput').value || 0) * 100);
     el('pdBottomPrice').textContent = formatMoney(cents, el('currencyInput').value);
     const thumb = el('pdBottomThumb');
-    const thumbUrl = (el('imageUrlInput').value || '').trim() || designImages.front || designImages.back || '';
+    const thumbUrl = (el('imageUrlInput').value || '').trim();
     if (thumbUrl) { thumb.src = thumbUrl; thumb.classList.remove('hidden'); }
     else { thumb.src = ''; thumb.classList.add('hidden'); }
   }
@@ -1720,47 +1182,11 @@
     el('imageFileInput').value = '';
     el('descInput').value = p ? (p.description || '') : '';
     el('publishInput').checked = !!(p && p.is_published);
-    el('printfulSyncVariantInput').value = p ? (p.printful_sync_variant_id || '') : '';
-    const _pfSizes = p ? (p.sizes || '').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
-    renderPrintfulVariantFields(_pfSizes, p ? (p.printful_variant_map || null) : null);
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
     currentProductCostMap = p ? findPrintfulCostMap(p.id) : null;
     updateMarginHint();
-    // Drop any pending flatten from whichever product was previously loaded — its timers
-    // would otherwise fire later and write into this (or the next) product's designImages.
-    Object.keys(pdFlattenTimers).forEach(function(k) { clearTimeout(pdFlattenTimers[k]); });
-    pdFlattenTimers = {};
-    pdPendingFlattens = {};
-    pdFlattenGeneration = {};
-    designImages = (p && p.printful_design_images) ? Object.assign({}, p.printful_design_images) : {};
-    pdDesignLayers = (p && p.printful_design_layers) ? Object.assign({}, p.printful_design_layers) : {};
-    pdActiveView = 'front';
-    pdMockupCache = {};
     pdOpenAccordionSection('details');
-    loadPdPlacements(p ? findPrintfulCatalogProductId(p.id) : null); // async — re-renders tabs/canvas itself once loaded
-    pdRenderCanvas();
-    pdRenderLayers();
     pdUpdateBottomBar();
-    // Clear any mockup preview from whichever product was open before — plain DOM
-    // resets here since generateAndShowMockup()/renderMockupImages() live inside main()'s
-    // scope (alongside the rest of the Printful picker UI) and this function doesn't.
-    const mockupImagesEl = el('mockupPreviewImages');
-    if (mockupImagesEl) { mockupImagesEl.innerHTML = ''; mockupImagesEl.classList.remove('pd-has-image'); }
-    const pdPreviewEmptyEl = el('pdPreviewEmpty');
-    if (pdPreviewEmptyEl) pdPreviewEmptyEl.style.display = '';
-    const mockupStatusEl = el('mockupStatus');
-    if (mockupStatusEl) {
-      mockupStatusEl.textContent = 'Save with a linked garment and a design image to preview it here.';
-      mockupStatusEl.style.color = '#555';
-    }
-    const linkSummary = el('printfulLinkSummary');
-    if (linkSummary) {
-      linkSummary.textContent = !p
-        ? 'Not linked yet — clicking below saves this product first, then lets you link it to a real Printful garment.'
-        : (p.printful_variant_map || p.printful_sync_variant_id
-          ? 'Linked to Printful. Click below to re-link or change the garment.'
-          : 'Not linked yet — this product can’t be sold/fulfilled until it’s linked.');
-    }
     syncCategoryPresetFromInput();
   }
 
@@ -1860,7 +1286,7 @@
     const list = items || [];
     const published = list.filter(function(p) { return p.is_published; }).length;
     const linked = list.filter(function(p) {
-      return !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id;
+      return !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
     }).length;
     totalEl.textContent = String(list.length);
     el('statProductsPublished').textContent = String(published);
@@ -1885,7 +1311,7 @@
       const viewerLink = p.viewer_url || '/index.html';
       const storeLink = 'product.html?slug=' + encodeURIComponent((p.slug || '').toString()) + (!p.slug && p.id ? '&id=' + encodeURIComponent(String(p.id)) : '');
       const hasTarget = p.ar_target_id != null;
-      const isPfLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id;
+      const isPfLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
       const thumb = p.image_url
         ? '<img src="' + escapeHtml(p.image_url) + '" alt="" style="width:36px;height:36px;object-fit:cover;border:1px solid #333;display:block">'
         : '<div style="width:36px;height:36px;background:#181818;border:1px solid #333"></div>';
@@ -1920,39 +1346,6 @@
       : 'No results';
     if (prevBtn) prevBtn.disabled = productsPage <= 0;
     if (nextBtn) nextBtn.disabled = productsPage >= pageCount - 1;
-  }
-
-  function renderPrintfulVariantFields(sizes, currentMap) {
-    const container = el('printfulVariantFields');
-    if (!container) return;
-    if (!sizes || !sizes.length) {
-      container.innerHTML = '<div style="font-size:.68rem;color:#555">Enter sizes above first \u2014 each size will appear here to link its Printful variant ID.</div>';
-      return;
-    }
-    container.innerHTML = sizes.map(function(size) {
-      const val = (currentMap && currentMap[size]) ? escapeHtml(String(currentMap[size])) : '';
-      return '<div class="d-flex align-items-center gap-2 mb-1">' +
-        '<span style="min-width:36px;font-size:.65rem;text-transform:uppercase;font-weight:700;letter-spacing:.06em;color:#888">' + escapeHtml(size) + '</span>' +
-        '<input class="form-control form-control-sm" type="text" data-pf-size="' + escapeHtml(size) + '" placeholder="e.g. 6a0ff0f16447e7" value="' + val + '" />' +
-        '</div>';
-    }).join('');
-  }
-
-  function collectPrintfulVariantMap() {
-    const inputs = document.querySelectorAll('#printfulVariantFields input[data-pf-size]');
-    // Return undefined (not null) when no inputs are rendered — this means sizes field is
-    // empty or the product hasn't loaded yet. Returning undefined causes the form submit
-    // to omit printful_variant_map from the body entirely, preserving the existing DB value.
-    // Returning null means inputs ARE rendered but all empty — intentionally clears the map.
-    if (!inputs.length) return undefined;
-    const map = {};
-    let hasAny = false;
-    inputs.forEach(function(inp) {
-      const size = inp.getAttribute('data-pf-size');
-      const val = (inp.value || '').trim();
-      if (size && val) { map[size] = val; hasAny = true; }
-    });
-    return hasAny ? map : null;
   }
 
   async function loadProducts() {
@@ -2158,12 +1551,6 @@
     const isAdmin = user.role === 'admin';
     el('brandGroup').style.display = isAdmin ? '' : 'none';
 
-    // Product designer canvas — available to both roles (Products/Create Product aren't
-    // admin-only), so this lives outside the isAdmin branches below. Dimensions are set
-    // programmatically (pdApplyPrintArea()), so constructing it now while the Images step
-    // is hidden is fine.
-    pdInitFabricCanvas();
-
     const tabHomepageItem = document.getElementById('tab-homepage-item');
     if (tabHomepageItem) tabHomepageItem.style.display = isAdmin ? '' : 'none';
 
@@ -2247,14 +1634,6 @@
       });
     }
 
-    const sizesInputEl = el('sizesInput');
-    if (sizesInputEl) {
-      sizesInputEl.addEventListener('input', function() {
-        const sizes = (sizesInputEl.value || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
-        renderPrintfulVariantFields(sizes, collectPrintfulVariantMap());
-      });
-    }
-
     const priceInputEl = el('priceInput');
     if (priceInputEl) priceInputEl.addEventListener('input', function() { updateMarginHint(); pdUpdateBottomBar(); });
     const currencyInputEl = el('currencyInput');
@@ -2263,116 +1642,6 @@
     if (titleInputEl) titleInputEl.addEventListener('input', pdUpdateBottomBar);
     const imageUrlInputEl = el('imageUrlInput');
     if (imageUrlInputEl) imageUrlInputEl.addEventListener('input', pdUpdateBottomBar);
-
-    // ---- Design accordion: view tabs, drag-and-drop design upload, layers ----
-
-    // Delegated (not per-button) — pdRenderViewTabs() rebuilds these buttons whenever a
-    // product's real Printful placements load, so static per-element listeners would go
-    // stale the first time that happens. Wired identically on both the Images-step tabs
-    // and the Preview-step tabs since pdRenderViewTabs() keeps both containers in sync.
-    function pdWireViewTabClicks(containerId) {
-      var box = el(containerId);
-      if (!box) return;
-      box.addEventListener('click', function(ev) {
-        var tab = ev.target.closest('.pd-view-tab');
-        if (!tab) return;
-        var next = tab.getAttribute('data-pd-view');
-        if (next === pdActiveView) return;
-        pdFlushPendingFlatten(pdActiveView); // capture any pending edit before leaving this view
-        pdActiveView = next;
-        pdRenderCanvas();
-        pdRenderLayers();
-        pdTryAutoPreview();
-      });
-    }
-    pdWireViewTabClicks('pdViewTabs');
-    pdWireViewTabClicks('pdPreviewViewTabs');
-
-    async function handlePdDesignFile(file) {
-      if (!file || !String(file.type || '').toLowerCase().startsWith('image/')) {
-        showStatus('Invalid image file', 'error');
-        return;
-      }
-      const placement = pdActiveView;
-      const frame = el('pdCanvasFrame');
-      if (frame) frame.style.opacity = '.5';
-      try {
-        const sourceUrl = await uploadProductImage(file, 'designs');
-        const img = await pdLoadFabricImage(sourceUrl);
-        if (!img) throw new Error('Could not load the uploaded image');
-        const scale = pdFitScale(img);
-        img.set({
-          left: (pdFabricCanvas.getWidth() - img.width * scale) / 2,
-          top: (pdFabricCanvas.getHeight() - img.height * scale) / 2,
-          scaleX: scale, scaleY: scale, angle: 0, originX: 'left', originY: 'top',
-        });
-        pdDesignLayers[placement] = { sourceUrl, left: img.left, top: img.top, scaleX: img.scaleX, scaleY: img.scaleY, angle: 0 };
-        if (placement === pdActiveView) {
-          pdFabricCanvas.clear();
-          pdFabricCanvas.add(img);
-          pdFabricCanvas.setActiveObject(img);
-          pdActiveFabricImage = img;
-          pdFabricCanvas.requestRenderAll();
-          const emptyEl = el('pdCanvasEmpty');
-          if (emptyEl) emptyEl.style.display = 'none';
-          pdCheckQuality();
-        }
-        // A deliberate upload should always produce a real designImages value even if the
-        // admin never nudges the image afterward — not gated behind the debounce. If they
-        // switched placements before this resolved, pdFlattenAndUpload no-ops safely and
-        // pdRenderCanvas's self-heal check catches it up next time this tab is active.
-        await pdFlattenAndUpload(placement);
-        pdRenderLayers();
-        pdUpdateBottomBar();
-      } catch (e) {
-        showStatus(e.message || String(e), 'error');
-      } finally {
-        if (frame) frame.style.opacity = '';
-      }
-    }
-
-    var pdCanvasFrame = el('pdCanvasFrame');
-    var pdCanvasFileInput = el('pdCanvasFileInput');
-    if (pdCanvasFrame && pdCanvasFileInput) {
-      pdCanvasFrame.addEventListener('click', function(ev) {
-        if (!ev.target.closest('#pdCanvasEmpty')) return; // clicking the loaded canvas manipulates the design instead
-        pdCanvasFileInput.click();
-      });
-      pdCanvasFileInput.addEventListener('change', function() {
-        const f = pdCanvasFileInput.files && pdCanvasFileInput.files[0];
-        pdCanvasFileInput.value = '';
-        if (f) handlePdDesignFile(f);
-      });
-      pdCanvasFrame.addEventListener('dragover', function(ev) { ev.preventDefault(); pdCanvasFrame.classList.add('pd-dragover'); });
-      pdCanvasFrame.addEventListener('dragleave', function() { pdCanvasFrame.classList.remove('pd-dragover'); });
-      pdCanvasFrame.addEventListener('drop', function(ev) {
-        ev.preventDefault();
-        pdCanvasFrame.classList.remove('pd-dragover');
-        const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
-        if (f) handlePdDesignFile(f);
-      });
-    }
-
-    var pdReplaceDesignBtnEl = el('pdReplaceDesignBtn');
-    if (pdReplaceDesignBtnEl && pdCanvasFileInput) {
-      pdReplaceDesignBtnEl.addEventListener('click', function() { pdCanvasFileInput.click(); });
-    }
-    var pdRemoveDesignBtnEl = el('pdRemoveDesignBtn');
-    if (pdRemoveDesignBtnEl) {
-      pdRemoveDesignBtnEl.addEventListener('click', function() { pdRemoveDesign(pdActiveView); });
-    }
-    var pdResetPositionBtnEl = el('pdResetPositionBtn');
-    if (pdResetPositionBtnEl) {
-      pdResetPositionBtnEl.addEventListener('click', pdResetActivePosition);
-    }
-
-    var pdLayersList = el('pdLayersList');
-    if (pdLayersList) {
-      pdLayersList.addEventListener('click', function(ev) {
-        if (!ev.target.closest('[data-pd-remove-layer]')) return;
-        pdRemoveDesign(pdActiveView);
-      });
-    }
 
     const categoryPresetEl = el('categoryPreset');
     const categoryInputEl = el('categoryInput');
@@ -2383,18 +1652,12 @@
     }
 
     // Builds the product payload from the form and creates/updates it — shared by the
-    // form's own submit handler and the "Link to Printful Catalog" button, which needs
-    // to save a brand-new (unsaved) product first so it has an id to link against.
+    // form's own submit handler and the "Import from Printful Sync Products" button, which
+    // needs to save a brand-new (unsaved) product first so it has an id to link against.
     // Throws on validation/save failure; caller is responsible for showStatus(...).
     async function saveProductFromForm() {
-      // A pending/in-flight flatten must resolve into designImages before it's read into
-      // the request body below — otherwise a still-debounced edit either gets left out of
-      // this save entirely, or (worse) resolves after setFormProduct() has already reset
-      // designImages for whatever product loads next and silently writes into that one.
-      await pdFlushPendingFlatten(pdActiveView);
       const id = el('productId').value.trim();
       const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
-      const _pfMap = collectPrintfulVariantMap();
       const body = {
         title: el('titleInput').value.trim(),
         category: el('categoryInput').value.trim(),
@@ -2408,12 +1671,6 @@
         is_published: el('publishInput').checked,
         ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
       };
-      // Only include printful_variant_map when inputs are rendered (undefined = no sizes loaded).
-      // null means inputs exist but all cleared — that intentionally wipes the map.
-      if (_pfMap !== undefined) body.printful_variant_map = _pfMap;
-      body.printful_sync_variant_id = el('printfulSyncVariantInput').value.trim() || null;
-      body.printful_design_images = designImages;
-      body.printful_design_layers = pdDesignLayers;
       if (isAdmin) body.brand = el('brandInput').value.trim();
 
       requireField('Title', body.title);
@@ -2922,8 +2179,9 @@
         var ordersToday = allOrders.filter(function(o) { return o.created_at && o.created_at.slice(0, 10) === todayStr; }).length;
         var ordersYesterday = allOrders.filter(function(o) { return o.created_at && o.created_at.slice(0, 10) === yestStr; }).length;
 
-        var linkedProducts = products.filter(function(p) { return !!findPrintfulCatalogProductId(p.id); }).length;
-        var unlinkedPublished = products.filter(function(p) { return p.is_published && !findPrintfulCatalogProductId(p.id); }).length;
+        var isProductPfLinked = function(p) { return !!(findPrintfulCatalogProductId(p.id) || p.printful_sync_product_id); };
+        var linkedProducts = products.filter(isProductPfLinked).length;
+        var unlinkedPublished = products.filter(function(p) { return p.is_published && !isProductPfLinked(p); }).length;
 
         var flaggedOrders = allOrders.filter(function(o) {
           var s = (o.printful_status || '').toLowerCase();
@@ -3192,12 +2450,12 @@
         var tbody = document.getElementById('printfulProductsTbody');
         if (!tbody) return;
         if (!printfulProducts.length) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4" style="color:#555">No products linked to Printful yet. Edit a product and use "Link to Printful Catalog".</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4" style="color:#555">No products linked to Printful yet. Edit a product and use "Import from Printful Sync Products".</td></tr>';
           return;
         }
 
         tbody.innerHTML = printfulProducts.map(function(p) {
-          var isLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id;
+          var isLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
           var stateChip = isLinked
             ? printfulStatusChip('linked', '#00ED0A', 'rgba(0,237,10,.1)')
             : printfulStatusChip('unlinked', '#FEFD00', 'rgba(254,253,0,.1)');
@@ -3208,7 +2466,7 @@
             '<td style="color:#888">' + escapeHtml(p.brand || '\u2014') + '</td>' +
             '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
             '<td style="white-space:nowrap">' + marginHtml + '</td>' +
-            '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_catalog_product_id || '\u2014')) + '</code></td>' +
+            '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_catalog_product_id || p.printful_sync_product_id || '\u2014')) + '</code></td>' +
             '<td>' + stateChip + '</td>' +
             '<td class="text-end">' + actionHtml + '</td>' +
           '</tr>';
@@ -3261,231 +2519,10 @@
         await refresh();
       }
 
-      // ---- Link to Printful Catalog picker ----
-      var pfPickerModalEl = document.getElementById('printfulCatalogPickerModal');
-      var pfPickerModalInstance = pfPickerModalEl ? new bootstrap.Modal(pfPickerModalEl) : null;
-      var pfPickerLastResolved = null;
 
-      function pfPickerSetStatus(msg) {
-        var s = document.getElementById('pfPickerStatus');
-        if (s) s.textContent = msg || '';
-      }
 
-      // Called right after a product gets (re)linked to Printful — auto-shows a mockup
-      // preview if it already has a design image, so linking a design that's already
-      // uploaded feels like one fluent step instead of "link, then remember to also hit
-      // Preview". Silent: a freshly linked product with no image yet is a normal, common
-      // case, not an error worth surfacing.
-      function maybeAutoPreviewAfterLink(productId) {
-        var p = products.find(function(x) { return String(x.id) === String(productId); });
-        var frontImg = p && ((p.printful_design_images && p.printful_design_images.front) || p.image_url);
-        if (frontImg) generateAndShowMockup(productId, frontImg, { silent: true, placement: 'front' });
-        // Freshly linked (or re-linked) — the garment may have changed, so the canvas's
-        // placement tabs / print-area guide need to reflect whatever this catalog product
-        // actually supports now.
-        if (String(el('productId').value || '').trim() === String(productId)) {
-          loadPdPlacements(findPrintfulCatalogProductId(productId));
-        }
-      }
 
-      function setMockupStatus(msg, color) {
-        var el2 = document.getElementById('mockupStatus');
-        if (!el2) return;
-        el2.textContent = msg || '';
-        el2.style.color = color || '#555';
-      }
 
-      function renderMockupImages(urls) {
-        var box = document.getElementById('mockupPreviewImages');
-        var empty = document.getElementById('pdPreviewEmpty');
-        if (!box) return;
-        var list = urls || [];
-        box.innerHTML = list.map(function(url) {
-          return '<img src="' + escapeHtml(url) + '" alt="Printful mockup preview">';
-        }).join('');
-        box.classList.toggle('pd-has-image', list.length > 0);
-        if (empty) empty.style.display = list.length ? 'none' : '';
-      }
-
-      // Switching canvas views (front/back) clears whatever mockup preview was showing —
-      // a rendered front mockup is meaningless once the admin is looking at the back view.
-      function setMockupStatusForActiveView() {
-        renderMockupImages([]);
-        setMockupStatus(designImages[pdActiveView]
-          ? 'Click Refresh to render the ' + pdActiveView + ' view on Printful.'
-          : 'Upload a ' + pdActiveView + ' design on the canvas first.');
-      }
-
-      // Keeps the preview pane current without making the admin remember to click
-      // Refresh: called after a design upload and after switching placement tabs. Clears
-      // the stale preview from whatever view was showing before either way, so an old
-      // render never gets mistaken for a current one.
-      //
-      // Re-rendering on Printful costs a real, tightly-rate-limited request, so before
-      // asking Printful again this checks pdMockupCache for a render already made from
-      // this exact placement + design image — flipping Front/Back/Front, or leaving and
-      // returning to the Preview step, just redisplays it instead of risking a 429.
-      function pdTryAutoPreview() {
-        const id = el('productId').value.trim();
-        const imageUrl = designImages[pdActiveView];
-        if (!imageUrl) { setMockupStatusForActiveView(); return; }
-        if (!id) { renderMockupImages([]); setMockupStatus('Save the product, then it’ll preview automatically.', '#FEFD00'); return; }
-        const cached = pdMockupCache[pdActiveView];
-        if (cached && cached.imageUrl === imageUrl && cached.urls && cached.urls.length) {
-          renderMockupImages(cached.urls);
-          setMockupStatus('Showing the last render for this view — click Refresh to check Printful again.', '#888');
-          return;
-        }
-        generateAndShowMockup(id, imageUrl, { placement: pdActiveView });
-      }
-
-      // Refresh button: the one explicit "check it again" action, so unlike
-      // pdTryAutoPreview() it always spends a real Printful request instead of reusing
-      // pdMockupCache.
-      function pdForceRefreshPreview() {
-        const id = el('productId').value.trim();
-        const imageUrl = designImages[pdActiveView];
-        if (!imageUrl) { setMockupStatusForActiveView(); return; }
-        if (!id) { renderMockupImages([]); setMockupStatus('Save the product, then it’ll preview automatically.', '#FEFD00'); return; }
-        generateAndShowMockup(id, imageUrl, { placement: pdActiveView });
-      }
-
-      // Kicks off a real Printful mockup render (POST .../mockup) and polls the task
-      // (GET .../mockup-tasks/:id) until it resolves. Mockup generation is documented as
-      // "resource intensive" with lower rate limits than normal endpoints, so this is only
-      // ever triggered by an explicit action (the Preview button, or right after a fresh
-      // link) — never on every form render/edit-open.
-      var mockupPollTimer = null;
-      async function generateAndShowMockup(productId, imageUrl, opts) {
-        opts = opts || {};
-        if (mockupPollTimer) { clearTimeout(mockupPollTimer); mockupPollTimer = null; }
-        if (!productId) { if (!opts.silent) setMockupStatus('Save the product first.', '#ff4d4f'); return; }
-        if (!imageUrl) {
-          if (!opts.silent) setMockupStatus('This product has no design image yet — add one and save first.', '#FEFD00');
-          return;
-        }
-        renderMockupImages([]);
-        setMockupStatus('Starting Printful mockup render…');
-        var btn = document.getElementById('mockupPreviewBtn');
-        if (btn) btn.disabled = true;
-        try {
-          const startRes = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/mockup', {
-            method: 'POST',
-            body: { image_url: imageUrl, placement: opts.placement || 'front' },
-          });
-          const taskId = startRes && startRes.task_id;
-          if (!taskId) throw new Error('No mockup task id returned');
-
-          var attemptsLeft = 20; // ~30s at 1.5s/poll — mockup rendering is usually a few seconds
-          const poll = async function() {
-            const res = await apiFetch('/admin/printful/mockup-tasks/' + encodeURIComponent(taskId));
-            const status = String(res && res.status || '').toLowerCase();
-            if (res && res.image_urls && res.image_urls.length) {
-              pdMockupCache[opts.placement || 'front'] = { imageUrl: imageUrl, urls: res.image_urls };
-              renderMockupImages(res.image_urls);
-              setMockupStatus('Preview ready.', '#00ED0A');
-              if (btn) btn.disabled = false;
-              return;
-            }
-            if (status.includes('fail') || status.includes('error') || (res && res.failure_reasons && res.failure_reasons.length)) {
-              const reason = res && res.failure_reasons && res.failure_reasons[0];
-              setMockupStatus('Mockup generation failed' + (reason ? ': ' + reason : '.'), '#ff4d4f');
-              if (btn) btn.disabled = false;
-              return;
-            }
-            // Backend flags this when the task looks done (not pending/processing) but no
-            // image URL could be parsed out of it — surface the raw response so the actual
-            // shape is visible instead of looping until the attempt budget runs out.
-            if (res && res.debug_raw_response) {
-              setMockupStatus('Task finished but no image URL was found. Raw response: ' + res.debug_raw_response, '#FEFD00');
-              if (btn) btn.disabled = false;
-              return;
-            }
-            if (attemptsLeft <= 0) {
-              setMockupStatus('Still rendering — click Refresh again in a bit.', '#FEFD00');
-              if (btn) btn.disabled = false;
-              return;
-            }
-            attemptsLeft--;
-            setMockupStatus('Rendering… (' + status + ')');
-            mockupPollTimer = setTimeout(function() { poll().catch(function(e) {
-              setMockupStatus(e.message || String(e), '#ff4d4f');
-              if (btn) btn.disabled = false;
-            }); }, 1500);
-          };
-          await poll();
-        } catch (e) {
-          if (!opts.silent) setMockupStatus(e.message || String(e), '#ff4d4f');
-          else setMockupStatus('Preview not available yet.', '#555');
-          if (btn) btn.disabled = false;
-        }
-      }
-
-      function openPrintfulCatalogPicker(productId) {
-        document.getElementById('pfPickerProductId').value = String(productId || '');
-        document.getElementById('pfPickerSearch').value = '';
-        document.getElementById('pfPickerResults').innerHTML = '';
-        document.getElementById('pfPickerResolved').style.display = 'none';
-        document.getElementById('pfPickerSaveOverridesBtn').style.display = 'none';
-        pfPickerSetStatus('Search for the real garment this product should print on.');
-        pfPickerLastResolved = null;
-        if (pfPickerModalInstance) pfPickerModalInstance.show();
-      }
-
-      function renderPfPickerResults(items) {
-        var box = document.getElementById('pfPickerResults');
-        if (!items.length) {
-          box.innerHTML = '<div style="padding:12px;font-size:.7rem;color:#555">No matching catalog products.</div>';
-          return;
-        }
-        box.innerHTML = items.map(function(p) {
-          return '<div class="d-flex align-items-center gap-2 pf-picker-row" data-catalog-id="' + p.id + '" ' +
-            'style="padding:8px 10px;cursor:pointer;border-bottom:1px solid #222">' +
-            (p.image ? '<img src="' + escapeHtml(p.image) + '" style="width:36px;height:36px;object-fit:cover;border:1px solid #333">' : '') +
-            '<div><div style="font-size:.75rem">' + escapeHtml(p.name || '') + '</div>' +
-            '<div style="font-size:.62rem;color:#666">#' + escapeHtml(String(p.id)) + (p.variant_count ? ' \u2014 ' + p.variant_count + ' variants' : '') + '</div></div>' +
-          '</div>';
-        }).join('');
-      }
-
-      function renderPfPickerResolved(name, variantMap, missing, costMap) {
-        document.getElementById('pfPickerResolved').style.display = '';
-        document.getElementById('pfPickerResolvedName').textContent = name || '';
-        var sizes = Object.keys(variantMap || {}).concat(missing || []);
-        var grid = document.getElementById('pfPickerVariantGrid');
-        grid.innerHTML = sizes.map(function(size) {
-          var val = variantMap && variantMap[size] != null ? String(variantMap[size]) : '';
-          var isMissing = (missing || []).indexOf(size) !== -1;
-          var cost = costMap && costMap[size] != null ? costMap[size] : null;
-          var costHtml = cost != null
-            ? '<span style="font-size:.62rem;color:#888;white-space:nowrap">cost ' + escapeHtml(formatMoney(Number(cost) * 100, 'USD')) + '</span>'
-            : '';
-          return '<div class="d-flex align-items-center gap-2">' +
-            '<span style="min-width:36px;font-size:.65rem;text-transform:uppercase;font-weight:700;color:' + (isMissing ? '#FEFD00' : '#00ED0A') + '">' + escapeHtml(size) + '</span>' +
-            '<input class="form-control form-control-sm" type="text" data-pf-override-size="' + escapeHtml(size) + '" placeholder="Printful variant ID" value="' + escapeHtml(val) + '" />' +
-            costHtml +
-          '</div>';
-        }).join('');
-        var missingHint = document.getElementById('pfPickerMissingHint');
-        var overridesBtn = document.getElementById('pfPickerSaveOverridesBtn');
-        if (missing && missing.length) {
-          missingHint.style.display = '';
-          overridesBtn.style.display = '';
-        } else {
-          missingHint.style.display = 'none';
-          overridesBtn.style.display = 'none';
-        }
-      }
-
-      async function pfPickerSearch() {
-        var q = (document.getElementById('pfPickerSearch').value || '').trim();
-        pfPickerSetStatus('Searching\u2026');
-        document.getElementById('pfPickerResolved').style.display = 'none';
-        const res = await apiFetch('/admin/printful/catalog' + (q ? ('?search=' + encodeURIComponent(q)) : ''));
-        var items = Array.isArray(res && res.items) ? res.items : [];
-        renderPfPickerResults(items);
-        pfPickerSetStatus(items.length + ' catalog product(s) found.');
-      }
 
       // If the product currently open in the left-hand edit form is the one we just
       // linked, refresh the form's own fields (link summary + variant inputs) so the
@@ -3496,52 +2533,9 @@
         if (p) setFormProduct(p, isAdmin);
       }
 
-      async function pfPickerLinkTo(catalogProductId) {
-        var productId = document.getElementById('pfPickerProductId').value;
-        if (!productId) throw new Error('Missing product id');
-        pfPickerSetStatus('Linking\u2026');
-        const res = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/link', {
-          method: 'POST',
-          body: { catalog_product_id: Number(catalogProductId) },
-        });
-        pfPickerLastResolved = { catalogProductId: Number(catalogProductId), map: res.printful_variant_map || {} };
-        renderPfPickerResolved('Catalog product #' + catalogProductId, res.printful_variant_map || {}, res.missing || [], res.printful_variant_cost_map || {});
-        pfPickerSetStatus((res.missing && res.missing.length)
-          ? (res.missing.length + ' size(s) need a manual variant ID (see below).')
-          : 'All sizes linked.');
-        await loadPrintfulProducts();
-        await refresh();
-        syncOpenFormAfterLink(productId);
-        maybeAutoPreviewAfterLink(productId);
-      }
-
-      async function pfPickerSaveOverrides() {
-        var productId = document.getElementById('pfPickerProductId').value;
-        if (!productId || !pfPickerLastResolved) throw new Error('Pick a catalog product first');
-        var inputs = document.querySelectorAll('#pfPickerVariantGrid input[data-pf-override-size]');
-        var overrides = {};
-        inputs.forEach(function(inp) {
-          var size = inp.getAttribute('data-pf-override-size');
-          var val = (inp.value || '').trim();
-          if (size && val) overrides[size] = val;
-        });
-        pfPickerSetStatus('Saving overrides\u2026');
-        const res = await apiFetch('/admin/printful/products/' + encodeURIComponent(productId) + '/link', {
-          method: 'POST',
-          body: { catalog_product_id: pfPickerLastResolved.catalogProductId, catalog_variant_ids: overrides },
-        });
-        renderPfPickerResolved('Catalog product #' + pfPickerLastResolved.catalogProductId, res.printful_variant_map || {}, res.missing || [], res.printful_variant_cost_map || {});
-        pfPickerSetStatus((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes linked.');
-        await loadPrintfulProducts();
-        await refresh();
-        syncOpenFormAfterLink(productId);
-        maybeAutoPreviewAfterLink(productId);
-      }
-
       // ---- Printful Sync Products picker (v1 — designed on printful.com, imported here) ----
-      // Mirrors the catalog picker above closely, but there's no design/mockup step: the
-      // print file is already attached to each sync variant on Printful's side, so linking
-      // this way never touches designImages/pdDesignLayers or triggers a mockup preview.
+      // The print file is already attached to each sync variant on Printful's side — this
+      // just imports the size → sync_variant_id map plus pricing/preview images.
       var pfSyncPickerModalEl = document.getElementById('printfulSyncPickerModal');
       var pfSyncPickerModalInstance = pfSyncPickerModalEl ? new bootstrap.Modal(pfSyncPickerModalEl) : null;
       var pfSyncPickerLastResolved = null;
@@ -3804,36 +2798,10 @@
         });
       }
 
-      // Link to Printful Catalog — opened from the product form or from the Printful
-      // Product Manager table. On a brand-new, not-yet-saved product there's no id to
-      // link against yet, so this saves it first (same validation as the Save button)
+      // Import from Printful Sync Products — opened from the product form or from the
+      // Printful Product Manager table. On a brand-new, not-yet-saved product there's no id
+      // to link against yet, so this saves it first (same validation as the Save button)
       // and then opens the picker against the newly created product.
-      var printfulLinkBtn = document.getElementById('printfulLinkBtn');
-      if (printfulLinkBtn) {
-        printfulLinkBtn.addEventListener('click', async function() {
-          var id = el('productId').value.trim();
-          if (id) { openPrintfulCatalogPicker(id); return; }
-
-          clearStatus();
-          printfulLinkBtn.disabled = true;
-          try {
-            showStatus('Saving product before linking…', 'info');
-            const result = await saveProductFromForm();
-            if (!result.id) throw new Error('Product saved but no id was returned');
-            el('productId').value = String(result.id);
-            showStatus('Product created.', 'success');
-            await refresh();
-            openPrintfulCatalogPicker(String(result.id));
-          } catch (e) {
-            showStatus(e.message || String(e), 'error');
-          } finally {
-            printfulLinkBtn.disabled = false;
-          }
-        });
-      }
-
-      // Import from Printful Sync Products — same save-first-if-new pattern as the
-      // catalog link button above.
       var printfulSyncLinkBtn = document.getElementById('printfulSyncLinkBtn');
       if (printfulSyncLinkBtn) {
         printfulSyncLinkBtn.addEventListener('click', async function() {
@@ -3855,41 +2823,6 @@
           } finally {
             printfulSyncLinkBtn.disabled = false;
           }
-        });
-      }
-
-      var mockupPreviewBtn = document.getElementById('mockupPreviewBtn');
-      if (mockupPreviewBtn) mockupPreviewBtn.addEventListener('click', pdForceRefreshPreview);
-
-      var pfPickerSearchBtn = document.getElementById('pfPickerSearchBtn');
-      if (pfPickerSearchBtn) {
-        pfPickerSearchBtn.addEventListener('click', function() {
-          pfPickerSearch().catch(function(e) { pfPickerSetStatus(e.message || String(e)); });
-        });
-      }
-      var pfPickerSearchInput = document.getElementById('pfPickerSearch');
-      if (pfPickerSearchInput) {
-        pfPickerSearchInput.addEventListener('keydown', function(ev) {
-          if (ev.key === 'Enter') {
-            ev.preventDefault();
-            pfPickerSearch().catch(function(e) { pfPickerSetStatus(e.message || String(e)); });
-          }
-        });
-      }
-      var pfPickerResultsEl = document.getElementById('pfPickerResults');
-      if (pfPickerResultsEl) {
-        pfPickerResultsEl.addEventListener('click', function(ev) {
-          var row = ev.target.closest('.pf-picker-row');
-          if (!row) return;
-          pfPickerLinkTo(row.getAttribute('data-catalog-id')).catch(function(e) {
-            pfPickerSetStatus(e.message || String(e));
-          });
-        });
-      }
-      var pfPickerSaveOverridesBtn = document.getElementById('pfPickerSaveOverridesBtn');
-      if (pfPickerSaveOverridesBtn) {
-        pfPickerSaveOverridesBtn.addEventListener('click', function() {
-          pfPickerSaveOverrides().catch(function(e) { pfPickerSetStatus(e.message || String(e)); });
         });
       }
 
