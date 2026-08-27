@@ -128,35 +128,24 @@
     .pd-back-link { font-size:.62rem; color:#666; text-decoration:none; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; margin-left:auto; }
     .pd-back-link:hover { color:#00ED0A; }
 
-    /* Accordion — each section opens independently, no forced order (replaces the old
-       Next/Back step panels). data-bs-parent on the markup gives free open/close-siblings
-       behavior from Bootstrap's own Collapse component, no custom JS needed for it. */
-    .pd-accordion .accordion-item { background:#111; border:none; border-bottom:2px solid #2a2a2a; border-radius:0 !important; }
-    .pd-accordion .accordion-item:last-child { border-bottom:none; }
-    .pd-accordion .accordion-button {
-      background:#111; color:#888; font-family:'Roboto Mono',monospace; font-weight:700;
-      text-transform:uppercase; letter-spacing:.07em; font-size:.75rem; padding:1.1rem 1.5rem;
-      border-radius:0 !important; box-shadow:none;
-    }
-    .pd-accordion .accordion-button:hover { color:#ccc; }
-    .pd-accordion .accordion-button:not(.collapsed) { background:#161616; color:#00ED0A; box-shadow:none; }
-    .pd-accordion .accordion-button:focus { box-shadow:none; outline:2px solid #00ED0A; outline-offset:-2px; }
-    .pd-accordion .accordion-button::after {
-      width:14px; height:14px; background-size:14px;
-      background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23666666' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
-    }
-    .pd-accordion .accordion-button:not(.collapsed)::after {
-      background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2300ED0A' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
-    }
-    .pd-accordion .accordion-body { padding:1.75rem 2rem; background:#0d0d0d; }
+    /* Flat single-screen layout — every section always visible, nothing collapsed. Main
+       column (image + details) on the left, Printful linking in a persistent right rail —
+       the two things that change least often (image, garment link) stay put while Details
+       is the one admins actually scroll/edit most. */
+    .pd-layout { display:grid; grid-template-columns:2fr 1fr; align-items:start; }
+    @media (max-width:900px) { .pd-layout { grid-template-columns:1fr; } }
+    .pd-main { border-right:2px solid #2a2a2a; min-width:0; }
+    @media (max-width:900px) { .pd-main { border-right:none; border-bottom:2px solid #2a2a2a; } }
+    .pd-sidebar { min-width:0; }
+    .pd-panel { padding:1.75rem 2rem; background:#0d0d0d; border-bottom:2px solid #2a2a2a; }
+    .pd-main .pd-panel:last-child, .pd-sidebar .pd-panel:last-child { border-bottom:none; }
+    .pd-panel-title { font-family:'Roboto Mono',monospace; color:#00ED0A; font-weight:700; text-transform:uppercase; letter-spacing:.07em; font-size:.75rem; margin-bottom:.5rem; }
 
     .pd-step-panel-sub { font-size:.72rem; color:#666; margin-bottom:1.5rem; max-width:640px; line-height:1.6; }
     .pd-step-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; max-width:760px; }
     .pd-step-form-grid > * { margin-bottom:1rem; }
     .pd-step-form-grid > .pd-span-2 { grid-column:1 / -1; }
     @media (max-width:767.98px) { .pd-step-form-grid { grid-template-columns:1fr; } }
-    .pd-subsection-title { font-family:'Roboto Mono',monospace; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#888; margin:1.75rem 0 1rem; }
-    .pd-subsection-title:first-child { margin-top:0; }
 
     .pd-bottombar { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:3px solid #333; background:#111; padding:.85rem 1.25rem; flex-wrap:wrap; }
     .pd-bottombar-info { display:flex; align-items:center; gap:.75rem; min-width:0; }
@@ -489,137 +478,122 @@
           <a href="#" id="backToProductsLink" class="pd-back-link">&larr; Back to Products</a>
         </div>
 
-        <div class="accordion pd-accordion" id="pdAccordion">
+        <div class="pd-layout">
 
-          <!-- Details -->
-          <div class="accordion-item">
-            <h2 class="accordion-header">
-              <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#pdAcc-details">Details</button>
-            </h2>
-            <div class="accordion-collapse collapse show" id="pdAcc-details" data-bs-parent="#pdAccordion">
-              <div class="accordion-body">
-                <div class="pd-step-panel-sub">Basic info shown on the storefront and used to link this product to a real Printful garment.</div>
+          <div class="pd-main">
 
-                <div class="pd-step-form-grid">
-                  <div id="brandGroup" class="pd-span-2" style="display:none">
-                    <label class="form-label" for="brandInput">Brand <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
-                    <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
-                  </div>
+            <!-- Images -->
+            <div class="pd-panel">
+              <div class="pd-panel-title">Storefront Photos</div>
+              <div class="pd-step-panel-sub">Photos shown on the storefront &#8212; the print design itself comes from Printful once this product is linked.</div>
 
-                  <div class="pd-span-2">
-                    <label class="form-label" for="titleInput">Title <span style="color:#ff4d4f">*</span></label>
-                    <input id="titleInput" class="form-control" type="text" required />
+              <div class="pd-images-layout">
+                <div class="row g-3">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label" for="imageUrlInput">Image URL</label>
+                    <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
                   </div>
-
-                  <div>
-                    <label class="form-label" for="categoryPreset">Category Preset</label>
-                    <select id="categoryPreset" class="form-select">
-                      <option value="">(custom)</option>
-                      <option value="Men">Men</option>
-                      <option value="Women">Women</option>
-                      <option value="Accessories">Accessories</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="form-label" for="categoryInput">Category <span style="color:#ff4d4f">*</span></label>
-                    <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
-                    <datalist id="categoryDatalist">
-                      <option value="Men"></option>
-                      <option value="Women"></option>
-                      <option value="Accessories"></option>
-                    </datalist>
-                  </div>
-
-                  <div>
-                    <label class="form-label" for="colorInput">Color <span style="color:#ff4d4f">*</span></label>
-                    <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
-                  </div>
-                  <div>
-                    <label class="form-label" for="sizesInput">Sizing <span style="color:#ff4d4f">*</span></label>
-                    <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
-                    <div class="form-text">Comma-separated sizes.</div>
-                  </div>
-
-                  <div>
-                    <label class="form-label" for="priceInput">Price <span style="color:#ff4d4f">*</span></label>
-                    <div class="input-group">
-                      <span class="input-group-text">$</span>
-                      <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" required />
-                      <select id="currencyInput" class="form-select" style="max-width:110px">
-                        <option value="USD">USD</option>
-                      </select>
-                    </div>
-                    <div id="marginHint" style="display:none;font-size:.65rem;margin-top:.35rem"></div>
-                  </div>
-                  <div>
-                    <label class="form-label" for="slugInput">Slug</label>
-                    <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
-                    <div class="form-text">AR viewer: <code>/index.html?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
-                  </div>
-
-                  <div class="pd-span-2">
-                    <label class="form-label" for="descInput">Description</label>
-                    <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
-                  </div>
-
-                  <div>
-                    <label class="form-label" for="targetSelect">AR Target <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
-                    <select id="targetSelect" class="form-select">
-                      <option value="">(none)</option>
-                    </select>
-                  </div>
-                  <div class="form-check" style="align-self:end;padding-bottom:.5rem">
-                    <input class="form-check-input" type="checkbox" id="publishInput">
-                    <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label" for="imageFileInput">Upload Images</label>
+                    <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
+                    <div class="form-text">Up to 5 images shown on the shop page.</div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Images -->
-          <div class="accordion-item">
-            <h2 class="accordion-header">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pdAcc-images">Images</button>
-            </h2>
-            <div class="accordion-collapse collapse" id="pdAcc-images" data-bs-parent="#pdAccordion">
-              <div class="accordion-body">
-                <div class="pd-step-panel-sub">Photos shown on the storefront &#8212; the print design itself comes from Printful once this product is linked below.</div>
+            <!-- Details -->
+            <div class="pd-panel">
+              <div class="pd-panel-title">Details</div>
+              <div class="pd-step-panel-sub">Basic info shown on the storefront and used to link this product to a real Printful garment.</div>
 
-          <div class="pd-images-layout">
-            <div class="pd-subsection-title">Storefront Photos</div>
-            <div class="row g-3">
-              <div class="col-12 col-md-6">
-                <label class="form-label" for="imageUrlInput">Image URL</label>
-                <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label" for="imageFileInput">Upload Images</label>
-                <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
-                <div class="form-text">Up to 5 images shown on the shop page.</div>
+              <div class="pd-step-form-grid">
+                <div id="brandGroup" class="pd-span-2" style="display:none">
+                  <label class="form-label" for="brandInput">Brand <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
+                  <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
+                </div>
+
+                <div class="pd-span-2">
+                  <label class="form-label" for="titleInput">Title <span style="color:#ff4d4f">*</span></label>
+                  <input id="titleInput" class="form-control" type="text" required />
+                </div>
+
+                <div>
+                  <label class="form-label" for="categoryPreset">Category Preset</label>
+                  <select id="categoryPreset" class="form-select">
+                    <option value="">(custom)</option>
+                    <option value="Men">Men</option>
+                    <option value="Women">Women</option>
+                    <option value="Accessories">Accessories</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label" for="categoryInput">Category <span style="color:#ff4d4f">*</span></label>
+                  <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
+                  <datalist id="categoryDatalist">
+                    <option value="Men"></option>
+                    <option value="Women"></option>
+                    <option value="Accessories"></option>
+                  </datalist>
+                </div>
+
+                <div>
+                  <label class="form-label" for="colorInput">Color <span style="color:#ff4d4f">*</span></label>
+                  <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
+                </div>
+                <div>
+                  <label class="form-label" for="sizesInput">Sizing <span style="color:#ff4d4f">*</span></label>
+                  <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
+                  <div class="form-text">Comma-separated sizes.</div>
+                </div>
+
+                <div>
+                  <label class="form-label" for="priceInput">Price <span style="color:#ff4d4f">*</span></label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" required />
+                    <select id="currencyInput" class="form-select" style="max-width:110px">
+                      <option value="USD">USD</option>
+                    </select>
+                  </div>
+                  <div id="marginHint" style="display:none;font-size:.65rem;margin-top:.35rem"></div>
+                </div>
+                <div>
+                  <label class="form-label" for="slugInput">Slug</label>
+                  <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
+                  <div class="form-text">AR viewer: <code>/index.html?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
+                </div>
+
+                <div class="pd-span-2">
+                  <label class="form-label" for="descInput">Description</label>
+                  <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
+                </div>
+
+                <div>
+                  <label class="form-label" for="targetSelect">AR Target <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
+                  <select id="targetSelect" class="form-select">
+                    <option value="">(none)</option>
+                  </select>
+                </div>
+                <div class="form-check" style="align-self:end;padding-bottom:.5rem">
+                  <input class="form-check-input" type="checkbox" id="publishInput">
+                  <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
+                </div>
               </div>
             </div>
-          </div>
-              </div>
-            </div>
+
           </div>
 
           <!-- Printful -->
-          <div class="accordion-item">
-            <h2 class="accordion-header">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pdAcc-printful">Printful</button>
-            </h2>
-            <div class="accordion-collapse collapse" id="pdAcc-printful" data-bs-parent="#pdAccordion">
-              <div class="accordion-body">
-                <div class="pd-step-panel-sub">Link this product to a real Printful garment &#8212; required before it can be sold and fulfilled.</div>
+          <div class="pd-sidebar">
+            <div class="pd-panel">
+              <div class="pd-panel-title">Printful</div>
+              <div class="pd-step-panel-sub">Link this product to a real Printful garment &#8212; required before it can be sold and fulfilled.</div>
 
-                <div style="max-width:520px">
-                  <div class="mb-3">
-                    <label class="form-label">Import from Printful <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(designed directly on printful.com)</span></label>
-                    <div id="printfulSyncLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Design the product on Printful's own site first, then import it here — sizes, pricing, and preview photos come from Printful automatically.</div>
-                    <button type="button" id="printfulSyncLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Import from Printful Sync Products&#8230;</button>
-                  </div>
-                </div>
+              <div class="mb-3">
+                <label class="form-label">Import from Printful <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(designed directly on printful.com)</span></label>
+                <div id="printfulSyncLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Design the product on Printful's own site first, then import it here — sizes, pricing, and preview photos come from Printful automatically.</div>
+                <button type="button" id="printfulSyncLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Import from Printful Sync Products&#8230;</button>
               </div>
             </div>
           </div>
@@ -1060,15 +1034,6 @@
   let printfulProducts = [];
   let currentProductCostMap = null;
 
-  // Opens one accordion section (Details/Images/Printful) via Bootstrap's own Collapse API
-  // — data-bs-parent="#pdAccordion" on the markup makes this also close whichever other
-  // section was open, the same as a real click would.
-  function pdOpenAccordionSection(key) {
-    const target = el('pdAcc-' + key);
-    if (!target) return;
-    bootstrap.Collapse.getOrCreateInstance(target, { toggle: false }).show();
-  }
-
 
 
   function pdUpdateBottomBar() {
@@ -1185,7 +1150,6 @@
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
     currentProductCostMap = p ? findPrintfulCostMap(p.id) : null;
     updateMarginHint();
-    pdOpenAccordionSection('details');
     pdUpdateBottomBar();
     syncCategoryPresetFromInput();
   }
