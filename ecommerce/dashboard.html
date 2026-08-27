@@ -189,6 +189,64 @@
     .pd-layer-empty { font-size:.68rem; color:#555; text-align:center; padding:2.5rem .5rem; }
     .pd-images-layout { max-width:900px; }
     .pd-preview-layout { max-width:700px; }
+
+    /* ---- Dashboard overview tab ---- */
+    .dash-metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
+    @media (max-width:1100px) { .dash-metrics-grid { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:560px) { .dash-metrics-grid { grid-template-columns:1fr; } }
+    .dash-metric-card { padding:1.1rem 1.25rem; display:flex; flex-direction:column; }
+    .dash-metric-top { display:flex; align-items:center; gap:.6rem; margin-bottom:1rem; }
+    .dash-metric-icon { flex:0 0 auto; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:2px solid #333; }
+    .dash-metric-icon svg { width:16px; height:16px; }
+    .dash-metric-icon.tone-green { color:#00ED0A; background:rgba(0,237,10,.08); border-color:rgba(0,237,10,.35); }
+    .dash-metric-icon.tone-yellow { color:#FEFD00; background:rgba(254,253,0,.08); border-color:rgba(254,253,0,.35); }
+    .dash-metric-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.09em; color:#888; font-weight:700; }
+    .dash-metric-value { font-family:'Averia Serif Libre',serif; font-size:1.9rem; font-weight:700; color:#00ED0A; line-height:1; margin-bottom:.3rem; }
+    .dash-metric-caption { font-size:.65rem; color:#666; margin-bottom:.85rem; min-height:1.6em; }
+    .dash-metric-foot { display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-top:auto; }
+    .dash-chip { display:inline-flex; align-items:center; gap:.3rem; font-family:'Roboto Mono',monospace; font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:.22rem .5rem; border:1px solid transparent; }
+    .dash-chip svg { width:11px; height:11px; }
+    .dash-chip-green { background:rgba(0,237,10,.08); color:#00ED0A; border-color:rgba(0,237,10,.3); }
+    .dash-chip-yellow { background:rgba(254,253,0,.08); color:#FEFD00; border-color:rgba(254,253,0,.3); }
+    .dash-chip-neutral { background:rgba(255,255,255,.04); color:#888; border-color:#333; }
+    .dash-sparkline { display:block; overflow:visible; }
+
+    .dash-attention-card { margin-bottom:1.5rem; }
+    .dash-attention-count { font-family:'Roboto Mono',monospace; font-size:.62rem; font-weight:700; color:#FEFD00; background:rgba(254,253,0,.1); border:1px solid rgba(254,253,0,.35); padding:.1rem .45rem; margin-left:.5rem; }
+    .dash-attention-list { display:flex; flex-direction:column; }
+    .dash-attention-item { display:flex; align-items:center; gap:.9rem; padding:.8rem 1.25rem; border-bottom:2px solid #2a2a2a; transition:opacity .25s ease,max-height .25s ease,padding .25s ease; max-height:90px; overflow:hidden; }
+    .dash-attention-item:last-child { border-bottom:none; }
+    .dash-attention-item.resolved { opacity:0; max-height:0; padding-top:0; padding-bottom:0; border-color:transparent; }
+    .dash-attention-icon { flex:0 0 auto; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:2px solid #333; }
+    .dash-attention-icon svg { width:16px; height:16px; }
+    .dash-attention-icon.tone-yellow { color:#FEFD00; background:rgba(254,253,0,.08); border-color:rgba(254,253,0,.35); }
+    .dash-attention-icon.tone-red { color:#ff4d4f; background:rgba(255,77,79,.08); border-color:rgba(255,77,79,.35); }
+    .dash-attention-body { flex:1 1 auto; min-width:0; }
+    .dash-attention-title { font-size:.75rem; font-weight:700; color:#F5F5F0; }
+    .dash-attention-sub { font-size:.65rem; color:#666; margin-top:.15rem; }
+    .dash-attention-empty { display:none; align-items:center; gap:.6rem; padding:1.5rem 1.25rem; font-size:.72rem; color:#888; }
+    .dash-attention-empty.show { display:flex; }
+    .dash-attention-empty svg { width:18px; height:18px; color:#00ED0A; flex:0 0 auto; }
+
+    .dash-grid { display:grid; grid-template-columns:1.9fr 1fr; gap:1.25rem; align-items:start; }
+    @media (max-width:1100px) { .dash-grid { grid-template-columns:1fr; } }
+
+    .dash-customer-cell { display:flex; align-items:center; gap:.55rem; }
+    .dash-customer-initials { flex:0 0 auto; width:24px; height:24px; background:#212121; border:2px solid #333; color:#00ED0A; display:flex; align-items:center; justify-content:center; font-family:'Roboto Mono',monospace; font-weight:700; font-size:.6rem; text-transform:uppercase; }
+
+    .dash-trend-total { font-family:'Averia Serif Libre',serif; font-size:1.6rem; font-weight:700; color:#00ED0A; }
+    .dash-trend-sub { font-size:.62rem; color:#666; margin-bottom:1.1rem; }
+    .dash-bar-chart { display:flex; align-items:flex-end; gap:.5rem; height:100px; position:relative; padding-top:2px; }
+    .dash-bar-chart::before,.dash-bar-chart::after { content:''; position:absolute; left:0; right:0; height:1px; background:#2a2a2a; }
+    .dash-bar-chart::before { top:25%; }
+    .dash-bar-chart::after { top:62%; }
+    .dash-bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:.4rem; height:100%; justify-content:flex-end; position:relative; z-index:1; }
+    .dash-bar { width:100%; max-width:24px; background:#333; transition:background .15s; }
+    .dash-bar-col:hover .dash-bar { background:#555; }
+    .dash-bar-col.today .dash-bar { background:#00ED0A; }
+    .dash-bar-col.today:hover .dash-bar { background:#00c409; }
+    .dash-bar-day { font-size:.58rem; color:#555; font-weight:700; text-transform:uppercase; }
+    .dash-bar-col.today .dash-bar-day { color:#00ED0A; }
   </style>
 </head>
 <body>
@@ -207,6 +265,12 @@
 
     <!-- Tabs (Bootstrap tab triggers — same ids/targets as before, just styled as a sidebar) -->
     <ul class="nav flex-column inrl-sidebar-nav" id="dashTabs" role="tablist">
+      <li class="nav-item" role="presentation" id="tab-dashboard-item" style="display:none">
+        <button class="nav-link" id="tab-dashboard" data-bs-toggle="tab" data-bs-target="#pane-dashboard" type="button" role="tab">
+          <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </button>
+      </li>
       <li class="inrl-nav-group-label" role="presentation">Catalog</li>
       <li class="nav-item" role="presentation">
         <button class="nav-link active" id="tab-products" data-bs-toggle="tab" data-bs-target="#pane-products" type="button" role="tab">
@@ -276,6 +340,98 @@
   <div class="tab-content">
 
   <!-- ===== PRODUCTS PANE ===== -->
+  <div class="tab-pane fade" id="pane-dashboard" role="tabpanel">
+
+    <!-- Hero metrics -->
+    <div class="dash-metrics-grid">
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-top">
+          <div class="dash-metric-icon tone-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <div class="dash-metric-label">Total Revenue</div>
+        </div>
+        <div class="dash-metric-value" id="dashRevenueValue">&mdash;</div>
+        <div class="dash-metric-caption" id="dashRevenueCaption"></div>
+        <div class="dash-metric-foot">
+          <span class="dash-chip dash-chip-neutral" id="dashRevenueChip" style="display:none"></span>
+          <svg class="dash-sparkline" id="dashRevenueSpark" width="84" height="28" viewBox="0 0 120 36"></svg>
+        </div>
+      </div>
+
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-top">
+          <div class="dash-metric-icon tone-yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><rect x="6" y="14" width="12" height="7"/></svg></div>
+          <div class="dash-metric-label">Pending Fulfillment</div>
+        </div>
+        <div class="dash-metric-value" id="dashPendingValue">&mdash;</div>
+        <div class="dash-metric-caption" id="dashPendingCaption"></div>
+        <div class="dash-metric-foot">
+          <span class="dash-chip" id="dashPendingChip"></span>
+        </div>
+      </div>
+
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-top">
+          <div class="dash-metric-icon tone-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+          <div class="dash-metric-label">Orders Today</div>
+        </div>
+        <div class="dash-metric-value" id="dashTodayValue">&mdash;</div>
+        <div class="dash-metric-caption" id="dashTodayCaption"></div>
+        <div class="dash-metric-foot">
+          <span class="dash-chip" id="dashTodayChip"></span>
+        </div>
+      </div>
+
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-top">
+          <div class="dash-metric-icon tone-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+          <div class="dash-metric-label">Printful Linked</div>
+        </div>
+        <div class="dash-metric-value" id="dashLinkedValue">&mdash;</div>
+        <div class="dash-metric-caption" id="dashLinkedCaption"></div>
+      </div>
+    </div>
+
+    <!-- Requires attention -->
+    <div class="inrl-card dash-attention-card">
+      <div class="inrl-card-header d-flex align-items-center gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FEFD00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex:0 0 auto"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Requires Attention</span>
+        <span class="dash-attention-count" id="dashAttentionCount" style="display:none">0</span>
+      </div>
+      <div class="dash-attention-list" id="dashAttentionList"></div>
+      <div class="dash-attention-empty" id="dashAttentionEmpty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span>You&rsquo;re all caught up &mdash; nothing needs attention right now.</span>
+      </div>
+    </div>
+
+    <!-- Recent orders + trend -->
+    <div class="dash-grid">
+      <div class="inrl-card">
+        <div class="inrl-card-header d-flex justify-content-between align-items-center">
+          <span>Recent Orders</span>
+          <button type="button" class="btn btn-sm btn-inrl-outline" id="dashViewAllOrdersBtn" style="font-size:.62rem;padding:.22rem .65rem">View all &rarr;</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse">
+            <thead>
+              <tr><th>Date</th><th>Customer</th><th>Total</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="dashRecentOrdersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="inrl-card" style="padding:1.1rem 1.25rem">
+        <div class="dash-metric-label" style="margin-bottom:.5rem">Sales Trend</div>
+        <div class="dash-trend-total" id="dashTrendTotal">&mdash;</div>
+        <div class="dash-trend-sub">Last 7 days</div>
+        <div class="dash-bar-chart" id="dashBarChart"></div>
+      </div>
+    </div>
+
+  </div><!-- /pane-dashboard -->
+
   <div class="tab-pane fade show active" id="pane-products" role="tabpanel">
 
     <!-- STATS -->
@@ -2377,6 +2533,276 @@
           if (!ordersLoaded) { ordersLoaded = true; loadAndRenderOrders(); }
         });
       }
+
+      // ---- Dashboard overview (admin only, landing tab) ----
+      var tabDashboardItemEl = document.getElementById('tab-dashboard-item');
+      if (tabDashboardItemEl) tabDashboardItemEl.style.display = '';
+
+      function dashChip(chipEl, tone, icon, text) {
+        chipEl.className = 'dash-chip dash-chip-' + tone;
+        var svg = '';
+        if (icon === 'up') svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>';
+        else if (icon === 'down') svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>';
+        else if (icon === 'alert') svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        else if (icon === 'check') svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+        chipEl.innerHTML = svg + escapeHtml(text);
+        chipEl.style.display = '';
+      }
+
+      function dashSparklinePath(values, w, h) {
+        var max = Math.max.apply(null, values.concat([1]));
+        var min = Math.min.apply(null, values.concat([0]));
+        var range = Math.max(max - min, 1);
+        var stepX = w / Math.max(values.length - 1, 1);
+        var pts = values.map(function(v, i) { return [i * stepX, h - ((v - min) / range) * h]; });
+        var line = pts.map(function(p, i) { return (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+        return { line: line, area: line + ' L' + w + ',' + h + ' L0,' + h + ' Z', last: pts[pts.length - 1] };
+      }
+
+      function renderDashboardSpark(svgId, values) {
+        var svg = document.getElementById(svgId);
+        if (!svg) return;
+        var w = 120, h = 36;
+        var built = dashSparklinePath(values, w, h);
+        svg.innerHTML =
+          '<path d="' + built.area + '" fill="rgba(0,237,10,.16)"></path>' +
+          '<path d="' + built.line + '" fill="none" stroke="#00ED0A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
+          '<circle cx="' + built.last[0].toFixed(1) + '" cy="' + built.last[1].toFixed(1) + '" r="2.6" fill="#00ED0A"></circle>';
+      }
+
+      // Every number here is derived from allOrders/products/printfulProducts — no
+      // fabricated metrics. Conversion rate / active sessions aren't tracked by this stack
+      // at all, so they're intentionally not represented here.
+      function computeDashboardMetrics() {
+        var cur = (allOrders[0] && allOrders[0].currency) || 'USD';
+        var totalRevenue = allOrders.reduce(function(a, o) { return a + (Number(o.total_cents) || 0); }, 0);
+        var pending = allOrders.filter(function(o) { return o.status === 'created' || o.status === 'pending_fulfillment'; });
+        var now = Date.now();
+        var delayedPending = pending.filter(function(o) {
+          if (!o.created_at) return false;
+          var t = new Date(o.created_at).getTime();
+          return !isNaN(t) && (now - t) > 48 * 3600 * 1000;
+        }).length;
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var yestStr = new Date(now - 86400000).toISOString().slice(0, 10);
+        var ordersToday = allOrders.filter(function(o) { return o.created_at && o.created_at.slice(0, 10) === todayStr; }).length;
+        var ordersYesterday = allOrders.filter(function(o) { return o.created_at && o.created_at.slice(0, 10) === yestStr; }).length;
+
+        var linkedProducts = products.filter(function(p) { return !!findPrintfulCatalogProductId(p.id); }).length;
+        var unlinkedPublished = products.filter(function(p) { return p.is_published && !findPrintfulCatalogProductId(p.id); }).length;
+
+        var flaggedOrders = allOrders.filter(function(o) {
+          var s = (o.printful_status || '').toLowerCase();
+          return s === 'failed' || s === 'error' || s === 'returned' || s === 'cancelled';
+        }).length;
+
+        var days = [];
+        for (var i = 6; i >= 0; i--) days.push(new Date(now - i * 86400000).toISOString().slice(0, 10));
+        var byDay = {};
+        days.forEach(function(d) { byDay[d] = 0; });
+        allOrders.forEach(function(o) {
+          var d = o.created_at ? o.created_at.slice(0, 10) : null;
+          if (d && Object.prototype.hasOwnProperty.call(byDay, d)) byDay[d] += (Number(o.total_cents) || 0);
+        });
+        var trend = days.map(function(d) { return byDay[d]; });
+
+        var last7Cut = now - 7 * 86400000, prev7Cut = now - 14 * 86400000;
+        var last7 = 0, prev7 = 0;
+        allOrders.forEach(function(o) {
+          if (!o.created_at) return;
+          var t = new Date(o.created_at).getTime();
+          if (isNaN(t)) return;
+          if (t >= last7Cut) last7 += (Number(o.total_cents) || 0);
+          else if (t >= prev7Cut) prev7 += (Number(o.total_cents) || 0);
+        });
+        var revenueTrendPct = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : null;
+
+        return {
+          cur: cur, totalRevenue: totalRevenue, ordersCount: allOrders.length,
+          pending: pending.length, delayedPending: delayedPending,
+          ordersToday: ordersToday, ordersYesterday: ordersYesterday,
+          linkedProducts: linkedProducts, totalProducts: products.length, unlinkedPublished: unlinkedPublished,
+          flaggedOrders: flaggedOrders, days: days, trend: trend, revenueTrendPct: revenueTrendPct
+        };
+      }
+
+      function renderDashboardAttention(m) {
+        var items = [];
+        if (m.delayedPending > 0) {
+          items.push({
+            key: 'delayed', tone: 'yellow',
+            icon: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+            title: m.delayedPending + ' order' + (m.delayedPending === 1 ? '' : 's') + ' past the 48-hour fulfillment window',
+            sub: 'Printful hasn’t confirmed ' + (m.delayedPending === 1 ? 'it' : 'them') + ' yet — worth a manual check.',
+            action: 'Review orders', onClick: function() { showTab('tab-orders'); }
+          });
+        }
+        if (m.flaggedOrders > 0) {
+          items.push({
+            key: 'flagged', tone: 'red',
+            icon: '<path d="M6 9V3h12v6"/><path d="M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><rect x="6" y="14" width="12" height="7"/>',
+            title: m.flaggedOrders + ' order' + (m.flaggedOrders === 1 ? '' : 's') + ' flagged by Printful',
+            sub: 'Returned, cancelled, or failed at Printful — needs a look before the customer notices.',
+            action: 'Review orders', onClick: function() { showTab('tab-orders'); }
+          });
+        }
+        if (m.unlinkedPublished > 0) {
+          items.push({
+            key: 'unlinked', tone: 'red',
+            icon: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+            title: m.unlinkedPublished + ' published product' + (m.unlinkedPublished === 1 ? '' : 's') + ' not linked to Printful',
+            sub: 'Live on the storefront but can’t be fulfilled until linked.',
+            action: 'Review products', onClick: function() { showTab('tab-products'); }
+          });
+        }
+
+        var list = document.getElementById('dashAttentionList');
+        var empty = document.getElementById('dashAttentionEmpty');
+        var count = document.getElementById('dashAttentionCount');
+        if (!list || !empty || !count) return;
+
+        if (!items.length) {
+          list.innerHTML = '';
+          empty.classList.add('show');
+          count.style.display = 'none';
+          return;
+        }
+        empty.classList.remove('show');
+        count.style.display = '';
+        count.textContent = String(items.length);
+        list.innerHTML = items.map(function(it) {
+          return '<div class="dash-attention-item" data-key="' + it.key + '">' +
+            '<div class="dash-attention-icon tone-' + it.tone + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + it.icon + '</svg></div>' +
+            '<div class="dash-attention-body">' +
+              '<div class="dash-attention-title">' + escapeHtml(it.title) + '</div>' +
+              '<div class="dash-attention-sub">' + escapeHtml(it.sub) + '</div>' +
+            '</div>' +
+            '<button type="button" class="btn btn-sm btn-inrl-outline" data-attention-action style="font-size:.6rem;padding:.22rem .6rem">' + escapeHtml(it.action) + '</button>' +
+          '</div>';
+        }).join('');
+        items.forEach(function(it) {
+          var row = list.querySelector('[data-key="' + it.key + '"]');
+          var btn = row && row.querySelector('[data-attention-action]');
+          if (btn) btn.addEventListener('click', it.onClick);
+        });
+      }
+
+      function renderDashboardRecentOrders() {
+        var tbody = document.getElementById('dashRecentOrdersTbody');
+        if (!tbody) return;
+        var recent = allOrders.slice(0, 6);
+        if (!recent.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4" style="color:#555">No orders yet.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = recent.map(function(o) {
+          var date = o.created_at ? o.created_at.slice(0, 10) : '—';
+          var name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || (o.email || '—');
+          var initials = name.trim().split(/\s+/).map(function(s) { return s.charAt(0); }).slice(0, 2).join('').toUpperCase() || '?';
+          return '<tr>' +
+            '<td style="font-size:.7rem;white-space:nowrap;color:#888">' + escapeHtml(date) + '</td>' +
+            '<td><div class="dash-customer-cell"><span class="dash-customer-initials">' + escapeHtml(initials) + '</span><span style="white-space:nowrap">' + escapeHtml(name) + '</span></div></td>' +
+            '<td style="white-space:nowrap;font-weight:700">' + escapeHtml(formatMoney(o.total_cents, o.currency)) + '</td>' +
+            '<td>' + statusBadge(o.status) + '</td>' +
+            '<td class="text-end"><button type="button" class="btn btn-sm btn-inrl-outline" data-view-order="' + escapeHtml(String(o.id || '')) + '" style="font-size:.58rem;padding:.18rem .55rem">View</button></td>' +
+          '</tr>';
+        }).join('');
+        tbody.querySelectorAll('[data-view-order]').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            showTab('tab-orders');
+            var searchEl = document.getElementById('orderSearch');
+            if (searchEl) {
+              searchEl.value = btn.getAttribute('data-view-order');
+              searchEl.dispatchEvent(new Event('input'));
+            }
+          });
+        });
+      }
+
+      function renderDashboardTrend(m) {
+        var box = document.getElementById('dashBarChart');
+        var totalEl = document.getElementById('dashTrendTotal');
+        if (!box) return;
+        var max = Math.max.apply(null, m.trend.concat([1]));
+        var dayLabels = m.days.map(function(d) {
+          return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 3);
+        });
+        var todayStr = new Date().toISOString().slice(0, 10);
+        box.innerHTML = m.trend.map(function(v, i) {
+          var pct = Math.max((v / max) * 100, v > 0 ? 4 : 0);
+          var isToday = m.days[i] === todayStr;
+          return '<div class="dash-bar-col' + (isToday ? ' today' : '') + '">' +
+            '<div class="dash-bar" style="height:' + pct.toFixed(1) + '%" title="' + escapeHtml(dayLabels[i] + ' ' + m.days[i].slice(5) + ' — ' + formatMoney(v, m.cur)) + '"></div>' +
+            '<div class="dash-bar-day">' + (isToday ? 'Today' : escapeHtml(dayLabels[i])) + '</div>' +
+          '</div>';
+        }).join('');
+        if (totalEl) totalEl.textContent = formatMoney(m.trend.reduce(function(a, v) { return a + v; }, 0), m.cur);
+      }
+
+      function renderDashboardOverview() {
+        var m = computeDashboardMetrics();
+
+        var revEl = document.getElementById('dashRevenueValue');
+        if (revEl) revEl.textContent = formatMoney(m.totalRevenue, m.cur);
+        var revCapEl = document.getElementById('dashRevenueCaption');
+        if (revCapEl) revCapEl.textContent = 'From your last ' + m.ordersCount + ' order' + (m.ordersCount === 1 ? '' : 's');
+        var revChipEl = document.getElementById('dashRevenueChip');
+        if (revChipEl) {
+          if (m.revenueTrendPct === null) revChipEl.style.display = 'none';
+          else dashChip(revChipEl, m.revenueTrendPct >= 0 ? 'green' : 'yellow', m.revenueTrendPct >= 0 ? 'up' : 'down', (m.revenueTrendPct >= 0 ? '+' : '') + m.revenueTrendPct + '%');
+        }
+        renderDashboardSpark('dashRevenueSpark', m.trend);
+
+        var pendEl = document.getElementById('dashPendingValue');
+        if (pendEl) pendEl.textContent = String(m.pending);
+        var pendCapEl = document.getElementById('dashPendingCaption');
+        if (pendCapEl) pendCapEl.textContent = m.delayedPending > 0 ? (m.delayedPending + ' waiting over 48 hours') : 'All within the normal window';
+        var pendChipEl = document.getElementById('dashPendingChip');
+        if (pendChipEl) {
+          if (m.delayedPending > 0) dashChip(pendChipEl, 'yellow', 'alert', m.delayedPending + ' delayed');
+          else if (m.pending > 0) dashChip(pendChipEl, 'green', 'check', 'On track');
+          else dashChip(pendChipEl, 'green', 'check', 'All clear');
+        }
+
+        var todayEl = document.getElementById('dashTodayValue');
+        if (todayEl) todayEl.textContent = String(m.ordersToday);
+        var todayCapEl = document.getElementById('dashTodayCaption');
+        var diff = m.ordersToday - m.ordersYesterday;
+        if (todayCapEl) todayCapEl.textContent = m.ordersYesterday > 0 ? ((diff >= 0 ? '+' : '') + diff + ' vs yesterday') : 'No orders yesterday to compare';
+        var todayChipEl = document.getElementById('dashTodayChip');
+        if (todayChipEl) {
+          if (m.ordersYesterday === 0 && m.ordersToday === 0) dashChip(todayChipEl, 'neutral', null, 'Quiet so far');
+          else dashChip(todayChipEl, diff >= 0 ? 'green' : 'neutral', diff >= 0 ? 'up' : 'down', (diff >= 0 ? '+' : '') + diff);
+        }
+
+        var linkEl = document.getElementById('dashLinkedValue');
+        if (linkEl) linkEl.textContent = m.linkedProducts + ' / ' + m.totalProducts;
+        var linkCapEl = document.getElementById('dashLinkedCaption');
+        if (linkCapEl) linkCapEl.textContent = m.unlinkedPublished > 0 ? (m.unlinkedPublished + ' published without a link') : 'All published products linked';
+
+        renderDashboardAttention(m);
+        renderDashboardRecentOrders();
+        renderDashboardTrend(m);
+      }
+
+      async function loadAndRenderDashboardOverview() {
+        showStatus('Loading dashboard…', 'info');
+        try {
+          await loadAndRenderOrders();
+          ordersLoaded = true;
+          await loadPrintfulProducts();
+          renderDashboardOverview();
+          clearStatus();
+        } catch (e) {
+          showStatus('Dashboard failed to load: ' + (e.message || String(e)), 'error');
+        }
+      }
+
+      var dashViewAllOrdersBtnEl = document.getElementById('dashViewAllOrdersBtn');
+      if (dashViewAllOrdersBtnEl) dashViewAllOrdersBtnEl.addEventListener('click', function() { showTab('tab-orders'); });
+
+      loadAndRenderDashboardOverview();
+      showTab('tab-dashboard');
 
       // ---- Printful Control Center (admin only) ----
       document.getElementById('tab-printful-item').style.display = '';
