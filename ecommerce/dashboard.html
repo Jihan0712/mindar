@@ -118,39 +118,51 @@
       .inrl-dash-main { padding:1.25rem 1rem 2.5rem; }
     }
 
-    /* ---- Product designer canvas (Create/Edit Product) ---- */
-    .pd-shell { display:flex; align-items:stretch; background:#111; border:3px solid #333; border-bottom:none; min-height:560px; }
-    .pd-rail { flex:0 0 78px; background:#0b0b0b; border-right:2px solid #2a2a2a; display:flex; flex-direction:column; padding:.75rem .2rem; gap:.1rem; }
-    .pd-rail-btn { display:flex; flex-direction:column; align-items:center; gap:.3rem; background:transparent; border:none; color:#777; font-family:'Roboto Mono',monospace; font-size:.56rem; text-transform:uppercase; letter-spacing:.04em; font-weight:700; padding:.65rem .2rem; cursor:pointer; transition:color .12s; }
-    .pd-rail-btn svg { width:20px; height:20px; opacity:.8; }
-    .pd-rail-btn:hover { color:#ccc; }
-    .pd-rail-btn.active { color:#00ED0A; }
-    .pd-rail-btn.active svg { opacity:1; }
-    .pd-panel { flex:0 0 300px; max-width:300px; border-right:2px solid #2a2a2a; padding:1.2rem 1.15rem; overflow-y:auto; }
-    .pd-panel-title { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1rem; font-weight:700; margin-bottom:1.1rem; }
-    .pd-canvas-wrap { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
-    .pd-canvas-topbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.75rem 1.25rem; border-bottom:2px solid #2a2a2a; flex-wrap:wrap; }
+    /* ---- Product designer wizard (Create/Edit Product) ---- */
+    .pd-shell { display:flex; flex-direction:column; background:#111; border:3px solid #333; border-bottom:none; min-height:560px; }
+
+    /* Step indicator */
+    .pd-steps { display:flex; align-items:center; border-bottom:2px solid #2a2a2a; padding:1.1rem 1.5rem; overflow-x:auto; }
+    .pd-step { display:flex; align-items:center; gap:.55rem; background:transparent; border:none; cursor:pointer; padding:.3rem .4rem; white-space:nowrap; }
+    .pd-step-num { flex:0 0 auto; width:26px; height:26px; border-radius:50%; border:2px solid #333; display:flex; align-items:center; justify-content:center; font-family:'Roboto Mono',monospace; font-size:.68rem; font-weight:700; color:#666; transition:border-color .15s,color .15s,background .15s; }
+    .pd-step-label { font-family:'Roboto Mono',monospace; font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#666; transition:color .15s; }
+    .pd-step.active .pd-step-num { border-color:#00ED0A; color:#00ED0A; }
+    .pd-step.active .pd-step-label { color:#F5F5F0; }
+    .pd-step.done .pd-step-num { border-color:#00ED0A; background:#00ED0A; color:#1C1C1C; }
+    .pd-step.done .pd-step-label { color:#999; }
+    .pd-step-connector { flex:0 0 28px; height:2px; background:#333; margin:0 .3rem; }
+    .pd-back-link { font-size:.62rem; color:#666; text-decoration:none; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+    .pd-back-link:hover { color:#00ED0A; }
+
+    /* Step content */
+    .pd-step-panel { padding:1.75rem 2rem; }
+    .pd-step-panel[hidden] { display:none; }
+    .pd-step-panel-title { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.3rem; font-weight:700; margin-bottom:.3rem; }
+    .pd-step-panel-sub { font-size:.72rem; color:#666; margin-bottom:1.5rem; max-width:640px; line-height:1.6; }
+    .pd-step-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; max-width:760px; }
+    .pd-step-form-grid > * { margin-bottom:1rem; }
+    .pd-step-form-grid > .pd-span-2 { grid-column:1 / -1; }
+    @media (max-width:767.98px) { .pd-step-form-grid { grid-template-columns:1fr; } }
+    .pd-step-nav { display:flex; justify-content:space-between; align-items:center; padding:1.1rem 2rem; border-top:2px solid #2a2a2a; margin-top:auto; }
+    .pd-subsection-title { font-family:'Roboto Mono',monospace; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#888; margin:1.75rem 0 1rem; }
+    .pd-subsection-title:first-child { margin-top:0; }
+
+    /* Design canvas (Images step) + Printful render (Preview step) — shared building blocks */
+    .pd-canvas-topbar { display:flex; align-items:center; gap:.75rem; margin-bottom:1.25rem; flex-wrap:wrap; }
     .pd-view-tabs { display:flex; gap:.4rem; flex-wrap:wrap; }
     .pd-view-tab { background:transparent; border:2px solid #333; color:#888; font-family:'Roboto Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; padding:.4rem .95rem; cursor:pointer; transition:color .12s,background .12s,border-color .12s; }
     .pd-view-tab:hover { color:#ccc; }
     .pd-view-tab.active { color:#1C1C1C; background:#00ED0A; border-color:#00ED0A; }
-    .pd-back-link { font-size:.62rem; color:#666; text-decoration:none; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
-    .pd-back-link:hover { color:#00ED0A; }
-    .pd-canvas-split { flex:1 1 auto; display:flex; min-height:380px; }
-    .pd-canvas { flex:1 1 50%; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1rem; background:repeating-linear-gradient(45deg,#161616,#161616 12px,#111 12px,#111 24px); }
-    .pd-preview-pane { flex:1 1 50%; min-width:0; display:flex; flex-direction:column; border-left:2px solid #2a2a2a; background:#0d0d0d; }
+    .pd-canvas { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1rem; background:repeating-linear-gradient(45deg,#161616,#161616 12px,#111 12px,#111 24px); border:2px solid #2a2a2a; min-height:360px; }
+    .pd-preview-pane { display:flex; flex-direction:column; border:2px solid #2a2a2a; background:#0d0d0d; min-height:360px; }
     .pd-preview-header { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .9rem; border-bottom:2px solid #2a2a2a; }
     .pd-preview-title { font-family:'Roboto Mono',monospace; font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#888; }
-    .pd-preview-body { flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:1.25rem; overflow:auto; }
-    .pd-preview-empty { font-size:.68rem; color:#555; text-align:center; max-width:220px; line-height:1.6; }
+    .pd-preview-body { flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:1.5rem; overflow:auto; }
+    .pd-preview-empty { font-size:.72rem; color:#555; text-align:center; max-width:320px; line-height:1.7; }
     .pd-preview-images { display:none; width:100%; height:100%; align-items:center; justify-content:center; }
     .pd-preview-images.pd-has-image { display:flex; }
     .pd-preview-images img { max-width:100%; max-height:100%; object-fit:contain; border:1px solid #2a2a2a; }
-    .pd-preview-status { font-size:.65rem; color:#555; padding:.5rem .9rem .75rem; border-top:2px solid #2a2a2a; min-height:2.2em; }
-    @media (max-width:1439.98px) {
-      .pd-canvas-split { flex-direction:column; }
-      .pd-preview-pane { border-left:none; border-top:2px solid #2a2a2a; min-height:280px; }
-    }
+    .pd-preview-status { font-size:.68rem; color:#555; padding:.6rem .9rem .8rem; border-top:2px solid #2a2a2a; min-height:2.4em; }
     .pd-garment { position:relative; width:300px; max-width:100%; }
     .pd-shirt-svg { width:100%; height:auto; display:block; filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)); }
     /* Print-area guide — a rectangle, not a fixed circle, since its aspect ratio is set
@@ -175,11 +187,8 @@
     .pd-layer-thumb { width:36px; height:36px; object-fit:cover; background:#111; border:1px solid #333; flex:0 0 auto; }
     .pd-layer-name { flex:1 1 auto; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:#ccc; font-weight:700; }
     .pd-layer-empty { font-size:.68rem; color:#555; text-align:center; padding:2.5rem .5rem; }
-    @media (max-width:1199.98px) {
-      .pd-shell { flex-direction:column; }
-      .pd-rail { flex-direction:row; overflow-x:auto; }
-      .pd-panel { max-width:none; flex:0 0 auto; border-right:none; border-bottom:2px solid #2a2a2a; }
-    }
+    .pd-images-layout { max-width:900px; }
+    .pd-preview-layout { max-width:700px; }
   </style>
 </head>
 <body>
@@ -343,37 +352,43 @@
 
       <div class="pd-shell">
 
-        <!-- Icon rail -->
-        <div class="pd-rail" id="pdRail" role="tablist">
-          <button type="button" class="pd-rail-btn active" data-pd-panel="product" title="Product">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 .55.45 1 1 1h10a1 1 0 0 0 1-1V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23Z"/></svg>
-            <span>Product</span>
+        <!-- Step indicator -->
+        <div class="pd-steps" id="pdSteps">
+          <button type="button" class="pd-step active" data-pd-step="details">
+            <span class="pd-step-num">1</span><span class="pd-step-label">Details</span>
           </button>
-          <button type="button" class="pd-rail-btn" data-pd-panel="uploads" title="Uploads">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span>Uploads</span>
+          <div class="pd-step-connector"></div>
+          <button type="button" class="pd-step" data-pd-step="images">
+            <span class="pd-step-num">2</span><span class="pd-step-label">Images</span>
           </button>
-          <button type="button" class="pd-rail-btn" data-pd-panel="details" title="Details">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-            <span>Details</span>
+          <div class="pd-step-connector"></div>
+          <button type="button" class="pd-step" data-pd-step="printful">
+            <span class="pd-step-num">3</span><span class="pd-step-label">Printful</span>
           </button>
-          <button type="button" class="pd-rail-btn" data-pd-panel="printful" title="Printful">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><rect x="6" y="14" width="12" height="7"/></svg>
-            <span>Printful</span>
+          <div class="pd-step-connector"></div>
+          <button type="button" class="pd-step" data-pd-step="preview">
+            <span class="pd-step-num">4</span><span class="pd-step-label">Preview</span>
           </button>
-          <button type="button" class="pd-rail-btn" data-pd-panel="layers" title="Layers">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-            <span>Layers</span>
-          </button>
+          <a href="#" id="backToProductsLink" class="pd-back-link" style="margin-left:auto">&larr; Back to Products</a>
         </div>
 
-        <!-- Context panel -->
-        <div class="pd-panel">
+        <!-- STEP 1: Details -->
+        <div class="pd-step-panel" data-pd-step-panel="details">
+          <div class="pd-step-panel-title" id="productFormHeading">Create Product</div>
+          <div class="pd-step-panel-sub">Basic info shown on the storefront and used to link this product to a real Printful garment.</div>
 
-          <div class="pd-panel-section" data-pd-section="product">
-            <div class="pd-panel-title" id="productFormHeading">Create Product</div>
+          <div class="pd-step-form-grid">
+            <div id="brandGroup" class="pd-span-2" style="display:none">
+              <label class="form-label" for="brandInput">Brand <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
+              <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
+            </div>
 
-            <div class="mb-3">
+            <div class="pd-span-2">
+              <label class="form-label" for="titleInput">Title <span style="color:#ff4d4f">*</span></label>
+              <input id="titleInput" class="form-control" type="text" required />
+            </div>
+
+            <div>
               <label class="form-label" for="categoryPreset">Category Preset</label>
               <select id="categoryPreset" class="form-select">
                 <option value="">(custom)</option>
@@ -382,8 +397,7 @@
                 <option value="Accessories">Accessories</option>
               </select>
             </div>
-
-            <div class="mb-3">
+            <div>
               <label class="form-label" for="categoryInput">Category <span style="color:#ff4d4f">*</span></label>
               <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
               <datalist id="categoryDatalist">
@@ -393,51 +407,17 @@
               </datalist>
             </div>
 
-            <div class="mb-3">
+            <div>
               <label class="form-label" for="colorInput">Color <span style="color:#ff4d4f">*</span></label>
               <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
             </div>
-
-            <div class="mb-3">
+            <div>
               <label class="form-label" for="sizesInput">Sizing <span style="color:#ff4d4f">*</span></label>
               <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
               <div class="form-text">Comma-separated sizes.</div>
             </div>
 
             <div>
-              <label class="form-label" for="slugInput">Slug</label>
-              <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
-              <div class="form-text">AR viewer: <code>/index.html?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
-            </div>
-          </div>
-
-          <div class="pd-panel-section" data-pd-section="uploads" hidden>
-            <div class="pd-panel-title">Storefront Photos</div>
-            <div class="mb-3">
-              <label class="form-label" for="imageUrlInput">Image URL</label>
-              <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
-            </div>
-            <div>
-              <label class="form-label" for="imageFileInput">Upload Images</label>
-              <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
-              <div class="form-text">Up to 5 images shown on the storefront. Stored in R2. This is separate from the print design on the canvas &#8594;</div>
-            </div>
-          </div>
-
-          <div class="pd-panel-section" data-pd-section="details" hidden>
-            <div class="pd-panel-title">Details</div>
-
-            <div id="brandGroup" class="mb-3" style="display:none">
-              <label class="form-label" for="brandInput">Brand <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
-              <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label" for="titleInput">Title <span style="color:#ff4d4f">*</span></label>
-              <input id="titleInput" class="form-control" type="text" required />
-            </div>
-
-            <div class="mb-3">
               <label class="form-label" for="priceInput">Price <span style="color:#ff4d4f">*</span></label>
               <div class="input-group">
                 <span class="input-group-text">$</span>
@@ -448,69 +428,43 @@
               </div>
               <div id="marginHint" style="display:none;font-size:.65rem;margin-top:.35rem"></div>
             </div>
+            <div>
+              <label class="form-label" for="slugInput">Slug</label>
+              <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
+              <div class="form-text">AR viewer: <code>/index.html?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
+            </div>
 
-            <div class="mb-3">
+            <div class="pd-span-2">
               <label class="form-label" for="descInput">Description</label>
               <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
             </div>
 
-            <div class="mb-3">
+            <div>
               <label class="form-label" for="targetSelect">AR Target <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
               <select id="targetSelect" class="form-select">
                 <option value="">(none)</option>
               </select>
             </div>
-
-            <div class="form-check">
+            <div class="form-check" style="align-self:end;padding-bottom:.5rem">
               <input class="form-check-input" type="checkbox" id="publishInput">
               <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
             </div>
           </div>
-
-          <div class="pd-panel-section" data-pd-section="printful" hidden>
-            <div class="pd-panel-title">Printful</div>
-
-            <div class="mb-3">
-              <label class="form-label">Catalog Link <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(required to sell this product)</span></label>
-              <div id="printfulLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Not linked yet — clicking below saves this product first, then lets you link it to a real Printful garment.</div>
-              <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
-            </div>
-
-            <div style="font-size:.65rem;color:#555">The real Printful render for this view now shows next to the editor &#8594;</div>
-
-            <details>
-              <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
-              <div class="mt-2">
-                <label class="form-label" for="printfulSyncVariantInput">Printful Sync Variant ID <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional &mdash; single-variant products)</span></label>
-                <input id="printfulSyncVariantInput" class="form-control" type="text" placeholder="e.g. 6a0ff0f16447e7" />
-              </div>
-              <div class="mt-2">
-                <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
-                <div id="printfulVariantFields" class="vstack gap-1">
-                  <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
-                </div>
-                <div class="form-text">Normally set automatically by "Link to Printful Catalog" above &#8212; edit here only to override.</div>
-              </div>
-            </details>
-          </div>
-
-          <div class="pd-panel-section" data-pd-section="layers" hidden>
-            <div class="pd-panel-title">Layers</div>
-            <div id="pdLayersList"></div>
-          </div>
-
         </div>
 
-        <!-- Canvas -->
-        <div class="pd-canvas-wrap">
-          <div class="pd-canvas-topbar">
-            <div class="pd-view-tabs" id="pdViewTabs">
-              <button type="button" class="pd-view-tab active" data-pd-view="front">Front</button>
-              <button type="button" class="pd-view-tab" data-pd-view="back">Back</button>
+        <!-- STEP 2: Images -->
+        <div class="pd-step-panel" data-pd-step-panel="images" hidden>
+          <div class="pd-step-panel-title">Images</div>
+          <div class="pd-step-panel-sub">Upload the print-ready design Printful will use, and the photos shown on the storefront &#8212; two different things, both live here.</div>
+
+          <div class="pd-images-layout">
+            <div class="pd-subsection-title">Print Design</div>
+            <div class="pd-canvas-topbar">
+              <div class="pd-view-tabs" id="pdViewTabs">
+                <button type="button" class="pd-view-tab active" data-pd-view="front">Front</button>
+                <button type="button" class="pd-view-tab" data-pd-view="back">Back</button>
+              </div>
             </div>
-            <a href="#" id="backToProductsLink" class="pd-back-link">&larr; Back to Products</a>
-          </div>
-          <div class="pd-canvas-split">
             <div class="pd-canvas">
               <div class="pd-garment">
                 <svg class="pd-shirt-svg" viewBox="0 0 300 300" fill="none" stroke="#3a3a3a" stroke-width="3" stroke-linejoin="round">
@@ -530,7 +484,62 @@
                 <span id="pdQualityText"></span>
               </div>
             </div>
+            <input type="file" id="pdCanvasFileInput" accept="image/*" class="hidden">
+            <div id="pdLayersList" class="mt-3"></div>
 
+            <div class="pd-subsection-title">Storefront Photos</div>
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="imageUrlInput">Image URL</label>
+                <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="imageFileInput">Upload Images</label>
+                <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
+                <div class="form-text">Up to 5 images shown on the shop page &#8212; separate from the print design above.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: Printful -->
+        <div class="pd-step-panel" data-pd-step-panel="printful" hidden>
+          <div class="pd-step-panel-title">Printful</div>
+          <div class="pd-step-panel-sub">Link this product to a real Printful garment &#8212; required before it can be sold and fulfilled.</div>
+
+          <div style="max-width:520px">
+            <div class="mb-3">
+              <label class="form-label">Catalog Link <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(required to sell this product)</span></label>
+              <div id="printfulLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Not linked yet — clicking below saves this product first, then lets you link it to a real Printful garment.</div>
+              <button type="button" id="printfulLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Link to Printful Catalog&#8230;</button>
+            </div>
+
+            <details>
+              <summary style="cursor:pointer;font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:4px 0">Advanced: manual variant override</summary>
+              <div class="mt-2">
+                <label class="form-label" for="printfulSyncVariantInput">Printful Sync Variant ID <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional &mdash; single-variant products)</span></label>
+                <input id="printfulSyncVariantInput" class="form-control" type="text" placeholder="e.g. 6a0ff0f16447e7" />
+              </div>
+              <div class="mt-2">
+                <label class="form-label">Printful Variant IDs per Size <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
+                <div id="printfulVariantFields" class="vstack gap-1">
+                  <div style="font-size:.68rem;color:#555">Enter sizes above first &#8212; each size will appear here to link its Printful variant ID.</div>
+                </div>
+                <div class="form-text">Normally set automatically by "Link to Printful Catalog" above &#8212; edit here only to override.</div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- STEP 4: Preview -->
+        <div class="pd-step-panel" data-pd-step-panel="preview" hidden>
+          <div class="pd-step-panel-title">Preview</div>
+          <div class="pd-step-panel-sub">The real Printful render for this product &#8212; what it'll actually look like printed.</div>
+
+          <div class="pd-preview-layout">
+            <div class="pd-canvas-topbar">
+              <div class="pd-view-tabs" id="pdPreviewViewTabs"></div>
+            </div>
             <!-- Real Printful-rendered mockup for the active view — the actual answer to
                  "what will this look like printed", refreshed automatically after a design
                  upload or view switch (not a live/instant 3D render — Printful renders this
@@ -547,7 +556,12 @@
               <div id="mockupStatus" class="pd-preview-status"></div>
             </div>
           </div>
-          <input type="file" id="pdCanvasFileInput" accept="image/*" class="hidden">
+        </div>
+
+        <!-- Step navigation -->
+        <div class="pd-step-nav">
+          <button type="button" class="btn btn-sm btn-inrl-outline" id="pdStepBackBtn" style="visibility:hidden">&larr; Back</button>
+          <button type="button" class="btn btn-sm btn-inrl" id="pdStepNextBtn">Next &rarr;</button>
         </div>
 
       </div>
@@ -994,13 +1008,28 @@
   let pdPlacements = [];
   let pdPlacementsForCatalogId = null;
 
-  function pdPanelSwitch(panel) {
-    document.querySelectorAll('#pdRail .pd-rail-btn').forEach(function(btn) {
-      btn.classList.toggle('active', btn.getAttribute('data-pd-panel') === panel);
+  const PD_STEPS = ['details', 'images', 'printful', 'preview'];
+  let pdCurrentStepIndex = 0;
+
+  function pdGoToStep(stepKey) {
+    const idx = PD_STEPS.indexOf(stepKey);
+    if (idx === -1) return;
+    pdCurrentStepIndex = idx;
+
+    document.querySelectorAll('#pdSteps .pd-step').forEach(function(btn) {
+      const key = btn.getAttribute('data-pd-step');
+      const btnIdx = PD_STEPS.indexOf(key);
+      btn.classList.toggle('active', key === stepKey);
+      btn.classList.toggle('done', btnIdx < idx);
     });
-    document.querySelectorAll('.pd-panel-section').forEach(function(sec) {
-      sec.hidden = sec.getAttribute('data-pd-section') !== panel;
+    document.querySelectorAll('.pd-step-panel').forEach(function(panel) {
+      panel.hidden = panel.getAttribute('data-pd-step-panel') !== stepKey;
     });
+
+    const backBtn = el('pdStepBackBtn');
+    const nextBtn = el('pdStepNextBtn');
+    if (backBtn) backBtn.style.visibility = idx === 0 ? 'hidden' : 'visible';
+    if (nextBtn) nextBtn.textContent = idx === PD_STEPS.length - 1 ? 'Done' : 'Next →';
   }
 
   // Real placements (Front/Back/Right sleeve/Label panel/...) for whatever garment this
@@ -1031,15 +1060,17 @@
   }
 
   function pdRenderViewTabs() {
-    const box = el('pdViewTabs');
-    if (!box) return;
     const items = pdPlacements.length
       ? pdPlacements.map(function(p) { return { key: p.placement, label: p.display_name || p.placement }; })
       : [{ key: 'front', label: 'Front' }, { key: 'back', label: 'Back' }];
     if (!items.some(function(i) { return i.key === pdActiveView; })) pdActiveView = items[0].key;
-    box.innerHTML = items.map(function(i) {
+    const html = items.map(function(i) {
       return '<button type="button" class="pd-view-tab' + (i.key === pdActiveView ? ' active' : '') + '" data-pd-view="' + escapeHtml(i.key) + '">' + escapeHtml(i.label) + '</button>';
     }).join('');
+    ['pdViewTabs', 'pdPreviewViewTabs'].forEach(function(id) {
+      const box = el(id);
+      if (box) box.innerHTML = html;
+    });
     pdRenderCanvas();
   }
 
@@ -1102,7 +1133,7 @@
       img.classList.add('hidden');
       inner.style.display = '';
     }
-    document.querySelectorAll('#pdViewTabs .pd-view-tab').forEach(function(tab) {
+    document.querySelectorAll('#pdViewTabs .pd-view-tab, #pdPreviewViewTabs .pd-view-tab').forEach(function(tab) {
       tab.classList.toggle('active', tab.getAttribute('data-pd-view') === pdActiveView);
     });
     pdApplyPrintArea();
@@ -1244,6 +1275,7 @@
     updateMarginHint();
     designImages = (p && p.printful_design_images) ? Object.assign({}, p.printful_design_images) : {};
     pdActiveView = 'front';
+    pdGoToStep('details');
     loadPdPlacements(p ? findPrintfulCatalogProductId(p.id) : null); // async — re-renders tabs/canvas itself once loaded
     pdRenderCanvas();
     pdRenderLayers();
@@ -1765,17 +1797,36 @@
     const imageUrlInputEl = el('imageUrlInput');
     if (imageUrlInputEl) imageUrlInputEl.addEventListener('input', pdUpdateBottomBar);
 
-    // ---- Design canvas: icon rail, view tabs, drag-and-drop design upload, layers ----
-    document.querySelectorAll('#pdRail .pd-rail-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() { pdPanelSwitch(btn.getAttribute('data-pd-panel')); });
-    });
+    // ---- Design wizard: step nav, view tabs, drag-and-drop design upload, layers ----
+    var pdStepsEl = el('pdSteps');
+    if (pdStepsEl) {
+      pdStepsEl.addEventListener('click', function(ev) {
+        var stepBtn = ev.target.closest('.pd-step');
+        if (!stepBtn) return;
+        pdGoToStep(stepBtn.getAttribute('data-pd-step'));
+      });
+    }
+    var pdStepBackBtnEl = el('pdStepBackBtn');
+    if (pdStepBackBtnEl) {
+      pdStepBackBtnEl.addEventListener('click', function() {
+        if (pdCurrentStepIndex > 0) pdGoToStep(PD_STEPS[pdCurrentStepIndex - 1]);
+      });
+    }
+    var pdStepNextBtnEl = el('pdStepNextBtn');
+    if (pdStepNextBtnEl) {
+      pdStepNextBtnEl.addEventListener('click', function() {
+        if (pdCurrentStepIndex < PD_STEPS.length - 1) pdGoToStep(PD_STEPS[pdCurrentStepIndex + 1]);
+      });
+    }
 
     // Delegated (not per-button) — pdRenderViewTabs() rebuilds these buttons whenever a
     // product's real Printful placements load, so static per-element listeners would go
-    // stale the first time that happens.
-    var pdViewTabsEl = el('pdViewTabs');
-    if (pdViewTabsEl) {
-      pdViewTabsEl.addEventListener('click', function(ev) {
+    // stale the first time that happens. Wired identically on both the Images-step tabs
+    // and the Preview-step tabs since pdRenderViewTabs() keeps both containers in sync.
+    function pdWireViewTabClicks(containerId) {
+      var box = el(containerId);
+      if (!box) return;
+      box.addEventListener('click', function(ev) {
         var tab = ev.target.closest('.pd-view-tab');
         if (!tab) return;
         pdActiveView = tab.getAttribute('data-pd-view');
@@ -1784,6 +1835,8 @@
         pdTryAutoPreview();
       });
     }
+    pdWireViewTabClicks('pdViewTabs');
+    pdWireViewTabClicks('pdPreviewViewTabs');
 
     async function handlePdDesignFile(file) {
       if (!file || !String(file.type || '').toLowerCase().startsWith('image/')) {
