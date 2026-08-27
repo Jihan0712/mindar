@@ -1159,6 +1159,12 @@
   // what gets sent to Printful's mockup API, not what customers see on the shop page.
   let designImages = {};
   let pdActiveView = 'front';
+  // Printful mockup renders are rate-limited harder than normal endpoints, so a successful
+  // render is kept here per placement (keyed to the exact design image it was rendered
+  // from) and reused when the admin just switches views/steps and back — only a design
+  // change or an explicit Refresh click should spend another real request. Reset whenever
+  // a different product is loaded into the form (see setFormProduct).
+  let pdMockupCache = {};
   // [{placement, display_name, technique, print_area_width, print_area_height, dpi}, ...]
   // — empty until a linked product's placements have loaded (see loadPdPlacements()).
   let pdPlacements = [];
@@ -1431,6 +1437,7 @@
     updateMarginHint();
     designImages = (p && p.printful_design_images) ? Object.assign({}, p.printful_design_images) : {};
     pdActiveView = 'front';
+    pdMockupCache = {};
     pdGoToStep('details');
     loadPdPlacements(p ? findPrintfulCatalogProductId(p.id) : null); // async — re-renders tabs/canvas itself once loaded
     pdRenderCanvas();
@@ -2986,7 +2993,29 @@
       // Refresh: called after a design upload and after switching placement tabs. Clears
       // the stale preview from whatever view was showing before either way, so an old
       // render never gets mistaken for a current one.
+      //
+      // Re-rendering on Printful costs a real, tightly-rate-limited request, so before
+      // asking Printful again this checks pdMockupCache for a render already made from
+      // this exact placement + design image — flipping Front/Back/Front, or leaving and
+      // returning to the Preview step, just redisplays it instead of risking a 429.
       function pdTryAutoPreview() {
+        const id = el('productId').value.trim();
+        const imageUrl = designImages[pdActiveView];
+        if (!imageUrl) { setMockupStatusForActiveView(); return; }
+        if (!id) { renderMockupImages([]); setMockupStatus('Save the product, then it’ll preview automatically.', '#FEFD00'); return; }
+        const cached = pdMockupCache[pdActiveView];
+        if (cached && cached.imageUrl === imageUrl && cached.urls && cached.urls.length) {
+          renderMockupImages(cached.urls);
+          setMockupStatus('Showing the last render for this view — click Refresh to check Printful again.', '#888');
+          return;
+        }
+        generateAndShowMockup(id, imageUrl, { placement: pdActiveView });
+      }
+
+      // Refresh button: the one explicit "check it again" action, so unlike
+      // pdTryAutoPreview() it always spends a real Printful request instead of reusing
+      // pdMockupCache.
+      function pdForceRefreshPreview() {
         const id = el('productId').value.trim();
         const imageUrl = designImages[pdActiveView];
         if (!imageUrl) { setMockupStatusForActiveView(); return; }
@@ -3025,6 +3054,7 @@
             const res = await apiFetch('/admin/printful/mockup-tasks/' + encodeURIComponent(taskId));
             const status = String(res && res.status || '').toLowerCase();
             if (res && res.image_urls && res.image_urls.length) {
+              pdMockupCache[opts.placement || 'front'] = { imageUrl: imageUrl, urls: res.image_urls };
               renderMockupImages(res.image_urls);
               setMockupStatus('Preview ready.', '#00ED0A');
               if (btn) btn.disabled = false;
@@ -3353,7 +3383,7 @@
       }
 
       var mockupPreviewBtn = document.getElementById('mockupPreviewBtn');
-      if (mockupPreviewBtn) mockupPreviewBtn.addEventListener('click', pdTryAutoPreview);
+      if (mockupPreviewBtn) mockupPreviewBtn.addEventListener('click', pdForceRefreshPreview);
 
       var pfPickerSearchBtn = document.getElementById('pfPickerSearchBtn');
       if (pfPickerSearchBtn) {
