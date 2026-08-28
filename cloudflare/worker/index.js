@@ -495,6 +495,7 @@
   const RATE_LIMIT_MAX_UPLOAD = 20;  // max uploads per IP per minute
   const RATE_LIMIT_MAX_ORDER = 10;   // max order submissions per IP per minute
   const RATE_LIMIT_MAX_REVIEW = 10;  // max review submissions per IP per minute
+  const RATE_LIMIT_MAX_ORDER_AR_UPLOAD = 10; // max personal AR video uploads per IP per minute
 
   function rateLimitCheck(key, maxAttempts) {
     const now = Date.now();
@@ -816,6 +817,12 @@
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiCancelOrder(request, id);
     }
+    if (request.method === 'POST' && /^\/api\/orders\/([^/]+)\/items\/(\d+)\/ar-video$/.test(pathname)) {
+      const parts = pathname.split('/');
+      const id = decodeURIComponent(parts[3]);
+      const itemIndex = parseInt(parts[5], 10);
+      return apiUploadOrderArVideo(request, id, itemIndex);
+    }
     if (request.method === 'GET'  && /^\/api\/orders\/[^/]+$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetOrder(request, id);
@@ -881,6 +888,7 @@
 
     // Viewer
     if (request.method === 'GET' && pathname === '/api/viewer/active')         return apiViewerActive(request);
+    if (request.method === 'GET' && pathname === '/api/viewer/order')          return apiViewerOrder(request);
 
     // Products (shop catalog)
     if (request.method === 'GET'  && pathname === '/api/product-image')        return apiGetProductImage(request);
@@ -3435,6 +3443,74 @@
     );
   }
 
+  // GET /api/viewer/order?order=&item= — resolves a customer's personal AR link (the
+  // unique link/QR they attach to their own shirt). Public, no session required: this is a
+  // capability URL — anyone scanning the physical shirt needs to see the AR content without
+  // logging in, and the response carries no PII (same shape apiViewerActive already exposes
+  // publicly). The marker/target stays whatever the product is linked to (shared across
+  // every buyer); only the video can be personal, falling back to the target's own default
+  // video if this customer hasn't uploaded one yet, so a freshly-printed QR still works.
+  //
+  // Deliberately does NOT require products.is_published or targets.is_active, unlike
+  // apiViewerActive above — a customer's already-printed shirt shouldn't stop working just
+  // because the product was later unpublished or the admin toggled an unrelated flag that
+  // exists to control the general catalog-browsing resolution.
+  async function apiViewerOrder(request) {
+    const url = new URL(request.url);
+    const orderId = (url.searchParams.get('order') || '').trim();
+    const itemIndex = parseInt(url.searchParams.get('item'), 10);
+    if (!orderId || !Number.isInteger(itemIndex) || itemIndex < 0) {
+      return jsonResponse({ error: 'order and item required' }, 400, request);
+    }
+
+    const order = await dbGet('select id, items_json from orders where id = ?', orderId);
+    if (!order) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    let items = [];
+    try { items = JSON.parse(order.items_json) || []; } catch {}
+    if (itemIndex >= items.length) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const slug = String((items[itemIndex] && items[itemIndex].slug) || '').trim();
+    const product = slug ? await dbGet('select ar_target_id from products where lower(slug) = lower(?)', slug) : null;
+    const targetId = product && product.ar_target_id != null ? Number(product.ar_target_id) : null;
+    if (targetId == null || !Number.isFinite(targetId)) {
+      return jsonResponse({ error: 'No AR content for this item' }, 404, request);
+    }
+
+    const t = await dbGet(
+      'select id, name, mind_url, video_url, image_url, is_active from targets where id = ?',
+      targetId
+    );
+    if (!t) return jsonResponse({ error: 'No AR content for this item' }, 404, request);
+
+    let personalVideoUrl = null;
+    try {
+      const v = await dbGet(
+        'select video_url from order_ar_videos where order_id = ? and item_index = ?',
+        orderId, itemIndex
+      );
+      if (v) personalVideoUrl = v.video_url;
+    } catch (e) {
+      if (!String(e || '').toLowerCase().includes('no such table')) throw e;
+    }
+
+    return withCache(
+      jsonResponse({
+        id: t.id,
+        name: t.name,
+        product: slug,
+        brand: null,
+        mindurl: t.mind_url,
+        videourl: personalVideoUrl || t.video_url,
+        imageurl: t.image_url,
+        is_active: !!t.is_active,
+        created_at: null,
+        source: 'order_personal'
+      }, 200, request),
+      'no-store'
+    );
+  }
+
   // ---------- Existing R2 handlers (unchanged from your current worker) ----------
 
   async function handleR2Asset(request, key) {
@@ -3678,6 +3754,14 @@
     }, 200, request);
   }
 
+  // Shared "does this session belong to the account that placed this order" check, used by
+  // every customer self-service order action below. Endpoints that also accept a guest
+  // email (POST body) check that half separately — this only covers the logged-in-session
+  // half, since not every caller allows the email fallback.
+  function sessionOwnsOrder(sess, orderRow) {
+    return !!(sess && sess.user && orderRow.user_id != null && String(sess.user.id) === String(orderRow.user_id));
+  }
+
   // POST /api/orders/:id/resume-payment — creates a fresh Stripe Checkout Session for an
   // order stuck at pending_payment (e.g. the customer closed the tab before finishing on
   // Stripe's page, or the original session expired). Ownership proven by either a logged-in
@@ -3698,7 +3782,7 @@
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
 
     const sess = await getSessionUser(request);
-    const ownsBySession = !!(sess && sess.user && row.user_id != null && String(sess.user.id) === String(row.user_id));
+    const ownsBySession = sessionOwnsOrder(sess, row);
     const ownsByEmail = !!(emailIn && String(row.email || '').trim().toLowerCase() === emailIn);
     if (!ownsBySession && !ownsByEmail) return jsonResponse({ error: 'Not found' }, 404, request);
 
@@ -3762,7 +3846,7 @@
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
 
     const sess = await getSessionUser(request);
-    const ownsBySession = !!(sess && sess.user && row.user_id != null && String(sess.user.id) === String(row.user_id));
+    const ownsBySession = sessionOwnsOrder(sess, row);
     const ownsByEmail = !!(emailIn && String(row.email || '').trim().toLowerCase() === emailIn);
     if (!ownsBySession && !ownsByEmail) return jsonResponse({ error: 'Not found' }, 404, request);
 
@@ -3782,6 +3866,105 @@
     );
 
     return jsonResponse({ ok: true }, 200, request);
+  }
+
+  // POST /api/orders/:id/items/:index/ar-video — lets a logged-in customer upload/replace
+  // the personal AR video for one line item in their own order. The physical marker (the
+  // product's printed design/target) is unchanged and stays shared across every buyer —
+  // only the video overlay is personal. Re-uploading replaces the previous video (the
+  // "edit" path). No guest-email fallback here, unlike resume-payment/cancel — this
+  // requires being logged in, per the confirmed flow.
+  async function apiUploadOrderArVideo(request, orderId, itemIndex) {
+    const rawId = String(orderId || '').trim();
+    if (!rawId) return jsonResponse({ error: 'order id required' }, 400, request);
+    if (!Number.isInteger(itemIndex) || itemIndex < 0) {
+      return jsonResponse({ error: 'Invalid item index' }, 400, request);
+    }
+
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+    const row = await dbGet('select id, user_id, items_json from orders where id = ?', rawId);
+    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (!sessionOwnsOrder(sess, row)) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    let items = [];
+    try { items = JSON.parse(row.items_json) || []; } catch {}
+    if (itemIndex >= items.length) return jsonResponse({ error: 'Invalid item index' }, 400, request);
+
+    const slug = String((items[itemIndex] && items[itemIndex].slug) || '').trim();
+    const product = slug ? await dbGet('select ar_target_id from products where lower(slug) = lower(?)', slug) : null;
+    if (!product || product.ar_target_id == null) {
+      return jsonResponse({ error: 'This item is not AR-enabled' }, 400, request);
+    }
+
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('order-ar-upload:' + ip, RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
+      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
+    }
+
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
+      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
+    }
+
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
+    if (file.size && file.size > UPLOAD_MAX_SIZE) {
+      return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
+    }
+    const contentType = (file.type || '').toLowerCase();
+    if (!contentType.startsWith('video/')) {
+      return jsonResponse({ error: 'Only video files are allowed' }, 415, request);
+    }
+
+    // Look up any previous personal video for this item so it can be cleaned up from R2
+    // after the new one is safely stored — tolerate the table not existing yet (this is
+    // the very first upload for anyone, migration not yet run) by treating that as "none".
+    let previousVideoUrl = null;
+    try {
+      const existing = await dbGet(
+        'select video_url from order_ar_videos where order_id = ? and item_index = ?',
+        rawId, itemIndex
+      );
+      if (existing) previousVideoUrl = existing.video_url;
+    } catch (e) {
+      if (!String(e || '').toLowerCase().includes('no such table')) throw e;
+    }
+
+    const rawName = (file.name || `${Date.now()}`).toString();
+    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+    const key = `order-videos/${rawId}/${itemIndex}-${Date.now()}-${filename}`;
+
+    await ASSETS_BUCKET.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type || 'video/mp4' }
+    });
+    const videoUrl = buildPublicAssetUrl(request, key);
+
+    try {
+      await dbRun(
+        `insert into order_ar_videos (order_id, item_index, video_url, updated_at)
+         values (?, ?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ','now')))
+         on conflict(order_id, item_index) do update set
+           video_url = excluded.video_url,
+           updated_at = excluded.updated_at`,
+        rawId, itemIndex, videoUrl
+      );
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such table') && msg.includes('order_ar_videos')) {
+        return jsonResponse({ error: 'DB migration required: run sql/order_ar_videos_migration.sql' }, 500, request);
+      }
+      throw e;
+    }
+
+    if (previousVideoUrl && previousVideoUrl !== videoUrl) {
+      try { await ASSETS_BUCKET.delete(keyFromPublicUrl(previousVideoUrl)); } catch {}
+    }
+
+    const origin = new URL(request.url).origin;
+    const viewerUrl = `${origin}/index.html?order=${encodeURIComponent(rawId)}&item=${itemIndex}`;
+    return jsonResponse({ ok: true, video_url: videoUrl, viewer_url: viewerUrl }, 200, request);
   }
 
   // GET /api/orders/mine — the logged-in customer's own order history, matched by the
@@ -3824,13 +4007,53 @@
       }
     }
 
-    const items = (rows || []).map((r) => {
+    const parsedRows = (rows || []).map((r) => {
       let orderItems = [];
+      try { orderItems = JSON.parse(r.items_json) || []; } catch {}
+      return { row: r, orderItems };
+    });
+
+    // AR eligibility (does the item's product have a linked target?) and any personal video
+    // already uploaded for it — batched across every order/item on this page rather than a
+    // lookup per item, since a customer's order history can span many distinct products.
+    const slugSet = new Set();
+    for (const { orderItems } of parsedRows) {
+      for (const it of orderItems) { if (it && it.slug) slugSet.add(String(it.slug).toLowerCase()); }
+    }
+    let arTargetBySlug = {};
+    if (slugSet.size) {
+      const slugs = Array.from(slugSet);
+      const placeholders = slugs.map(() => '?').join(',');
+      const prows = await dbAll(`select slug, ar_target_id from products where lower(slug) in (${placeholders})`, ...slugs);
+      for (const p of prows || []) {
+        if (p.ar_target_id != null) arTargetBySlug[String(p.slug).toLowerCase()] = p.ar_target_id;
+      }
+    }
+    let videoByOrderItem = {};
+    if (parsedRows.length) {
       try {
-        orderItems = (JSON.parse(r.items_json) || []).map(it => ({
+        const orderIds = parsedRows.map(({ row }) => row.id);
+        const placeholders = orderIds.map(() => '?').join(',');
+        const vrows = await dbAll(`select order_id, item_index, video_url from order_ar_videos where order_id in (${placeholders})`, ...orderIds);
+        for (const v of vrows || []) videoByOrderItem[`${v.order_id}|${v.item_index}`] = v.video_url;
+      } catch (e) {
+        if (!String(e || '').toLowerCase().includes('no such table')) throw e;
+        // Migration not run yet — degrade to "no personal videos" rather than fail the
+        // whole order list, since this endpoint is far too broadly used to hard-fail here.
+      }
+    }
+
+    const items = parsedRows.map(({ row: r, orderItems }) => {
+      const mappedItems = orderItems.map((it, idx) => {
+        const slug = it && it.slug ? String(it.slug) : null;
+        const arTargetId = slug ? arTargetBySlug[slug.toLowerCase()] : undefined;
+        return {
           name: it.name, qty: it.qty, price_cents: it.price_cents, image_url: it.image_url || null,
-        }));
-      } catch {}
+          slug, item_index: idx,
+          ar_eligible: arTargetId != null,
+          ar_video_url: videoByOrderItem[`${r.id}|${idx}`] || null,
+        };
+      });
       return {
         id: r.id,
         status: r.status || null,
@@ -3842,7 +4065,7 @@
         total_cents: r.total_cents,
         currency: r.currency || 'USD',
         created_at: r.created_at || null,
-        items: orderItems,
+        items: mappedItems,
       };
     });
 

@@ -125,3 +125,16 @@ CREATE TABLE IF NOT EXISTS orders (
 
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email, created_at);
+
+-- Personal AR video per (order, line-item) — see sql/order_ar_videos_migration.sql for
+-- the full rationale.
+CREATE TABLE IF NOT EXISTS order_ar_videos (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id    TEXT NOT NULL,
+  item_index  INTEGER NOT NULL,
+  video_url   TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  UNIQUE(order_id, item_index)
+);

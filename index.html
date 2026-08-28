@@ -43,12 +43,24 @@
         try {
           console.log('📡 Loading active target from Worker...');
           const params = new URLSearchParams(window.location.search);
-          const brand = (params.get('brand') || '').trim();
-          const product = (params.get('product') || '').trim();
-          const qs = new URLSearchParams();
-          if (brand) qs.set('brand', brand);
-          if (product) qs.set('product', product);
-          const url = `/api/viewer/active${qs.toString() ? `?${qs.toString()}` : ''}`;
+          const order = (params.get('order') || '').trim();
+          const item = params.get('item');
+          let url;
+          if (order && item !== null && item !== '') {
+            // Personal link/QR a customer attached to their own shirt — resolves to their
+            // uploaded video (or the product's default, if they haven't uploaded one yet).
+            const qs = new URLSearchParams();
+            qs.set('order', order);
+            qs.set('item', item);
+            url = `/api/viewer/order?${qs.toString()}`;
+          } else {
+            const brand = (params.get('brand') || '').trim();
+            const product = (params.get('product') || '').trim();
+            const qs = new URLSearchParams();
+            if (brand) qs.set('brand', brand);
+            if (product) qs.set('product', product);
+            url = `/api/viewer/active${qs.toString() ? `?${qs.toString()}` : ''}`;
+          }
           const res = await fetch(url, { method: 'GET' });
           const isJSON = res.headers.get('content-type')?.includes('application/json');
           const data = isJSON ? await res.json().catch(() => null) : null;

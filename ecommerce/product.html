@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
   <link rel="stylesheet" type="text/css" href="css/global.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
@@ -68,6 +69,14 @@
   #quantity:focus{outline:none;background:#222}
   #quantity::-webkit-outer-spin-button,#quantity::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   #cart-toast{position:fixed;bottom:28px;right:28px;z-index:9999;pointer-events:none;opacity:0;transform:translateY(10px);transition:opacity .22s,transform .22s}
+  /* Pre-purchase AR preview — a "View in AR" link on mobile (where the shopper already has
+     a camera in hand), a QR code on desktop (where they'd need a phone to scan it). Only
+     one of the two is ever shown; #ar-preview itself stays hidden unless a script decides
+     the product actually has AR content. */
+  .ar-mobile-cta{display:none}
+  .ar-desktop-qr{display:none;padding:14px 16px;border:2px solid #333;text-align:center}
+  @media(max-width:767.98px){ .ar-mobile-cta{display:block} }
+  @media(min-width:768px){ .ar-desktop-qr{display:block} }
 </style>
 </head>
 <body>
@@ -122,6 +131,15 @@
               </div>
             </div>
             <button type="button" id="add-to-cart" class="btn btn-primary btn-lg text-uppercase w-100 mb-3 product-cart-submit" disabled>Add to cart</button>
+            <div id="ar-preview" class="mb-3" style="display:none">
+              <div class="ar-mobile-cta">
+                <a href="#" id="ar-view-link" target="_blank" rel="noopener" class="btn btn-outline-dark text-uppercase w-100">View in AR</a>
+              </div>
+              <div class="ar-desktop-qr">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:rgba(245,245,240,.5);margin-bottom:10px">Scan to view in AR</div>
+                <canvas id="ar-qr-canvas" width="140" height="140" style="background:#fff"></canvas>
+              </div>
+            </div>
             <div class="d-flex gap-3">
               <a href="wishlist.html" class="btn btn-outline-dark text-uppercase flex-fill">Wishlist</a>
             </div>
@@ -261,6 +279,19 @@
 
       // Enable add to cart
       var addBtn=document.getElementById('add-to-cart');if(addBtn)addBtn.disabled=false;
+
+      // Pre-purchase AR preview — only shown if this product actually has AR content linked
+      if(p.ar_target_id!=null){
+        var arWrap=document.getElementById('ar-preview');
+        var arLink=document.getElementById('ar-view-link');
+        var arCanvas=document.getElementById('ar-qr-canvas');
+        var viewerUrl=location.origin+'/index.html?product='+encodeURIComponent(p.slug||slug)+(p.brand?'&brand='+encodeURIComponent(p.brand):'');
+        if(arWrap)arWrap.style.display='';
+        if(arLink)arLink.href=viewerUrl;
+        if(arCanvas&&window.QRCode){
+          QRCode.toCanvas(arCanvas,viewerUrl,{width:140,margin:2,color:{dark:'#000000',light:'#ffffff'}},function(err){if(err)console.warn('AR QR render failed',err)});
+        }
+      }
 
       // Qty buttons
       var qtyInput=document.getElementById('quantity');

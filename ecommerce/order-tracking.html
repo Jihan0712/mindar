@@ -10,6 +10,7 @@
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="css/global.css">
   <script src="/assets/js/auth-worker.js?v=20260206"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
@@ -105,25 +106,95 @@
       catch { return '$' + v.toFixed(2); }
     }
 
-    function renderOrderItems(items, currency) {
+    // AR controls for one eligible line item — a QR/link that's live the moment the order
+    // exists (it always resolves to something: the customer's own video once uploaded, the
+    // product's default video until then), plus an upload/edit affordance. Only rendered
+    // when enableAr is set (the logged-in "Your Orders" list, not the guest lookup, since
+    // uploading requires a real session).
+    function renderArControls(item, orderId, idx) {
+      if (!item.ar_eligible) return '';
+      const viewerUrl = location.origin + '/index.html?order=' + encodeURIComponent(orderId) + '&item=' + idx;
+      const hasVideo = !!item.ar_video_url;
+      const safeOrderId = escHtml(orderId);
+      const statusId = 'ar-status-' + safeOrderId + '-' + idx;
+      const labelId = 'ar-label-' + safeOrderId + '-' + idx;
+      const canvasId = 'ar-qr-' + safeOrderId + '-' + idx;
+      return `
+        <div style="margin-top:10px;padding:14px 16px;border:2px solid rgba(0,237,10,.2);background:rgba(0,237,10,.04)">
+          <div style="font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:8px">AR Video &mdash; attach this to your shirt</div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+            <canvas id="${canvasId}" data-ar-qr-url="${escHtml(viewerUrl)}" width="120" height="120" style="background:#fff;flex-shrink:0"></canvas>
+            <div style="flex:1;min-width:180px">
+              <div id="${statusId}" style="font-size:12px;color:rgba(245,245,240,.6);margin-bottom:8px">${hasVideo ? 'Your personal video is live.' : 'Showing the default product video &mdash; upload yours to personalize it.'}</div>
+              <div style="font-size:11px;color:rgba(245,245,240,.4);word-break:break-all;margin-bottom:10px">${escHtml(viewerUrl)}</div>
+              <label style="display:inline-block;font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:9px 16px;background:transparent;border:2px solid #00ED0A;color:#00ED0A;cursor:pointer">
+                <span id="${labelId}">${hasVideo ? 'Edit AR Video' : 'Upload AR Video'}</span>
+                <input type="file" accept="video/*" style="display:none" onchange="uploadArVideo('${safeOrderId}', ${idx}, this, '${statusId}', '${labelId}')">
+              </label>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function uploadArVideo(orderId, itemIndex, inputEl, statusElId, labelElId) {
+      const statusEl = document.getElementById(statusElId);
+      const labelEl = document.getElementById(labelElId);
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      if (statusEl) statusEl.textContent = 'Uploading…';
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch('/api/orders/' + encodeURIComponent(orderId) + '/items/' + itemIndex + '/ar-video', {
+          method: 'POST',
+          credentials: 'include',
+          body: form,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
+        if (statusEl) statusEl.textContent = 'Your personal video is live.';
+        if (labelEl) labelEl.textContent = 'Edit AR Video';
+      } catch (e) {
+        if (statusEl) statusEl.textContent = 'Upload failed: ' + (e.message || String(e));
+      } finally {
+        inputEl.value = '';
+      }
+    }
+
+    // Draws the QR codes for every AR-eligible item just inserted into the DOM — the QR
+    // library needs a real <canvas> element to draw into, so this runs as a follow-up pass
+    // after buildOrderCardHtml's returned HTML has actually been set via innerHTML.
+    function renderArQrCodes(container) {
+      if (!window.QRCode || !container) return;
+      container.querySelectorAll('canvas[data-ar-qr-url]').forEach(function(canvas) {
+        var url = canvas.getAttribute('data-ar-qr-url');
+        QRCode.toCanvas(canvas, url, { width: 120, margin: 2, color: { dark: '#000000', light: '#ffffff' } }, function(err) {
+          if (err) console.warn('AR QR render failed', err);
+        });
+      });
+    }
+
+    function renderOrderItems(items, currency, orderId, enableAr) {
       if (!Array.isArray(items) || !items.length) return '';
-      const rows = items.map(function(it) {
+      const rows = items.map(function(it, idx) {
         const img = it.image_url
           ? `<img src="${escHtml(it.image_url)}" alt="" style="width:40px;height:40px;object-fit:cover;border:1px solid rgba(245,245,240,.15);flex-shrink:0">`
           : `<div style="width:40px;height:40px;background:rgba(245,245,240,.06);border:1px solid rgba(245,245,240,.15);flex-shrink:0"></div>`;
+        const arHtml = enableAr ? renderArControls(it, orderId, it.item_index != null ? it.item_index : idx) : '';
         return `
           <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(245,245,240,.08)">
             ${img}
             <div style="flex:1;font-size:13px;color:#F5F5F0">${escHtml(it.name || '')}<div style="font-size:11px;color:rgba(245,245,240,.4)">Qty: ${escHtml(it.qty || 1)}</div></div>
             <div style="font-size:13px;color:rgba(245,245,240,.6)">${escHtml(formatMoney((it.price_cents || 0) * (it.qty || 1), currency))}</div>
-          </div>`;
+          </div>
+          ${arHtml}`;
       }).join('');
       return `<div style="margin-top:16px">${rows}</div>`;
     }
 
     // Shared order-card renderer — used both for a single manual lookup result and for
     // the "Your Orders" list (which can show several).
-    function buildOrderCardHtml(order, headerLabel) {
+    function buildOrderCardHtml(order, headerLabel, enableAr) {
       const pfStatus = (order.printful_status || 'pending').toLowerCase();
       const statusInfo = STATUS_LABELS[pfStatus] || { label: pfStatus, color: 'rgba(245,245,240,.5)' };
 
@@ -179,7 +250,7 @@
           ${paymentHtml}
           ${!needsPayment ? trackingHtml : ''}
           ${!needsPayment && !order.tracking_url && !order.tracking_number && pfStatus !== 'shipped' ? `<p style="font-size:12px;color:rgba(245,245,240,.4);margin:6px 0 0">Tracking will appear here once your order ships. Questions? <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a></p>` : ''}
-          ${renderOrderItems(order.items, order.currency)}
+          ${renderOrderItems(order.items, order.currency, order.id, enableAr)}
           ${Number.isFinite(order.total_cents) ? `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:10px;border-top:2px solid rgba(245,245,240,.15)">
             <span style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.5)">Total</span>
@@ -255,8 +326,9 @@
           if (introEl) introEl.textContent = 'Looking up a different order (placed as a guest, or under another email)? Use the form below.';
         } else {
           listEl.innerHTML = orders.map(function(o) {
-            return '<div style="margin-bottom:16px">' + buildOrderCardHtml(o, 'Order ' + (o.id || '')) + '</div>';
+            return '<div style="margin-bottom:16px">' + buildOrderCardHtml(o, 'Order ' + (o.id || ''), true) + '</div>';
           }).join('');
+          renderArQrCodes(listEl);
           // Has orders — show "Your Orders" section, HIDE manual form
           sectionEl.style.display = '';
           if (manualFormEl) manualFormEl.style.display = 'none';
