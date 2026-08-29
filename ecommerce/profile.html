@@ -65,7 +65,10 @@
     statusEl.textContent='';signedIn.style.display='';
     emailEl.textContent=user.email;roleEl.textContent=user.role||'user';
     var canDash=user.role==='admin'||user.role==='brand';
-    if(dashBtn)dashBtn.style.display=canDash?'':'none';
+    if(dashBtn){
+      dashBtn.style.display=canDash?'':'none';
+      dashBtn.href=user.role==='brand'?'/brand.html':'dashboard.html';
+    }
     logoutBtn.addEventListener('click',async function(){await auth.logout();location.href='login.html'});
   });
 

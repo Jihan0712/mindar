@@ -9,7 +9,6 @@
   <style>
     body { background:#1C1C1C; color:#F5F5F0; font-family:'Roboto Mono',monospace; }
     .hidden { display:none !important; }
-    .overflow-hidden { overflow:hidden !important; }
     .bg-blue-600 { background-color:#00ED0A !important; color:#1C1C1C !important; border-color:#00ED0A !important; }
     .btn-inrl-outline.bg-blue-600 { background-color:#00ED0A !important; color:#1C1C1C !important; border-color:#00ED0A !important; }
     .inrl-navbar { background:#111; border-bottom:3px solid #333; }
@@ -29,8 +28,8 @@
     .inrl-table tr:hover td { background:rgba(0,237,10,.04) !important; }
     #status { min-height:1.2em; font-size:.875rem; color:#00ED0A; }
     .inrl-heading { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.5rem; font-weight:700; border-left:4px solid #00ED0A; padding-left:.75rem; margin-bottom:1.25rem; }
-    .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; background:#00ED0A; color:#1C1C1C; font-weight:700; font-size:.75rem; flex-shrink:0; }
     .target-thumb { width:72px; height:72px; object-fit:contain; border:1px solid #333; background:#111; }
+    .ar-video-badge { font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
     ::-webkit-scrollbar { width:6px; height:6px; }
     ::-webkit-scrollbar-track { background:#111; }
     ::-webkit-scrollbar-thumb { background:#333; }
@@ -47,12 +46,11 @@
   </button>
   <div class="collapse navbar-collapse" id="navCollapseBrand">
     <div class="d-flex flex-wrap gap-2 me-auto py-2 py-lg-0">
-      <button id="uploadTab" class="btn btn-sm btn-inrl-outline bg-blue-600">Upload Target</button>
-      <button id="listTab" class="btn btn-sm btn-inrl-outline">Existing Targets</button>
+      <button id="designsTab" class="btn btn-sm btn-inrl-outline bg-blue-600">Submit a Design</button>
+      <button id="productsTab" class="btn btn-sm btn-inrl-outline">My Products</button>
     </div>
     <div class="d-flex flex-wrap align-items-center gap-2 py-2 py-lg-0">
       <a href="/ecommerce/index.html" class="btn btn-sm btn-inrl-outline">Store</a>
-      <a href="/ecommerce/dashboard.html" class="btn btn-sm btn-inrl-outline">Product Dashboard</a>
       <a href="/ecommerce/profile.html" class="btn btn-sm btn-inrl-outline">Profile</a>
       <span id="userEmail" class="text-secondary small px-2"></span>
       <button id="logoutBtn" class="btn btn-sm btn-danger-inrl">Logout</button>
@@ -68,57 +66,65 @@
 <!-- ===== MAIN CONTENT ===== -->
 <div class="container-fluid px-4 pb-5" style="max-width:1200px;">
 
-  <!-- UPLOAD SECTION -->
-  <section id="uploadSection">
-    <h2 class="inrl-heading mt-4">Upload a New AR Target</h2>
+  <!-- SUBMIT A DESIGN -->
+  <section id="designsSection">
+    <h2 class="inrl-heading mt-4">Submit a Design</h2>
+    <p class="text-secondary small mb-3">Send us your artwork — no product exists yet. Our team builds the real product around it (garment, sizing, price, AR marker) and assigns it back to your account. Once that's done, come back here or check "My Products" to attach your own video.</p>
 
     <div class="inrl-card p-4 mb-4">
       <div class="row g-3">
         <div class="col-12 col-md-6">
-          <label class="form-label text-secondary small text-uppercase mb-1">Target Name</label>
-          <input id="name" type="text" class="form-control" placeholder="Target name" />
+          <label class="form-label text-secondary small text-uppercase mb-1">Name <span class="text-secondary">(optional)</span></label>
+          <input id="designName" type="text" class="form-control" placeholder="e.g. Summer Campaign Graphic" />
         </div>
-        <div class="col-12 col-md-6">
-          <label class="form-label text-secondary small text-uppercase mb-1">Product <span class="text-secondary">(optional)</span></label>
-          <input id="productInput" type="text" class="form-control" placeholder="Product identifier (e.g. SKU or slug)" />
+        <div class="col-12">
+          <label class="form-label text-secondary small text-uppercase mb-1">Note <span class="text-secondary">(optional)</span></label>
+          <textarea id="designNote" class="form-control" rows="2" placeholder="Anything the team should know — placement, garment idea, etc."></textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label text-secondary small text-uppercase mb-1">Design Image <span style="color:#ff4d4f;">*</span></label>
+          <input id="designFile" type="file" accept="image/*" class="form-control" />
         </div>
       </div>
+      <button id="submitDesignBtn" class="btn btn-inrl mt-3">Submit Design</button>
+    </div>
 
-      <div class="mt-3">
-        <label class="form-label text-secondary small text-uppercase mb-1">Marker Image (.jpg / .png)</label>
-        <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" class="form-control mb-2" />
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-          <button id="serverCompile" class="btn btn-sm btn-inrl">Compile in Browser</button>
-          <span id="compileStatus" class="text-secondary small"></span>
-        </div>
-        <p class="text-secondary small mt-2 mb-0">Tip: large images will be resized to 1024px max to speed up compilation.</p>
-      </div>
-
-      <div class="mt-3">
-        <label class="form-label text-secondary small text-uppercase mb-1">Video file (.mp4)</label>
-        <input id="videoFile" type="file" accept="video/mp4" class="form-control mb-3" />
-        <button id="upload" class="btn btn-inrl">Upload Target</button>
+    <h5 class="mb-3" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;">Your Submissions</h5>
+    <div class="inrl-card p-0">
+      <div class="table-responsive">
+        <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th class="p-3">Image</th>
+              <th class="p-3">Name / Note</th>
+              <th class="p-3">Submitted</th>
+              <th class="p-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="designsTable"><tr><td colspan="4" class="p-3 text-secondary small">Loading…</td></tr></tbody>
+        </table>
       </div>
     </div>
   </section>
 
-  <!-- LIST SECTION -->
-  <section id="listSection" class="hidden">
-    <h2 class="inrl-heading mt-4">Your Targets</h2>
+  <!-- MY PRODUCTS -->
+  <section id="productsSection" class="hidden">
+    <h2 class="inrl-heading mt-4">My Products</h2>
+    <p class="text-secondary small mb-3">Products our team has built from your designs and assigned to your account. The one thing you control here is the AR video that plays when someone scans it.</p>
     <div class="inrl-card p-0">
-      <div id="targetsList" class="table-responsive">
+      <div class="table-responsive">
         <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse;">
           <thead>
             <tr>
-              <th class="p-3">Target Image</th>
-              <th class="p-3">Name</th>
-              <th class="p-3">Product</th>
-              <th class="p-3">Created</th>
-              <th class="p-3">Active</th>
-              <th class="p-3 text-center">Actions</th>
+              <th class="p-3">Image</th>
+              <th class="p-3">Title</th>
+              <th class="p-3">Price</th>
+              <th class="p-3">Published</th>
+              <th class="p-3">AR Video</th>
+              <th class="p-3 text-center">Action</th>
             </tr>
           </thead>
-          <tbody id="targetsTable"></tbody>
+          <tbody id="productsTable"><tr><td colspan="6" class="p-3 text-secondary small">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -130,13 +136,22 @@
 
     <!-- Worker-based Brand Dashboard -->
     <script>
-      async function uploadToWorker(file, path = 'uploads', filename) {
-        const uploadUrl = '/upload';
+      function esc(s) {
+        return (s == null ? '' : String(s)).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+      }
+
+      function formatMoney(cents, currency) {
+        const v = Number(cents || 0) / 100;
+        try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' }).format(v); }
+        catch { return '$' + v.toFixed(2); }
+      }
+
+      async function uploadToWorker(file, path, filename) {
         const form = new FormData();
         form.append('file', file, filename || (file.name || `${Date.now()}`));
         form.append('path', path);
         form.append('filename', filename || (file.name || `${Date.now()}`));
-        const res = await fetch(uploadUrl, { method: 'POST', body: form, credentials: 'include' });
+        const res = await fetch('/upload', { method: 'POST', body: form, credentials: 'include' });
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
           throw new Error('Upload failed: ' + res.status + ' ' + txt);
@@ -146,238 +161,160 @@
         return j; // { ok, key, url }
       }
 
-      // small helper functions copied/adapted from admin.html
-      async function resizeImage(file, maxDim = 1024) {
-        const img = new Image();
-        img.src = URL.createObjectURL(file);
-        await img.decode();
-        let { width, height } = img;
-        if (width <= maxDim && height <= maxDim) return file;
-        const aspect = width / height;
-        if (width > height) { width = maxDim; height = Math.round(maxDim / aspect); }
-        else { height = maxDim; width = Math.round(maxDim * aspect); }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        return await new Promise((resolve) => canvas.toBlob((blob) => {
-          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-        }, 'image/jpeg', 0.9));
-      }
-
-      // compile using mind-ar compiler in the browser (dynamic import)
-      async function compileImageClient(markerFile, progressCallback) {
-        // dynamic import of tfjs + Compiler
-        async function loadScript(url) {
-          return new Promise((resolve, reject) => {
-            const s = document.createElement('script'); s.src = url; s.onload = () => resolve(); s.onerror = () => reject(new Error('Failed to load ' + url)); document.head.appendChild(s);
-          });
-        }
-        // try a few tfjs versions
-        const versions = ['4.16.0','4.8.0','4.20.0'];
-        for (const v of versions) {
-          try { await loadScript(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@${v}/dist/tf.min.js`); if (typeof tf !== 'undefined') break; } catch (e) {}
-        }
-        const mod = await import('https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js');
-        const Compiler = mod.Compiler;
-        const fileToUse = await resizeImage(markerFile, 1024);
-        const img = new Image(); img.src = URL.createObjectURL(fileToUse); await img.decode();
-        const compiler = new Compiler();
-        await compiler.compileImageTargets([img], progressCallback);
-        const buffer = compiler.exportData ? compiler.exportData() : null;
-        if (!buffer) throw new Error('Failed to export compiled data');
-        return buffer;
-      }
-
       // UI elements
-      const uploadBtn = document.getElementById('upload');
       const statusEl = document.getElementById('status');
       const logoutBtn = document.getElementById('logoutBtn');
       const userEmailEl = document.getElementById('userEmail');
-      const uploadSection = document.getElementById('uploadSection');
-      const listSection = document.getElementById('listSection');
-      const uploadTab = document.getElementById('uploadTab');
-      const listTab = document.getElementById('listTab');
-      const targetsTable = document.getElementById('targetsTable');
+      const designsSection = document.getElementById('designsSection');
+      const productsSection = document.getElementById('productsSection');
+      const designsTab = document.getElementById('designsTab');
+      const productsTab = document.getElementById('productsTab');
+      const designsTable = document.getElementById('designsTable');
+      const productsTable = document.getElementById('productsTable');
 
-      uploadTab.addEventListener('click', () => { uploadSection.classList.remove('hidden'); listSection.classList.add('hidden'); uploadTab.classList.add('bg-blue-600'); listTab.classList.remove('bg-blue-600'); });
-      listTab.addEventListener('click', () => { listSection.classList.remove('hidden'); uploadSection.classList.add('hidden'); listTab.classList.add('bg-blue-600'); uploadTab.classList.remove('bg-blue-600'); loadTargets(); });
+      designsTab.addEventListener('click', () => {
+        designsSection.classList.remove('hidden'); productsSection.classList.add('hidden');
+        designsTab.classList.add('bg-blue-600'); productsTab.classList.remove('bg-blue-600');
+      });
+      productsTab.addEventListener('click', () => {
+        productsSection.classList.remove('hidden'); designsSection.classList.add('hidden');
+        productsTab.classList.add('bg-blue-600'); designsTab.classList.remove('bg-blue-600');
+        loadProducts();
+      });
 
       // determine current user + their brand (if any)
       let currentUser = null;
-      let currentUserBrand = null;
 
       async function initBrandContext() {
-        if (!window.auth) { window.location.href = '/ecommerce/login.html'; return; }
+        if (!window.auth) { window.location.href = '/ecommerce/login.html'; return false; }
         const me = await auth.me();
-        if (!me) { window.location.href = '/ecommerce/login.html'; return; }
-        if (me.role === 'admin') { window.location.href = '/admin.html'; return; }
-        if (me.role !== 'brand') { window.location.href = '/ecommerce/'; return; }
+        if (!me) { window.location.href = '/ecommerce/login.html'; return false; }
+        if (me.role === 'admin') { window.location.href = '/admin.html'; return false; }
+        if (me.role !== 'brand') { window.location.href = '/ecommerce/'; return false; }
         currentUser = me;
-        currentUserBrand = me?.brands?.[0]?.name || null;
         if (userEmailEl) userEmailEl.textContent = me?.email || '';
+        return true;
       }
 
-      // upload flow: similar to admin but always tags brand if currentUserBrand is set
-      document.getElementById('serverCompile').addEventListener('click', async () => {
-        const markerFile = document.getElementById('markerFile').files[0];
-        if (!markerFile) { document.getElementById('compileStatus').textContent = '⚠️ Please select an image first.'; return; }
+      // ---- Design submissions ----
+
+      document.getElementById('submitDesignBtn').addEventListener('click', async () => {
+        const name = document.getElementById('designName').value.trim();
+        const note = document.getElementById('designNote').value.trim();
+        const file = document.getElementById('designFile').files[0];
+        if (!file) { alert('⚠️ Please choose a design image first.'); return; }
+        statusEl.textContent = 'Uploading design…';
         try {
-          statusEl.textContent = 'Compiling marker image in the browser...';
-          const buffer = await compileImageClient(markerFile, (p) => { document.getElementById('compileStatus').textContent = `Progress: ${p.toFixed(1)}%`; });
-          document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to storage (via Worker)...';
-          const filename = markerFile.name.replace(/\.[^/.]+$/, '') + '.mind';
-          const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
-          const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
-          const mindUrl = mindUpload.url;
-          // stash on window for the upload flow
-          window.uploadedMindUrl = mindUrl;
-          document.getElementById('compileStatus').textContent = '✅ Compiled and uploaded to storage! Ready to Upload.';
-          statusEl.textContent = '';
-        } catch (err) { console.error(err); document.getElementById('compileStatus').textContent = `❌ Compile failed: ${err.message || err}`; }
-      });
-
-      uploadBtn.addEventListener('click', async () => {
-        const name = document.getElementById('name').value.trim();
-        const video = document.getElementById('videoFile').files[0];
-        const markerImage = document.getElementById('markerFile').files[0];
-        if (!name || (!window.uploadedMindUrl && !markerImage) || !video) { alert('⚠️ Please fill all fields and upload required files.'); return; }
-        statusEl.textContent = 'Uploading files...';
-        const timestamp = Date.now();
-        const videoPath = `videos/${timestamp}-${video.name}`;
-
-        if (!window.uploadedMindUrl && markerImage) {
-          try {
-            statusEl.textContent = 'Compiling marker image in the browser...';
-            const buffer = await compileImageClient(markerImage, (p) => { document.getElementById('compileStatus').textContent = `Progress: ${p.toFixed(1)}%`; });
-            document.getElementById('compileStatus').textContent = 'Uploading compiled .mind to storage (via Worker)...';
-            const filename = markerImage.name.replace(/\.[^/.]+$/, '') + '.mind';
-            const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
-            const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
-            const mindUrlLocal = mindUpload.url;
-            // upload video
-            const videoUpload = await uploadToWorker(video, 'videos', video.name);
-            const videoUrlLocal = videoUpload.url;
-            // upload original image marker
-            let imageUrlLocal = null;
-            try {
-              const markerUpload = await uploadToWorker(markerImage, 'markers', markerImage.name);
-              imageUrlLocal = markerUpload.url;
-            } catch (e) { console.warn('Image upload threw', e); }
-
-            const insertObj = { name, mindurl: mindUrlLocal, videourl: videoUrlLocal, is_active: false };
-            if (currentUserBrand) insertObj.brand = currentUserBrand;
-            const prodVal = (document.getElementById('productInput')?.value || '').trim(); if (prodVal) insertObj.product = prodVal;
-            if (imageUrlLocal) insertObj.imageurl = imageUrlLocal;
-            await apiFetch('/targets', { method: 'POST', body: insertObj });
-            statusEl.textContent = '✅ Upload complete (client-side compile)!';
-            document.getElementById('name').value = ''; document.getElementById('videoFile').value = ''; document.getElementById('markerFile').value = ''; document.getElementById('compileStatus').textContent = ''; window.uploadedMindUrl = null; loadTargets(); return;
-          } catch (err) { console.error(err); statusEl.textContent = '❌ Client compile/upload failed: ' + (err.message || JSON.stringify(err)); return; }
-        }
-
-        // .mind upload (when compiled earlier)
-        if (window.uploadedMindUrl) {
-          const videoUpload = await uploadToWorker(video, 'videos', video.name);
-          const videoUrl = videoUpload.url;
-          let imageUrlNew = null;
-          if (markerImage) {
-            try {
-              const markerUpload = await uploadToWorker(markerImage, 'markers', markerImage.name);
-              imageUrlNew = markerUpload.url;
-            } catch (e) { console.warn('Marker upload threw', e); }
-          }
-          const insertObj = { name, mindurl: window.uploadedMindUrl, videourl: videoUrl, is_active: false };
-          if (currentUserBrand) insertObj.brand = currentUserBrand;
-          const prodValNew = (document.getElementById('productInput')?.value || '').trim(); if (prodValNew) insertObj.product = prodValNew;
-          if (imageUrlNew) insertObj.imageurl = imageUrlNew;
-          await apiFetch('/targets', { method: 'POST', body: insertObj });
-          statusEl.textContent = '✅ Upload complete!'; document.getElementById('name').value = ''; document.getElementById('videoFile').value = ''; window.uploadedMindUrl = null; loadTargets(); return;
+          const uploaded = await uploadToWorker(file, 'designs', file.name);
+          await apiFetch('/brand/designs', { method: 'POST', body: { name, note, image_url: uploaded.url } });
+          statusEl.textContent = '✅ Design submitted!';
+          document.getElementById('designName').value = '';
+          document.getElementById('designNote').value = '';
+          document.getElementById('designFile').value = '';
+          loadDesigns();
+        } catch (e) {
+          console.error(e);
+          statusEl.textContent = '❌ Failed to submit design: ' + (e.message || e);
         }
       });
 
-      async function loadTargets() {
-        const res = await apiFetch('/targets');
-        const rows = Array.isArray(res?.items) ? res.items : [];
-        targetsTable.innerHTML = '';
-        const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
-        rows.forEach((t) => {
-          const isActive = t.is_active ? '✅' : '❌';
-          const candidates = [];
-          if (t.imageurl) candidates.push(t.imageurl);
-          if (t.mindurl) {
-            try { candidates.push(t.mindurl.replace(/\.mind$/, '.jpg')); candidates.push(t.mindurl.replace(/\.mind$/, '.png')); } catch (e) {}
+      async function loadDesigns() {
+        designsTable.innerHTML = '<tr><td colspan="4" class="p-3 text-secondary small">Loading…</td></tr>';
+        try {
+          const res = await apiFetch('/brand/designs');
+          const items = Array.isArray(res?.items) ? res.items : [];
+          if (!items.length) {
+            designsTable.innerHTML = '<tr><td colspan="4" class="p-3 text-secondary small">No submissions yet.</td></tr>';
+            return;
           }
-          const uniq = Array.from(new Set(candidates.filter(Boolean)));
-          const candidateJson = encodeURIComponent(JSON.stringify(uniq));
-          const initialSrc = uniq.length ? uniq[0] : placeholder;
-          const onerrorAttr = uniq.length ? 'onerror="tryNextImage(this)"' : '';
-          const mindArg = encodeURIComponent(t.mindurl || '');
-          const videoArg = encodeURIComponent(t.videourl || '');
-          const imageArg = encodeURIComponent(t.imageurl || '');
-          const brandArg = encodeURIComponent(t.brand || '');
-          const productArg = encodeURIComponent(t.product || '');
-          const row = `
-            <tr>
-              <td class="p-3"><img src="${initialSrc}" data-candidates="${candidateJson}" data-idx="0" alt="${t.name}" class="target-thumb" ${onerrorAttr} /></td>
-              <td class="p-3">${t.name}</td>
-              <td class="p-3">${t.product || ''}</td>
-              <td class="p-3 text-secondary">${new Date(t.created_at).toLocaleString()}</td>
-              <td class="p-3">${isActive}</td>
-              <td class="p-3 text-center" style="white-space:nowrap;">
-                <button onclick="setActive('${t.id}')" class="btn btn-sm btn-inrl me-1">Set Active</button>
-                <button onclick="deleteTarget('${t.id}', '${t.name}', decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))" class="btn btn-sm btn-danger-inrl me-1">Delete</button>
-                <button onclick="copyViewer('${brandArg}','${productArg}')" class="btn btn-sm btn-inrl-outline">Copy Link</button>
-              </td>
+          designsTable.innerHTML = items.map(d => {
+            const img = d.image_url ? `<img src="${esc(d.image_url)}" alt="" class="target-thumb">` : '<div class="target-thumb"></div>';
+            const date = d.created_at ? new Date(d.created_at).toLocaleString() : '—';
+            return `<tr>
+              <td class="p-3">${img}</td>
+              <td class="p-3 small">${esc(d.name) || '—'}${d.note ? `<div class="text-secondary" style="font-size:.68rem;margin-top:2px;">${esc(d.note)}</div>` : ''}</td>
+              <td class="p-3 text-secondary small">${date}</td>
+              <td class="p-3 text-center"><button onclick="retractDesign(${d.id})" class="btn btn-sm btn-danger-inrl">Retract</button></td>
             </tr>`;
-          targetsTable.innerHTML += row;
-        });
+          }).join('');
+        } catch (e) {
+          designsTable.innerHTML = `<tr><td colspan="4" class="p-3 small" style="color:#ff4d4f;">Failed to load: ${e.message || e}</td></tr>`;
+        }
       }
 
-      // reuse tryNextImage helper
-      function tryNextImage(img) {
-        const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22%3E%3Cpath d=%22M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z%22/%3E%3C/svg%3E';
+      window.retractDesign = async (id) => {
+        if (!confirm('Retract this design submission?')) return;
         try {
-          const raw = img.getAttribute('data-candidates'); if (!raw) { img.onerror = null; img.src = placeholder; return; }
-          const candidates = JSON.parse(decodeURIComponent(raw)); let idx = parseInt(img.getAttribute('data-idx') || '0', 10); idx = (idx || 0) + 1;
-          if (idx >= candidates.length) { img.onerror = null; img.src = placeholder; img.setAttribute('data-idx', idx); }
-          else { img.setAttribute('data-idx', idx); img.src = candidates[idx]; }
-        } catch (e) { img.onerror = null; img.src = placeholder; }
+          await apiFetch(`/brand/designs/${id}`, { method: 'DELETE' });
+          loadDesigns();
+        } catch (e) {
+          alert('❌ Failed to retract: ' + (e.message || e));
+        }
+      };
+
+      // ---- My products (assigned by admin) ----
+
+      async function loadProducts() {
+        productsTable.innerHTML = '<tr><td colspan="6" class="p-3 text-secondary small">Loading…</td></tr>';
+        try {
+          const res = await apiFetch('/products?includeUnpublished=1');
+          const items = Array.isArray(res?.items) ? res.items : [];
+          if (!items.length) {
+            productsTable.innerHTML = '<tr><td colspan="6" class="p-3 text-secondary small">No products assigned yet.</td></tr>';
+            return;
+          }
+          productsTable.innerHTML = items.map(p => {
+            const img = p.image_url ? `<img src="${esc(p.image_url)}" alt="" class="target-thumb">` : '<div class="target-thumb"></div>';
+            const published = p.is_published
+              ? '<span class="ar-video-badge" style="color:#00ED0A;">Yes</span>'
+              : '<span class="ar-video-badge" style="color:#555;">No</span>';
+            let videoCell;
+            let actionCell;
+            if (p.ar_target_id == null) {
+              videoCell = '<span class="text-secondary small">—</span>';
+              actionCell = '<span class="text-secondary small">Waiting on admin to set up AR</span>';
+            } else {
+              videoCell = '<span class="ar-video-badge" style="color:#00ED0A;">Ready</span>';
+              const statusId = 'video-status-' + p.id;
+              actionCell = `
+                <label class="btn btn-sm btn-inrl-outline mb-0" style="font-size:.62rem;padding:.2rem .5rem;">
+                  Upload / Replace Video
+                  <input type="file" accept="video/*" style="display:none" onchange="uploadProductVideo(${p.id}, this, '${statusId}')">
+                </label>
+                <div id="${statusId}" class="text-secondary small mt-1"></div>`;
+            }
+            return `<tr>
+              <td class="p-3">${img}</td>
+              <td class="p-3 small">${esc(p.title)}</td>
+              <td class="p-3 small">${formatMoney(p.price_cents, p.currency)}</td>
+              <td class="p-3">${published}</td>
+              <td class="p-3">${videoCell}</td>
+              <td class="p-3 text-center">${actionCell}</td>
+            </tr>`;
+          }).join('');
+        } catch (e) {
+          productsTable.innerHTML = `<tr><td colspan="6" class="p-3 small" style="color:#ff4d4f;">Failed to load: ${e.message || e}</td></tr>`;
+        }
       }
 
-      // set active via RPC with fallback (same as admin)
-      window.setActive = async (targetId) => {
-        statusEl.textContent = '⏳ Updating active target...';
+      window.uploadProductVideo = async (productId, inputEl, statusElId) => {
+        const statusElLocal = document.getElementById(statusElId);
+        const file = inputEl.files && inputEl.files[0];
+        if (!file) return;
+        if (statusElLocal) statusElLocal.textContent = 'Uploading…';
         try {
-          await apiFetch(`/targets/${encodeURIComponent(targetId)}/activate`, { method: 'POST' });
-          statusEl.textContent = '✅ Active target updated!';
-        } catch (e) { console.error('Failed to set active target:', e); statusEl.textContent = '❌ Error: ' + (e.message || String(e)); }
-        loadTargets();
-      };
-
-      // copy viewer link
-      window.copyViewer = async (encodedBrand, encodedProduct) => {
-        try {
-          const brand = decodeURIComponent(encodedBrand || '');
-          const product = decodeURIComponent(encodedProduct || '');
-          const url = new URL(window.location.href);
-          const base = url.origin + url.pathname.replace(/\/brand\.html$/, '/');
-          const qs = [];
-          if (brand) qs.push(`brand=${encodeURIComponent(brand)}`);
-          if (product) qs.push(`product=${encodeURIComponent(product)}`);
-          const viewerUrl = `${base}index.html${qs.length ? '?' + qs.join('&') : ''}`;
-          await navigator.clipboard.writeText(viewerUrl);
-          statusEl.textContent = `✅ Viewer URL copied`;
-          setTimeout(() => { if (statusEl && statusEl.textContent) statusEl.textContent = ''; }, 4000);
-        } catch (e) { console.error('Failed to copy viewer URL', e); statusEl.textContent = '❌ Failed to copy viewer URL'; }
-      };
-
-      window.deleteTarget = async (id, name, mindUrl, videoUrl, imageUrl) => {
-        if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-        const confirm2 = prompt('Type "delete" to confirm this action:'); if (confirm2?.toLowerCase() !== 'delete') return alert('❌ Deletion cancelled.');
-        statusEl.textContent = 'Deleting target...';
-        await apiFetch(`/targets/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        statusEl.textContent = '✅ Target deleted!';
-        loadTargets();
+          const form = new FormData();
+          form.append('file', file);
+          const res = await fetch(`/api/products/${productId}/video`, { method: 'POST', credentials: 'include', body: form });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
+          if (statusElLocal) statusElLocal.textContent = '✅ Video updated.';
+          loadProducts();
+        } catch (e) {
+          if (statusElLocal) statusElLocal.textContent = '❌ ' + (e.message || e);
+        } finally {
+          inputEl.value = '';
+        }
       };
 
       logoutBtn?.addEventListener('click', async () => {
@@ -391,8 +328,9 @@
 
       // Init
       (async () => {
-        await initBrandContext();
-        await loadTargets();
+        const ok = await initBrandContext();
+        if (!ok) return;
+        await loadDesigns();
       })();
     </script>
   </body>

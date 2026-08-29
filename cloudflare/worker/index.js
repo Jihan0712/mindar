@@ -65,7 +65,7 @@
     // Printful's own dashboard at printful.com, then pulled in here via the API) — v2's
     // own docs list this under "Retired Resources": "Product management, with sync
     // products or product templates, is not available in version 2 of the API yet." So
-    // importing a sync product means calling v1 directly, alongside (not instead of) the
+    // importing a sync product means calling v1 directlay, alongside (not instead of) the
     // v2 calls above — both API versions accept the same private-token auth.
     const PRINTFUL_V1_BASE = 'https://api.printful.com';
 
@@ -651,11 +651,32 @@
       const cookies = parseCookies(request.headers.get('Cookie') || '');
       const token = cookies[SESSION_COOKIE_NAME];
       if (!token) return null;
-      const row = await dbGet(
-        'select s.token, u.id as user_id, u.email, u.role from sessions s join users u on u.id = s.user_id where s.token = ?',
-        token
-      );
+      let row;
+      try {
+        row = await dbGet(
+          'select s.token, u.id as user_id, u.email, u.role, u.suspended_until from sessions s join users u on u.id = s.user_id where s.token = ?',
+          token
+        );
+      } catch (e) {
+        const msg = String(e || '');
+        if (msg.toLowerCase().includes('no such column') && msg.includes('suspended_until')) {
+          // sql/user_moderation_migration.sql not yet run — degrade to "never suspended".
+          row = await dbGet(
+            'select s.token, u.id as user_id, u.email, u.role from sessions s join users u on u.id = s.user_id where s.token = ?',
+            token
+          );
+        } else {
+          throw e;
+        }
+      }
       if (!row) return null;
+      // A timed-out account's sessions are deleted the moment the timeout is applied
+      // (apiAdminTimeoutUser) — this is a defensive second check for any session that
+      // slipped through (clock skew, a request already in flight, etc).
+      if (row.suspended_until && new Date(row.suspended_until).getTime() > Date.now()) {
+        await dbRun('delete from sessions where token = ?', token).catch(() => {});
+        return null;
+      }
       const brands = await dbAll(
         'select b.id, b.name from brand_users bu join brands b on b.id = bu.brand_id where bu.user_id = ?',
         row.user_id
@@ -831,6 +852,18 @@
     // Admin
     if (request.method === 'POST' && pathname === '/api/admin/brand-users')    return apiAdminCreateBrandUser(request);
     if (request.method === 'GET'  && pathname === '/api/admin/users')          return apiAdminListUsers(request);
+    if (request.method === 'POST' && /^\/api\/admin\/users\/([^/]+)\/role$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[4]);
+      return apiAdminChangeUserRole(request, id);
+    }
+    if (request.method === 'POST' && /^\/api\/admin\/users\/([^/]+)\/timeout$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[4]);
+      return apiAdminTimeoutUser(request, id);
+    }
+    if (request.method === 'DELETE' && /^\/api\/admin\/users\/([^/]+)$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[4]);
+      return apiAdminDeleteUser(request, id);
+    }
     if (request.method === 'GET'  && pathname === '/api/admin/orders')         return apiAdminListOrders(request);
     // Printful admin
     if (request.method === 'GET'  && pathname === '/api/admin/printful/webhooks')          return apiPrintfulWebhookHealth(request);
@@ -886,6 +919,13 @@
       const id = parseInt(pathname.split('/')[3], 10); return apiDeleteTarget(request, id);
     }
 
+    // Brand design submissions
+    if (request.method === 'GET'  && pathname === '/api/brand/designs')         return apiListBrandDesigns(request);
+    if (request.method === 'POST' && pathname === '/api/brand/designs')         return apiCreateBrandDesign(request);
+    if (request.method === 'DELETE' && /^\/api\/brand\/designs\/\d+$/.test(pathname)) {
+      const id = parseInt(pathname.split('/')[3], 10); return apiDeleteBrandDesign(request, id);
+    }
+
     // Viewer
     if (request.method === 'GET' && pathname === '/api/viewer/active')         return apiViewerActive(request);
     if (request.method === 'GET' && pathname === '/api/viewer/order')          return apiViewerOrder(request);
@@ -903,6 +943,9 @@
     }
     if (request.method === 'DELETE' && /^\/api\/products\/\d+$/.test(pathname)) {
       const id = parseInt(pathname.split('/')[3], 10); return apiDeleteProduct(request, id);
+    }
+    if (request.method === 'POST' && /^\/api\/products\/(\d+)\/video$/.test(pathname)) {
+      const id = parseInt(pathname.split('/')[3], 10); return apiUploadProductVideo(request, id);
     }
 
     // Reviews (shop)
@@ -1375,12 +1418,6 @@
     return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
   }
 
-  async function getScopedBrandIds(sess) {
-    if (!sess) return [];
-    if (sess.user.role === 'brand') return (sess.user.brands || []).map(b => b.id);
-    return [];  
-  }
-
   async function ensureBrandIdByName(brandName) {
     const name = (brandName || '').trim();
     if (!name) return null;
@@ -1455,11 +1492,26 @@
     const password = body.password || '';
     if (!email || !password) return jsonResponse({ error: 'email and password required' }, 400, request);
 
-    const user = await dbGet('select id, email, password_hash, role from users where email = ?', email);
+    let user;
+    try {
+      user = await dbGet('select id, email, password_hash, role, suspended_until from users where email = ?', email);
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column') && msg.includes('suspended_until')) {
+        // sql/user_moderation_migration.sql not yet run — degrade to "never suspended".
+        user = await dbGet('select id, email, password_hash, role from users where email = ?', email);
+      } else {
+        throw e;
+      }
+    }
     if (!user) return jsonResponse({ error: 'Invalid credentials' }, 401, request);
 
     const ok = await verifyPassword(password, user.password_hash);
     if (!ok) return jsonResponse({ error: 'Invalid credentials' }, 401, request);
+
+    if (user.suspended_until && new Date(user.suspended_until).getTime() > Date.now()) {
+      return jsonResponse({ error: `This account is temporarily suspended until ${user.suspended_until}.` }, 403, request);
+    }
 
     const token = await createSession(user.id);
     const brands = await dbAll(
@@ -2334,13 +2386,19 @@
   // ---------- Products APIs ----------
 
   async function apiAdminListUsers(request) {
-    const { sess, error } = await requireAdminSession(request);
+    const { error } = await requireAdminSession(request);
     if (error) return error;
     const url = new URL(request.url);
     const roleFilter = (url.searchParams.get('role') || '').trim().toLowerCase();
     let sql = `
-      select u.id, u.email, u.role, u.created_at,
-             group_concat(b.name, ', ') as brands
+      select u.id, u.email, u.role, u.suspended_until, u.created_at,
+             group_concat(b.name, ', ') as brands,
+             (select count(*) from targets t where t.user_id = u.id) as target_count,
+             (select count(*) from products p
+                where p.brand_id in (select brand_id from brand_users where user_id = u.id)) as product_count,
+             (select count(*) from orders o where o.user_id = u.id) as order_count,
+             (select count(*) from brand_designs d
+                where d.brand_id in (select brand_id from brand_users where user_id = u.id)) as pending_design_count
       from users u
       left join brand_users bu on bu.user_id = u.id
       left join brands b on b.id = bu.brand_id
@@ -2350,8 +2408,142 @@
     if (roleFilter) { where.push('u.role = ?'); params.push(roleFilter); }
     if (where.length) sql += ' where ' + where.join(' and ');
     sql += ' group by u.id order by u.created_at desc';
-    const rows = await dbAll(sql, ...params);
+
+    let rows;
+    try {
+      rows = await dbAll(sql, ...params);
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such table') && msg.includes('brand_designs')) {
+        // sql/brand_designs_migration.sql not yet run — degrade to no pending-design counts
+        // rather than fail account listing entirely.
+        const fallbackSql = sql.replace(/,\s*\(select count\(\*\) from brand_designs[\s\S]*?as pending_design_count/, '');
+        try {
+          rows = await dbAll(fallbackSql, ...params);
+        } catch (e2) {
+          const msg2 = String(e2 || '');
+          if (msg2.toLowerCase().includes('no such column') && msg2.includes('suspended_until')) {
+            rows = await dbAll(fallbackSql.replace('u.suspended_until, ', ''), ...params);
+            for (const r of rows || []) r.suspended_until = null;
+          } else {
+            throw e2;
+          }
+        }
+        for (const r of rows || []) r.pending_design_count = 0;
+      } else if (msg.toLowerCase().includes('no such column') && msg.includes('suspended_until')) {
+        // sql/user_moderation_migration.sql not yet run — degrade to "never suspended".
+        rows = await dbAll(sql.replace('u.suspended_until, ', ''), ...params);
+        for (const r of rows || []) r.suspended_until = null;
+      } else {
+        throw e;
+      }
+    }
     return jsonResponse({ items: rows || [] }, 200, request);
+  }
+
+  // ---------- Account moderation (admin only) ----------
+
+  // POST /api/admin/users/:id/role — change a user's role. Moving *into* 'brand' requires
+  // a brand name (creates the brand if it doesn't exist yet, same as
+  // apiAdminCreateBrandUser) and replaces any existing brand_users row for this user — one
+  // brand per user is the assumption the rest of the app already makes (sess.user.brands[0]).
+  // Moving *out of* 'brand' clears any brand_users row so no stale association lingers.
+  async function apiAdminChangeUserRole(request, userId) {
+    const { sess, error } = await requireAdminSession(request);
+    if (error) return error;
+    if (!userId) return jsonResponse({ error: 'user id required' }, 400, request);
+    if (userId === sess.user.id) return jsonResponse({ error: 'Cannot change your own role' }, 400, request);
+
+    const body = await readJson(request);
+    const role = String(body.role || '').trim().toLowerCase();
+    if (!['admin', 'brand', 'client'].includes(role)) {
+      return jsonResponse({ error: 'role must be admin, brand, or client' }, 400, request);
+    }
+
+    const target = await dbGet('select id, role from users where id = ?', userId);
+    if (!target) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    if (target.role === 'admin' && role !== 'admin') {
+      const adminCount = await dbGet(`select count(*) as c from users where role = 'admin'`);
+      if (adminCount && adminCount.c <= 1) {
+        return jsonResponse({ error: 'Cannot demote the last remaining admin' }, 400, request);
+      }
+    }
+
+    let brandInfo = null;
+    if (role === 'brand') {
+      const brandName = (body.brand || '').trim();
+      if (!brandName) return jsonResponse({ error: 'brand required when role is brand' }, 400, request);
+      const brandId = await ensureBrandIdByName(brandName);
+      await dbRun('delete from brand_users where user_id = ?', userId);
+      await dbRun('insert into brand_users (user_id, brand_id) values (?, ?)', userId, brandId);
+      brandInfo = { id: brandId, name: brandName };
+    } else {
+      await dbRun('delete from brand_users where user_id = ?', userId);
+    }
+
+    await dbRun('update users set role = ? where id = ?', role, userId);
+
+    return jsonResponse({ ok: true, user: { id: userId, role, brand: brandInfo } }, 200, request);
+  }
+
+  // POST /api/admin/users/:id/timeout — temporarily suspends login for a user.
+  // body.minutes > 0 sets suspended_until that far in the future and immediately kills
+  // every existing session for them; minutes <= 0 (or omitted) lifts an existing timeout.
+  async function apiAdminTimeoutUser(request, userId) {
+    const { sess, error } = await requireAdminSession(request);
+    if (error) return error;
+    if (!userId) return jsonResponse({ error: 'user id required' }, 400, request);
+    if (userId === sess.user.id) return jsonResponse({ error: 'Cannot time out your own account' }, 400, request);
+
+    const target = await dbGet('select id from users where id = ?', userId);
+    if (!target) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const body = await readJson(request);
+    const minutes = Number(body.minutes);
+    const suspendedUntil = Number.isFinite(minutes) && minutes > 0
+      ? new Date(Date.now() + minutes * 60_000).toISOString()
+      : null;
+
+    try {
+      await dbRun('update users set suspended_until = ? where id = ?', suspendedUntil, userId);
+    } catch (e) {
+      const msg = String(e || '');
+      if (msg.toLowerCase().includes('no such column') && msg.includes('suspended_until')) {
+        return jsonResponse({ error: 'DB migration required: run sql/user_moderation_migration.sql' }, 500, request);
+      }
+      throw e;
+    }
+
+    if (suspendedUntil) {
+      await dbRun('delete from sessions where user_id = ?', userId);
+    }
+
+    return jsonResponse({ ok: true, suspended_until: suspendedUntil }, 200, request);
+  }
+
+  // DELETE /api/admin/users/:id — permanently deletes an account. Sessions, brand_users,
+  // targets, and brand_designs all cascade via FK ON DELETE CASCADE; orders.user_id is set
+  // null instead (order history survives). Products stay with the brand, not the user, so
+  // a brand's catalog is unaffected by deleting one of its logins.
+  async function apiAdminDeleteUser(request, userId) {
+    const { sess, error } = await requireAdminSession(request);
+    if (error) return error;
+    if (!userId) return jsonResponse({ error: 'user id required' }, 400, request);
+    if (userId === sess.user.id) return jsonResponse({ error: 'Cannot delete your own account' }, 400, request);
+
+    const target = await dbGet('select id, role from users where id = ?', userId);
+    if (!target) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    if (target.role === 'admin') {
+      const adminCount = await dbGet(`select count(*) as c from users where role = 'admin'`);
+      if (adminCount && adminCount.c <= 1) {
+        return jsonResponse({ error: 'Cannot delete the last remaining admin' }, 400, request);
+      }
+    }
+
+    await dbRun('delete from users where id = ?', userId);
+    return jsonResponse({ ok: true }, 200, request);
   }
 
   async function apiListProducts(request) {
@@ -2563,7 +2755,7 @@
   }
 
   async function apiCreateProduct(request) {
-    const { sess, error } = await requirePrivilegedSession(request);
+    const { error } = await requireAdminSession(request);
     if (error) return error;
 
     const body = await readJson(request);
@@ -2608,25 +2800,14 @@
     let slug = normalizeSlug(body.slug || titleRaw);
     if (!slug) slug = 'draft-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
-    let brandId = null;
-    if (sess.user.role === 'admin') {
-      const brandName = (body.brand || '').trim();
-      if (brandName) brandId = await ensureBrandIdByName(brandName);
-    } else {
-      const brandIds = await getScopedBrandIds(sess);
-      if (!brandIds.length) return jsonResponse({ error: 'Brand account has no brand assigned' }, 400, request);
-      brandId = brandIds[0];
-    }
+    const brandName = (body.brand || '').trim();
+    let brandId = brandName ? await ensureBrandIdByName(brandName) : null;
 
     let targetId = body.ar_target_id != null && body.ar_target_id !== '' ? Number(body.ar_target_id) : null;
     if (targetId != null && !Number.isFinite(targetId)) return jsonResponse({ error: 'Invalid ar_target_id' }, 400, request);
     if (targetId != null) {
       const t = await dbGet('select id, brand_id from targets where id = ?', targetId);
       if (!t) return jsonResponse({ error: 'Target not found' }, 404, request);
-      if (sess.user.role === 'brand') {
-        const brandIds = (sess.user.brands || []).map(b => b.id);
-        if (!brandIds.includes(t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
-      }
     }
 
     try {
@@ -2741,17 +2922,12 @@
   }
 
   async function apiUpdateProduct(request, id) {
-    const { sess, error } = await requirePrivilegedSession(request);
+    const { error } = await requireAdminSession(request);
     if (error) return error;
     if (!id) return jsonResponse({ error: 'id required' }, 400, request);
 
     const existing = await dbGet('select id, brand_id from products where id = ?', id);
     if (!existing) return jsonResponse({ error: 'Not found' }, 404, request);
-
-    if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(existing.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
-    }
 
     const body = await readJson(request);
     const fields = [];
@@ -2799,10 +2975,6 @@
       if (targetId != null) {
         const t = await dbGet('select id, brand_id from targets where id = ?', targetId);
         if (!t) return jsonResponse({ error: 'Target not found' }, 404, request);
-        if (sess.user.role === 'brand') {
-          const brandIds = (sess.user.brands || []).map(b => b.id);
-          if (!brandIds.includes(t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
-        }
       }
       fields.push('ar_target_id = ?'); params.push(targetId);
     }
@@ -2973,16 +3145,12 @@
   }
 
   async function apiDeleteProduct(request, id) {
-    const { sess, error } = await requirePrivilegedSession(request);
+    const { error } = await requireAdminSession(request);
     if (error) return error;
     if (!id) return jsonResponse({ error: 'id required' }, 400, request);
 
-    const existing = await dbGet('select id, brand_id from products where id = ?', id);
+    const existing = await dbGet('select id from products where id = ?', id);
     if (!existing) return jsonResponse({ error: 'Not found' }, 404, request);
-    if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(existing.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
-    }
 
     await dbRun('delete from products where id = ?', id);
     return jsonResponse({ ok: true }, 200, request);
@@ -3341,6 +3509,106 @@
     return jsonResponse({ ok: true, deleteResults: results }, 200, request);
   }
 
+  // ---------- Brand Design Submissions ----------
+  // A brand sends a raw design image here — no product exists yet. Admin reviews the queue
+  // (GET as admin returns everyone's submissions), builds the real product around it
+  // (Printful link, price, AR marker compiled from the image, via the normal admin
+  // target/product flows) and assigns the finished product to the brand via products.brand_id.
+  // No status/product_id tracking column: admin just deletes the entry once it's been built.
+
+  async function apiListBrandDesigns(request) {
+    const sess = await getSessionUser(request);
+    if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    const role = sess.user.role;
+    if (!isPrivilegedRole(role)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+
+    const url = new URL(request.url);
+    const brandName = (url.searchParams.get('brand') || '').trim();
+
+    let sql = `
+      select d.id, d.name, d.note, d.image_url, d.created_at,
+             u.email as submitted_by, b.name as brand
+      from brand_designs d
+      left join users u on u.id = d.user_id
+      left join brands b on b.id = d.brand_id
+    `;
+    const where = [];
+    const params = [];
+
+    if (role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.length) return jsonResponse({ items: [] }, 200, request);
+      where.push(`d.brand_id in (${brandIds.map(() => '?').join(',')})`);
+      params.push(...brandIds);
+    }
+    if (brandName) { where.push('lower(b.name) = lower(?)'); params.push(brandName); }
+
+    if (where.length) sql += ' where ' + where.join(' and ');
+    sql += ' order by d.created_at desc';
+
+    const rows = await dbAll(sql, ...params);
+    const items = rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      note: r.note,
+      image_url: r.image_url,
+      created_at: r.created_at,
+      submitted_by: r.submitted_by || null,
+      brand: r.brand || null,
+    }));
+    return jsonResponse({ items }, 200, request);
+  }
+
+  async function apiCreateBrandDesign(request) {
+    const sess = await getSessionUser(request);
+    if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (sess.user.role !== 'brand') return jsonResponse({ error: 'Forbidden' }, 403, request);
+
+    const brands = sess.user.brands || [];
+    if (!brands.length) return jsonResponse({ error: 'Brand account has no brand assigned' }, 400, request);
+    const brandId = brands[0].id;
+
+    const body = await readJson(request);
+    const name = (body.name || '').trim() || null;
+    const note = (body.note || '').trim() || null;
+    const imageUrl = (body.image_url || '').trim();
+    if (!imageUrl) return jsonResponse({ error: 'image_url required' }, 400, request);
+
+    await dbRun(
+      'insert into brand_designs (brand_id, user_id, name, note, image_url) values (?, ?, ?, ?, ?)',
+      brandId, sess.user.id, name, note, imageUrl
+    );
+
+    const row = await dbGet(
+      'select id, name, note, image_url, created_at from brand_designs where rowid = last_insert_rowid()'
+    );
+    return jsonResponse({ ok: true, item: row }, 201, request);
+  }
+
+  async function apiDeleteBrandDesign(request, id) {
+    const sess = await getSessionUser(request);
+    if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (!id) return jsonResponse({ error: 'id required' }, 400, request);
+
+    const row = await dbGet('select id, brand_id, image_url from brand_designs where id = ?', id);
+    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    if (sess.user.role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.includes(row.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    } else if (sess.user.role !== 'admin') {
+      return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+
+    await dbRun('delete from brand_designs where id = ?', id);
+
+    if (row.image_url) {
+      try { await ASSETS_BUCKET.delete(keyFromPublicUrl(row.image_url)); } catch {}
+    }
+
+    return jsonResponse({ ok: true }, 200, request);
+  }
+
   // ---------- Viewer API ----------
 
   async function apiViewerActive(request) {
@@ -3471,7 +3739,7 @@
     if (itemIndex >= items.length) return jsonResponse({ error: 'Not found' }, 404, request);
 
     const slug = String((items[itemIndex] && items[itemIndex].slug) || '').trim();
-    const product = slug ? await dbGet('select ar_target_id from products where lower(slug) = lower(?)', slug) : null;
+    const product = slug ? await dbGet('select ar_target_id, brand_id from products where lower(slug) = lower(?)', slug) : null;
     const targetId = product && product.ar_target_id != null ? Number(product.ar_target_id) : null;
     if (targetId == null || !Number.isFinite(targetId)) {
       return jsonResponse({ error: 'No AR content for this item' }, 404, request);
@@ -3483,15 +3751,19 @@
     );
     if (!t) return jsonResponse({ error: 'No AR content for this item' }, 404, request);
 
+    // Personal per-order videos only apply to house (non-brand) products — a brand product's
+    // marker always plays the one shared video the brand uploaded, same as every other buyer.
     let personalVideoUrl = null;
-    try {
-      const v = await dbGet(
-        'select video_url from order_ar_videos where order_id = ? and item_index = ?',
-        orderId, itemIndex
-      );
-      if (v) personalVideoUrl = v.video_url;
-    } catch (e) {
-      if (!String(e || '').toLowerCase().includes('no such table')) throw e;
+    if (product.brand_id == null) {
+      try {
+        const v = await dbGet(
+          'select video_url from order_ar_videos where order_id = ? and item_index = ?',
+          orderId, itemIndex
+        );
+        if (v) personalVideoUrl = v.video_url;
+      } catch (e) {
+        if (!String(e || '').toLowerCase().includes('no such table')) throw e;
+      }
     }
 
     return withCache(
@@ -3893,9 +4165,12 @@
     if (itemIndex >= items.length) return jsonResponse({ error: 'Invalid item index' }, 400, request);
 
     const slug = String((items[itemIndex] && items[itemIndex].slug) || '').trim();
-    const product = slug ? await dbGet('select ar_target_id from products where lower(slug) = lower(?)', slug) : null;
+    const product = slug ? await dbGet('select ar_target_id, brand_id from products where lower(slug) = lower(?)', slug) : null;
     if (!product || product.ar_target_id == null) {
       return jsonResponse({ error: 'This item is not AR-enabled' }, 400, request);
+    }
+    if (product.brand_id != null) {
+      return jsonResponse({ error: "This item's AR video is provided by the brand and can't be personalized." }, 400, request);
     }
 
     const ip = getClientIP(request);
@@ -3967,6 +4242,70 @@
     return jsonResponse({ ok: true, video_url: videoUrl, viewer_url: viewerUrl }, 200, request);
   }
 
+  // POST /api/products/:id/video — lets a brand (or admin) upload/replace the AR video for a
+  // product assigned to their brand. The marker/target itself (compiled by admin from the
+  // brand's submitted design) is unchanged — this replaces the target's one shared video,
+  // which is what everyone scanning that product's QR/marker sees (unlike the per-order
+  // personal video in apiUploadOrderArVideo above).
+  async function apiUploadProductVideo(request, productId) {
+    if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
+
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (!isPrivilegedRole(sess.user.role)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+
+    const product = await dbGet('select id, brand_id, ar_target_id from products where id = ?', productId);
+    if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    if (sess.user.role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+    if (product.ar_target_id == null) {
+      return jsonResponse({ error: "Admin hasn't set up AR for this product yet" }, 400, request);
+    }
+
+    const target = await dbGet('select id, video_url from targets where id = ?', product.ar_target_id);
+    if (!target) return jsonResponse({ error: "Admin hasn't set up AR for this product yet" }, 400, request);
+
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('product-video-upload:' + ip, RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
+      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
+    }
+
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
+      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
+    }
+
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
+    if (file.size && file.size > UPLOAD_MAX_SIZE) {
+      return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
+    }
+    const contentType = (file.type || '').toLowerCase();
+    if (!contentType.startsWith('video/')) {
+      return jsonResponse({ error: 'Only video files are allowed' }, 415, request);
+    }
+
+    const rawName = (file.name || `${Date.now()}`).toString();
+    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+    const key = `product-videos/${productId}/${Date.now()}-${filename}`;
+
+    await ASSETS_BUCKET.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type || 'video/mp4' }
+    });
+    const videoUrl = buildPublicAssetUrl(request, key);
+
+    await dbRun('update targets set video_url = ? where id = ?', videoUrl, target.id);
+
+    if (target.video_url && target.video_url !== videoUrl) {
+      try { await ASSETS_BUCKET.delete(keyFromPublicUrl(target.video_url)); } catch {}
+    }
+
+    return jsonResponse({ ok: true, video_url: videoUrl }, 200, request);
+  }
+
   // GET /api/orders/mine — the logged-in customer's own order history, matched by the
   // account's own email (not user_id) — surfaces every order ever placed under that email,
   // including guest orders placed before the account existed, and reuses the exact lookup
@@ -4024,9 +4363,11 @@
     if (slugSet.size) {
       const slugs = Array.from(slugSet);
       const placeholders = slugs.map(() => '?').join(',');
-      const prows = await dbAll(`select slug, ar_target_id from products where lower(slug) in (${placeholders})`, ...slugs);
+      const prows = await dbAll(`select slug, ar_target_id, brand_id from products where lower(slug) in (${placeholders})`, ...slugs);
       for (const p of prows || []) {
-        if (p.ar_target_id != null) arTargetBySlug[String(p.slug).toLowerCase()] = p.ar_target_id;
+        if (p.ar_target_id != null) {
+          arTargetBySlug[String(p.slug).toLowerCase()] = { arTargetId: p.ar_target_id, brandId: p.brand_id };
+        }
       }
     }
     let videoByOrderItem = {};
@@ -4046,11 +4387,13 @@
     const items = parsedRows.map(({ row: r, orderItems }) => {
       const mappedItems = orderItems.map((it, idx) => {
         const slug = it && it.slug ? String(it.slug) : null;
-        const arTargetId = slug ? arTargetBySlug[slug.toLowerCase()] : undefined;
+        const arInfo = slug ? arTargetBySlug[slug.toLowerCase()] : undefined;
+        // Personal per-order video/QR is only offered for house (non-brand) products — a
+        // brand product's marker always plays the one shared video the brand uploaded.
         return {
           name: it.name, qty: it.qty, price_cents: it.price_cents, image_url: it.image_url || null,
           slug, item_index: idx,
-          ar_eligible: arTargetId != null,
+          ar_eligible: !!arInfo && arInfo.brandId == null,
           ar_video_url: videoByOrderItem[`${r.id}|${idx}`] || null,
         };
       });
@@ -4386,7 +4729,7 @@
   // product against a real Printful catalog product and store it. No Printful write call at
   // all: v2 catalog products are read-only references, so there's nothing to "push".
   async function apiPrintfulLinkProduct(request, productId) {
-    const { sess, error } = await requirePrivilegedSession(request);
+    const { error } = await requireAdminSession(request);
     if (error) return error;
     if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
 
@@ -4397,10 +4740,6 @@
 
     const product = await dbGet('select id, brand_id, title, sizes, color from products where id = ?', productId);
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
-    if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
-    }
 
     const body = await readJson(request);
     const catalogProductId = Number(body.catalog_product_id);
@@ -4548,7 +4887,7 @@
   // Printful's own already-rendered preview images into the product's storefront gallery
   // — nothing else in this dashboard needs to touch a design for a product linked this way.
   async function apiPrintfulLinkSyncProduct(request, productId) {
-    const { sess, error } = await requirePrivilegedSession(request);
+    const { error } = await requireAdminSession(request);
     if (error) return error;
     if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
 
@@ -4559,10 +4898,6 @@
 
     const product = await dbGet('select id, brand_id, title, sizes, color, price_cents, image_urls from products where id = ?', productId);
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
-    if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
-    }
 
     const body = await readJson(request);
     const syncProductId = Number(body.sync_product_id);
@@ -4676,7 +5011,7 @@
   // catalog_variant_ids the mockup task needs. Fire-and-poll: this only starts the task,
   // see apiPrintfulGetMockupTask for the result.
   async function apiPrintfulCreateMockup(request, productId) {
-    const { sess, error } = await requirePrivilegedSession(request);
+    const { error } = await requireAdminSession(request);
     if (error) return error;
     if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
 
@@ -4698,10 +5033,6 @@
       }
     }
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
-    if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
-    }
     if (!product.printful_catalog_product_id) {
       return jsonResponse({ error: 'Link this product to a Printful catalog garment first' }, 400, request);
     }

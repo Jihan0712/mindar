@@ -1506,7 +1506,9 @@
 
   (async function main() {
     clearStatus();
-    const user = await auth.requireRole(['admin', 'brand'], { redirectTo: '/ecommerce/login.html', next: location.pathname + location.search });
+    // Product Dashboard is admin-only now — brand accounts manage their own design
+    // submissions and video uploads entirely through brand.html instead.
+    const user = await auth.requireRole(['admin'], { redirectTo: '/ecommerce/login.html', next: location.pathname + location.search });
     if (!user) return;
     el('userEmail').textContent = user.email || '';
     el('userRole').textContent = user.role || '';

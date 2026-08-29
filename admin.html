@@ -287,23 +287,63 @@
       </div>
     </div>
 
-    <!-- Brand accounts table -->
+    <!-- All accounts table -->
     <div class="inrl-card p-0 mb-4" id="accountsTableWrap">
-      <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom:3px solid #333;">
-        <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;">Brand Accounts</h5>
-        <button id="refreshAccountsBtn" class="btn btn-sm btn-inrl-outline">Refresh</button>
+      <div class="d-flex justify-content-between align-items-center p-3 flex-wrap gap-2" style="border-bottom:3px solid #333;">
+        <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;">All Accounts</h5>
+        <div class="d-flex align-items-center gap-2">
+          <select id="accountsRoleFilter" class="form-select form-select-sm" style="width:auto;">
+            <option value="">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="brand">Brand</option>
+            <option value="client">Customer</option>
+          </select>
+          <button id="refreshAccountsBtn" class="btn btn-sm btn-inrl-outline">Refresh</button>
+        </div>
       </div>
       <div class="table-responsive">
         <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse;">
           <thead>
             <tr>
               <th class="px-4 py-2">Email</th>
+              <th class="px-4 py-2">Role</th>
               <th class="px-4 py-2">Brand(s)</th>
+              <th class="px-4 py-2 text-center">Targets</th>
+              <th class="px-4 py-2 text-center">Products</th>
+              <th class="px-4 py-2 text-center">Orders</th>
+              <th class="px-4 py-2">Status</th>
               <th class="px-4 py-2">Created</th>
+              <th class="px-4 py-2 text-center">Actions</th>
             </tr>
           </thead>
           <tbody id="accountsTbody">
-            <tr><td colspan="3" class="px-4 py-3 text-secondary small">Loading…</td></tr>
+            <tr><td colspan="9" class="px-4 py-3 text-secondary small">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Brand design submissions queue -->
+    <div class="inrl-card p-0 mb-4" id="brandDesignsWrap">
+      <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom:3px solid #333;">
+        <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#FEFD00;">Brand Design Submissions</h5>
+        <button id="refreshDesignsBtn" class="btn btn-sm btn-inrl-outline">Refresh</button>
+      </div>
+      <p class="text-secondary small px-3 pt-3 mb-0">Raw designs brands have sent in. Build the real product (Upload AR Target above + Product Dashboard) using the image below, assign it to the brand, then dismiss the entry.</p>
+      <div class="table-responsive">
+        <table class="table table-dark mb-0 inrl-table" style="border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th class="p-3">Image</th>
+              <th class="p-3">Brand</th>
+              <th class="p-3">Name / Note</th>
+              <th class="p-3">Submitted By</th>
+              <th class="p-3">Date</th>
+              <th class="p-3 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="brandDesignsTbody">
+            <tr><td colspan="6" class="px-4 py-3 text-secondary small">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -319,7 +359,9 @@
     <!-- Worker Auth Guard & Logout -->
     <script>
       (async () => {
-        const user = await auth.requireRole(['admin', 'brand']);
+        // Admin-only now — brand accounts manage their own design submissions and video
+        // uploads entirely through brand.html instead (no target/marker access here).
+        const user = await auth.requireRole(['admin']);
         if (!user) return; // redirected
         const emailEl = document.getElementById('userEmail');
         if (emailEl) emailEl.textContent = user.email || '';
@@ -835,6 +877,8 @@
 
       refreshAdminStatsBtn?.addEventListener('click', () => loadAdminDashboard());
       document.getElementById('refreshAccountsBtn')?.addEventListener('click', () => loadAccountsList());
+      document.getElementById('accountsRoleFilter')?.addEventListener('change', () => loadAccountsList());
+      document.getElementById('refreshDesignsBtn')?.addEventListener('click', () => loadBrandDesigns());
 
       async function loadAdminDashboard() {
         if (adminStatsStatus) adminStatsStatus.textContent = 'Loading...';
@@ -864,35 +908,118 @@
         } catch (e) {
           if (adminStatsStatus) adminStatsStatus.textContent = '❌ Failed to load stats: ' + (e?.message || e);
         }
-        // Also refresh accounts list whenever dashboard reloads
+        // Also refresh accounts list and pending design queue whenever dashboard reloads
         loadAccountsList();
+        loadBrandDesigns();
+      }
+
+      function escAccountField(s) {
+        return (s || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+      }
+
+      function roleOptionsHtml(currentRole) {
+        return ['admin', 'brand', 'client'].map(r => {
+          const label = r === 'client' ? 'Customer' : (r.charAt(0).toUpperCase() + r.slice(1));
+          return `<option value="${r}"${r === currentRole ? ' selected' : ''}>${label}</option>`;
+        }).join('');
       }
 
       async function loadAccountsList() {
         const tbody = document.getElementById('accountsTbody');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-3 text-secondary small">Loading…</td></tr>';
+        const roleFilter = document.getElementById('accountsRoleFilter')?.value || '';
+        tbody.innerHTML = '<tr><td colspan="9" class="px-4 py-3 text-secondary small">Loading…</td></tr>';
         try {
-          const res = await apiFetch('/admin/users?role=brand');
+          const qs = roleFilter ? `?role=${encodeURIComponent(roleFilter)}` : '';
+          const res = await apiFetch(`/admin/users${qs}`);
           const users = Array.isArray(res?.items) ? res.items : [];
           if (!users.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-3 text-secondary small">No brand accounts found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="px-4 py-3 text-secondary small">No accounts found.</td></tr>';
             return;
           }
           tbody.innerHTML = users.map(u => {
-            const email = (u.email || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-            const brands = (u.brands || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])) || '—';
+            const email = escAccountField(u.email);
+            const role = escAccountField(u.role);
+            const brands = escAccountField(u.brands) || '—';
             const date = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+            const targetCount = u.target_count != null ? String(u.target_count) : '—';
+            const productCount = u.product_count != null ? String(u.product_count) : '—';
+            const orderCount = u.order_count != null ? String(u.order_count) : '—';
+            const isSuspended = u.suspended_until && new Date(u.suspended_until).getTime() > Date.now();
+            const statusHtml = isSuspended
+              ? `<span style="color:#ff4d4f;font-size:.65rem;font-weight:700;text-transform:uppercase;">Suspended until ${new Date(u.suspended_until).toLocaleString()}</span>`
+              : '<span style="color:#00ED0A;font-size:.65rem;font-weight:700;text-transform:uppercase;">Active</span>';
+            const roleSelectId = 'role-select-' + u.id;
             return `<tr>
               <td class="px-4 py-2 small" style="font-family:'Roboto Mono',monospace;">${email}</td>
+              <td class="px-4 py-2 small text-uppercase" style="color:#888;font-size:.68rem;">${role}</td>
               <td class="px-4 py-2 small">${brands}</td>
-              <td class="px-4 py-2 small text-secondary">${date} <button onclick="adminDeleteAccount('${u.id}')" class="btn btn-sm btn-danger-inrl ms-2" style="font-size:.65rem;padding:.1rem .4rem;">Delete</button></td>
+              <td class="px-4 py-2 small text-center">${targetCount}</td>
+              <td class="px-4 py-2 small text-center">${productCount}</td>
+              <td class="px-4 py-2 small text-center">${orderCount}</td>
+              <td class="px-4 py-2 small">${statusHtml}</td>
+              <td class="px-4 py-2 small text-secondary">${date}</td>
+              <td class="px-4 py-2 text-center" style="white-space:nowrap;">
+                <div class="d-flex align-items-center justify-content-center gap-1 flex-wrap">
+                  <select id="${roleSelectId}" class="form-select form-select-sm" style="width:auto;font-size:.65rem;padding:.15rem .35rem;">${roleOptionsHtml(u.role)}</select>
+                  <button onclick="adminChangeRole('${u.id}', document.getElementById('${roleSelectId}').value)" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.15rem .4rem;">Set</button>
+                  ${isSuspended
+                    ? `<button onclick="adminUntimeoutAccount('${u.id}')" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.15rem .4rem;">Un-suspend</button>`
+                    : `<button onclick="adminTimeoutAccount('${u.id}')" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.15rem .4rem;">Timeout</button>`
+                  }
+                  <button onclick="adminDeleteAccount('${u.id}')" class="btn btn-sm btn-danger-inrl" style="font-size:.62rem;padding:.15rem .4rem;">Delete</button>
+                </div>
+              </td>
             </tr>`;
           }).join('');
         } catch (e) {
-          tbody.innerHTML = `<tr><td colspan="3" class="px-4 py-3 small" style="color:#ff4d4f;">Failed to load accounts: ${e?.message || e}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-3 small" style="color:#ff4d4f;">Failed to load accounts: ${e?.message || e}</td></tr>`;
         }
       }
+
+      async function loadBrandDesigns() {
+        const tbody = document.getElementById('brandDesignsTbody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-secondary small">Loading…</td></tr>';
+        try {
+          const res = await apiFetch('/brand/designs');
+          const items = Array.isArray(res?.items) ? res.items : [];
+          if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-secondary small">No pending design submissions.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = items.map(d => {
+            const brand = escAccountField(d.brand) || '—';
+            const name = escAccountField(d.name) || '—';
+            const note = escAccountField(d.note);
+            const submittedBy = escAccountField(d.submitted_by) || '—';
+            const date = d.created_at ? new Date(d.created_at).toLocaleDateString() : '—';
+            const img = d.image_url
+              ? `<a href="${escAccountField(d.image_url)}" target="_blank" rel="noopener"><img src="${escAccountField(d.image_url)}" alt="" class="target-thumb"></a>`
+              : '<div class="target-thumb"></div>';
+            return `<tr>
+              <td class="p-3">${img}</td>
+              <td class="p-3 small">${brand}</td>
+              <td class="p-3 small">${name}${note ? `<div class="text-secondary" style="font-size:.68rem;margin-top:2px;">${note}</div>` : ''}</td>
+              <td class="p-3 small">${submittedBy}</td>
+              <td class="p-3 small text-secondary">${date}</td>
+              <td class="p-3 text-center"><button onclick="adminDismissDesign(${d.id})" class="btn btn-sm btn-inrl-outline" style="font-size:.65rem;padding:.2rem .5rem;">Dismiss</button></td>
+            </tr>`;
+          }).join('');
+        } catch (e) {
+          tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-3 small" style="color:#ff4d4f;">Failed to load design submissions: ${e?.message || e}</td></tr>`;
+        }
+      }
+
+      window.adminDismissDesign = async function(id) {
+        if (!confirm('Dismiss this design submission? Only do this once the product has been built and assigned.')) return;
+        try {
+          await apiFetch(`/brand/designs/${id}`, { method: 'DELETE' });
+          loadBrandDesigns();
+        } catch (e) {
+          alert('Failed to dismiss: ' + (e?.message || e));
+        }
+      };
 
       // ---- Image Modal Logic ----
 
@@ -1265,10 +1392,65 @@
           await apiFetch(`/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
           statusEl.textContent = '✅ Account deleted.';
           setTimeout(()=>{ statusEl.textContent=''; },5000);
-          loadTargets();
+          loadAccountsList();
         } catch (e) {
           console.error('Failed to delete account', e);
           statusEl.textContent = '❌ Failed to delete account: ' + (e.message || e);
+        }
+      };
+
+      window.adminChangeRole = async (userId, newRole) => {
+        try {
+          if (!userId || !newRole) return;
+          const body = { role: newRole };
+          if (newRole === 'brand') {
+            const brandName = prompt('Brand name to assign this account to:');
+            if (!brandName || !brandName.trim()) { statusEl.textContent = '⚠️ Role change cancelled — brand name required.'; setTimeout(()=>{statusEl.textContent='';},3000); return; }
+            body.brand = brandName.trim();
+          } else {
+            if (!confirm(`Change this account's role to "${newRole}"?`)) return;
+          }
+          statusEl.textContent = '⏳ Updating role...';
+          await apiFetch(`/admin/users/${encodeURIComponent(userId)}/role`, { method: 'POST', body });
+          statusEl.textContent = '✅ Role updated.';
+          setTimeout(()=>{ statusEl.textContent=''; },4000);
+          loadAccountsList();
+        } catch (e) {
+          console.error('Failed to change role', e);
+          statusEl.textContent = '❌ Failed to change role: ' + (e.message || e);
+        }
+      };
+
+      window.adminTimeoutAccount = async (userId) => {
+        try {
+          if (!userId) return;
+          const minutesRaw = prompt('Suspend this account for how many minutes? (e.g. 60 for 1 hour, 1440 for 1 day)', '60');
+          if (minutesRaw == null) return;
+          const minutes = Number(minutesRaw);
+          if (!Number.isFinite(minutes) || minutes <= 0) { statusEl.textContent = '⚠️ Enter a positive number of minutes.'; setTimeout(()=>{statusEl.textContent='';},3000); return; }
+          statusEl.textContent = '⏳ Suspending account...';
+          await apiFetch(`/admin/users/${encodeURIComponent(userId)}/timeout`, { method: 'POST', body: { minutes } });
+          statusEl.textContent = '✅ Account suspended.';
+          setTimeout(()=>{ statusEl.textContent=''; },4000);
+          loadAccountsList();
+        } catch (e) {
+          console.error('Failed to suspend account', e);
+          statusEl.textContent = '❌ Failed to suspend account: ' + (e.message || e);
+        }
+      };
+
+      window.adminUntimeoutAccount = async (userId) => {
+        try {
+          if (!userId) return;
+          if (!confirm('Lift this account\'s suspension now?')) return;
+          statusEl.textContent = '⏳ Lifting suspension...';
+          await apiFetch(`/admin/users/${encodeURIComponent(userId)}/timeout`, { method: 'POST', body: { minutes: 0 } });
+          statusEl.textContent = '✅ Suspension lifted.';
+          setTimeout(()=>{ statusEl.textContent=''; },4000);
+          loadAccountsList();
+        } catch (e) {
+          console.error('Failed to lift suspension', e);
+          statusEl.textContent = '❌ Failed to lift suspension: ' + (e.message || e);
         }
       };
 

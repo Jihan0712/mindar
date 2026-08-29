@@ -6,11 +6,12 @@ PRAGMA foreign_keys = ON;
 -- ---------- Auth ----------
 
 CREATE TABLE IF NOT EXISTS users (
-  id            TEXT PRIMARY KEY,
-  email         TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  role          TEXT NOT NULL CHECK (role IN ('admin','brand','client')),
-  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  id               TEXT PRIMARY KEY,
+  email            TEXT NOT NULL UNIQUE,
+  password_hash    TEXT NOT NULL,
+  role             TEXT NOT NULL CHECK (role IN ('admin','brand','client')),
+  suspended_until  TEXT NULL,
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -138,3 +139,19 @@ CREATE TABLE IF NOT EXISTS order_ar_videos (
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   UNIQUE(order_id, item_index)
 );
+
+-- ---------- Brand Design Submissions ----------
+-- See sql/brand_designs_migration.sql for the full rationale.
+CREATE TABLE IF NOT EXISTS brand_designs (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  brand_id    INTEGER NOT NULL,
+  user_id     TEXT NOT NULL,
+  name        TEXT NULL,
+  note        TEXT NULL,
+  image_url   TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_brand_designs_brand ON brand_designs(brand_id, created_at);
