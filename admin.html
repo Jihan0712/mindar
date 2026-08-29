@@ -13,9 +13,9 @@
     /* Active tab state reuses Tailwind class name so existing JS works without changes */
     .bg-blue-600 { background-color:#00ED0A !important; color:#1C1C1C !important; border-color:#00ED0A !important; }
     .btn-inrl-outline.bg-blue-600 { background-color:#00ED0A !important; color:#1C1C1C !important; border-color:#00ED0A !important; }
-    .inrl-navbar { background:#111; border-bottom:3px solid #333; }
     .inrl-brand { font-family:'Averia Serif Libre',serif; font-size:1.4rem; font-weight:700; color:#00ED0A !important; text-decoration:none; letter-spacing:.05em; }
-    .inrl-card { background:#212121; border:3px solid #333; box-shadow:6px 6px 0 rgba(0,237,10,.15); border-radius:0; }
+    .inrl-card { background:#212121; border:3px solid #333; box-shadow:6px 6px 0 rgba(0,237,10,.12); border-radius:0; }
+    .inrl-card-header { background:#111 !important; border-bottom:3px solid #333 !important; padding:.85rem 1.25rem; text-transform:uppercase; font-size:.7rem; letter-spacing:.09em; color:#888; font-weight:700; }
     .btn-inrl { background:#00ED0A; border:3px solid #1C1C1C; color:#1C1C1C !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; letter-spacing:.05em; }
     .btn-inrl:hover, .btn-inrl:focus { background:#00c409; color:#1C1C1C !important; }
     .btn-inrl-outline { background:transparent; border:2px solid #00ED0A; color:#00ED0A !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
@@ -25,94 +25,177 @@
     .form-control, .form-select { background:#1C1C1C !important; border:2px solid #444 !important; color:#F5F5F0 !important; font-family:'Roboto Mono',monospace; border-radius:0; }
     .form-control:focus, .form-select:focus { background:#1C1C1C !important; border-color:#00ED0A !important; color:#F5F5F0 !important; box-shadow:0 0 0 2px rgba(0,237,10,.2) !important; }
     .form-control::placeholder { color:#555; }
-    .inrl-table th { background:#111 !important; border-bottom:3px solid #333 !important; color:#888 !important; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.75rem; letter-spacing:.08em; }
-    .inrl-table td { border-bottom:1px solid #2a2a2a !important; vertical-align:middle; color:#F5F5F0; }
+    .form-select { background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23888888' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important; background-repeat:no-repeat !important; background-position:right .75rem center !important; background-size:16px 12px !important; padding-right:2.25rem !important; }
+    .form-control[type=file] { padding:.3rem .5rem; }
+    .form-control[type=file]::file-selector-button { background:#111; color:#777; border:0; border-right:2px solid #444; font-family:'Roboto Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.3rem .7rem; margin-right:.75rem; cursor:pointer; border-radius:0; transition:color .15s; }
+    .form-control[type=file]:hover::file-selector-button, .form-control[type=file]:focus::file-selector-button { color:#00ED0A; }
+    .form-label { color:#999; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; margin-bottom:.35rem; }
+    .inrl-table th { background:#111 !important; border-bottom:3px solid #333 !important; color:#888 !important; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.65rem; letter-spacing:.09em; padding:.7rem .9rem !important; }
+    .inrl-table td { border-bottom:1px solid #2a2a2a !important; vertical-align:middle; color:#F5F5F0; font-size:.78rem; padding:.65rem .9rem !important; }
     .inrl-table tr:hover td { background:rgba(0,237,10,.04) !important; }
-    .stat-card { background:#212121; border:3px solid #333; padding:1.25rem; box-shadow:6px 6px 0 rgba(0,237,10,.1); text-align:center; }
-    .stat-number { font-size:1.8rem; font-weight:700; color:#00ED0A; font-family:'Roboto Mono',monospace; }
-    .stat-label { font-size:.65rem; text-transform:uppercase; letter-spacing:.1em; color:#888; margin-top:.25rem; }
     #imageModal { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:9999; display:flex; align-items:center; justify-content:center; }
     #imageModal.hidden { display:none; }
     .target-thumb { width:72px; height:72px; object-fit:contain; cursor:zoom-in; border:1px solid #333; background:#111; }
-    #status { min-height:1.2em; font-size:.875rem; color:#00ED0A; }
-    .inrl-heading { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.5rem; font-weight:700; border-left:4px solid #00ED0A; padding-left:.75rem; margin-bottom:1.25rem; }
+    #status { font-size:.78rem; padding:.55rem .9rem; border-radius:0; margin-bottom:.75rem; border-left:3px solid #444; color:#00ED0A; background:rgba(0,237,10,.05); }
+    #status:empty { display:none !important; }
+    .inrl-heading { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.3rem; font-weight:700; border-left:4px solid #00ED0A; padding-left:.75rem; margin-bottom:1.1rem; }
     .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; background:#00ED0A; color:#1C1C1C; font-weight:700; font-size:.75rem; flex-shrink:0; }
     .input-group .btn { border-radius:0; }
+    .input-group>.form-control:not(:first-child),.input-group>.form-select:not(:first-child),.input-group>.input-group-text:not(:first-child),.input-group>.btn:not(:first-child) { margin-left:-2px; }
     ::-webkit-scrollbar { width:6px; height:6px; }
     ::-webkit-scrollbar-track { background:#111; }
     ::-webkit-scrollbar-thumb { background:#333; }
+    .table-responsive::-webkit-scrollbar { height:4px; }
+    .table-responsive::-webkit-scrollbar-track { background:#1a1a1a; }
+    .table-responsive::-webkit-scrollbar-thumb { background:#444; }
+
+    /* ---- Sidebar shell (same design language as the Product Dashboard) ---- */
+    .inrl-dash-shell { display:flex; align-items:stretch; min-height:100vh; }
+    .inrl-sidebar { flex:0 0 264px; width:264px; background:#111; border-right:3px solid #333; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .inrl-sidebar-header { padding:1.4rem 1.25rem 1.1rem; border-bottom:3px solid #333; }
+    .inrl-sidebar-header .inrl-brand { display:flex; align-items:center; gap:.55rem; margin-bottom:.55rem; }
+    .inrl-sidebar-header .inrl-brand-mark { flex:0 0 auto; width:32px; height:32px; background:#00ED0A; color:#1C1C1C; display:flex; align-items:center; justify-content:center; font-family:'Averia Serif Libre',serif; font-weight:700; font-size:1.15rem; }
+    .inrl-sidebar-header .inrl-brand-name { font-family:'Averia Serif Libre',serif; font-size:1.25rem; font-weight:700; color:#F5F5F0; letter-spacing:.02em; }
+    .inrl-sidebar-header .inrl-subtitle { font-size:.64rem; text-transform:uppercase; letter-spacing:.12em; color:#00ED0A; font-weight:700; }
+    .inrl-sidebar-nav { flex:1 1 auto; padding:1.1rem .8rem; gap:.3rem; }
+    .inrl-sidebar-nav .nav-link { display:flex; align-items:center; gap:.7rem; color:#999; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.7rem; letter-spacing:.06em; font-weight:700; border:none; border-radius:0; padding:.7rem .75rem; background:transparent; text-align:left; width:100%; transition:color .12s,background .12s; }
+    .inrl-sidebar-nav .nav-link .inrl-nav-icon { flex:0 0 auto; width:18px; height:18px; opacity:.75; transition:opacity .12s; }
+    .inrl-sidebar-nav .nav-link:hover { color:#F5F5F0; background:rgba(255,255,255,.05); }
+    .inrl-sidebar-nav .nav-link:hover .inrl-nav-icon { opacity:1; }
+    .inrl-sidebar-nav .nav-link.active,
+    .inrl-sidebar-nav .nav-link.bg-blue-600 { color:#1C1C1C !important; background:#00ED0A !important; box-shadow:3px 3px 0 rgba(0,237,10,.25); border-color:transparent !important; }
+    .inrl-sidebar-nav .nav-link.active .inrl-nav-icon,
+    .inrl-sidebar-nav .nav-link.bg-blue-600 .inrl-nav-icon { opacity:1; }
+    .inrl-sidebar-footer { border-top:3px solid #333; padding:1rem 1.25rem 1.25rem; }
+    .inrl-sidebar-footer .inrl-user-row { display:flex; align-items:center; gap:.6rem; margin-bottom:.9rem; }
+    .inrl-sidebar-footer .inrl-user-avatar { flex:0 0 auto; width:30px; height:30px; background:#212121; border:2px solid #333; color:#00ED0A; display:flex; align-items:center; justify-content:center; font-family:'Roboto Mono',monospace; font-weight:700; font-size:.72rem; text-transform:uppercase; }
+    .inrl-sidebar-footer .inrl-user-meta { min-width:0; }
+    .inrl-sidebar-footer .inrl-user-email { font-size:.66rem; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .inrl-sidebar-footer .inrl-user-role { font-size:.58rem; text-transform:uppercase; letter-spacing:.08em; color:#555; }
+    .inrl-sidebar-footer .inrl-quicklinks { display:flex; flex-direction:column; gap:.5rem; margin-bottom:.9rem; }
+    .inrl-sidebar-footer .inrl-quicklinks a { font-size:.65rem; text-transform:uppercase; letter-spacing:.06em; color:#777; text-decoration:none; transition:color .12s; }
+    .inrl-sidebar-footer .inrl-quicklinks a:hover { color:#00ED0A; }
+    .inrl-dash-main { flex:1 1 auto; min-width:0; padding:1.5rem 2rem 3rem; max-width:1400px; }
+    @media (max-width:991.98px) {
+      .inrl-dash-shell { flex-direction:column; }
+      .inrl-sidebar { position:static; width:100%; height:auto; flex-direction:row; align-items:center; flex-wrap:wrap; }
+      .inrl-sidebar-header { border-bottom:none; border-right:3px solid #333; padding:.65rem 1rem; }
+      .inrl-sidebar-header .inrl-brand { margin-bottom:.2rem; }
+      .inrl-sidebar-header .inrl-subtitle { display:none; }
+      .inrl-sidebar-nav { display:flex; flex-direction:row; overflow-x:auto; padding:.5rem; flex:1 1 auto; gap:.25rem; }
+      .inrl-sidebar-nav .nav-link { white-space:nowrap; width:auto; }
+      .inrl-sidebar-nav .nav-link.active,
+      .inrl-sidebar-nav .nav-link.bg-blue-600 { box-shadow:none; }
+      .inrl-sidebar-footer { border-top:none; border-left:3px solid #333; display:flex; align-items:center; gap:.75rem; padding:.6rem 1rem; flex:0 0 auto; }
+      .inrl-sidebar-footer .inrl-user-row { margin-bottom:0; }
+      .inrl-sidebar-footer .inrl-quicklinks { flex-direction:row; gap:.6rem; margin-bottom:0; }
+      .inrl-dash-main { padding:1.25rem 1rem 2.5rem; }
+    }
+
+    /* ---- Stat tiles (same shape as the Product Dashboard's overview metrics) ---- */
+    .dash-metrics-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:1rem; margin-bottom:1.5rem; }
+    @media (max-width:1300px) { .dash-metrics-grid { grid-template-columns:repeat(3,1fr); } }
+    @media (max-width:700px) { .dash-metrics-grid { grid-template-columns:repeat(2,1fr); } }
+    .dash-metric-card { padding:1.1rem 1.25rem; }
+    .dash-metric-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.09em; color:#888; font-weight:700; margin-bottom:.5rem; }
+    .dash-metric-value { font-family:'Averia Serif Libre',serif; font-size:1.9rem; font-weight:700; color:#00ED0A; line-height:1; }
   </style>
   <script src="assets/js/auth-worker.js?v=20260205"></script>
 </head>
 <body>
 
-<!-- ===== NAVBAR ===== -->
-<nav class="navbar navbar-expand-lg inrl-navbar px-3 py-2">
-  <a class="inrl-brand me-4" href="admin.html">INRL_AR</a>
-  <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navCollapseAdmin" aria-controls="navCollapseAdmin" aria-expanded="false">
-    <span style="color:#00ED0A;font-size:1.25rem;">☰</span>
-  </button>
-  <div class="collapse navbar-collapse" id="navCollapseAdmin">
-    <div class="d-flex flex-wrap gap-2 me-auto py-2 py-lg-0">
-      <button id="uploadTab" class="btn btn-sm btn-inrl-outline bg-blue-600">Upload Target</button>
-      <button id="listTab" class="btn btn-sm btn-inrl-outline">Existing Targets</button>
-      <button id="adminTab" class="btn btn-sm btn-inrl-outline hidden">Admin</button>
+<div class="inrl-dash-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="inrl-sidebar">
+    <div class="inrl-sidebar-header">
+      <a class="inrl-brand" href="/admin.html">
+        <span class="inrl-brand-mark">I</span>
+        <span class="inrl-brand-name">INRL</span>
+      </a>
+      <div class="inrl-subtitle">AR Admin Dashboard</div>
     </div>
-    <div class="d-flex flex-wrap align-items-center gap-2 py-2 py-lg-0">
-      <a href="/ecommerce/index.html" class="btn btn-sm btn-inrl-outline">Store</a>
-      <a id="storeDashboardLink" href="/ecommerce/dashboard.html" class="btn btn-sm btn-inrl-outline hidden">Product Dashboard</a>
-      <a href="/ecommerce/profile.html" class="btn btn-sm btn-inrl-outline">Profile</a>
-      <span id="userEmail" class="text-secondary small px-2"></span>
-      <button id="logoutBtn" class="btn btn-sm btn-danger-inrl">Logout</button>
-      <button id="logoutBtnSidebar" class="hidden" aria-hidden="true"></button>
+
+    <ul class="nav flex-column inrl-sidebar-nav">
+      <li class="nav-item">
+        <button id="uploadTab" class="nav-link bg-blue-600">
+          <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Upload Target
+        </button>
+      </li>
+      <li class="nav-item">
+        <button id="listTab" class="nav-link">
+          <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7l8 4 8-4Z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg>
+          Existing Targets
+        </button>
+      </li>
+      <li class="nav-item">
+        <button id="adminTab" class="nav-link">
+          <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Admin Dashboard
+        </button>
+      </li>
+    </ul>
+
+    <div class="inrl-sidebar-footer">
+      <div class="inrl-user-row">
+        <div class="inrl-user-avatar" id="userAvatar">&#8226;</div>
+        <div class="inrl-user-meta">
+          <div class="inrl-user-email" id="userEmail"></div>
+          <div class="inrl-user-role">Admin</div>
+        </div>
+      </div>
+      <div class="inrl-quicklinks">
+        <a href="/ecommerce/index.html">Store</a>
+        <a id="storeDashboardLink" href="/ecommerce/dashboard.html">Product Dashboard &#x2197;</a>
+        <a href="/ecommerce/profile.html">Profile</a>
+      </div>
+      <button id="logoutBtnSidebar" class="btn btn-sm btn-danger-inrl w-100">Logout</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="inrl-dash-main">
+
+  <!-- Status bar -->
+  <div id="status"></div>
+
+  <!-- ===== IMAGE MODAL ===== -->
+  <div id="imageModal" class="hidden">
+    <div class="inrl-card p-4" style="max-width:600px;width:90%;position:relative;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 id="imageModalTitle" class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;"></h5>
+        <div class="d-flex gap-2">
+          <button id="downloadImageBtn" class="btn btn-sm btn-inrl">Download</button>
+          <button id="closeImageModal" class="btn btn-sm btn-danger-inrl">✕ Close</button>
+        </div>
+      </div>
+      <div id="imageModalFooter">
+        <img id="imageModalImg" src="" alt="Target preview" style="width:100%;max-height:65vh;object-fit:contain;border:2px solid #333;background:#111;" />
+      </div>
+      <div id="imageModalMeta" class="text-secondary small mt-2"></div>
     </div>
   </div>
-</nav>
 
-<!-- Status bar -->
-<div class="container-fluid px-4 pt-3 pb-1">
-  <p id="status" class="mb-0"></p>
-</div>
-
-<!-- ===== IMAGE MODAL ===== -->
-<div id="imageModal" class="hidden">
-  <div class="inrl-card p-4" style="max-width:600px;width:90%;position:relative;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 id="imageModalTitle" class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;"></h5>
+  <!-- ===== QR CODE MODAL ===== -->
+  <div id="qrModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;">
+    <div class="inrl-card p-4" style="max-width:380px;width:90%;position:relative;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;font-size:1rem;">AR Viewer QR Code</h5>
+        <button id="closeQrModal" class="btn btn-sm btn-inrl-outline" style="padding:.2rem .6rem;">&#x2715;</button>
+      </div>
+      <div id="qrCanvasWrap" class="d-flex justify-content-center mb-3" style="background:#fff;padding:20px;"></div>
+      <div id="qrUrlDisplay" class="mb-3" style="word-break:break-all;font-family:'Roboto Mono',monospace;font-size:.7rem;color:#888;line-height:1.6;"></div>
       <div class="d-flex gap-2">
-        <button id="downloadImageBtn" class="btn btn-sm btn-inrl">Download</button>
-        <button id="closeImageModal" class="btn btn-sm btn-danger-inrl">✕ Close</button>
+        <button id="copyQrUrlBtn" class="btn btn-sm btn-inrl-outline" style="flex:1;">Copy URL</button>
+        <button id="downloadQrBtn" class="btn btn-sm btn-inrl" style="flex:1;">Download QR</button>
       </div>
     </div>
-    <div id="imageModalFooter">
-      <img id="imageModalImg" src="" alt="Target preview" style="width:100%;max-height:65vh;object-fit:contain;border:2px solid #333;background:#111;" />
-    </div>
-    <div id="imageModalMeta" class="text-secondary small mt-2"></div>
   </div>
-</div>
-
-<!-- ===== QR CODE MODAL ===== -->
-<div id="qrModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;">
-  <div class="inrl-card p-4" style="max-width:380px;width:90%;position:relative;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;font-size:1rem;">AR Viewer QR Code</h5>
-      <button id="closeQrModal" class="btn btn-sm btn-inrl-outline" style="padding:.2rem .6rem;">&#x2715;</button>
-    </div>
-    <div id="qrCanvasWrap" class="d-flex justify-content-center mb-3" style="background:#fff;padding:20px;"></div>
-    <div id="qrUrlDisplay" class="mb-3" style="word-break:break-all;font-family:'Roboto Mono',monospace;font-size:.7rem;color:#888;line-height:1.6;"></div>
-    <div class="d-flex gap-2">
-      <button id="copyQrUrlBtn" class="btn btn-sm btn-inrl-outline" style="flex:1;">Copy URL</button>
-      <button id="downloadQrBtn" class="btn btn-sm btn-inrl" style="flex:1;">Download QR</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== MAIN CONTENT ===== -->
-<div class="container-fluid px-4 pb-5" style="max-width:1400px;">
 
   <!-- UPLOAD SECTION -->
   <section id="uploadSection">
-    <h2 class="inrl-heading mt-4">Upload AR Target</h2>
+    <h2 class="inrl-heading">Upload AR Target</h2>
 
     <!-- Step 1 -->
     <div class="inrl-card p-4 mb-4">
@@ -163,7 +246,7 @@
 
   <!-- LIST SECTION -->
   <section id="listSection" class="hidden">
-    <h2 class="inrl-heading mt-4">Existing Targets</h2>
+    <h2 class="inrl-heading">Existing Targets</h2>
 
     <!-- Admin-only filters -->
     <div id="filtersBar" class="inrl-card p-3 mb-4 hidden">
@@ -223,27 +306,33 @@
 
   <!-- ADMIN SECTION -->
   <section id="adminSection" class="hidden">
-    <h2 class="inrl-heading mt-4">Admin Dashboard</h2>
+    <h2 class="inrl-heading">Admin Dashboard</h2>
 
     <!-- Stats -->
-    <div class="row g-3 mb-4">
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="stat-card"><div class="stat-number" id="statTotalTargets">—</div><div class="stat-label">Total Targets</div></div>
+    <div class="dash-metrics-grid">
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-label">Total Targets</div>
+        <div class="dash-metric-value" id="statTotalTargets">—</div>
       </div>
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="stat-card"><div class="stat-number" id="statActiveTargets">—</div><div class="stat-label">Active Targets</div></div>
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-label">Active Targets</div>
+        <div class="dash-metric-value" id="statActiveTargets">—</div>
       </div>
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="stat-card"><div class="stat-number" id="statBrandCount">—</div><div class="stat-label">Brand Accounts</div></div>
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-label">Brand Accounts</div>
+        <div class="dash-metric-value" id="statBrandCount">—</div>
       </div>
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="stat-card"><div class="stat-number" id="statTotalProducts">—</div><div class="stat-label">Total Products</div></div>
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-label">Total Products</div>
+        <div class="dash-metric-value" id="statTotalProducts">—</div>
       </div>
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="stat-card"><div class="stat-number" id="statPublishedProducts">—</div><div class="stat-label">Published</div></div>
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-label">Published</div>
+        <div class="dash-metric-value" id="statPublishedProducts">—</div>
       </div>
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="stat-card"><div class="stat-number" id="statProductCount">—</div><div class="stat-label">AR-Linked Products</div></div>
+      <div class="inrl-card dash-metric-card">
+        <div class="dash-metric-label">AR-Linked Products</div>
+        <div class="dash-metric-value" id="statProductCount">—</div>
       </div>
     </div>
     <p id="adminStatsStatus" class="text-secondary small mb-3"></p>
@@ -350,7 +439,8 @@
     </div>
   </section>
 
-</div><!-- /container -->
+  </main>
+</div><!-- /inrl-dash-shell -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
@@ -950,17 +1040,10 @@
               ? `<span style="color:#ff4d4f;font-size:.65rem;font-weight:700;text-transform:uppercase;">Suspended until ${new Date(u.suspended_until).toLocaleString()}</span>`
               : '<span style="color:#00ED0A;font-size:.65rem;font-weight:700;text-transform:uppercase;">Active</span>';
             const roleSelectId = 'role-select-' + u.id;
-            return `<tr>
-              <td class="px-4 py-2 small" style="font-family:'Roboto Mono',monospace;">${email}</td>
-              <td class="px-4 py-2 small text-uppercase" style="color:#888;font-size:.68rem;">${role}</td>
-              <td class="px-4 py-2 small">${brands}</td>
-              <td class="px-4 py-2 small text-center">${targetCount}</td>
-              <td class="px-4 py-2 small text-center">${productCount}</td>
-              <td class="px-4 py-2 small text-center">${orderCount}</td>
-              <td class="px-4 py-2 small">${statusHtml}</td>
-              <td class="px-4 py-2 small text-secondary">${date}</td>
-              <td class="px-4 py-2 text-center" style="white-space:nowrap;">
-                <div class="d-flex align-items-center justify-content-center gap-1 flex-wrap">
+            const isSelf = currentUser && String(currentUser.id) === String(u.id);
+            const actionsHtml = isSelf
+              ? '<span class="text-secondary small" style="font-style:italic;">This is you — moderate from another admin account</span>'
+              : `<div class="d-flex align-items-center justify-content-center gap-1 flex-wrap">
                   <select id="${roleSelectId}" class="form-select form-select-sm" style="width:auto;font-size:.65rem;padding:.15rem .35rem;">${roleOptionsHtml(u.role)}</select>
                   <button onclick="adminChangeRole('${u.id}', document.getElementById('${roleSelectId}').value)" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.15rem .4rem;">Set</button>
                   ${isSuspended
@@ -968,8 +1051,17 @@
                     : `<button onclick="adminTimeoutAccount('${u.id}')" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.15rem .4rem;">Timeout</button>`
                   }
                   <button onclick="adminDeleteAccount('${u.id}')" class="btn btn-sm btn-danger-inrl" style="font-size:.62rem;padding:.15rem .4rem;">Delete</button>
-                </div>
-              </td>
+                </div>`;
+            return `<tr>
+              <td class="px-4 py-2 small" style="font-family:'Roboto Mono',monospace;">${email}${isSelf ? ' <span class="text-secondary" style="font-size:.62rem;">(you)</span>' : ''}</td>
+              <td class="px-4 py-2 small text-uppercase" style="color:#888;font-size:.68rem;">${role}</td>
+              <td class="px-4 py-2 small">${brands}</td>
+              <td class="px-4 py-2 small text-center">${targetCount}</td>
+              <td class="px-4 py-2 small text-center">${productCount}</td>
+              <td class="px-4 py-2 small text-center">${orderCount}</td>
+              <td class="px-4 py-2 small">${statusHtml}</td>
+              <td class="px-4 py-2 small text-secondary">${date}</td>
+              <td class="px-4 py-2 text-center" style="white-space:nowrap;">${actionsHtml}</td>
             </tr>`;
           }).join('');
         } catch (e) {
@@ -1396,6 +1488,7 @@
         } catch (e) {
           console.error('Failed to delete account', e);
           statusEl.textContent = '❌ Failed to delete account: ' + (e.message || e);
+          alert('❌ Failed to delete account: ' + (e.message || e));
         }
       };
 
@@ -1418,6 +1511,7 @@
         } catch (e) {
           console.error('Failed to change role', e);
           statusEl.textContent = '❌ Failed to change role: ' + (e.message || e);
+          alert('❌ Failed to change role: ' + (e.message || e));
         }
       };
 
@@ -1436,6 +1530,7 @@
         } catch (e) {
           console.error('Failed to suspend account', e);
           statusEl.textContent = '❌ Failed to suspend account: ' + (e.message || e);
+          alert('❌ Failed to suspend account: ' + (e.message || e));
         }
       };
 
@@ -1451,6 +1546,7 @@
         } catch (e) {
           console.error('Failed to lift suspension', e);
           statusEl.textContent = '❌ Failed to lift suspension: ' + (e.message || e);
+          alert('❌ Failed to lift suspension: ' + (e.message || e));
         }
       };
 
