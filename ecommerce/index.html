@@ -15,7 +15,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <style>
     .hero-home{padding:112px 0 64px;background:var(--dark-900);color:var(--paper-100);overflow:hidden;position:relative;min-height:640px;display:flex;align-items:center}
-    .hero-home .hero-media{position:absolute;inset:0;z-index:0}
+    /* Overrides global.css's .slideshow rule (100vh, sized for the old full-screen hero) —
+       this hero is a fixed min-height band, not full-viewport, and Swiper needs an explicit,
+       measurable width/height on every layer down to .swiper-slide, not just inset:0, or it
+       can size itself off a stale/zero measurement depending on when its resize logic runs. */
+    #heroSlideshow{position:absolute;inset:0;width:100%;height:100%}
+    #heroSlideshow .swiper-wrapper, #heroSlideshow .swiper-slide{width:100%;height:100%}
+    .hero-home .hero-media{position:absolute;inset:0;width:100%;height:100%;z-index:0}
     .hero-home .hero-media img{width:100%;height:100%;object-fit:cover;display:block;opacity:.55}
     .hero-home .hero-media::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(11,15,16,.92) 0%,rgba(11,15,16,.55) 55%,rgba(11,15,16,.25) 100%)}
     .hero-home .hero-content{position:relative;z-index:1}
