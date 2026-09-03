@@ -94,34 +94,39 @@
         </a>
       </div>
 
-      <!-- mobile menu -->
-      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
-        <div class="offcanvas-header">
-          <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:22px" data-site-logo></a>
-          <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <div class="offcanvas-body">
-          <ul class="navbar-nav gap-1 mb-3">
-            <li class="nav-item"><a class="nav-link" data-page="shop" href="shop.html">Shop</a></li>
-            <li class="nav-item"><a class="nav-link" data-page="about" href="about.html">About</a></li>
-            <li class="nav-item"><a class="nav-link" data-page="contact" href="contact.html">Contact</a></li>
-          </ul>
-          <hr style="border-color:var(--line-200)">
-          <p class="eyebrow mb-2">Account</p>
-          <ul class="navbar-nav gap-1">
-            <li class="nav-item"><a class="nav-link" data-page="login" href="login.html" id="navLoginMobile">Login</a></li>
-            <li class="nav-item"><a class="nav-link" href="wardrobe.html">My wardrobe</a></li>
-            <li class="nav-item"><a class="nav-link" data-page="profile" href="profile.html">Profile</a></li>
-            <li class="nav-item"><a class="nav-link" href="wishlist.html">Wishlist</a></li>
-            <li class="nav-item"><a class="nav-link" href="order-tracking.html">Track your order</a></li>
-            <li class="nav-item"><a class="nav-link" id="navDashboardMobile" href="dashboard.html" style="display:none">Product dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" id="navArDashboardMobile" href="/admin.html" style="display:none">AR dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" id="navLogoutMobile" href="#" style="display:none">Log out</a></li>
-          </ul>
-        </div>
-      </div>
     </div>
   </nav>
+
+  <!-- MOBILE MENU — deliberately a sibling of <nav>, not nested inside it: Bootstrap
+       forces any .offcanvas nested inside .navbar-expand-lg to render as permanently
+       visible inline content at lg+ (its built-in "responsive offcanvas navbar" pattern),
+       which fought with this header's separate desktop-nav-row + independent mobile-menu
+       design and caused both to render at once. Moving it outside avoids that rule. -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+    <div class="offcanvas-header">
+      <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:22px" data-site-logo></a>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <ul class="navbar-nav gap-1 mb-3">
+        <li class="nav-item"><a class="nav-link" data-page="shop" href="shop.html">Shop</a></li>
+        <li class="nav-item"><a class="nav-link" data-page="about" href="about.html">About</a></li>
+        <li class="nav-item"><a class="nav-link" data-page="contact" href="contact.html">Contact</a></li>
+      </ul>
+      <hr style="border-color:var(--line-200)">
+      <p class="eyebrow mb-2">Account</p>
+      <ul class="navbar-nav gap-1">
+        <li class="nav-item"><a class="nav-link" data-page="login" href="login.html" id="navLoginMobile">Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="wardrobe.html">My wardrobe</a></li>
+        <li class="nav-item"><a class="nav-link" data-page="profile" href="profile.html">Profile</a></li>
+        <li class="nav-item"><a class="nav-link" href="wishlist.html">Wishlist</a></li>
+        <li class="nav-item"><a class="nav-link" href="order-tracking.html">Track your order</a></li>
+        <li class="nav-item"><a class="nav-link" id="navDashboardMobile" href="dashboard.html" style="display:none">Product dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" id="navArDashboardMobile" href="/admin.html" style="display:none">AR dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" id="navLogoutMobile" href="#" style="display:none">Log out</a></li>
+      </ul>
+    </div>
+  </div>
 
   <script>
     /* Mirror the desktop Account-dropdown auth state (set by include.js on
