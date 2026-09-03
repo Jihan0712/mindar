@@ -1,7 +1,7 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Product INRL</title>
+  <title>Product | INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
@@ -12,83 +12,55 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
 <style>
-  body{background:#1C1C1C;color:#F5F5F0}
-  .text-muted{color:rgba(245,245,240,.5)!important}
-  .nav-tabs{border-bottom-color:#333!important}
-  .nav-tabs .nav-link{color:rgba(245,245,240,.6);font-family:'Roboto Mono',monospace;text-transform:uppercase;font-size:13px;letter-spacing:.06em}
-  .nav-tabs .nav-link:hover{color:#F5F5F0;border-color:transparent}
-  .nav-tabs .nav-link.active{color:#1C1C1C;background:#00ED0A;border-color:#333 #333 transparent}
-  .form-control,.form-select{background:rgba(255,255,255,.05);border:2px solid #333;color:#F5F5F0;font-family:'Roboto Mono',monospace}
-  .form-control:focus,.form-select:focus{border-color:#00ED0A;box-shadow:none;background:rgba(255,255,255,.08);color:#F5F5F0}
-  .form-select option{background:#1C1C1C;color:#F5F5F0}
-  .btn-primary{background:#00ED0A;border-color:#00ED0A;color:#1C1C1C;font-family:'Roboto Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-  .btn-primary:hover{background:#00cc09;border-color:#00cc09;color:#1C1C1C}
-  .btn-outline-dark{border-color:#333;color:#F5F5F0;font-family:'Roboto Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:13px}
-  .btn-outline-dark:hover{background:#333;color:#00ED0A}
-  .product-title{font-family:'Roboto Mono',monospace;color:#F5F5F0}
-  .product-price .fs-2{color:#00ED0A}
-  #footer{background:#111;color:rgba(245,245,240,.5)}
-  #footer a{color:rgba(245,245,240,.5);text-decoration:none}
-  #footer a:hover{color:#00ED0A}
-  #footer h5{color:#F5F5F0}
-  #footer .border-top{border-color:#333!important}
-  /* Standardized gallery images */
-  .product-main-image{border:3px solid #333;box-shadow:6px 6px 0 rgba(0,237,10,.15);overflow:hidden;aspect-ratio:1/1;background:#111}
+  body{background:var(--surface-0);color:var(--ink-700)}
+  .nav-tabs{border-bottom-color:var(--line-200)!important}
+  .nav-tabs .nav-link{color:var(--ink-500);font-family:var(--font-body);font-size:13px;border:none;border-bottom:2px solid transparent}
+  .nav-tabs .nav-link:hover{color:var(--ink-900);border-color:transparent}
+  .nav-tabs .nav-link.active{color:var(--ink-900);background:transparent;border-color:transparent transparent var(--ink-900)}
+  .product-title{font-family:var(--font-display);color:var(--ink-900);text-transform:uppercase;letter-spacing:-0.02em}
+  .product-price .fs-2{color:var(--ink-900);font-family:var(--font-display)}
+  /* Gallery */
+  .product-main-image{overflow:hidden;aspect-ratio:1/1;background:var(--surface-50)}
   .product-main-image img{width:100%;height:100%;object-fit:cover;display:block}
   .product-thumbs{margin-top:12px;display:flex;gap:10px;flex-wrap:nowrap;overflow-x:auto}
-  .product-thumbs::-webkit-scrollbar{height:4px}
-  .product-thumbs::-webkit-scrollbar-track{background:#222}
-  .product-thumbs::-webkit-scrollbar-thumb{background:#444}
-  .product-thumb-item{flex:0 0 90px;width:90px;height:90px;overflow:hidden;background:#111;border:2px solid #333;cursor:pointer;opacity:.5;transition:opacity .2s,border-color .2s}
-  .product-thumb-item.active,.product-thumb-item:hover{opacity:1;border-color:#00ED0A}
+  .product-thumb-item{flex:0 0 78px;width:78px;height:78px;overflow:hidden;background:var(--surface-50);border:1px solid transparent;cursor:pointer;opacity:.6;transition:opacity .2s,border-color .2s}
+  .product-thumb-item.active,.product-thumb-item:hover{opacity:1;border-color:var(--ink-900)}
   .product-thumb-item img{width:100%;height:100%;object-fit:cover;display:block}
-  /* Related product cards  match shop style */
+  /* Related product cards */
   .related-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
   @media(max-width:991px){.related-grid{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:575px){.related-grid{grid-template-columns:1fr}}
-  .rel-card{border:3px solid #333;overflow:hidden;box-shadow:6px 6px 0 rgba(0,237,10,.15);transition:transform .15s,box-shadow .15s}
-  .rel-card:hover{transform:translate(-3px,-3px);box-shadow:9px 9px 0 #00ED0A}
-  .rel-card-title{background:#1C1C1C;border-bottom:3px solid #333;padding:14px 18px;font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#F5F5F0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .rel-card-image{display:block;aspect-ratio:1/1;overflow:hidden;background:#111}
+  .rel-card-image{display:block;aspect-ratio:3/4;overflow:hidden;background:var(--surface-50)}
   .rel-card-image img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}
-  .rel-card:hover .rel-card-image img{transform:scale(1.05)}
-  .rel-card-footer{display:grid;grid-template-columns:1fr 1fr;border-top:3px solid #333}
-  .rel-card-price{background:#00ED0A;padding:12px 16px;font-family:'Roboto Mono',monospace;font-size:15px;font-weight:700;color:#1C1C1C;display:flex;align-items:center}
-  .rel-card-link{background:#1C1C1C;padding:12px 16px;font-family:'Roboto Mono',monospace;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#F5F5F0;text-decoration:none;display:flex;align-items:center;justify-content:center;border-left:3px solid #333;transition:background .15s,color .15s}
-  .rel-card-link:hover{background:#222;color:#00ED0A}
+  .rel-card:hover .rel-card-image img{transform:scale(1.03)}
+  .rel-card-title{font-family:var(--font-body);font-size:14px;color:var(--ink-900);margin-top:12px}
+  .rel-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+  .rel-card-price{font-size:14px;color:var(--ink-900)}
+  .rel-card-link{font-size:.72rem;color:var(--accent-700);text-decoration:none}
   /* Quantity counter */
-  .qty-control{display:inline-flex;align-items:stretch;border:3px solid #333;height:48px}
-  .qty-control button{background:#1C1C1C;border:none;color:rgba(245,245,240,.6);width:48px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;flex-shrink:0;outline:none}
-  .qty-control button:hover{color:#00ED0A;background:#222}
-  .qty-control button:active{background:#2a2a2a}
-  #qty-minus{border-right:3px solid #333}
-  #qty-plus{border-left:3px solid #333}
-  #quantity{background:#1C1C1C;border:none;color:#F5F5F0;width:64px;text-align:center;font-family:'Roboto Mono',monospace;font-size:16px;font-weight:700;-moz-appearance:textfield;appearance:textfield;padding:0}
-  #quantity:focus{outline:none;background:#222}
+  .qty-control{display:inline-flex;align-items:stretch;border:1px solid var(--line-200);border-radius:999px;height:44px;overflow:hidden}
+  .qty-control button{background:var(--surface-0);border:none;color:var(--ink-700);width:40px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0;outline:none}
+  .qty-control button:hover{background:var(--surface-50)}
+  #quantity{background:var(--surface-0);border:none;color:var(--ink-900);width:48px;text-align:center;font-family:var(--font-body);font-size:15px;-moz-appearance:textfield;appearance:textfield;padding:0}
   #quantity::-webkit-outer-spin-button,#quantity::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   #cart-toast{position:fixed;bottom:28px;right:28px;z-index:9999;pointer-events:none;opacity:0;transform:translateY(10px);transition:opacity .22s,transform .22s}
-  /* Pre-purchase AR preview — a "View in AR" link on mobile (where the shopper already has
-     a camera in hand), a QR code on desktop (where they'd need a phone to scan it). Only
-     one of the two is ever shown; #ar-preview itself stays hidden unless a script decides
-     the product actually has AR content. */
+  /* Pre-purchase AR preview: "View in AR" link on mobile, QR on desktop */
   .ar-mobile-cta{display:none}
-  .ar-desktop-qr{display:none;padding:14px 16px;border:2px solid #333;text-align:center}
+  .ar-desktop-qr{display:none;align-items:center;gap:12px}
   @media(max-width:767.98px){ .ar-mobile-cta{display:block} }
-  @media(min-width:768px){ .ar-desktop-qr{display:block} }
+  @media(min-width:768px){ .ar-desktop-qr{display:flex} }
+  .size-swatch{border:1px solid var(--line-200);border-radius:999px;padding:.4rem 1rem;cursor:pointer;font-size:13px;color:var(--ink-700);background:var(--surface-0);transition:all .15s}
+  .size-swatch.active{background:var(--ink-900);color:var(--surface-0);border-color:var(--ink-900)}
+  .tag-item{font-size:11px;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--line-200);border-radius:999px;padding:.3rem .8rem;color:var(--ink-700)}
 </style>
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
     <symbol id="heart" viewBox="0 0 24 24"><path fill="currentColor" d="M20.16 4.61A6.27 6.27 0 0 0 12 4a6.27 6.27 0 0 0-8.16 9.48l7.45 7.45a1 1 0 0 0 1.42 0l7.45-7.45a6.27 6.27 0 0 0 0-8.87Zm-1.41 7.46L12 18.81l-6.75-6.74a4.28 4.28 0 0 1 3-7.3a4.25 4.25 0 0 1 3 1.25a1 1 0 0 0 1.42 0a4.27 4.27 0 0 1 6 6.05Z"/></symbol>
-    <symbol id="cart" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 19a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 8.5 19ZM19 16H7a1 1 0 0 1 0-2h8.491a3.013 3.013 0 0 0 2.885-2.176l1.585-5.55A1 1 0 0 0 19 5H6.74a3.007 3.007 0 0 0-2.82-2H3a1 1 0 0 0 0 2h.921a1.005 1.005 0 0 1 .962.725l.155.545v.005l1.641 5.742A3 3 0 0 0 7 18h12a1 1 0 0 0 0-2Zm-1.326-9l-1.22 4.274a1.005 1.005 0 0 1-.963.726H8.754l-.255-.892L7.326 7ZM16.5 19a1.5 1.5 0 1 0 1.5 1.5a1.5 1.5 0 0 0-1.5-1.5Z"/></symbol>
     <symbol id="star-outline" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.5 9.804L5.337 11l.413-2.533L4 6.674l2.418-.37L7.5 4l1.082 2.304l2.418.37l-1.75 1.793L9.663 11L7.5 9.804Z"/></symbol>
     <symbol id="star-solid" viewBox="0 0 15 15"><path fill="currentColor" d="M7.953 3.788a.5.5 0 0 0-.906 0L6.08 5.85l-2.154.33a.5.5 0 0 0-.283.843l1.574 1.613l-.373 2.284a.5.5 0 0 0 .736.518l1.92-1.063l1.921 1.063a.5.5 0 0 0 .736-.519l-.373-2.283l1.574-1.613a.5.5 0 0 0-.283-.844L8.921 5.85l-.968-2.062Z"/></symbol>
-    <symbol id="angle-left" viewBox="0 0 24 24"><path fill="currentColor" d="m11.29 12l3.54-3.54a1 1 0 0 0 0-1.41a1 1 0 0 0-1.42 0l-4.24 4.24a1 1 0 0 0 0 1.42L13.41 17a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29a1 1 0 0 0 0-1.41Z"/></symbol>
-    <symbol id="angle-right" viewBox="0 0 24 24"><path fill="currentColor" d="m14.83 11.29l-4.24-4.24a1 1 0 0 0-1.42 0a1 1 0 0 0 0 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29l4.24-4.24a1 1 0 0 0 0-1.42Z"/></symbol>
-    <symbol id="plus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11H13V5a1 1 0 0 0-2 0v6H5a1 1 0 0 0 0 2h6v6a1 1 0 0 0 2 0V13h6a1 1 0 0 0 0-2Z"/></symbol>
-    <symbol id="minus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11H5a1 1 0 0 0 0 2h14a1 1 0 0 0 0-2Z"/></symbol>
+    <symbol id="arrow-right" viewBox="0 0 24 24"><path fill="currentColor" d="M17.92 11.62a1 1 0 0 0-.21-.33l-5-5a1 1 0 0 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1 1 0 0 0 0 1.42a1 1 0 0 0 1.42 0l5-5a1 1 0 0 0 .21-.33a1 1 0 0 0 0-.76Z"/></symbol>
   </defs></svg>
 
   <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
@@ -96,8 +68,9 @@
   <div id="site-header" data-page="product"></div>
 
   <!-- Product Detail -->
-  <section id="product-detail" class="py-5" style="margin-top:76px">
+  <section id="product-detail" style="padding:132px 0 60px">
     <div class="container">
+      <nav class="mb-4"><ol class="breadcrumb mb-0"><li class="breadcrumb-item"><a href="index.html" style="color:var(--ink-500)">Home</a></li><li class="breadcrumb-item"><a href="shop.html" style="color:var(--ink-500)">Shop</a></li><li class="breadcrumb-item active" id="breadcrumb-category" style="color:var(--ink-700)"></li></ol></nav>
       <div class="row g-5">
         <!-- Gallery -->
         <div class="col-lg-6">
@@ -109,39 +82,38 @@
         <!-- Info -->
         <div class="col-lg-6">
           <div class="product-info py-3">
-            <h2 class="product-title text-uppercase display-6">Loading</h2>
+            <h1 class="product-title mb-3" style="font-size:clamp(28px,3vw,40px)">Loading</h1>
             <div class="d-flex align-items-center gap-3 mb-3" id="product-rating">
-              <div class="rating-stars"></div>
-              <span id="product-rating-count" class="text-muted" style="font-size:13px"></span>
+              <div class="rating-stars" style="color:var(--accent-500)"></div>
+              <span id="product-rating-count" style="font-size:13px;color:var(--ink-500)"></span>
             </div>
             <div class="product-price mb-3">
-              <span class="fs-2 fw-bold"></span>
+              <span class="fs-2 fw-normal"></span>
             </div>
-            <div class="color-toggle d-flex gap-2 mb-3">
-              <div class="item-title"><span style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6">Category: </span><span></span></div>
-            </div>
+            <p id="desc-short" style="font-size:15px;color:var(--ink-700);line-height:1.6;max-width:420px"></p>
+            <div class="color-toggle d-none"><div class="item-title"><span></span><span></span></div></div>
             <div class="cate-tag d-flex gap-2 mb-3" style="flex-wrap:wrap"></div>
-            <div class="swatch option-1 d-flex gap-2 mb-3" style="flex-wrap:wrap"></div>
+            <div class="swatch option-1 d-flex align-items-center gap-2 mb-4" style="flex-wrap:wrap"></div>
             <div class="product-action d-flex align-items-center gap-3 mb-4">
-              <span style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:rgba(245,245,240,.45);font-family:'Roboto Mono',monospace">Qty</span>
+              <span class="eyebrow">Qty</span>
               <div class="qty-control">
                 <button type="button" id="qty-minus" aria-label="Decrease quantity">&minus;</button>
                 <input type="number" id="quantity" value="1" min="1" max="99" aria-label="Quantity">
                 <button type="button" id="qty-plus" aria-label="Increase quantity">&#43;</button>
               </div>
             </div>
-            <button type="button" id="add-to-cart" class="btn btn-primary btn-lg text-uppercase w-100 mb-3 product-cart-submit" disabled>Add to cart</button>
-            <div id="ar-preview" class="mb-3" style="display:none">
+            <div class="d-flex gap-3 mb-3">
+              <button type="button" id="add-to-cart" class="btn btn-primary btn-lg flex-fill product-cart-submit" disabled>Add to bag</button>
+              <a href="wishlist.html" class="btn btn-outline-dark btn-lg">Wishlist</a>
+            </div>
+            <div id="ar-preview" style="display:none">
               <div class="ar-mobile-cta">
-                <a href="#" id="ar-view-link" target="_blank" rel="noopener" class="btn btn-outline-dark text-uppercase w-100">View in AR</a>
+                <a href="#" id="ar-view-link" target="_blank" rel="noopener" class="d-inline-flex align-items-center gap-2" style="color:var(--accent-700);text-decoration:none;font-size:14px">See what it plays <svg width="14" height="14" viewBox="0 0 24 24"><use xlink:href="#arrow-right"></use></svg></a>
               </div>
               <div class="ar-desktop-qr">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:rgba(245,245,240,.5);margin-bottom:10px">Scan to view in AR</div>
-                <canvas id="ar-qr-canvas" width="140" height="140" style="background:#fff"></canvas>
+                <canvas id="ar-qr-canvas" width="72" height="72" style="background:#fff;flex-shrink:0"></canvas>
+                <div style="font-size:13px;color:var(--ink-700)">This piece carries a live layer.<br>Scan to see what it plays.</div>
               </div>
-            </div>
-            <div class="d-flex gap-3">
-              <a href="wishlist.html" class="btn btn-outline-dark text-uppercase flex-fill">Wishlist</a>
             </div>
           </div>
         </div>
@@ -149,10 +121,10 @@
     </div>
   </section>
 
-  <section class="py-5" style="border-top:3px solid #333">
+  <section style="padding:40px 0 80px;border-top:1px solid var(--line-200)">
     <div class="container">
       <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist" style="border-bottom:3px solid #333">
+        <div class="nav nav-tabs" id="nav-tab" role="tablist">
           <button class="nav-link active" id="nav-home-tab" data-bs-toggle="tab" data-bs-target="#nav-home" type="button" role="tab" aria-selected="true">Description</button>
           <button class="nav-link" id="nav-information-tab" data-bs-toggle="tab" data-bs-target="#nav-information" type="button" role="tab">Information</button>
           <button class="nav-link" id="nav-shipping-tab" data-bs-toggle="tab" data-bs-target="#nav-shipping" type="button" role="tab">Shipping</button>
@@ -160,27 +132,27 @@
         </div>
       </nav>
       <div class="tab-content py-4" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="nav-home" role="tabpanel"><p id="desc-body" class="text-muted">No description available.</p></div>
-        <div class="tab-pane fade" id="nav-information" role="tabpanel"><p class="text-muted">No additional information available.</p></div>
-        <div class="tab-pane fade" id="nav-shipping" role="tabpanel"><p class="text-muted">Free shipping on orders over $100. Standard delivery 3-5 business days.</p></div>
+        <div class="tab-pane fade show active" id="nav-home" role="tabpanel"><p id="desc-body" style="color:var(--ink-700);max-width:640px">No description available.</p></div>
+        <div class="tab-pane fade" id="nav-information" role="tabpanel"><p style="color:var(--ink-700)">No additional information available.</p></div>
+        <div class="tab-pane fade" id="nav-shipping" role="tabpanel"><p style="color:var(--ink-700)">Free shipping on orders over $100. Standard delivery 3-5 business days.</p></div>
         <div class="tab-pane fade" id="nav-review" role="tabpanel">
           <div class="row g-4">
             <div class="col-md-4">
-              <div style="border:3px solid #333;padding:24px;background:#FEFD00;box-shadow:4px 4px 0 rgba(0,237,10,.15)">
-                <div id="reviews-summary-stars" class="mb-2" style="font-size:24px;color:#1C1C1C"></div>
-                <p class="mb-0" style="font-size:14px"><span id="reviews-summary-average">0</span>/5 (<span id="reviews-summary-count">0</span> reviews)</p>
+              <div class="card border-0" style="background:var(--surface-50);padding:24px;border-radius:12px">
+                <div id="reviews-summary-stars" class="mb-2" style="font-size:20px;color:var(--accent-500)"></div>
+                <p class="mb-0" style="font-size:14px;color:var(--ink-700)"><span id="reviews-summary-average">0</span>/5 (<span id="reviews-summary-count">0</span> reviews)</p>
               </div>
             </div>
             <div class="col-md-8">
-              <div id="reviews-empty" class="text-muted mb-3">No reviews yet.</div>
+              <div id="reviews-empty" style="color:var(--ink-500)" class="mb-3">No reviews yet.</div>
               <div id="reviews-list" class="mb-4"></div>
-              <form id="review-form" style="border:3px solid #333;padding:24px;box-shadow:4px 4px 0 rgba(0,237,10,.15)">
-                <h5 class="text-uppercase mb-3">Write a Review</h5>
+              <form id="review-form" class="card border-0" style="background:var(--surface-50);padding:24px;border-radius:12px">
+                <h5 class="mb-3" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Write a review</h5>
                 <div class="mb-3"><label class="form-label">Rating</label><select id="review-rating" class="form-select" required><option value="">Choose</option><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select></div>
                 <div class="mb-3"><label class="form-label">Name</label><input type="text" id="review-author" class="form-control" required></div>
                 <div class="mb-3"><label class="form-label">Comment</label><textarea id="review-comment" class="form-control" rows="3" required></textarea></div>
-                <div id="review-form-status" class="text-muted mb-2" style="font-size:13px"></div>
-                <button type="submit" class="btn btn-primary text-uppercase">Submit Review</button>
+                <div id="review-form-status" class="mb-2" style="font-size:13px;color:var(--ink-500)"></div>
+                <button type="submit" class="btn btn-primary">Submit review</button>
               </form>
             </div>
           </div>
@@ -189,20 +161,20 @@
     </div>
   </section>
 
-  <section class="py-5" style="border-top:3px solid #333">
+  <section style="padding:0 0 100px">
     <div class="container">
-      <h3 class="text-uppercase mb-4" style="font-family:'Roboto Mono',monospace;letter-spacing:.06em">You May Also Like</h3>
+      <h3 class="mb-4" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:-0.02em;color:var(--ink-900);font-size:clamp(24px,3vw,32px)">You may also like</h3>
       <div id="related-products" class="related-grid"></div>
     </div>
   </section>
 
   <!-- Cart Toast -->
   <div id="cart-toast" role="status" aria-live="polite">
-    <div style="background:#212121;border:3px solid #00ED0A;box-shadow:6px 6px 0 rgba(0,237,10,.25);padding:14px 20px;display:flex;align-items:center;gap:14px;min-width:240px;max-width:320px">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ED0A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <div style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:12px;box-shadow:0 12px 32px rgba(11,15,16,.14);padding:14px 20px;display:flex;align-items:center;gap:14px;min-width:240px;max-width:320px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#12a2b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       <div>
-        <div style="font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#00ED0A">Added to cart</div>
-        <div id="cart-toast-name" style="font-size:13px;color:#F5F5F0;margin-top:3px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div style="font-family:var(--font-body);font-size:12px;font-weight:500;color:var(--ink-900)">Added to bag</div>
+        <div id="cart-toast-name" style="font-size:13px;color:var(--ink-500);margin-top:3px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       </div>
     </div>
   </div>
@@ -241,10 +213,11 @@
       var res=await fetch('/api/products/'+encodeURIComponent(slug),{credentials:'include'});
       if(!res.ok)throw new Error('API '+res.status);var data=await res.json();var p=data.product||data;
 
-      document.title=(p.title||'Product')+'  INRL';
+      document.title=(p.title||'Product')+' | INRL';
       document.querySelector('.product-title').textContent=p.title||'Product';
       document.querySelector('.product-price .fs-2').textContent=moneyFromCents(p.price_cents,p.currency);
-      var catSpan=document.querySelector('.color-toggle .item-title span:last-child');if(catSpan)catSpan.textContent=p.category||'';
+      var crumbEl=document.getElementById('breadcrumb-category');if(crumbEl)crumbEl.textContent=p.category||p.title||'';
+      var shortEl=document.getElementById('desc-short');if(shortEl)shortEl.textContent=(p.description||'').toString().split(/\n|\. /)[0]+(p.description?'.':'');
 
       // Gallery
       var images=[];
@@ -267,12 +240,12 @@
       // Sizes
       var sizes=(p.sizes||'').toString().split(',').map(function(s){return s.trim()}).filter(Boolean);
       var swatchWrap=document.querySelector('.swatch.option-1');
-      if(swatchWrap&&sizes.length){swatchWrap.innerHTML='<span style="font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.6;margin-right:8px">Size:</span>'+sizes.map(function(s,i){return '<label style="border:2px solid #333;padding:6px 14px;cursor:pointer;font-size:13px;text-transform:uppercase;background:'+(i===0?'#FEFD00':'transparent')+';color:'+(i===0?'#1C1C1C':'#F5F5F0')+'"><input type="radio" name="size" value="'+s+'" '+(i===0?'checked':'')+' style="display:none">'+s+'</label>'}).join('')}
-      if(swatchWrap){swatchWrap.addEventListener('click',function(e){var lbl=e.target.closest('label');if(!lbl)return;swatchWrap.querySelectorAll('label').forEach(function(l){l.style.background='transparent';l.style.color='#F5F5F0'});lbl.style.background='#FEFD00';lbl.style.color='#1C1C1C'})}
+      if(swatchWrap&&sizes.length){swatchWrap.innerHTML='<span class="eyebrow me-2">Size</span>'+sizes.map(function(s,i){return '<label class="size-swatch'+(i===0?' active':'')+'"><input type="radio" name="size" value="'+s+'" '+(i===0?'checked':'')+' style="display:none">'+s+'</label>'}).join('')}
+      if(swatchWrap){swatchWrap.addEventListener('click',function(e){var lbl=e.target.closest('label');if(!lbl)return;swatchWrap.querySelectorAll('label').forEach(function(l){l.classList.remove('active')});lbl.classList.add('active')})}
 
       // Tags
       var tagWrap=document.querySelector('.cate-tag');
-      if(tagWrap&&p.category){tagWrap.innerHTML='<span class="tag-item" style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;border:2px solid #333;padding:4px 12px;color:#F5F5F0">'+p.category+'</span>'}
+      if(tagWrap&&p.category){tagWrap.innerHTML='<span class="tag-item">'+p.category+'</span>'}
 
       // Description
       var descEl=document.getElementById('desc-body');if(descEl)descEl.textContent=p.description||'No description available.';
@@ -289,7 +262,7 @@
         if(arWrap)arWrap.style.display='';
         if(arLink)arLink.href=viewerUrl;
         if(arCanvas&&window.QRCode){
-          QRCode.toCanvas(arCanvas,viewerUrl,{width:140,margin:2,color:{dark:'#000000',light:'#ffffff'}},function(err){if(err)console.warn('AR QR render failed',err)});
+          QRCode.toCanvas(arCanvas,viewerUrl,{width:72,margin:1,color:{dark:'#0b0f10',light:'#ffffff'}},function(err){if(err)console.warn('AR QR render failed',err)});
         }
       }
 
@@ -333,7 +306,7 @@
       if(avgEl)avgEl.textContent=avg;if(countEl)countEl.textContent=reviews.length;if(starsEl)starsEl.innerHTML=renderStars(Math.round(avg));
       var ratingEl=document.getElementById('product-rating');
       if(ratingEl){var rs=ratingEl.querySelector('.rating-stars');if(rs)rs.innerHTML=renderStars(Math.round(avg));var rc=document.getElementById('product-rating-count');if(rc)rc.textContent='('+reviews.length+' reviews)'}
-      if(listEl)listEl.innerHTML=reviews.map(function(r){return '<div style="border:2px solid #333;padding:16px;margin-bottom:12px"><div class="d-flex justify-content-between align-items-center mb-2"><strong style="font-size:14px;text-transform:uppercase;color:#F5F5F0">'+((r.author||'Anonymous').replace(/</g,'&lt;'))+'</strong><span style="font-size:12px;opacity:.5">'+((r.created_at||'').toString().slice(0,10))+'</span></div><div class="mb-2">'+renderStars(r.rating||0)+'</div><p class="mb-0" style="font-size:14px">'+((r.comment||'').replace(/</g,'&lt;'))+'</p></div>'}).join('');
+      if(listEl)listEl.innerHTML=reviews.map(function(r){return '<div style="border-bottom:1px solid var(--line-200);padding:16px 0"><div class="d-flex justify-content-between align-items-center mb-2"><strong style="font-size:14px;color:var(--ink-900)">'+((r.author||'Anonymous').replace(/</g,'&lt;'))+'</strong><span style="font-size:12px;color:var(--ink-500)">'+((r.created_at||'').toString().slice(0,10))+'</span></div><div class="mb-2" style="color:var(--accent-500)">'+renderStars(r.rating||0)+'</div><p class="mb-0" style="font-size:14px;color:var(--ink-700)">'+((r.comment||'').replace(/</g,'&lt;'))+'</p></div>'}).join('');
     }catch(e){}
   }
 
@@ -360,7 +333,7 @@
       if(!related.length){wrap.closest('section').style.display='none';return}
       wrap.innerHTML=related.map(function(p){
         var img=escapeHtml(normImg((p.image_url||'images/product-thumb-1.jpg').toString()));var href=p.slug?'product.html?slug='+encodeURIComponent(p.slug):'product.html';var price=moneyFromCents(p.price_cents,p.currency);
-        return '<div class="rel-card"><div class="rel-card-title">'+escapeHtml(p.title||'Product')+'</div><a href="'+escapeHtml(href)+'" class="rel-card-image"><img src="'+img+'" alt="'+escapeHtml(p.title||'Product')+'"></a><div class="rel-card-footer"><div class="rel-card-price">'+escapeHtml(price)+'</div><a href="'+escapeHtml(href)+'" class="rel-card-link">VIEW ?</a></div></div>';
+        return '<div class="rel-card"><a href="'+escapeHtml(href)+'" class="rel-card-image"><img src="'+img+'" alt="'+escapeHtml(p.title||'Product')+'"></a><div class="rel-card-title">'+escapeHtml(p.title||'Product')+'</div><div class="rel-card-footer"><span class="rel-card-price">'+escapeHtml(price)+'</span><a href="'+escapeHtml(href)+'" class="rel-card-link">View</a></div></div>';
       }).join('');
     }catch(e){}
   }

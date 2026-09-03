@@ -1,42 +1,72 @@
   <!-- FOOTER -->
   <footer id="footer">
-    <div class="container">
+    <div class="container-fluid" style="max-width:1400px">
+      <div class="row py-5 align-items-center border-bottom" style="border-color:rgba(240,240,240,.1) !important">
+        <div class="col-lg-6 mb-3 mb-lg-0">
+          <h3 class="mb-2" style="font-size:2rem">Know when it changes</h3>
+          <p class="mb-0" style="color:var(--paper-300)">New drops, and a note whenever a layer you own is replaced. Nothing else.</p>
+        </div>
+        <div class="col-lg-6">
+          <form id="newsletterForm" class="d-flex align-items-end gap-3" style="max-width:420px;margin-left:auto">
+            <div class="flex-grow-1">
+              <input type="email" id="newsletterEmail" required placeholder="your@email.com" class="form-control bg-transparent" style="border:none;border-bottom:1px solid rgba(240,240,240,.3);border-radius:0 !important;color:var(--paper-100);padding-left:0">
+            </div>
+            <button type="submit" class="btn btn-link p-0" style="color:var(--paper-100);text-decoration:underline;font-weight:500">Sign up</button>
+          </form>
+          <p id="newsletterStatus" class="mt-2 mb-0" style="font-size:.78rem;color:var(--accent-400)"></p>
+        </div>
+      </div>
+
       <div class="row py-5">
-        <div class="col-md-3 col-sm-6 mb-4">
-          <div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:36px" data-site-logo></div>
-          <p data-site-tagline>Next-gen digital identity and fashion. Bold design, no compromise.</p>
+        <div class="col-md-4 mb-4">
+          <div style="margin-bottom:16px"><img src="images/main-logo.png" alt="INRL" style="height:26px" data-site-logo></div>
+          <p data-site-tagline style="max-width:320px">Garments that keep changing after you own them.</p>
           <div class="d-flex gap-3 mt-3">
-            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:none;stroke:rgba(255,255,255,.5)"><use xlink:href="#facebook"></use></svg></a>
-            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:rgba(255,255,255,.5)"><use xlink:href="#twitter"></use></svg></a>
-            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:rgba(255,255,255,.5)"><use xlink:href="#youtube"></use></svg></a>
-            <a href="#"><svg width="20" height="20" viewBox="0 0 15 15" style="fill:none;stroke:rgba(255,255,255,.5)"><use xlink:href="#instagram"></use></svg></a>
+            <a href="#"><svg width="18" height="18" viewBox="0 0 15 15" style="fill:none;stroke:currentColor"><use xlink:href="#facebook"></use></svg></a>
+            <a href="#"><svg width="18" height="18" viewBox="0 0 15 15" style="fill:currentColor"><use xlink:href="#twitter"></use></svg></a>
+            <a href="#"><svg width="18" height="18" viewBox="0 0 15 15" style="fill:currentColor"><use xlink:href="#youtube"></use></svg></a>
+            <a href="#"><svg width="18" height="18" viewBox="0 0 15 15" style="fill:none;stroke:currentColor"><use xlink:href="#instagram"></use></svg></a>
           </div>
         </div>
-        <div class="col-md-3 col-sm-6 mb-4">
-          <h5 class="text-uppercase mb-4">Quick Links</h5>
-          <ul class="list-unstyled border-animation-left">
-            <li class="mb-2"><a href="index.html" class="item-anchor">Home</a></li>
-            <li class="mb-2"><a href="shop.html" class="item-anchor">Shop</a></li>
-            <li class="mb-2"><a href="about.html" class="item-anchor">About</a></li>
-            <li class="mb-2"><a href="contact.html" class="item-anchor">Contact</a></li>
+        <div class="col-md-2 col-sm-6 mb-4">
+          <h6 class="eyebrow mb-3">Shop</h6>
+          <ul class="list-unstyled">
+            <li class="mb-2"><a href="shop.html">New arrivals</a></li>
+            <li class="mb-2"><a href="shop.html?category=Men">Men</a></li>
+            <li class="mb-2"><a href="shop.html?category=Women">Women</a></li>
+            <li class="mb-2"><a href="shop.html?category=Accessories">Accessories</a></li>
           </ul>
         </div>
         <div class="col-md-3 col-sm-6 mb-4">
-          <h5 class="text-uppercase mb-4">Help &amp; Info</h5>
-          <ul class="list-unstyled border-animation-left">
-            <li class="mb-2"><a href="order-tracking.html" class="item-anchor">Track Your Order</a></li>
-            <li class="mb-2"><a href="faqs.html" class="item-anchor">FAQs</a></li>
-            <li class="mb-2"><a href="contact.html" class="item-anchor">Contact Us</a></li>
+          <h6 class="eyebrow mb-3">Help</h6>
+          <ul class="list-unstyled">
+            <li class="mb-2"><a href="order-tracking.html">Track your order</a></li>
+            <li class="mb-2"><a href="faqs.html">FAQs</a></li>
+            <li class="mb-2"><a href="contact.html">Contact us</a></li>
           </ul>
         </div>
         <div class="col-md-3 col-sm-6 mb-4">
-          <h5 class="text-uppercase mb-4">Contact</h5>
-          <p><a href="mailto:contact@inrl.com">contact@inrl.com</a></p>
+          <h6 class="eyebrow mb-3">Contact</h6>
+          <p class="mb-1"><a href="mailto:contact@inrl.co">contact@inrl.co</a></p>
           <p><a href="tel:+43720115278">+43 720 11 52 78</a></p>
         </div>
       </div>
       <div class="border-top py-3">
-        <p class="text-center mb-0" style="font-size:12px;opacity:.35">&copy; 2026 <span data-site-name>INRL</span>. All rights reserved.</p>
+        <p class="text-center mb-0" style="font-size:12px;color:var(--paper-500)">&copy; 2026 <span data-site-name>INRL</span>. All rights reserved.</p>
       </div>
     </div>
   </footer>
+
+  <script>
+    (function () {
+      var form = document.getElementById('newsletterForm');
+      if (!form) return;
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var status = document.getElementById('newsletterStatus');
+        var email = document.getElementById('newsletterEmail');
+        if (status) status.textContent = "You're on the list.";
+        if (email) email.value = '';
+      });
+    })();
+  </script>

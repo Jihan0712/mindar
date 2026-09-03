@@ -391,10 +391,6 @@
       return callStripe(env, 'POST', '/checkout/sessions', params);
     }
 
-    async function retrieveCheckoutSession(env, sessionId) {
-      return callStripe(env, 'GET', `/checkout/sessions/${encodeURIComponent(sessionId)}`, null);
-    }
-
     // Verifies the `Stripe-Signature` header per Stripe's documented scheme:
     // header is `t=<timestamp>,v1=<hmac-sha256 hex of "timestamp.rawBody">[,v1=...]`.
     async function verifyWebhookSignature(rawBody, sigHeader, secret, toleranceSeconds = 300) {
@@ -423,7 +419,7 @@
       return parsed.v1.some((v1) => timingSafeEqual(v1, expectedHex));
     }
 
-    return { getStripeConfig, createCheckoutSession, retrieveCheckoutSession, verifyWebhookSignature };
+    return { getStripeConfig, createCheckoutSession, verifyWebhookSignature };
   })();
 
   // ES Module format: expose fetch and inject env bindings into globals per request
@@ -573,6 +569,18 @@
     crypto.getRandomValues(arr);
     const hex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
     return prefix + hex;
+  }
+
+  // Short, human-typeable claim code (e.g. "K7QX-9MPZ") for a garment_units row — meant to
+  // be printed on a tag sewn inside the collar, so it needs to survive being read off fabric
+  // and typed on a phone: no 0/O or 1/I/L confusion.
+  function randomClaimCode() {
+    const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    const arr = new Uint8Array(8);
+    crypto.getRandomValues(arr);
+    let out = '';
+    for (let i = 0; i < arr.length; i++) out += alphabet[arr[i] % alphabet.length];
+    return out.slice(0, 4) + '-' + out.slice(4);
   }
 
   async function hashPassword(password, salt) {
@@ -849,6 +857,28 @@
       return apiGetOrder(request, id);
     }
 
+    // Wardrobe (garment units — customer-claimed physical pieces, see sql/wardrobe_migration.sql)
+    if (request.method === 'POST'  && pathname === '/api/pieces/claim')            return apiClaimPiece(request);
+    if (request.method === 'GET'   && pathname === '/api/pieces')                  return apiListMyPieces(request);
+    if (request.method === 'POST'  && /^\/api\/pieces\/([^/]+)\/layer$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[3]);
+      return apiUploadPieceLayer(request, id);
+    }
+    if (request.method === 'PATCH' && /^\/api\/pieces\/([^/]+)$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[3]);
+      return apiUpdatePiece(request, id);
+    }
+    if (request.method === 'GET'   && /^\/api\/pieces\/([^/]+)$/.test(pathname)) {
+      const id = decodeURIComponent(pathname.split('/')[3]);
+      return apiGetPiece(request, id);
+    }
+    // Mints unclaimed codes for a product — the physical printing of those codes onto collar
+    // tags happens outside this system. Privileged (admin, or the brand that owns the product).
+    if (request.method === 'POST'  && /^\/api\/admin\/products\/(\d+)\/pieces\/generate$/.test(pathname)) {
+      const productId = parseInt(pathname.split('/')[4], 10);
+      return apiGenerateGarmentUnits(request, productId);
+    }
+
     // Admin
     if (request.method === 'POST' && pathname === '/api/admin/brand-users')    return apiAdminCreateBrandUser(request);
     if (request.method === 'GET'  && pathname === '/api/admin/users')          return apiAdminListUsers(request);
@@ -929,6 +959,7 @@
     // Viewer
     if (request.method === 'GET' && pathname === '/api/viewer/active')         return apiViewerActive(request);
     if (request.method === 'GET' && pathname === '/api/viewer/order')          return apiViewerOrder(request);
+    if (request.method === 'GET' && pathname === '/api/viewer/piece')          return apiViewerPiece(request);
 
     // Products (shop catalog)
     if (request.method === 'GET'  && pathname === '/api/product-image')        return apiGetProductImage(request);
@@ -3622,7 +3653,7 @@
     if (product) {
       try {
         let psql = `
-          select p.ar_target_id, p.slug, b.name as brand
+          select p.id, p.ar_target_id, p.slug, p.title, p.price_cents, p.currency, b.name as brand
           from products p
           left join brands b on b.id = p.brand_id
           where lower(p.slug) = lower(?)
@@ -3640,7 +3671,7 @@
         if (targetId != null && Number.isFinite(targetId)) {
           const t = await dbGet(`
             select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
-                  t.is_active, t.created_at, b.name as brand
+                  t.is_active, t.version, t.created_at, t.updated_at, b.name as brand
             from targets t
             left join brands b on b.id = t.brand_id
             where t.id = ?
@@ -3652,12 +3683,17 @@
               jsonResponse({
                 id: t.id,
                 name: t.name,
-                product: t.product,
+                product: prow.slug,
+                product_title: prow.title || null,
+                price_cents: prow.price_cents != null ? prow.price_cents : null,
+                currency: prow.currency || null,
                 brand: t.brand || null,
                 mindurl: t.mind_url,
                 videourl: t.video_url,
                 imageurl: t.image_url,
                 is_active: !!t.is_active,
+                version: t.version || 1,
+                updated_at: t.updated_at || t.created_at,
                 created_at: t.created_at,
                 source: 'product_link'
               }, 200, request),
@@ -3673,7 +3709,7 @@
 
     let sql = `
       select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
-            t.is_active, t.created_at, b.name as brand
+            t.is_active, t.version, t.created_at, t.updated_at, b.name as brand
       from targets t
       left join brands b on b.id = t.brand_id
       where t.is_active = 1
@@ -3704,6 +3740,8 @@
         videourl: row.video_url,
         imageurl: row.image_url,
         is_active: !!row.is_active,
+        version: row.version || 1,
+        updated_at: row.updated_at || row.created_at,
         created_at: row.created_at,
         source: 'targets_active'
       }, 200, request),
@@ -3739,14 +3777,14 @@
     if (itemIndex >= items.length) return jsonResponse({ error: 'Not found' }, 404, request);
 
     const slug = String((items[itemIndex] && items[itemIndex].slug) || '').trim();
-    const product = slug ? await dbGet('select ar_target_id, brand_id from products where lower(slug) = lower(?)', slug) : null;
+    const product = slug ? await dbGet('select ar_target_id, brand_id, title, price_cents, currency from products where lower(slug) = lower(?)', slug) : null;
     const targetId = product && product.ar_target_id != null ? Number(product.ar_target_id) : null;
     if (targetId == null || !Number.isFinite(targetId)) {
       return jsonResponse({ error: 'No AR content for this item' }, 404, request);
     }
 
     const t = await dbGet(
-      'select id, name, mind_url, video_url, image_url, is_active from targets where id = ?',
+      'select id, name, mind_url, video_url, image_url, is_active, version, created_at, updated_at from targets where id = ?',
       targetId
     );
     if (!t) return jsonResponse({ error: 'No AR content for this item' }, 404, request);
@@ -3771,13 +3809,317 @@
         id: t.id,
         name: t.name,
         product: slug,
+        product_title: product.title || null,
+        price_cents: product.price_cents != null ? product.price_cents : null,
+        currency: product.currency || null,
         brand: null,
         mindurl: t.mind_url,
         videourl: personalVideoUrl || t.video_url,
         imageurl: t.image_url,
         is_active: !!t.is_active,
+        version: t.version || 1,
+        updated_at: t.updated_at || t.created_at,
         created_at: null,
         source: 'order_personal'
+      }, 200, request),
+      'no-store'
+    );
+  }
+
+  // ---------- Wardrobe (garment units) ----------
+
+  function ownsGarmentUnit(sess, unit) {
+    return !!(sess && sess.user && unit.owner_user_id != null && String(sess.user.id) === String(unit.owner_user_id));
+  }
+
+  // POST /api/admin/products/:id/pieces/generate — mints N unclaimed garment units for a
+  // product. Printing those claim codes onto the tags sewn inside each collar happens
+  // outside this system — this just reserves the codes in D1 so a customer can redeem one
+  // later. Privileged (admin, or the brand that owns the product).
+  async function apiGenerateGarmentUnits(request, productId) {
+    if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
+    const auth = await requirePrivilegedSession(request);
+    if (auth.error) return auth.error;
+    const sess = auth.sess;
+
+    const product = await dbGet('select id, brand_id from products where id = ?', productId);
+    if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (sess.user.role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+
+    const body = await readJson(request);
+    let count = parseInt(body.count, 10);
+    if (!Number.isFinite(count) || count < 1) count = 1;
+    count = Math.min(count, 200);
+
+    try {
+      const codes = [];
+      for (let i = 0; i < count; i++) {
+        let code;
+        let attempts = 0;
+        do {
+          code = randomClaimCode();
+          attempts++;
+        } while (attempts < 5 && await dbGet('select 1 from garment_units where claim_code = ?', code));
+        const id = randomId('unit_');
+        await dbRun('insert into garment_units (id, claim_code, product_id) values (?, ?, ?)', id, code, productId);
+        codes.push({ id, claim_code: code });
+      }
+      return jsonResponse({ ok: true, items: codes }, 200, request);
+    } catch (e) {
+      if (String(e || '').toLowerCase().includes('no such table')) {
+        return jsonResponse({ error: 'DB migration required: run sql/wardrobe_migration.sql' }, 500, request);
+      }
+      throw e;
+    }
+  }
+
+  // POST /api/pieces/claim — body {claim_code, nickname?}. Redeeming the code printed on the
+  // tag inside the collar transfers ownership to whoever is logged in right now — the same
+  // trust model as a physical key: holding the tag is proof enough. That's what lets a piece
+  // keep working across being lent, resold, or handed down, with no seller hand-off step.
+  async function apiClaimPiece(request) {
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+    const body = await readJson(request);
+    const code = String(body.claim_code || '').trim().toUpperCase();
+    if (!code) return jsonResponse({ error: 'Enter the code from the tag inside the collar.' }, 400, request);
+
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('claim-piece:' + ip, RATE_LIMIT_MAX_ORDER)) {
+      return jsonResponse({ error: 'Too many attempts. Please try again later.' }, 429, request);
+    }
+
+    let unit;
+    try {
+      unit = await dbGet('select id, claim_code, product_id, owner_user_id from garment_units where claim_code = ?', code);
+    } catch (e) {
+      if (String(e || '').toLowerCase().includes('no such table')) {
+        return jsonResponse({ error: 'DB migration required: run sql/wardrobe_migration.sql' }, 500, request);
+      }
+      throw e;
+    }
+    if (!unit) return jsonResponse({ error: "That code doesn't match a registered piece. Double-check it and try again." }, 404, request);
+
+    const nickname = body.nickname != null ? (String(body.nickname).trim().slice(0, 120) || null) : null;
+    if (nickname != null) {
+      await dbRun(
+        `update garment_units set owner_user_id = ?, claimed_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')), nickname = ? where id = ?`,
+        sess.user.id, nickname, unit.id
+      );
+    } else {
+      await dbRun(
+        `update garment_units set owner_user_id = ?, claimed_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+        sess.user.id, unit.id
+      );
+    }
+
+    return jsonResponse({ ok: true, id: unit.id }, 200, request);
+  }
+
+  // GET /api/pieces — the logged-in customer's own wardrobe: every piece they've claimed,
+  // with its product info, whether it has a published layer yet, and its scan count.
+  async function apiListMyPieces(request) {
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+    let units;
+    try {
+      units = await dbAll(
+        `select u.id, u.claim_code, u.nickname, u.claimed_at, u.scan_count, u.last_scanned_at,
+                p.id as product_id, p.title as product_title, p.slug as product_slug, p.image_url as product_image
+         from garment_units u
+         join products p on p.id = u.product_id
+         where u.owner_user_id = ?
+         order by u.claimed_at desc`,
+        sess.user.id
+      );
+    } catch (e) {
+      if (String(e || '').toLowerCase().includes('no such table')) return jsonResponse({ items: [] }, 200, request);
+      throw e;
+    }
+
+    let versionByUnit = {};
+    if (units.length) {
+      const ids = units.map(u => u.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const layers = await dbAll(
+        `select unit_id, max(version) as version from garment_layers where unit_id in (${placeholders}) group by unit_id`,
+        ...ids
+      );
+      for (const l of layers) versionByUnit[l.unit_id] = l.version;
+    }
+
+    const items = units.map(u => ({
+      id: u.id,
+      claim_code: u.claim_code,
+      nickname: u.nickname,
+      claimed_at: u.claimed_at,
+      scan_count: u.scan_count,
+      last_scanned_at: u.last_scanned_at,
+      product: { id: u.product_id, title: u.product_title, slug: u.product_slug, image_url: u.product_image },
+      version: versionByUnit[u.id] || 0,
+      is_published: !!versionByUnit[u.id],
+    }));
+
+    return jsonResponse({ items }, 200, request);
+  }
+
+  // GET /api/pieces/:id — one owned piece, with its full layer history (newest first).
+  async function apiGetPiece(request, id) {
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+    const unit = await dbGet(
+      `select u.*, p.title as product_title, p.slug as product_slug, p.image_url as product_image
+       from garment_units u join products p on p.id = u.product_id where u.id = ?`,
+      id
+    );
+    if (!unit || !ownsGarmentUnit(sess, unit)) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const layers = await dbAll('select id, video_url, version, created_at from garment_layers where unit_id = ? order by version desc', id);
+    const origin = new URL(request.url).origin;
+
+    return jsonResponse({
+      id: unit.id,
+      claim_code: unit.claim_code,
+      nickname: unit.nickname,
+      claimed_at: unit.claimed_at,
+      scan_count: unit.scan_count,
+      last_scanned_at: unit.last_scanned_at,
+      product: { id: unit.product_id, title: unit.product_title, slug: unit.product_slug, image_url: unit.product_image },
+      layers,
+      current_layer: layers[0] || null,
+      viewer_url: `${origin}/index.html?piece=${encodeURIComponent(unit.claim_code)}`,
+    }, 200, request);
+  }
+
+  // PATCH /api/pieces/:id — body {nickname}. The only thing about a unit itself (not its
+  // layer) an owner can edit.
+  async function apiUpdatePiece(request, id) {
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+    const unit = await dbGet('select id, owner_user_id from garment_units where id = ?', id);
+    if (!unit || !ownsGarmentUnit(sess, unit)) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const body = await readJson(request);
+    if (body.nickname === undefined) return jsonResponse({ error: 'Nothing to update' }, 400, request);
+    const nickname = String(body.nickname || '').trim().slice(0, 120) || null;
+    await dbRun('update garment_units set nickname = ? where id = ?', nickname, id);
+    return jsonResponse({ ok: true }, 200, request);
+  }
+
+  // POST /api/pieces/:id/layer — the owner replaces what their piece plays. Always inserts a
+  // new version rather than overwriting in place, so the piece's history (and "this one has
+  // changed twice" type framing) stays real — the previous video is left in R2 rather than
+  // deleted, unlike the order-video upload path.
+  async function apiUploadPieceLayer(request, id) {
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+
+    const unit = await dbGet('select id, owner_user_id from garment_units where id = ?', id);
+    if (!unit || !ownsGarmentUnit(sess, unit)) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('piece-layer-upload:' + ip, RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
+      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
+    }
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
+      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
+    }
+
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
+    if (file.size && file.size > UPLOAD_MAX_SIZE) return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
+    const contentType = (file.type || '').toLowerCase();
+    if (!contentType.startsWith('video/')) return jsonResponse({ error: 'Only video files are allowed' }, 415, request);
+
+    let nextVersion = 1;
+    try {
+      const prev = await dbGet('select max(version) as v from garment_layers where unit_id = ?', id);
+      nextVersion = (prev && prev.v ? prev.v : 0) + 1;
+    } catch (e) {
+      if (!String(e || '').toLowerCase().includes('no such table')) throw e;
+    }
+
+    const rawName = (file.name || `${Date.now()}`).toString();
+    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+    const key = `piece-layers/${id}/${nextVersion}-${Date.now()}-${filename}`;
+
+    await ASSETS_BUCKET.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'video/mp4' } });
+    const videoUrl = buildPublicAssetUrl(request, key);
+
+    try {
+      await dbRun('insert into garment_layers (unit_id, video_url, version) values (?, ?, ?)', id, videoUrl, nextVersion);
+    } catch (e) {
+      if (String(e || '').toLowerCase().includes('no such table')) {
+        return jsonResponse({ error: 'DB migration required: run sql/wardrobe_migration.sql' }, 500, request);
+      }
+      throw e;
+    }
+
+    return jsonResponse({ ok: true, video_url: videoUrl, version: nextVersion }, 200, request);
+  }
+
+  // GET /api/viewer/piece?code=<claim_code> — resolves what a specific claimed physical
+  // garment plays right now. The marker/target stays whatever the product is linked to
+  // (shared across every unit of that product); only the video is this unit's current layer,
+  // falling back to the target's own default video if the owner hasn't published one yet.
+  // Public, no session required — same reasoning as apiViewerOrder above: a printed QR on
+  // someone's actual shirt has to work for anyone scanning it.
+  async function apiViewerPiece(request) {
+    const url = new URL(request.url);
+    const code = (url.searchParams.get('code') || '').trim().toUpperCase();
+    if (!code) return jsonResponse({ error: 'code required' }, 400, request);
+
+    let unit;
+    try {
+      unit = await dbGet('select id, product_id from garment_units where claim_code = ?', code);
+    } catch (e) {
+      if (String(e || '').toLowerCase().includes('no such table')) return jsonResponse({ error: 'Not found' }, 404, request);
+      throw e;
+    }
+    if (!unit) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    const product = await dbGet('select ar_target_id, slug, title, price_cents, currency from products where id = ?', unit.product_id);
+    const targetId = product && product.ar_target_id != null ? Number(product.ar_target_id) : null;
+    if (targetId == null || !Number.isFinite(targetId)) return jsonResponse({ error: 'No AR content for this piece' }, 404, request);
+
+    const t = await dbGet('select id, name, mind_url, video_url, image_url, is_active from targets where id = ?', targetId);
+    if (!t) return jsonResponse({ error: 'No AR content for this piece' }, 404, request);
+
+    const layer = await dbGet('select video_url, version, created_at from garment_layers where unit_id = ? order by version desc limit 1', unit.id);
+
+    // Scan counting is best-effort — never fail actual AR playback over it.
+    try {
+      await dbRun(
+        `update garment_units set scan_count = scan_count + 1, last_scanned_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+        unit.id
+      );
+    } catch (e) {}
+
+    return withCache(
+      jsonResponse({
+        id: t.id,
+        name: t.name,
+        product: product.slug || null,
+        product_title: product.title || null,
+        price_cents: product.price_cents != null ? product.price_cents : null,
+        currency: product.currency || null,
+        brand: null,
+        mindurl: t.mind_url,
+        videourl: (layer && layer.video_url) || t.video_url,
+        imageurl: t.image_url,
+        is_active: !!t.is_active,
+        version: layer ? layer.version : 1,
+        updated_at: layer ? layer.created_at : null,
+        created_at: null,
+        source: 'piece',
       }, 200, request),
       'no-store'
     );
@@ -4297,7 +4639,16 @@
     });
     const videoUrl = buildPublicAssetUrl(request, key);
 
-    await dbRun('update targets set video_url = ? where id = ?', videoUrl, target.id);
+    try {
+      await dbRun(
+        `update targets set video_url = ?, version = version + 1, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+        videoUrl, target.id
+      );
+    } catch (e) {
+      if (!String(e || '').toLowerCase().includes('no such column')) throw e;
+      // sql/targets_version_migration.sql not yet run — still update the video itself.
+      await dbRun('update targets set video_url = ? where id = ?', videoUrl, target.id);
+    }
 
     if (target.video_url && target.video_url !== videoUrl) {
       try { await ASSETS_BUCKET.delete(keyFromPublicUrl(target.video_url)); } catch {}

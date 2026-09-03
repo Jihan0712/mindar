@@ -6,153 +6,150 @@
   <title>Product Dashboard | INRL</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" type="text/css" href="css/global.css" />
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <style>
-    body { background:#1C1C1C; color:#F5F5F0; font-family:'Roboto Mono',monospace; }
+    body { background:var(--surface-50); color:var(--ink-900); font-family:var(--font-body); }
     .hidden { display:none !important; }
-    .inrl-navbar { background:#111; border-bottom:3px solid #333; }
-    .inrl-brand { font-family:'Averia Serif Libre',serif; font-size:1.4rem; font-weight:700; color:#00ED0A !important; text-decoration:none; letter-spacing:.05em; }
-    .inrl-card { background:#212121; border:3px solid #333; box-shadow:6px 6px 0 rgba(0,237,10,.12); border-radius:0; }
-    .inrl-card-header { background:#111 !important; border-bottom:3px solid #333 !important; padding:.85rem 1.25rem; text-transform:uppercase; font-size:.7rem; letter-spacing:.09em; color:#888; font-weight:700; }
-    .inrl-heading { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.3rem; font-weight:700; border-left:4px solid #00ED0A; padding-left:.75rem; margin-bottom:.25rem; }
-    .btn-inrl { background:#00ED0A; border:3px solid #1C1C1C; color:#1C1C1C !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; letter-spacing:.05em; }
-    .btn-inrl:hover,.btn-inrl:focus { background:#00c409; color:#1C1C1C !important; }
-    .btn-inrl-outline { background:transparent; border:2px solid #00ED0A; color:#00ED0A !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
-    .btn-inrl-outline:hover,.btn-inrl-outline:focus { background:#00ED0A; color:#1C1C1C !important; }
-    .btn-danger-inrl { background:#ff4d4f; border:2px solid #ff4d4f; color:#fff !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
-    .btn-danger-inrl:hover { background:#d9363e; border-color:#d9363e; color:#fff !important; }
-    .btn-warn-inrl { background:transparent; border:2px solid #FEFD00; color:#FEFD00 !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
-    .btn-warn-inrl:hover { background:#FEFD00; color:#1C1C1C !important; }
-    .btn-success-inrl { background:transparent; border:2px solid #00ED0A; color:#00ED0A !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
-    .btn-success-inrl:hover { background:#00ED0A; color:#1C1C1C !important; }
-    .form-control,.form-select { background-color:#1C1C1C !important; border:2px solid #444 !important; color:#F5F5F0 !important; font-family:'Roboto Mono',monospace; border-radius:0; }
-    .form-control:focus,.form-select:focus { background-color:#1C1C1C !important; border-color:#00ED0A !important; color:#F5F5F0 !important; box-shadow:0 0 0 2px rgba(0,237,10,.2) !important; }
-    .form-control::placeholder { color:#555; }
-    /* form-select: restore light dropdown arrow after background-color override */
-    .form-select { background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23888888' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important; background-repeat:no-repeat !important; background-position:right .75rem center !important; background-size:16px 12px !important; padding-right:2.25rem !important; }
+    .inrl-navbar { background:var(--dark-800); border-bottom:1px solid rgba(240,240,240,.1); }
+    .inrl-brand { font-family:var(--font-display); font-size:1.4rem; font-weight:500; color:var(--paper-100) !important; text-decoration:none; letter-spacing:.02em; text-transform:uppercase; }
+    .inrl-card { background:var(--surface-0); border:1px solid var(--line-200); box-shadow:none; border-radius:12px; }
+    .inrl-card-header { background:var(--surface-50) !important; border-bottom:1px solid var(--line-200) !important; padding:.85rem 1.25rem; font-size:.72rem; letter-spacing:.04em; color:var(--ink-500); font-weight:500; border-radius:12px 12px 0 0; }
+    .inrl-heading { font-family:var(--font-display); text-transform:uppercase; color:var(--ink-900); font-size:1.3rem; font-weight:500; border-left:none; padding-left:0; margin-bottom:.25rem; letter-spacing:-.01em; }
+    .btn-inrl { background:var(--accent-700); border:1px solid var(--accent-700); color:var(--paper-100) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; letter-spacing:0; }
+    .btn-inrl:hover,.btn-inrl:focus { background:var(--accent-500); border-color:var(--accent-500); color:var(--paper-100) !important; }
+    .btn-inrl-outline { background:transparent; border:1px solid var(--line-200); color:var(--ink-700) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
+    .btn-inrl-outline:hover,.btn-inrl-outline:focus { background:var(--surface-50); color:var(--ink-900) !important; }
+    .btn-danger-inrl { background:transparent; border:1px solid var(--danger-500); color:var(--danger-500) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
+    .btn-danger-inrl:hover { background:var(--danger-500); border-color:var(--danger-500); color:#fff !important; }
+    .btn-warn-inrl { background:transparent; border:1px solid var(--warn-500); color:var(--warn-500) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
+    .btn-warn-inrl:hover { background:var(--warn-500); color:var(--dark-900) !important; }
+    .btn-success-inrl { background:transparent; border:1px solid var(--accent-500); color:var(--accent-700) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
+    .btn-success-inrl:hover { background:var(--accent-500); color:var(--paper-100) !important; }
+    .form-control,.form-select { background-color:var(--surface-0) !important; border:1px solid var(--line-200) !important; color:var(--ink-900) !important; font-family:var(--font-body); border-radius:8px; }
+    .form-control:focus,.form-select:focus { background-color:var(--surface-0) !important; border-color:var(--accent-500) !important; color:var(--ink-900) !important; box-shadow:0 0 0 3px rgba(18,162,184,.12) !important; }
+    .form-control::placeholder { color:var(--ink-500); opacity:.7; }
+    /* form-select: restore a visible dropdown arrow after background-color override */
+    .form-select { background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23737373' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important; background-repeat:no-repeat !important; background-position:right .75rem center !important; background-size:16px 12px !important; padding-right:2.25rem !important; }
     /* file input button */
     .form-control[type=file] { padding:.3rem .5rem; }
-    .form-control[type=file]::file-selector-button { background:#111; color:#777; border:0; border-right:2px solid #444; font-family:'Roboto Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.3rem .7rem; margin-right:.75rem; cursor:pointer; border-radius:0; transition:color .15s; }
-    .form-control[type=file]:hover::file-selector-button,.form-control[type=file]:focus::file-selector-button { color:#00ED0A; }
-    .form-check-input { background-color:#333 !important; border-color:#555 !important; border-radius:0 !important; }
-    .form-check-input:checked { background-color:#00ED0A !important; border-color:#00ED0A !important; }
-    .form-check-input:focus { box-shadow:0 0 0 2px rgba(0,237,10,.2) !important; border-color:#555 !important; }
-    .form-label { color:#999; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; margin-bottom:.35rem; }
-    .form-text { color:#555; font-size:.68rem; line-height:1.5; }
-    .input-group-text { background:#111 !important; border:2px solid #444 !important; color:#888 !important; border-radius:0; font-family:'Roboto Mono',monospace; }
-    .input-group .btn { border-radius:0; }
+    .form-control[type=file]::file-selector-button { background:var(--surface-50); color:var(--ink-700); border:0; border-right:1px solid var(--line-200); font-family:var(--font-body); font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.3rem .7rem; margin-right:.75rem; cursor:pointer; border-radius:0; transition:color .15s; }
+    .form-control[type=file]:hover::file-selector-button,.form-control[type=file]:focus::file-selector-button { color:var(--accent-700); }
+    .form-check-input { background-color:var(--surface-0) !important; border-color:var(--line-200) !important; border-radius:4px !important; }
+    .form-check-input:checked { background-color:var(--accent-700) !important; border-color:var(--accent-700) !important; }
+    .form-check-input:focus { box-shadow:0 0 0 3px rgba(18,162,184,.12) !important; border-color:var(--line-200) !important; }
+    .form-label { color:var(--ink-500); font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; margin-bottom:.35rem; }
+    .form-text { color:var(--ink-500); font-size:.68rem; line-height:1.5; }
+    .input-group-text { background:var(--surface-50) !important; border:1px solid var(--line-200) !important; color:var(--ink-500) !important; border-radius:8px; font-family:var(--font-body); }
+    .input-group .btn { border-radius:999px; }
     /* input-group: prevent double borders between adjacent elements */
-    .input-group>.form-control:not(:first-child),.input-group>.form-select:not(:first-child),.input-group>.input-group-text:not(:first-child),.input-group>.btn:not(:first-child) { margin-left:-2px; }
-    .inrl-table th { background:#111 !important; border-bottom:3px solid #333 !important; color:#888 !important; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.65rem; letter-spacing:.09em; padding:.7rem .9rem !important; }
-    .inrl-table td { border-bottom:1px solid #2a2a2a !important; vertical-align:middle; color:#F5F5F0; font-size:.78rem; padding:.65rem .9rem !important; }
-    .inrl-table tr:hover td { background:rgba(0,237,10,.04) !important; }
-    .inrl-tabs { border-bottom:3px solid #333; margin-bottom:1.75rem; gap:0; }
-    .inrl-tabs .nav-link { color:#666; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.68rem; letter-spacing:.09em; font-weight:700; border:none; border-radius:0; padding:.55rem 1.1rem; background:transparent; }
-    .inrl-tabs .nav-link:hover { color:#ccc; background:rgba(255,255,255,.03); }
-    .inrl-tabs .nav-link.active { color:#00ED0A; border-bottom:3px solid #00ED0A; margin-bottom:-3px; background:transparent; }
-    #status { font-size:.78rem; padding:.55rem .9rem; border-radius:0; margin-bottom:.75rem; border-left:3px solid transparent; }
+    .input-group>.form-control:not(:first-child),.input-group>.form-select:not(:first-child),.input-group>.input-group-text:not(:first-child),.input-group>.btn:not(:first-child) { margin-left:-1px; }
+    .inrl-table th { background:var(--surface-50) !important; border-bottom:1px solid var(--line-200) !important; color:var(--ink-500) !important; font-family:var(--font-body); text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; padding:.7rem .9rem !important; font-weight:500; }
+    .inrl-table td { border-bottom:1px solid var(--line-100) !important; vertical-align:middle; color:var(--ink-900); font-size:.78rem; padding:.65rem .9rem !important; }
+    .inrl-table tr:hover td { background:var(--surface-50) !important; }
+    .inrl-tabs { border-bottom:1px solid var(--line-200); margin-bottom:1.75rem; gap:0; }
+    .inrl-tabs .nav-link { color:var(--ink-500); font-family:var(--font-body); font-size:.72rem; font-weight:500; border:none; border-radius:0; padding:.55rem 1.1rem; background:transparent; }
+    .inrl-tabs .nav-link:hover { color:var(--ink-900); background:var(--surface-50); }
+    .inrl-tabs .nav-link.active { color:var(--ink-900); border-bottom:2px solid var(--accent-700); margin-bottom:-1px; background:transparent; }
+    #status { font-size:.78rem; padding:.55rem .9rem; border-radius:8px; margin-bottom:.75rem; border-left:2px solid transparent; }
     #status:empty { display:none !important; }
-    #status.status-error { color:#ff4d4f; border-color:#ff4d4f; background:rgba(255,77,79,.07); }
-    #status.status-success { color:#00ED0A; border-color:#00ED0A; background:rgba(0,237,10,.07); }
-    #status.status-info { color:#888; border-color:#444; background:rgba(255,255,255,.03); }
-    .inrl-subcard { background:#181818; border:2px solid #2a2a2a; border-radius:0; padding:1rem 1.25rem; }
-    .inrl-subcard-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:#555; font-weight:700; margin-bottom:.6rem; }
-    .inrl-section-title { font-size:.62rem; text-transform:uppercase; letter-spacing:.12em; color:#666; font-weight:700; border-bottom:1px solid #2a2a2a; padding-bottom:.4rem; margin-bottom:1.25rem; margin-top:2.25rem; }
+    #status.status-error { color:var(--danger-500); border-color:var(--danger-500); background:rgba(192,57,43,.06); }
+    #status.status-success { color:var(--accent-700); border-color:var(--accent-500); background:rgba(18,162,184,.06); }
+    #status.status-info { color:var(--ink-500); border-color:var(--line-200); background:var(--surface-50); }
+    .inrl-subcard { background:var(--surface-50); border:1px solid var(--line-200); border-radius:10px; padding:1rem 1.25rem; }
+    .inrl-subcard-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-500); font-weight:500; margin-bottom:.6rem; }
+    .inrl-section-title { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-500); font-weight:500; border-bottom:1px solid var(--line-200); padding-bottom:.4rem; margin-bottom:1.25rem; margin-top:2.25rem; }
     .inrl-section-title.first { margin-top:0; }
-    .order-stat { background:#181818; border:2px solid #2a2a2a; padding:1rem 1.25rem; }
-    .order-stat-value { font-family:'Averia Serif Libre',serif; font-size:1.75rem; font-weight:700; color:#00ED0A; line-height:1; }
-    .order-stat-value.warn { color:#FEFD00; }
-    .order-stat-value.neutral { color:#F5F5F0; }
-    .order-stat-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.1em; color:#555; font-weight:700; margin-top:.35rem; }
-    code { color:#FEFD00; font-size:.75em; background:rgba(254,253,0,.08); padding:.1em .35em; }
+    .order-stat { background:var(--surface-0); border:1px solid var(--line-200); border-radius:10px; padding:1rem 1.25rem; }
+    .order-stat-value { font-family:var(--font-display); font-size:1.75rem; font-weight:500; color:var(--ink-900); line-height:1; }
+    .order-stat-value.warn { color:var(--warn-500); }
+    .order-stat-value.neutral { color:var(--ink-900); }
+    .order-stat-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-500); font-weight:500; margin-top:.35rem; }
+    code { color:var(--accent-700); font-size:.75em; background:rgba(18,162,184,.08); padding:.1em .35em; border-radius:4px; }
     ::-webkit-scrollbar { width:6px; height:6px; }
-    ::-webkit-scrollbar-track { background:#111; }
-    ::-webkit-scrollbar-thumb { background:#333; }
+    ::-webkit-scrollbar-track { background:var(--surface-50); }
+    ::-webkit-scrollbar-thumb { background:var(--line-200); }
     .table-responsive::-webkit-scrollbar { height:4px; }
-    .table-responsive::-webkit-scrollbar-track { background:#1a1a1a; }
-    .table-responsive::-webkit-scrollbar-thumb { background:#444; }
-    @media (max-width:991.98px) { .inrl-navbar .navbar-collapse { background:#111; padding:.5rem 0; border-top:1px solid #2a2a2a; margin-top:.25rem; } }
+    .table-responsive::-webkit-scrollbar-track { background:var(--surface-50); }
+    .table-responsive::-webkit-scrollbar-thumb { background:var(--line-200); }
+    @media (max-width:991.98px) { .inrl-navbar .navbar-collapse { background:var(--dark-800); padding:.5rem 0; border-top:1px solid rgba(240,240,240,.08); margin-top:.25rem; } }
 
     /* ---- Sidebar shell ---- */
     .inrl-dash-shell { display:flex; align-items:stretch; min-height:100vh; }
-    .inrl-sidebar { flex:0 0 264px; width:264px; background:#111; border-right:3px solid #333; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
-    .inrl-sidebar-header { padding:1.4rem 1.25rem 1.1rem; border-bottom:3px solid #333; }
+    .inrl-sidebar { flex:0 0 264px; width:264px; background:var(--dark-800); border-right:1px solid rgba(240,240,240,.08); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .inrl-sidebar-header { padding:1.4rem 1.25rem 1.1rem; border-bottom:1px solid rgba(240,240,240,.08); }
     .inrl-sidebar-header .inrl-brand { display:flex; align-items:center; gap:.55rem; margin-bottom:.55rem; }
-    .inrl-sidebar-header .inrl-brand-mark { flex:0 0 auto; width:32px; height:32px; background:#00ED0A; color:#1C1C1C; display:flex; align-items:center; justify-content:center; font-family:'Averia Serif Libre',serif; font-weight:700; font-size:1.15rem; }
-    .inrl-sidebar-header .inrl-brand-name { font-family:'Averia Serif Libre',serif; font-size:1.25rem; font-weight:700; color:#F5F5F0; letter-spacing:.02em; }
-    .inrl-sidebar-header .inrl-subtitle { font-size:.64rem; text-transform:uppercase; letter-spacing:.12em; color:#00ED0A; font-weight:700; }
-    .inrl-sidebar-nav { flex:1 1 auto; padding:1.1rem .8rem; gap:.3rem; }
-    .inrl-sidebar-nav .inrl-nav-group-label { font-size:.58rem; text-transform:uppercase; letter-spacing:.12em; color:#444; font-weight:700; padding:.4rem .75rem .3rem; margin-top:.5rem; }
+    .inrl-sidebar-header .inrl-brand-mark { display:none; }
+    .inrl-sidebar-header img.inrl-brand-logo { height:22px; filter:brightness(0) saturate(100%) invert(1); }
+    .inrl-sidebar-header .inrl-subtitle { font-size:.64rem; text-transform:uppercase; letter-spacing:.1em; color:var(--paper-500); font-weight:500; }
+    .inrl-sidebar-nav { flex:1 1 auto; padding:1.1rem .8rem; gap:.2rem; }
+    .inrl-sidebar-nav .inrl-nav-group-label { font-size:.58rem; text-transform:uppercase; letter-spacing:.1em; color:var(--paper-500); font-weight:500; padding:.4rem .75rem .3rem; margin-top:.5rem; }
     .inrl-sidebar-nav .inrl-nav-group-label:first-child { margin-top:0; }
-    .inrl-sidebar-nav .nav-link { display:flex; align-items:center; gap:.7rem; color:#999; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.7rem; letter-spacing:.06em; font-weight:700; border:none; border-radius:0; padding:.7rem .75rem; background:transparent; text-align:left; transition:color .12s,background .12s,transform .12s; }
-    .inrl-sidebar-nav .nav-link .inrl-nav-icon { flex:0 0 auto; width:18px; height:18px; opacity:.75; transition:opacity .12s; }
-    .inrl-sidebar-nav .nav-link:hover { color:#F5F5F0; background:rgba(255,255,255,.05); }
+    .inrl-sidebar-nav .nav-link { display:flex; align-items:center; gap:.7rem; color:var(--paper-300); font-family:var(--font-body); font-size:.78rem; font-weight:400; border:none; border-radius:8px; padding:.6rem .75rem; background:transparent; text-align:left; transition:color .12s,background .12s; }
+    .inrl-sidebar-nav .nav-link .inrl-nav-icon { flex:0 0 auto; width:17px; height:17px; opacity:.7; transition:opacity .12s; }
+    .inrl-sidebar-nav .nav-link:hover { color:var(--paper-100); background:rgba(255,255,255,.05); }
     .inrl-sidebar-nav .nav-link:hover .inrl-nav-icon { opacity:1; }
-    .inrl-sidebar-nav .nav-link.active { color:#1C1C1C; background:#00ED0A; box-shadow:3px 3px 0 rgba(0,237,10,.25); }
-    .inrl-sidebar-nav .nav-link.active .inrl-nav-icon { opacity:1; }
-    .inrl-sidebar-nav .nav-link.active:hover { color:#1C1C1C; background:#00ED0A; }
-    .inrl-sidebar-footer { border-top:3px solid #333; padding:1rem 1.25rem 1.25rem; }
+    .inrl-sidebar-nav .nav-link.active { color:var(--paper-100); background:rgba(18,162,184,.16); box-shadow:none; }
+    .inrl-sidebar-nav .nav-link.active .inrl-nav-icon { opacity:1; color:var(--accent-400); }
+    .inrl-sidebar-nav .nav-link.active:hover { color:var(--paper-100); background:rgba(18,162,184,.2); }
+    .inrl-sidebar-footer { border-top:1px solid rgba(240,240,240,.08); padding:1rem 1.25rem 1.25rem; }
     .inrl-sidebar-footer .inrl-user-row { display:flex; align-items:center; gap:.6rem; margin-bottom:.9rem; }
-    .inrl-sidebar-footer .inrl-user-avatar { flex:0 0 auto; width:30px; height:30px; background:#212121; border:2px solid #333; color:#00ED0A; display:flex; align-items:center; justify-content:center; font-family:'Roboto Mono',monospace; font-weight:700; font-size:.72rem; text-transform:uppercase; }
+    .inrl-sidebar-footer .inrl-user-avatar { flex:0 0 auto; width:30px; height:30px; background:var(--dark-700); border:1px solid rgba(240,240,240,.1); border-radius:999px; color:var(--accent-400); display:flex; align-items:center; justify-content:center; font-family:var(--font-body); font-weight:500; font-size:.72rem; text-transform:uppercase; }
     .inrl-sidebar-footer .inrl-user-meta { min-width:0; }
-    .inrl-sidebar-footer .inrl-user-email { font-size:.66rem; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .inrl-sidebar-footer .inrl-user-role { font-size:.58rem; text-transform:uppercase; letter-spacing:.08em; color:#555; }
+    .inrl-sidebar-footer .inrl-user-email { font-size:.68rem; color:var(--paper-200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .inrl-sidebar-footer .inrl-user-role { font-size:.6rem; text-transform:uppercase; letter-spacing:.06em; color:var(--paper-500); }
     .inrl-sidebar-footer .inrl-quicklinks { display:flex; flex-direction:column; gap:.5rem; margin-bottom:.9rem; }
-    .inrl-sidebar-footer .inrl-quicklinks a { font-size:.65rem; text-transform:uppercase; letter-spacing:.06em; color:#777; text-decoration:none; transition:color .12s; }
-    .inrl-sidebar-footer .inrl-quicklinks a:hover { color:#00ED0A; }
+    .inrl-sidebar-footer .inrl-quicklinks a { font-size:.7rem; color:var(--paper-500); text-decoration:none; transition:color .12s; }
+    .inrl-sidebar-footer .inrl-quicklinks a:hover { color:var(--accent-400); }
     .inrl-dash-main { flex:1 1 auto; min-width:0; padding:1.5rem 2rem 3rem; max-width:1400px; }
     @media (max-width:991.98px) {
       .inrl-dash-shell { flex-direction:column; }
       .inrl-sidebar { position:static; width:100%; height:auto; flex-direction:row; align-items:center; flex-wrap:wrap; }
-      .inrl-sidebar-header { border-bottom:none; border-right:3px solid #333; padding:.65rem 1rem; }
+      .inrl-sidebar-header { border-bottom:none; border-right:1px solid rgba(240,240,240,.08); padding:.65rem 1rem; }
       .inrl-sidebar-header .inrl-brand { margin-bottom:.2rem; }
       .inrl-sidebar-header .inrl-subtitle { display:none; }
       .inrl-sidebar-nav { display:flex; flex-direction:row; overflow-x:auto; padding:.5rem; flex:1 1 auto; gap:.25rem; }
       .inrl-sidebar-nav .inrl-nav-group-label { display:none; }
       .inrl-sidebar-nav .nav-link { white-space:nowrap; }
-      .inrl-sidebar-nav .nav-link.active { box-shadow:none; }
-      .inrl-sidebar-footer { border-top:none; border-left:3px solid #333; display:flex; align-items:center; gap:.75rem; padding:.6rem 1rem; flex:0 0 auto; }
+      .inrl-sidebar-footer { border-top:none; border-left:1px solid rgba(240,240,240,.08); display:flex; align-items:center; gap:.75rem; padding:.6rem 1rem; flex:0 0 auto; }
       .inrl-sidebar-footer .inrl-user-row { margin-bottom:0; }
       .inrl-sidebar-footer .inrl-quicklinks { flex-direction:row; gap:.6rem; margin-bottom:0; }
       .inrl-dash-main { padding:1.25rem 1rem 2.5rem; }
     }
 
     /* ---- Product designer (Create/Edit Product) ---- */
-    .pd-shell { display:flex; flex-direction:column; background:#111; border:3px solid #333; border-bottom:none; min-height:560px; }
+    .pd-shell { display:flex; flex-direction:column; background:var(--surface-0); border:1px solid var(--line-200); border-bottom:none; border-radius:12px 12px 0 0; overflow:hidden; min-height:560px; }
 
-    /* Form header — replaces the old numbered step indicator. #productFormHeading now
-       describes the whole form ("Create Product" / "Edit: X"), not one section of it. */
-    .pd-form-head { display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap; border-bottom:2px solid #2a2a2a; padding:1.1rem 1.5rem; }
-    .pd-form-head-title { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.3rem; font-weight:700; }
-    .pd-back-link { font-size:.62rem; color:#666; text-decoration:none; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; margin-left:auto; }
-    .pd-back-link:hover { color:#00ED0A; }
+    /* Form header — #productFormHeading describes the whole form ("Create Product" /
+       "Edit: X"). Reached from the Products pane's "+ New Product"/"Edit" actions, not a
+       top-level nav destination — actual product design happens on printful.com; this is
+       catalog metadata + linking, not a from-scratch product builder. */
+    .pd-form-head { display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap; border-bottom:1px solid var(--line-200); padding:1.1rem 1.5rem; }
+    .pd-form-head-title { font-family:var(--font-display); color:var(--ink-900); font-size:1.3rem; font-weight:500; text-transform:uppercase; }
+    .pd-back-link { font-size:.68rem; color:var(--ink-500); text-decoration:none; white-space:nowrap; margin-left:auto; }
+    .pd-back-link:hover { color:var(--accent-700); }
 
-    /* Flat single-screen layout — every section always visible, nothing collapsed, and
-       everything fits without scrolling: image sits beside Details (not stacked above it)
-       so the pane's height is set by its tallest column, not the sum of both, with Printful
-       linking in a persistent right rail. */
     .pd-layout { display:grid; grid-template-columns:2fr 1fr; }
     @media (max-width:900px) { .pd-layout { grid-template-columns:1fr; } }
-    .pd-main { display:grid; grid-template-columns:1fr 1.4fr; border-right:2px solid #2a2a2a; min-width:0; }
-    @media (max-width:900px) { .pd-main { grid-template-columns:1fr; border-right:none; border-bottom:2px solid #2a2a2a; } }
+    .pd-main { display:grid; grid-template-columns:1fr 1.4fr; border-right:1px solid var(--line-200); min-width:0; }
+    @media (max-width:900px) { .pd-main { grid-template-columns:1fr; border-right:none; border-bottom:1px solid var(--line-200); } }
     .pd-sidebar { min-width:0; }
-    .pd-panel { padding:1.25rem 1.5rem; background:#0d0d0d; }
-    .pd-main .pd-panel:first-child { border-right:2px solid #2a2a2a; }
-    @media (max-width:900px) { .pd-main .pd-panel:first-child { border-right:none; border-bottom:2px solid #2a2a2a; } }
-    .pd-panel-title { font-family:'Roboto Mono',monospace; color:#00ED0A; font-weight:700; text-transform:uppercase; letter-spacing:.07em; font-size:.75rem; margin-bottom:.4rem; }
+    .pd-panel { padding:1.25rem 1.5rem; background:var(--surface-0); }
+    .pd-main .pd-panel:first-child { border-right:1px solid var(--line-200); background:var(--surface-50); }
+    @media (max-width:900px) { .pd-main .pd-panel:first-child { border-right:none; border-bottom:1px solid var(--line-200); } }
+    .pd-panel-title { font-family:var(--font-body); color:var(--ink-900); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:.75rem; margin-bottom:.4rem; }
 
-    .pd-step-panel-sub { font-size:.68rem; color:#666; margin-bottom:.9rem; line-height:1.5; }
+    .pd-step-panel-sub { font-size:.68rem; color:var(--ink-500); margin-bottom:.9rem; line-height:1.5; }
     .pd-step-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.25rem; }
     .pd-step-form-grid > * { margin-bottom:.65rem; }
     .pd-step-form-grid > .pd-span-2 { grid-column:1 / -1; }
     @media (max-width:767.98px) { .pd-step-form-grid { grid-template-columns:1fr; } }
 
-    .pd-bottombar { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:3px solid #333; background:#111; padding:.85rem 1.25rem; flex-wrap:wrap; }
+    .pd-bottombar { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:1px solid var(--line-200); background:var(--surface-0); border-radius:0 0 12px 12px; padding:.85rem 1.25rem; flex-wrap:wrap; }
     .pd-bottombar-info { display:flex; align-items:center; gap:.75rem; min-width:0; }
-    .pd-bottom-thumb { width:44px; height:44px; object-fit:cover; background:#1c1c1c; border:2px solid #333; flex:0 0 auto; }
-    .pd-bottom-title { font-size:.8rem; font-weight:700; color:#F5F5F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px; }
-    .pd-bottom-price { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:.9rem; font-weight:700; }
+    .pd-bottom-thumb { width:44px; height:44px; object-fit:cover; background:var(--surface-50); border:1px solid var(--line-200); border-radius:8px; flex:0 0 auto; }
+    .pd-bottom-title { font-size:.8rem; font-weight:500; color:var(--ink-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px; }
+    .pd-bottom-price { font-family:var(--font-display); color:var(--ink-900); font-size:.9rem; font-weight:500; }
     .pd-bottombar-actions { display:flex; gap:.5rem; align-items:center; }
 
     /* ---- Dashboard overview tab ---- */
@@ -161,57 +158,57 @@
     @media (max-width:560px) { .dash-metrics-grid { grid-template-columns:1fr; } }
     .dash-metric-card { padding:1.1rem 1.25rem; display:flex; flex-direction:column; }
     .dash-metric-top { display:flex; align-items:center; gap:.6rem; margin-bottom:1rem; }
-    .dash-metric-icon { flex:0 0 auto; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:2px solid #333; }
+    .dash-metric-icon { flex:0 0 auto; width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:1px solid var(--line-200); }
     .dash-metric-icon svg { width:16px; height:16px; }
-    .dash-metric-icon.tone-green { color:#00ED0A; background:rgba(0,237,10,.08); border-color:rgba(0,237,10,.35); }
-    .dash-metric-icon.tone-yellow { color:#FEFD00; background:rgba(254,253,0,.08); border-color:rgba(254,253,0,.35); }
-    .dash-metric-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.09em; color:#888; font-weight:700; }
-    .dash-metric-value { font-family:'Averia Serif Libre',serif; font-size:1.9rem; font-weight:700; color:#00ED0A; line-height:1; margin-bottom:.3rem; }
-    .dash-metric-caption { font-size:.65rem; color:#666; margin-bottom:.85rem; min-height:1.6em; }
+    .dash-metric-icon.tone-green { color:var(--accent-700); background:rgba(18,162,184,.08); border-color:rgba(18,162,184,.3); }
+    .dash-metric-icon.tone-yellow { color:var(--warn-500); background:rgba(193,122,46,.08); border-color:rgba(193,122,46,.3); }
+    .dash-metric-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-500); font-weight:500; }
+    .dash-metric-value { font-family:var(--font-display); font-size:1.9rem; font-weight:500; color:var(--ink-900); line-height:1; margin-bottom:.3rem; }
+    .dash-metric-caption { font-size:.65rem; color:var(--ink-500); margin-bottom:.85rem; min-height:1.6em; }
     .dash-metric-foot { display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-top:auto; }
-    .dash-chip { display:inline-flex; align-items:center; gap:.3rem; font-family:'Roboto Mono',monospace; font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:.22rem .5rem; border:1px solid transparent; }
+    .dash-chip { display:inline-flex; align-items:center; gap:.3rem; font-family:var(--font-body); font-size:.62rem; font-weight:500; letter-spacing:.02em; padding:.22rem .5rem; border-radius:999px; border:1px solid transparent; }
     .dash-chip svg { width:11px; height:11px; }
-    .dash-chip-green { background:rgba(0,237,10,.08); color:#00ED0A; border-color:rgba(0,237,10,.3); }
-    .dash-chip-yellow { background:rgba(254,253,0,.08); color:#FEFD00; border-color:rgba(254,253,0,.3); }
-    .dash-chip-neutral { background:rgba(255,255,255,.04); color:#888; border-color:#333; }
+    .dash-chip-green { background:rgba(18,162,184,.08); color:var(--accent-700); border-color:rgba(18,162,184,.3); }
+    .dash-chip-yellow { background:rgba(193,122,46,.08); color:var(--warn-500); border-color:rgba(193,122,46,.3); }
+    .dash-chip-neutral { background:var(--surface-50); color:var(--ink-500); border-color:var(--line-200); }
     .dash-sparkline { display:block; overflow:visible; }
 
     .dash-attention-card { margin-bottom:1.5rem; }
-    .dash-attention-count { font-family:'Roboto Mono',monospace; font-size:.62rem; font-weight:700; color:#FEFD00; background:rgba(254,253,0,.1); border:1px solid rgba(254,253,0,.35); padding:.1rem .45rem; margin-left:.5rem; }
+    .dash-attention-count { font-family:var(--font-body); font-size:.62rem; font-weight:500; color:var(--warn-500); background:rgba(193,122,46,.1); border:1px solid rgba(193,122,46,.3); border-radius:999px; padding:.1rem .5rem; margin-left:.5rem; }
     .dash-attention-list { display:flex; flex-direction:column; }
-    .dash-attention-item { display:flex; align-items:center; gap:.9rem; padding:.8rem 1.25rem; border-bottom:2px solid #2a2a2a; transition:opacity .25s ease,max-height .25s ease,padding .25s ease; max-height:90px; overflow:hidden; }
+    .dash-attention-item { display:flex; align-items:center; gap:.9rem; padding:.8rem 1.25rem; border-bottom:1px solid var(--line-100); transition:opacity .25s ease,max-height .25s ease,padding .25s ease; max-height:90px; overflow:hidden; }
     .dash-attention-item:last-child { border-bottom:none; }
     .dash-attention-item.resolved { opacity:0; max-height:0; padding-top:0; padding-bottom:0; border-color:transparent; }
-    .dash-attention-icon { flex:0 0 auto; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:2px solid #333; }
+    .dash-attention-icon { flex:0 0 auto; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:1px solid var(--line-200); }
     .dash-attention-icon svg { width:16px; height:16px; }
-    .dash-attention-icon.tone-yellow { color:#FEFD00; background:rgba(254,253,0,.08); border-color:rgba(254,253,0,.35); }
-    .dash-attention-icon.tone-red { color:#ff4d4f; background:rgba(255,77,79,.08); border-color:rgba(255,77,79,.35); }
+    .dash-attention-icon.tone-yellow { color:var(--warn-500); background:rgba(193,122,46,.08); border-color:rgba(193,122,46,.3); }
+    .dash-attention-icon.tone-red { color:var(--danger-500); background:rgba(192,57,43,.08); border-color:rgba(192,57,43,.3); }
     .dash-attention-body { flex:1 1 auto; min-width:0; }
-    .dash-attention-title { font-size:.75rem; font-weight:700; color:#F5F5F0; }
-    .dash-attention-sub { font-size:.65rem; color:#666; margin-top:.15rem; }
-    .dash-attention-empty { display:none; align-items:center; gap:.6rem; padding:1.5rem 1.25rem; font-size:.72rem; color:#888; }
+    .dash-attention-title { font-size:.75rem; font-weight:500; color:var(--ink-900); }
+    .dash-attention-sub { font-size:.65rem; color:var(--ink-500); margin-top:.15rem; }
+    .dash-attention-empty { display:none; align-items:center; gap:.6rem; padding:1.5rem 1.25rem; font-size:.72rem; color:var(--ink-500); }
     .dash-attention-empty.show { display:flex; }
-    .dash-attention-empty svg { width:18px; height:18px; color:#00ED0A; flex:0 0 auto; }
+    .dash-attention-empty svg { width:18px; height:18px; color:var(--accent-700); flex:0 0 auto; }
 
     .dash-grid { display:grid; grid-template-columns:1.9fr 1fr; gap:1.25rem; align-items:start; }
     @media (max-width:1100px) { .dash-grid { grid-template-columns:1fr; } }
 
     .dash-customer-cell { display:flex; align-items:center; gap:.55rem; }
-    .dash-customer-initials { flex:0 0 auto; width:24px; height:24px; background:#212121; border:2px solid #333; color:#00ED0A; display:flex; align-items:center; justify-content:center; font-family:'Roboto Mono',monospace; font-weight:700; font-size:.6rem; text-transform:uppercase; }
+    .dash-customer-initials { flex:0 0 auto; width:24px; height:24px; background:var(--surface-50); border:1px solid var(--line-200); border-radius:999px; color:var(--accent-700); display:flex; align-items:center; justify-content:center; font-family:var(--font-body); font-weight:500; font-size:.6rem; text-transform:uppercase; }
 
-    .dash-trend-total { font-family:'Averia Serif Libre',serif; font-size:1.6rem; font-weight:700; color:#00ED0A; }
-    .dash-trend-sub { font-size:.62rem; color:#666; margin-bottom:1.1rem; }
+    .dash-trend-total { font-family:var(--font-display); font-size:1.6rem; font-weight:500; color:var(--ink-900); }
+    .dash-trend-sub { font-size:.62rem; color:var(--ink-500); margin-bottom:1.1rem; }
     .dash-bar-chart { display:flex; align-items:flex-end; gap:.5rem; height:100px; position:relative; padding-top:2px; }
-    .dash-bar-chart::before,.dash-bar-chart::after { content:''; position:absolute; left:0; right:0; height:1px; background:#2a2a2a; }
+    .dash-bar-chart::before,.dash-bar-chart::after { content:''; position:absolute; left:0; right:0; height:1px; background:var(--line-100); }
     .dash-bar-chart::before { top:25%; }
     .dash-bar-chart::after { top:62%; }
     .dash-bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:.4rem; height:100%; justify-content:flex-end; position:relative; z-index:1; }
-    .dash-bar { width:100%; max-width:24px; background:#333; transition:background .15s; }
-    .dash-bar-col:hover .dash-bar { background:#555; }
-    .dash-bar-col.today .dash-bar { background:#00ED0A; }
-    .dash-bar-col.today:hover .dash-bar { background:#00c409; }
-    .dash-bar-day { font-size:.58rem; color:#555; font-weight:700; text-transform:uppercase; }
-    .dash-bar-col.today .dash-bar-day { color:#00ED0A; }
+    .dash-bar { width:100%; max-width:24px; background:var(--line-200); border-radius:3px 3px 0 0; transition:background .15s; }
+    .dash-bar-col:hover .dash-bar { background:var(--ink-500); }
+    .dash-bar-col.today .dash-bar { background:var(--accent-500); }
+    .dash-bar-col.today:hover .dash-bar { background:var(--accent-700); }
+    .dash-bar-day { font-size:.58rem; color:var(--ink-500); font-weight:500; text-transform:uppercase; }
+    .dash-bar-col.today .dash-bar-day { color:var(--accent-700); }
   </style>
 </head>
 <body>
@@ -222,8 +219,7 @@
   <aside class="inrl-sidebar">
     <div class="inrl-sidebar-header">
       <a class="inrl-brand" href="/ecommerce/index.html">
-        <span class="inrl-brand-mark">I</span>
-        <span class="inrl-brand-name">INRL</span>
+        <img class="inrl-brand-logo" src="images/main-logo.png" alt="INRL">
       </a>
       <div class="inrl-subtitle">Product Dashboard</div>
     </div>
@@ -243,12 +239,10 @@
           Products
         </button>
       </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="tab-create-product" data-bs-toggle="tab" data-bs-target="#pane-create-product" type="button" role="tab">
-          <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Create Product
-        </button>
-      </li>
+      <!-- No standalone "Create Product" nav destination — products are designed on
+           printful.com; this dashboard only imports/edits catalog metadata, reached from
+           the Products pane's own "+ New Product" and row "Edit" actions (still using
+           #pane-create-product / #tab-create-product under the hood). -->
 
       <li class="inrl-nav-group-label" id="navGroupContent" role="presentation" style="display:none">Content</li>
       <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">
@@ -359,7 +353,7 @@
     <!-- Requires attention -->
     <div class="inrl-card dash-attention-card">
       <div class="inrl-card-header d-flex align-items-center gap-2">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#FEFD00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex:0 0 auto"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#c17a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex:0 0 auto"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <span>Requires Attention</span>
         <span class="dash-attention-count" id="dashAttentionCount" style="display:none">0</span>
       </div>
@@ -455,8 +449,8 @@
           <tbody id="productsTbody"></tbody>
         </table>
       </div>
-      <div class="d-flex justify-content-between align-items-center px-3 py-2" id="productsPaginationBar" style="border-top:1px solid #2a2a2a">
-        <span id="productsPageInfo" style="font-size:.65rem;color:#555"></span>
+      <div class="d-flex justify-content-between align-items-center px-3 py-2" id="productsPaginationBar" style="border-top:1px solid var(--line-200)">
+        <span id="productsPageInfo" style="font-size:.65rem;color:var(--ink-500)"></span>
         <div class="d-flex gap-2">
           <button id="productsPrevBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Prev</button>
           <button id="productsNextBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Next</button>
@@ -509,12 +503,12 @@
 
               <div class="pd-step-form-grid">
                 <div id="brandGroup" class="pd-span-2" style="display:none">
-                  <label class="form-label" for="brandInput">Brand <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
+                  <label class="form-label" for="brandInput">Brand <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
                   <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
                 </div>
 
                 <div class="pd-span-2">
-                  <label class="form-label" for="titleInput">Title <span style="color:#ff4d4f">*</span></label>
+                  <label class="form-label" for="titleInput">Title <span style="color:#c0392b">*</span></label>
                   <input id="titleInput" class="form-control" type="text" required />
                 </div>
 
@@ -528,7 +522,7 @@
                   </select>
                 </div>
                 <div>
-                  <label class="form-label" for="categoryInput">Category <span style="color:#ff4d4f">*</span></label>
+                  <label class="form-label" for="categoryInput">Category <span style="color:#c0392b">*</span></label>
                   <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
                   <datalist id="categoryDatalist">
                     <option value="Men"></option>
@@ -538,17 +532,17 @@
                 </div>
 
                 <div>
-                  <label class="form-label" for="colorInput">Color <span style="color:#ff4d4f">*</span></label>
+                  <label class="form-label" for="colorInput">Color <span style="color:#c0392b">*</span></label>
                   <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
                 </div>
                 <div>
-                  <label class="form-label" for="sizesInput">Sizing <span style="color:#ff4d4f">*</span></label>
+                  <label class="form-label" for="sizesInput">Sizing <span style="color:#c0392b">*</span></label>
                   <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
                   <div class="form-text">Comma-separated sizes.</div>
                 </div>
 
                 <div>
-                  <label class="form-label" for="priceInput">Price <span style="color:#ff4d4f">*</span></label>
+                  <label class="form-label" for="priceInput">Price <span style="color:#c0392b">*</span></label>
                   <div class="input-group">
                     <span class="input-group-text">$</span>
                     <input id="priceInput" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" required />
@@ -570,14 +564,14 @@
                 </div>
 
                 <div>
-                  <label class="form-label" for="targetSelect">AR Target <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
+                  <label class="form-label" for="targetSelect">AR Target <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
                   <select id="targetSelect" class="form-select">
                     <option value="">(none)</option>
                   </select>
                 </div>
                 <div class="form-check" style="align-self:end;padding-bottom:.5rem">
                   <input class="form-check-input" type="checkbox" id="publishInput">
-                  <label class="form-check-label" for="publishInput" style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
+                  <label class="form-check-label" for="publishInput" style="color:var(--ink-500);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
                 </div>
               </div>
             </div>
@@ -591,8 +585,8 @@
               <div class="pd-step-panel-sub">Link this product to a real Printful garment &#8212; required before it can be sold and fulfilled.</div>
 
               <div class="mb-3">
-                <label class="form-label">Import from Printful <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(designed directly on printful.com)</span></label>
-                <div id="printfulSyncLinkSummary" style="font-size:.68rem;color:#555;margin-bottom:6px">Design the product on Printful's own site first, then import it here — sizes, pricing, and preview photos come from Printful automatically.</div>
+                <label class="form-label">Import from Printful <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">(designed directly on printful.com)</span></label>
+                <div id="printfulSyncLinkSummary" style="font-size:.68rem;color:var(--ink-500);margin-bottom:6px">Design the product on Printful's own site first, then import it here — sizes, pricing, and preview photos come from Printful automatically.</div>
                 <button type="button" id="printfulSyncLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Import from Printful Sync Products&#8230;</button>
               </div>
             </div>
@@ -647,7 +641,7 @@
                 <input type="file" accept="image/*" data-home-upload="billboard-image" style="display:none">
               </label>
             </div>
-            <img id="homeBillboardImagePreview" src="" alt="" style="display:none;margin-top:8px;max-height:80px;border:1px solid #333;object-fit:cover">
+            <img id="homeBillboardImagePreview" src="" alt="" style="display:none;margin-top:8px;max-height:80px;border:1px solid var(--line-200);object-fit:cover">
           </div>
           <div class="col-12">
             <label class="form-label" for="homeBillboardDesc">Description</label>
@@ -678,7 +672,7 @@
         </div>
         <div class="row g-3 mt-1">
           <div class="col-12">
-            <label class="form-label">Stats <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">(up to 4)</span></label>
+            <label class="form-label">Stats <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">(up to 4)</span></label>
             <div id="homeWhoStats" class="vstack gap-2"></div>
           </div>
         </div>
@@ -705,7 +699,7 @@
         <div class="inrl-section-title">Newsletter</div>
         <div class="row g-3">
           <div class="col-12">
-            <label class="form-label">Headline <span style="color:#555;font-weight:400;text-transform:none;font-size:.62rem">wrap *text* in asterisks for yellow highlight</span></label>
+            <label class="form-label">Headline <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">wrap *text* in asterisks for yellow highlight</span></label>
             <input id="homeNewsletterHeadline" class="form-control" type="text" placeholder="Stay in the *loop*" />
           </div>
         </div>
@@ -744,7 +738,7 @@
                 <input type="file" accept="image/*" data-branding-upload="logo" style="display:none">
               </label>
             </div>
-            <img id="brandingLogoPreview" src="" alt="" style="display:none;margin-top:8px;max-height:48px;border:1px solid #333;object-fit:contain;background:#1C1C1C;padding:6px">
+            <img id="brandingLogoPreview" src="" alt="" style="display:none;margin-top:8px;max-height:48px;border:1px solid var(--line-200);border-radius:8px;object-fit:contain;background:var(--surface-50);padding:6px">
           </div>
           <div class="col-12">
             <label class="form-label" for="brandingTagline">Tagline</label>
@@ -756,22 +750,22 @@
         <div class="row g-3">
           <div class="col-6 col-lg-3">
             <label class="form-label" for="brandingColorPrimary">Primary</label>
-            <input id="brandingColorPrimary" class="form-control form-control-color" type="color" value="#00ED0A" />
+            <input id="brandingColorPrimary" class="form-control form-control-color" type="color" value="#12a2b8" />
           </div>
           <div class="col-6 col-lg-3">
             <label class="form-label" for="brandingColorAccent">Accent</label>
-            <input id="brandingColorAccent" class="form-control form-control-color" type="color" value="#FEFD00" />
+            <input id="brandingColorAccent" class="form-control form-control-color" type="color" value="#4fc3d5" />
           </div>
           <div class="col-6 col-lg-3">
             <label class="form-label" for="brandingColorDark">Dark</label>
-            <input id="brandingColorDark" class="form-control form-control-color" type="color" value="#1C1C1C" />
+            <input id="brandingColorDark" class="form-control form-control-color" type="color" value="#0b0f10" />
           </div>
           <div class="col-6 col-lg-3">
             <label class="form-label" for="brandingColorLight">Light</label>
-            <input id="brandingColorLight" class="form-control form-control-color" type="color" value="#F5F5F0" />
+            <input id="brandingColorLight" class="form-control form-control-color" type="color" value="#f0f0f0" />
           </div>
         </div>
-        <div style="font-size:.65rem;color:#666;margin-top:.75rem">Changes apply site-wide (storefront nav, footer, buttons) after saving and a page reload.</div>
+        <div style="font-size:.65rem;color:var(--ink-500);margin-top:.75rem">Changes apply site-wide (storefront nav, footer, buttons) after saving and a page reload.</div>
 
       </div>
     </div>
@@ -865,8 +859,8 @@
           <tbody id="ordersTbody"></tbody>
         </table>
       </div>
-      <div class="d-flex justify-content-between align-items-center px-3 py-2" id="ordersPaginationBar" style="border-top:1px solid #2a2a2a">
-        <span id="ordersPageInfo" style="font-size:.65rem;color:#555"></span>
+      <div class="d-flex justify-content-between align-items-center px-3 py-2" id="ordersPaginationBar" style="border-top:1px solid var(--line-200)">
+        <span id="ordersPageInfo" style="font-size:.65rem;color:var(--ink-500)"></span>
         <div class="d-flex gap-2">
           <button id="ordersPrevBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Prev</button>
           <button id="ordersNextBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" disabled>Next</button>
@@ -896,7 +890,7 @@
                 <input id="printfulSiteUrl" class="form-control" type="url" placeholder="https://your-domain.com" />
               </div>
               <div class="col-12 col-lg-5">
-                <div id="printfulWebhookHealthStatus" style="font-size:.75rem;color:#888">Checking webhook health&hellip;</div>
+                <div id="printfulWebhookHealthStatus" style="font-size:.75rem;color:var(--ink-500)">Checking webhook health&hellip;</div>
               </div>
             </div>
           </div>
@@ -963,10 +957,10 @@
 
 <div class="modal fade" id="printfulProductModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0;color:#F5F5F0;">
-      <div class="modal-header" style="border-bottom:2px solid #333;">
-        <h5 class="modal-title" style="font-family:'Averia Serif Libre',serif;color:#00ED0A">Edit Product Design/Price</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:12px;color:var(--ink-900);">
+      <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
+        <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Edit Product Design/Price</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="printfulModalProductId" />
@@ -983,7 +977,7 @@
           <input id="printfulModalRetailPrice" class="form-control" type="number" step="0.01" min="0" placeholder="19.99" />
         </div>
       </div>
-      <div class="modal-footer" style="border-top:2px solid #333;">
+      <div class="modal-footer" style="border-top:1px solid var(--line-200);">
         <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Cancel</button>
         <button type="button" id="printfulModalSaveBtn" class="btn btn-inrl">Save</button>
       </div>
@@ -993,10 +987,10 @@
 
 <div class="modal fade" id="printfulSyncPickerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0;color:#F5F5F0;">
-      <div class="modal-header" style="border-bottom:2px solid #333;">
-        <h5 class="modal-title" style="font-family:'Averia Serif Libre',serif;color:#00ED0A">Import from Printful Sync Products</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:12px;color:var(--ink-900);">
+      <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
+        <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Import from Printful Sync Products</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="pfSyncPickerProductId" />
@@ -1005,17 +999,17 @@
           <input id="pfSyncPickerSearch" class="form-control" type="text" placeholder="Search your Printful sync products&#8230;" />
           <button type="button" id="pfSyncPickerSearchBtn" class="btn btn-inrl-outline">Search</button>
         </div>
-        <div id="pfSyncPickerStatus" style="font-size:.7rem;color:#888;margin-bottom:8px"></div>
-        <div id="pfSyncPickerResults" style="max-height:220px;overflow-y:auto;border:1px solid #333"></div>
+        <div id="pfSyncPickerStatus" style="font-size:.7rem;color:var(--ink-500);margin-bottom:8px"></div>
+        <div id="pfSyncPickerResults" style="max-height:220px;overflow-y:auto;border:1px solid var(--line-200)"></div>
         <div id="pfSyncPickerResolved" style="display:none;margin-top:14px">
-          <div style="font-size:.7rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Imported product</div>
+          <div style="font-size:.7rem;color:var(--ink-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Imported product</div>
           <div id="pfSyncPickerResolvedName" style="font-size:.8rem;margin-bottom:8px"></div>
           <div id="pfSyncPickerVariantGrid" class="vstack gap-1"></div>
-          <div id="pfSyncPickerMissingHint" style="font-size:.68rem;color:#FEFD00;display:none;margin-top:6px">Some sizes couldn't be matched automatically &#8212; enter their Printful sync variant IDs above, then click "Save Overrides".</div>
-          <div id="pfSyncPickerImagesHint" style="font-size:.68rem;color:#00ED0A;display:none;margin-top:6px"></div>
+          <div id="pfSyncPickerMissingHint" style="font-size:.68rem;color:#c17a2e;display:none;margin-top:6px">Some sizes couldn't be matched automatically &#8212; enter their Printful sync variant IDs above, then click "Save Overrides".</div>
+          <div id="pfSyncPickerImagesHint" style="font-size:.68rem;color:#1c5d68;display:none;margin-top:6px"></div>
         </div>
       </div>
-      <div class="modal-footer" style="border-top:2px solid #333;justify-content:space-between">
+      <div class="modal-footer" style="border-top:1px solid var(--line-200);justify-content:space-between">
         <button type="button" id="pfSyncPickerSaveOverridesBtn" class="btn btn-sm btn-inrl-outline" style="display:none;font-size:.62rem">Save Overrides</button>
         <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Done</button>
       </div>
@@ -1114,7 +1108,7 @@
   // yellow for a thin (<20%) margin, green otherwise. Returns '' when there's no cost data.
   function renderMarginHtml(summary, currency) {
     if (!summary) return '';
-    const color = summary.worstMargin <= 0 ? '#ff4d4f' : (summary.worstPct < 20 ? '#FEFD00' : '#00ED0A');
+    const color = summary.worstMargin <= 0 ? '#c0392b' : (summary.worstPct < 20 ? '#c17a2e' : '#1c5d68');
     const costLabel = summary.minCost === summary.maxCost
       ? formatMoney(summary.minCost * 100, currency)
       : formatMoney(summary.minCost * 100, currency) + '–' + formatMoney(summary.maxCost * 100, currency);
@@ -1269,7 +1263,7 @@
     const tbody = el('productsTbody');
     tbody.innerHTML = '';
     if (!slice.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4" style="color:#555">No products found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4" style="color:var(--ink-500)">No products found.</td></tr>';
     } else {
       tbody.innerHTML = slice.map(function(p) {
       const viewerLink = p.viewer_url || '/index.html';
@@ -1277,21 +1271,21 @@
       const hasTarget = p.ar_target_id != null;
       const isPfLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
       const thumb = p.image_url
-        ? '<img src="' + escapeHtml(p.image_url) + '" alt="" style="width:36px;height:36px;object-fit:cover;border:1px solid #333;display:block">'
-        : '<div style="width:36px;height:36px;background:#181818;border:1px solid #333"></div>';
+        ? '<img src="' + escapeHtml(p.image_url) + '" alt="" style="width:36px;height:36px;object-fit:cover;border:1px solid var(--line-200);display:block">'
+        : '<div style="width:36px;height:36px;background:var(--surface-50);border:1px solid var(--line-200)"></div>';
       return '<tr>' +
         '<td>' + thumb + '</td>' +
         '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(p.title || '') + '</td>' +
         '<td><code style="font-size:.7rem">' + escapeHtml(p.slug || '') + '</code></td>' +
-        '<td class="d-none d-xl-table-cell" style="color:#888">' + escapeHtml(p.brand || '') + '</td>' +
+        '<td class="d-none d-xl-table-cell" style="color:var(--ink-500)">' + escapeHtml(p.brand || '') + '</td>' +
         '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
-        '<td><span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + (p.is_published ? '#00ED0A' : '#555') + '">' + (p.is_published ? 'Yes' : 'No') + '</span></td>' +
+        '<td><span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + (p.is_published ? '#1c5d68' : 'var(--ink-500)') + '">' + (p.is_published ? 'Yes' : 'No') + '</span></td>' +
         '<td>' + (isPfLinked
-          ? '<span style="color:#00ED0A;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">LINKED</span>'
-          : '<span style="background:#2a2a2a;color:#555;font-family:\'Roboto Mono\',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">UNLINKED</span>') + '</td>' +
+          ? '<span style="color:#1c5d68;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">LINKED</span>'
+          : '<span style="background:#2a2a2a;color:var(--ink-500);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">UNLINKED</span>') + '</td>' +
         '<td>' +
           '<a href="' + storeLink + '" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">Store</a> ' +
-          (hasTarget ? '<a href="' + viewerLink + '" class="btn btn-sm btn-inrl" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">AR</a>' : '<span style="font-size:.62rem;color:#444">&#8212;</span>') +
+          (hasTarget ? '<a href="' + viewerLink + '" class="btn btn-sm btn-inrl" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">AR</a>' : '<span style="font-size:.62rem;color:var(--line-200)">&#8212;</span>') +
         '</td>' +
         '<td class="text-end" style="white-space:nowrap">' +
           '<button class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .5rem" data-action="edit" data-id="' + p.id + '">Edit</button> ' +
@@ -1337,7 +1331,7 @@
             '<input class="form-control" type="text" data-field="image" value="' + image + '" placeholder="images/banner-image-1.jpg or https://\u2026" />' +
             '<label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">Upload<input type="file" accept="image/*" data-home-upload="slide-image" style="display:none"></label>' +
           '</div>' +
-          '<img data-field="image-preview" src="' + image + '" alt="" style="' + (image ? '' : 'display:none;') + 'margin-top:6px;max-height:70px;border:1px solid #333;object-fit:cover">' +
+          '<img data-field="image-preview" src="' + image + '" alt="" style="' + (image ? '' : 'display:none;') + 'margin-top:6px;max-height:70px;border:1px solid var(--line-200);object-fit:cover">' +
         '</div>' +
         '<div class="col-12 col-lg-6"><label class="form-label">Title</label><input class="form-control" type="text" data-field="title" value="' + title + '" /></div>' +
         '<div class="col-12 col-lg-6"><label class="form-label">Link URL</label><input class="form-control" type="text" data-field="href" value="' + href + '" placeholder="index.html" /></div>' +
@@ -1365,7 +1359,7 @@
     if (!slidesEl) return;
     slidesEl.innerHTML = '';
     if (!home.slides.length) {
-      slidesEl.innerHTML = '<div style="font-size:.72rem;color:#555;padding:.5rem 0">No slides yet. Click + Add Slide.</div>';
+      slidesEl.innerHTML = '<div style="font-size:.72rem;color:var(--ink-500);padding:.5rem 0">No slides yet. Click + Add Slide.</div>';
     } else {
       slidesEl.innerHTML = home.slides.map(function(s, i) { return slideCardHtml(i, s); }).join('');
     }
@@ -1420,7 +1414,7 @@
           '<div class="mb-2"><label class="form-label">Quote</label><textarea class="form-control" rows="2" data-test-field="quote">' + escapeHtml(t.quote || '') + '</textarea></div>' +
           '<div><label class="form-label">Author</label><input class="form-control" type="text" data-test-field="author" value="' + escapeHtml(t.author || '') + '" /></div>' +
         '</div>';
-      }).join('') : '<div style="font-size:.72rem;color:#555;padding:.5rem 0">No testimonials yet. Click + Add.</div>';
+      }).join('') : '<div style="font-size:.72rem;color:var(--ink-500);padding:.5rem 0">No testimonials yet. Click + Add.</div>';
     }
 
     const nlEl = document.getElementById('homeNewsletterHeadline');
@@ -1897,10 +1891,10 @@
         el('brandingSiteName').value = theme.siteName || '';
         el('brandingLogoUrl').value = theme.logoUrl || '';
         el('brandingTagline').value = theme.tagline || '';
-        el('brandingColorPrimary').value = colors.primary || '#00ED0A';
-        el('brandingColorAccent').value = colors.accent || '#FEFD00';
-        el('brandingColorDark').value = colors.dark || '#1C1C1C';
-        el('brandingColorLight').value = colors.light || '#F5F5F0';
+        el('brandingColorPrimary').value = colors.primary || '#12a2b8';
+        el('brandingColorAccent').value = colors.accent || '#4fc3d5';
+        el('brandingColorDark').value = colors.dark || '#0b0f10';
+        el('brandingColorLight').value = colors.light || '#f0f0f0';
         const logoUrl = theme.logoUrl || '';
         const preview = el('brandingLogoPreview');
         if (preview) { preview.src = logoUrl; preview.style.display = logoUrl ? '' : 'none'; }
@@ -1970,22 +1964,22 @@
 
       function statusBadge(s) {
         var map = {
-          'created': 'rgba(136,136,136,.12)|#888|#444',
-          'pending_fulfillment': 'rgba(254,253,0,.1)|#FEFD00|#FEFD00',
-          'shipped': 'rgba(0,237,10,.1)|#00ED0A|#00ED0A',
-          'canceled': 'rgba(255,77,79,.1)|#ff4d4f|#ff4d4f'
+          'created': 'rgba(136,136,136,.12)|var(--ink-500)|var(--line-200)',
+          'pending_fulfillment': 'rgba(193,122,46,.1)|#c17a2e|#c17a2e',
+          'shipped': 'rgba(18,162,184,.1)|#1c5d68|#1c5d68',
+          'canceled': 'rgba(192,57,43,.1)|#c0392b|#c0392b'
         };
         var p = (map[s] || map['created']).split('|');
         return '<span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.28em .55em;' +
-          'font-family:\'Roboto Mono\',monospace;background:' + p[0] + ';color:' + p[1] + ';border:1px solid ' + p[2] + '">' +
+          'background:' + p[0] + ';color:' + p[1] + ';border:1px solid ' + p[2] + '">' +
           escapeHtml(String(s || 'unknown')) + '</span>';
       }
 
       function printfulBadge(id, status) {
-        if (!id) return '<span style="font-size:.62rem;color:#444">&#8212;</span>';
-        var col = status === 'shipped' ? '#00ED0A' : (status ? '#FEFD00' : '#888');
+        if (!id) return '<span style="font-size:.62rem;color:var(--line-200)">&#8212;</span>';
+        var col = status === 'shipped' ? '#1c5d68' : (status ? '#c17a2e' : 'var(--ink-500)');
         return '<span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.28em .55em;' +
-          'font-family:\'Roboto Mono\',monospace;background:rgba(0,237,10,.08);color:' + col + ';border:1px solid ' + col + '" title="#' +
+          'background:rgba(18,162,184,.08);color:' + col + ';border:1px solid ' + col + '" title="#' +
           escapeHtml(String(id)) + '">' + escapeHtml(String(status || 'linked')) + '</span>';
       }
 
@@ -2032,7 +2026,7 @@
         var tbody = document.getElementById('ordersTbody');
         if (!tbody) return;
         if (!slice.length) {
-          tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4" style="color:#555">No orders found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4" style="color:var(--ink-500)">No orders found.</td></tr>';
         } else {
           tbody.innerHTML = slice.map(function(o) {
             var date = o.created_at ? o.created_at.slice(0, 10) : '\u2014';
@@ -2040,14 +2034,14 @@
             var name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || '\u2014';
             var loc = [o.city, o.country].filter(Boolean).join(', ') || '\u2014';
             return '<tr>' +
-              '<td style="font-size:.7rem;white-space:nowrap;color:#888">' + escapeHtml(date) + '</td>' +
-              '<td><code style="font-size:.67rem;color:#666" title="' + escapeHtml(String(o.id || '')) + '">&hellip;' + escapeHtml(shortId) + '</code></td>' +
+              '<td style="font-size:.7rem;white-space:nowrap;color:var(--ink-500)">' + escapeHtml(date) + '</td>' +
+              '<td><code style="font-size:.67rem;color:var(--ink-500)" title="' + escapeHtml(String(o.id || '')) + '">&hellip;' + escapeHtml(shortId) + '</code></td>' +
               '<td style="white-space:nowrap">' + escapeHtml(name) + '</td>' +
               '<td style="font-size:.72rem;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(o.email || '\u2014') + '</td>' +
               '<td style="white-space:nowrap;font-weight:700">' + escapeHtml(formatMoney(o.total_cents, o.currency)) + '</td>' +
               '<td>' + statusBadge(o.status) + '</td>' +
               '<td>' + printfulBadge(o.printful_order_id, o.printful_status) + '</td>' +
-              '<td style="font-size:.7rem;color:#666">' + escapeHtml(loc) + '</td>' +
+              '<td style="font-size:.7rem;color:var(--ink-500)">' + escapeHtml(loc) + '</td>' +
             '</tr>';
           }).join('');
         }
@@ -2127,9 +2121,9 @@
         var w = 120, h = 36;
         var built = dashSparklinePath(values, w, h);
         svg.innerHTML =
-          '<path d="' + built.area + '" fill="rgba(0,237,10,.16)"></path>' +
-          '<path d="' + built.line + '" fill="none" stroke="#00ED0A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
-          '<circle cx="' + built.last[0].toFixed(1) + '" cy="' + built.last[1].toFixed(1) + '" r="2.6" fill="#00ED0A"></circle>';
+          '<path d="' + built.area + '" fill="rgba(18,162,184,.16)"></path>' +
+          '<path d="' + built.line + '" fill="none" stroke="#1c5d68" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
+          '<circle cx="' + built.last[0].toFixed(1) + '" cy="' + built.last[1].toFixed(1) + '" r="2.6" fill="#1c5d68"></circle>';
       }
 
       // Every number here is derived from allOrders/products/printfulProducts — no
@@ -2255,7 +2249,7 @@
         if (!tbody) return;
         var recent = allOrders.slice(0, 6);
         if (!recent.length) {
-          tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4" style="color:#555">No orders yet.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4" style="color:var(--ink-500)">No orders yet.</td></tr>';
           return;
         }
         tbody.innerHTML = recent.map(function(o) {
@@ -2263,7 +2257,7 @@
           var name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || (o.email || '—');
           var initials = name.trim().split(/\s+/).map(function(s) { return s.charAt(0); }).slice(0, 2).join('').toUpperCase() || '?';
           return '<tr>' +
-            '<td style="font-size:.7rem;white-space:nowrap;color:#888">' + escapeHtml(date) + '</td>' +
+            '<td style="font-size:.7rem;white-space:nowrap;color:var(--ink-500)">' + escapeHtml(date) + '</td>' +
             '<td><div class="dash-customer-cell"><span class="dash-customer-initials">' + escapeHtml(initials) + '</span><span style="white-space:nowrap">' + escapeHtml(name) + '</span></div></td>' +
             '<td style="white-space:nowrap;font-weight:700">' + escapeHtml(formatMoney(o.total_cents, o.currency)) + '</td>' +
             '<td>' + statusBadge(o.status) + '</td>' +
@@ -2379,7 +2373,7 @@
 
       function printfulStatusChip(text, color, bg) {
         return '<span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.28em .55em;' +
-          'font-family:\'Roboto Mono\',monospace;background:' + bg + ';color:' + color + ';border:1px solid ' + color + '">' +
+          'background:' + bg + ';color:' + color + ';border:1px solid ' + color + '">' +
           escapeHtml(String(text || 'unknown')) + '</span>';
       }
 
@@ -2387,16 +2381,16 @@
         var statusEl = document.getElementById('printfulWebhookHealthStatus');
         if (!statusEl) return;
         if (!health) {
-          statusEl.innerHTML = '<span style="color:#888">Webhook health unavailable.</span>';
+          statusEl.innerHTML = '<span style="color:var(--ink-500)">Webhook health unavailable.</span>';
           return;
         }
         var active = !!health.active;
         var badge = active
-          ? printfulStatusChip('active', '#00ED0A', 'rgba(0,237,10,.1)')
-          : printfulStatusChip('inactive', '#ff4d4f', 'rgba(255,77,79,.1)');
+          ? printfulStatusChip('active', '#1c5d68', 'rgba(18,162,184,.1)')
+          : printfulStatusChip('inactive', '#c0392b', 'rgba(192,57,43,.1)');
         var meta = 'API ' + escapeHtml(health.api_version || 'unknown') + ' • ' +
           String(health.webhooks_total || 0) + ' webhook(s)';
-        statusEl.innerHTML = badge + '<span style="margin-left:.65rem;color:#666">' + meta + '</span>';
+        statusEl.innerHTML = badge + '<span style="margin-left:.65rem;color:var(--ink-500)">' + meta + '</span>';
       }
 
       async function loadPrintfulWebhookHealth() {
@@ -2421,20 +2415,20 @@
         var tbody = document.getElementById('printfulProductsTbody');
         if (!tbody) return;
         if (!printfulProducts.length) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4" style="color:#555">No products linked to Printful yet. Edit a product and use "Import from Printful Sync Products".</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4" style="color:var(--ink-500)">No products linked to Printful yet. Edit a product and use "Import from Printful Sync Products".</td></tr>';
           return;
         }
 
         tbody.innerHTML = printfulProducts.map(function(p) {
           var isLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
           var stateChip = isLinked
-            ? printfulStatusChip('linked', '#00ED0A', 'rgba(0,237,10,.1)')
-            : printfulStatusChip('unlinked', '#FEFD00', 'rgba(254,253,0,.1)');
+            ? printfulStatusChip('linked', '#1c5d68', 'rgba(18,162,184,.1)')
+            : printfulStatusChip('unlinked', '#c17a2e', 'rgba(193,122,46,.1)');
           var actionHtml = '<button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit Design/Price</button>';
-          var marginHtml = renderMarginHtml(computeMarginSummary(p.price_cents, p.printful_variant_cost_map), p.currency) || '<span style="color:#555">\u2014</span>';
+          var marginHtml = renderMarginHtml(computeMarginSummary(p.price_cents, p.printful_variant_cost_map), p.currency) || '<span style="color:var(--ink-500)">\u2014</span>';
           return '<tr>' +
-            '<td><div style="font-weight:700">' + escapeHtml(p.title || '') + '</div><div style="font-size:.66rem;color:#666">/' + escapeHtml(p.slug || '') + '</div></td>' +
-            '<td style="color:#888">' + escapeHtml(p.brand || '\u2014') + '</td>' +
+            '<td><div style="font-weight:700">' + escapeHtml(p.title || '') + '</div><div style="font-size:.66rem;color:var(--ink-500)">/' + escapeHtml(p.slug || '') + '</div></td>' +
+            '<td style="color:var(--ink-500)">' + escapeHtml(p.brand || '\u2014') + '</td>' +
             '<td style="white-space:nowrap">' + escapeHtml(formatMoney(p.price_cents, p.currency)) + '</td>' +
             '<td style="white-space:nowrap">' + marginHtml + '</td>' +
             '<td><code style="font-size:.68rem">' + escapeHtml(String(p.printful_catalog_product_id || p.printful_sync_product_id || '\u2014')) + '</code></td>' +
@@ -2530,15 +2524,15 @@
       function renderPfSyncPickerResults(items) {
         var box = document.getElementById('pfSyncPickerResults');
         if (!items.length) {
-          box.innerHTML = '<div style="padding:12px;font-size:.7rem;color:#555">No sync products found — design one on printful.com first.</div>';
+          box.innerHTML = '<div style="padding:12px;font-size:.7rem;color:var(--ink-500)">No sync products found — design one on printful.com first.</div>';
           return;
         }
         box.innerHTML = items.map(function(p) {
           return '<div class="d-flex align-items-center gap-2 pf-sync-picker-row" data-sync-id="' + p.id + '" ' +
             'style="padding:8px 10px;cursor:pointer;border-bottom:1px solid #222">' +
-            (p.thumbnail ? '<img src="' + escapeHtml(p.thumbnail) + '" style="width:36px;height:36px;object-fit:cover;border:1px solid #333">' : '') +
+            (p.thumbnail ? '<img src="' + escapeHtml(p.thumbnail) + '" style="width:36px;height:36px;object-fit:cover;border:1px solid var(--line-200)">' : '') +
             '<div><div style="font-size:.75rem">' + escapeHtml(p.name || '') + '</div>' +
-            '<div style="font-size:.62rem;color:#666">#' + escapeHtml(String(p.id)) + (p.variant_count ? ' — ' + p.variant_count + ' variants' : '') + '</div></div>' +
+            '<div style="font-size:.62rem;color:var(--ink-500)">#' + escapeHtml(String(p.id)) + (p.variant_count ? ' — ' + p.variant_count + ' variants' : '') + '</div></div>' +
           '</div>';
         }).join('');
       }
@@ -2552,7 +2546,7 @@
           var val = variantMap && variantMap[size] != null ? String(variantMap[size]) : '';
           var isMissing = (missing || []).indexOf(size) !== -1;
           return '<div class="d-flex align-items-center gap-2">' +
-            '<span style="min-width:36px;font-size:.65rem;text-transform:uppercase;font-weight:700;color:' + (isMissing ? '#FEFD00' : '#00ED0A') + '">' + escapeHtml(size) + '</span>' +
+            '<span style="min-width:36px;font-size:.65rem;text-transform:uppercase;font-weight:700;color:' + (isMissing ? '#c17a2e' : '#1c5d68') + '">' + escapeHtml(size) + '</span>' +
             '<input class="form-control form-control-sm" type="text" data-pf-sync-override-size="' + escapeHtml(size) + '" placeholder="Printful sync variant ID" value="' + escapeHtml(val) + '" />' +
           '</div>';
         }).join('');
@@ -2628,10 +2622,10 @@
 
       function printfulOrderStatusChip(status) {
         var s = String(status || '').toLowerCase();
-        if (!s) return printfulStatusChip('empty', '#888', 'rgba(136,136,136,.1)');
-        if (s === 'shipped' || s === 'fulfilled') return printfulStatusChip(s, '#00ED0A', 'rgba(0,237,10,.1)');
-        if (s === 'failed' || s === 'error') return printfulStatusChip(s, '#ff4d4f', 'rgba(255,77,79,.1)');
-        return printfulStatusChip(s, '#FEFD00', 'rgba(254,253,0,.1)');
+        if (!s) return printfulStatusChip('empty', 'var(--ink-500)', 'rgba(136,136,136,.1)');
+        if (s === 'shipped' || s === 'fulfilled') return printfulStatusChip(s, '#1c5d68', 'rgba(18,162,184,.1)');
+        if (s === 'failed' || s === 'error') return printfulStatusChip(s, '#c0392b', 'rgba(192,57,43,.1)');
+        return printfulStatusChip(s, '#c17a2e', 'rgba(193,122,46,.1)');
       }
 
       function shouldShowForceSync(order) {
@@ -2643,7 +2637,7 @@
         var tbody = document.getElementById('printfulRecentOrdersTbody');
         if (!tbody) return;
         if (!printfulRecentOrders.length) {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4" style="color:#555">No recent Printful orders found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4" style="color:var(--ink-500)">No recent Printful orders found.</td></tr>';
           return;
         }
 
@@ -2660,18 +2654,18 @@
             if (pfOrderId) {
               forceBtn = '<button class="btn btn-sm btn-warn-inrl" style="font-size:.6rem;padding:.2rem .5rem" data-pf-order-action="force-sync" data-id="' + escapeHtml(pfOrderId) + '">Force Sync</button>';
             } else {
-              forceBtn = '<span style="font-size:.62rem;color:#555">No Printful ID</span>';
+              forceBtn = '<span style="font-size:.62rem;color:var(--ink-500)">No Printful ID</span>';
             }
           } else {
-            forceBtn = '<span style="font-size:.62rem;color:#555">OK</span>';
+            forceBtn = '<span style="font-size:.62rem;color:var(--ink-500)">OK</span>';
           }
 
           return '<tr>' +
-            '<td style="font-size:.7rem;color:#888">' + escapeHtml(date) + '</td>' +
-            '<td><code style="font-size:.67rem;color:#666" title="' + escapeHtml(localId) + '">&hellip;' + escapeHtml(localIdShort) + '</code></td>' +
-            '<td>' + (pfOrderId ? '<code style="font-size:.67rem">' + escapeHtml(pfOrderId) + '</code>' : '<span style="color:#555">\u2014</span>') + '</td>' +
+            '<td style="font-size:.7rem;color:var(--ink-500)">' + escapeHtml(date) + '</td>' +
+            '<td><code style="font-size:.67rem;color:var(--ink-500)" title="' + escapeHtml(localId) + '">&hellip;' + escapeHtml(localIdShort) + '</code></td>' +
+            '<td>' + (pfOrderId ? '<code style="font-size:.67rem">' + escapeHtml(pfOrderId) + '</code>' : '<span style="color:var(--ink-500)">\u2014</span>') + '</td>' +
             '<td>' + printfulOrderStatusChip(o.printful_status) + '</td>' +
-            '<td>' + (hasTrackingUrl ? ('<a href="' + escapeHtml(o.tracking_url) + '" target="_blank" rel="noopener" style="color:#00ED0A">' + escapeHtml(tracking) + '</a>') : '<span>' + escapeHtml(tracking) + '</span>') + '</td>' +
+            '<td>' + (hasTrackingUrl ? ('<a href="' + escapeHtml(o.tracking_url) + '" target="_blank" rel="noopener" style="color:#1c5d68">' + escapeHtml(tracking) + '</a>') : '<span>' + escapeHtml(tracking) + '</span>') + '</td>' +
             '<td class="text-end">' + forceBtn + '</td>' +
           '</tr>';
         }).join('');

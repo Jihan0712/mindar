@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Order Tracking &mdash; INRL</title>
+  <title>Order Tracking | INRL</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="description" content="Track your INRL order status.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
@@ -13,56 +13,60 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+  <style>
+    .track-input{width:100%;background:var(--surface-0);border:1px solid var(--line-200);color:var(--ink-900);padding:12px 14px;font-family:var(--font-body);font-size:14px;border-radius:10px;outline:none;transition:border-color .15s}
+    .track-input:focus{border-color:var(--accent-500);box-shadow:0 0 0 3px rgba(18,162,184,.12)}
+    .track-card{border:1px solid var(--line-200);border-radius:12px;padding:40px 36px;margin-bottom:32px}
+  </style>
 </head>
 <body>
 
   <div id="site-header" data-page="track"></div>
 
   <!-- PAGE HERO -->
-  <section style="background:#1C1C1C;padding:140px 0 60px;border-bottom:3px solid #00ED0A">
+  <section style="background:var(--surface-0);padding:140px 0 40px">
     <div class="container">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.28em;color:#00ED0A;margin-bottom:14px">&mdash;&nbsp;After Your Purchase</div>
-      <h1 style="font-family:'Averia Serif Libre',serif;font-size:clamp(40px,6vw,80px);line-height:.92;letter-spacing:-0.05em;color:#F5F5F0">Order <span style="color:#FEFD00">Tracking</span></h1>
+      <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:14px">After your purchase</div>
+      <h1 style="font-family:var(--font-display);font-size:clamp(36px,5.5vw,68px);line-height:.95;letter-spacing:-0.03em;color:var(--ink-900);text-transform:uppercase">Order tracking</h1>
     </div>
   </section>
 
   <!-- TRACKING CONTENT -->
-  <section style="background:#1C1C1C;padding:80px 0 100px">
+  <section style="background:var(--surface-0);padding:24px 0 100px">
     <div class="container" style="max-width:680px">
 
-      <div id="myOrdersSection" style="display:none;border:3px solid rgba(245,245,240,.08);padding:48px 40px;margin-bottom:40px">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-top:3px solid #00ED0A;padding-top:10px;margin-bottom:24px">
-          <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A">Your Orders</div>
-          <a href="#" id="showTrackForm" style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(245,245,240,.4);text-decoration:none">Look up a different order &rarr;</a>
+      <div id="myOrdersSection" style="display:none" class="track-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+          <div class="eyebrow" style="color:var(--accent-700)">Your orders</div>
+          <a href="#" id="showTrackForm" style="font-size:12px;color:var(--ink-500);text-decoration:none">Look up a different order &rarr;</a>
         </div>
         <div id="myOrdersList"></div>
       </div>
 
-      <div style="border:3px solid rgba(245,245,240,.08);padding:48px 40px;margin-bottom:40px">
-        <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;border-top:3px solid #00ED0A;padding-top:10px;margin-bottom:24px">Check Order Status</div>
-        <p id="lookupIntro" style="font-size:14px;line-height:1.8;color:rgba(245,245,240,.5);margin-bottom:28px">Enter your order ID and the email you used at checkout to see what you ordered and its current status.</p>
+      <div id="manualLookupCard" class="track-card">
+        <div class="eyebrow mb-3">Check order status</div>
+        <p id="lookupIntro" style="font-size:14px;line-height:1.8;color:var(--ink-500);margin-bottom:24px">Enter your order ID and the email you used at checkout to see what you ordered and its current status.</p>
         <div id="trackForm">
-          <div style="margin-bottom:16px">
-            <label for="orderIdInput" style="display:block;font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:8px">Order ID</label>
-            <input id="orderIdInput" type="text" placeholder="e.g. ord_…" style="width:100%;background:transparent;border:2px solid rgba(245,245,240,.15);color:#F5F5F0;padding:12px 14px;font-family:'Roboto Mono',monospace;font-size:13px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#00ED0A'" onblur="this.style.borderColor='rgba(245,245,240,.15)'">
+          <div class="mb-3">
+            <label for="orderIdInput" class="form-label">Order ID</label>
+            <input id="orderIdInput" type="text" class="track-input" placeholder="e.g. ord_…">
           </div>
-          <div style="margin-bottom:16px">
-            <label for="orderEmailInput" style="display:block;font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:8px">Email Used At Checkout</label>
-            <input id="orderEmailInput" type="email" placeholder="you@example.com" style="width:100%;background:transparent;border:2px solid rgba(245,245,240,.15);color:#F5F5F0;padding:12px 14px;font-family:'Roboto Mono',monospace;font-size:13px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='#00ED0A'" onblur="this.style.borderColor='rgba(245,245,240,.15)'">
+          <div class="mb-3">
+            <label for="orderEmailInput" class="form-label">Email used at checkout</label>
+            <input id="orderEmailInput" type="email" class="track-input" placeholder="you@example.com">
           </div>
-          <button onclick="submitTrack()" style="padding:12px 28px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Look Up Order</button>
+          <button onclick="submitTrack()" class="btn btn-primary">Look up order</button>
         </div>
         <div id="trackResult" style="display:none;margin-top:24px"></div>
       </div>
 
-      <div style="border:3px solid rgba(245,245,240,.08);padding:36px 40px">
-        <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:rgba(245,245,240,.35);border-top:3px solid rgba(245,245,240,.08);padding-top:10px;margin-bottom:20px">Need Help?</div>
-        <p style="font-size:14px;line-height:1.8;color:rgba(245,245,240,.5);margin-bottom:20px">Can&rsquo;t find your order or have a question about your shipment? Our team is here to help.</p>
+      <div class="track-card mb-0">
+        <div class="eyebrow mb-3">Need help?</div>
+        <p style="font-size:14px;line-height:1.8;color:var(--ink-500);margin-bottom:20px">Can&rsquo;t find your order or have a question about your shipment? Our team is here to help.</p>
         <div class="d-flex gap-3 flex-wrap">
-          <a href="contact.html" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:11px 22px;border:2px solid rgba(245,245,240,.2);color:rgba(245,245,240,.7);text-decoration:none;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#00ED0A';this.style.color='#00ED0A'" onmouseout="this.style.borderColor='rgba(245,245,240,.2)';this.style.color='rgba(245,245,240,.7)'">Contact Support</a>
-          <a href="faqs.html" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:11px 22px;border:2px solid rgba(245,245,240,.2);color:rgba(245,245,240,.7);text-decoration:none;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#00ED0A';this.style.color='#00ED0A'" onmouseout="this.style.borderColor='rgba(245,245,240,.2)';this.style.color='rgba(245,245,240,.7)'">View FAQs</a>
-          <a href="shop.html" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:11px 22px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;text-decoration:none;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Back to Shop</a>
+          <a href="contact.html" class="btn btn-outline-dark">Contact support</a>
+          <a href="faqs.html" class="btn btn-outline-dark">View FAQs</a>
+          <a href="shop.html" class="btn btn-primary">Back to shop</a>
         </div>
       </div>
 
@@ -83,17 +87,17 @@
     var _trackLookupActive = false;
 
     const STATUS_LABELS = {
-      pending:   { label: 'Pending',    color: 'rgba(245,245,240,.5)' },
-      draft:     { label: 'Draft',      color: 'rgba(245,245,240,.5)' },
-      confirmed: { label: 'Confirmed',  color: '#00ED0A' },
-      inprocess: { label: 'In Process', color: '#00ED0A' },
-      partial:   { label: 'Partial',    color: '#FEFD00' },
-      fulfilled: { label: 'Fulfilled',  color: '#00ED0A' },
-      shipped:   { label: 'Shipped',    color: '#00ED0A' },
-      returned:  { label: 'Returned',   color: '#ff4d4f' },
-      cancelled: { label: 'Cancelled',  color: '#ff4d4f' },
-      failed:    { label: 'Failed',     color: '#ff4d4f' },
-      error:     { label: 'Error',      color: '#ff4d4f' },
+      pending:   { label: 'Pending',    color: 'var(--ink-500)' },
+      draft:     { label: 'Draft',      color: 'var(--ink-500)' },
+      confirmed: { label: 'Confirmed',  color: 'var(--accent-700)' },
+      inprocess: { label: 'In Process', color: 'var(--accent-700)' },
+      partial:   { label: 'Partial',    color: 'var(--warn-500)' },
+      fulfilled: { label: 'Fulfilled',  color: 'var(--accent-700)' },
+      shipped:   { label: 'Shipped',    color: 'var(--accent-700)' },
+      returned:  { label: 'Returned',   color: 'var(--danger-500)' },
+      cancelled: { label: 'Cancelled',  color: 'var(--danger-500)' },
+      failed:    { label: 'Failed',     color: 'var(--danger-500)' },
+      error:     { label: 'Error',      color: 'var(--danger-500)' },
     };
 
     function escHtml(s) {
@@ -120,15 +124,15 @@
       const labelId = 'ar-label-' + safeOrderId + '-' + idx;
       const canvasId = 'ar-qr-' + safeOrderId + '-' + idx;
       return `
-        <div style="margin-top:10px;padding:14px 16px;border:2px solid rgba(0,237,10,.2);background:rgba(0,237,10,.04)">
-          <div style="font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:8px">AR Video &mdash; attach this to your shirt</div>
+        <div style="margin-top:10px;padding:14px 16px;border-radius:10px;background:rgba(18,162,184,.06)">
+          <div class="eyebrow" style="margin-bottom:8px">AR video &mdash; attach this to your shirt</div>
           <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
-            <canvas id="${canvasId}" data-ar-qr-url="${escHtml(viewerUrl)}" width="120" height="120" style="background:#fff;flex-shrink:0"></canvas>
+            <canvas id="${canvasId}" data-ar-qr-url="${escHtml(viewerUrl)}" width="96" height="96" style="background:#fff;flex-shrink:0;border-radius:6px"></canvas>
             <div style="flex:1;min-width:180px">
-              <div id="${statusId}" style="font-size:12px;color:rgba(245,245,240,.6);margin-bottom:8px">${hasVideo ? 'Your personal video is live.' : 'Showing the default product video &mdash; upload yours to personalize it.'}</div>
-              <div style="font-size:11px;color:rgba(245,245,240,.4);word-break:break-all;margin-bottom:10px">${escHtml(viewerUrl)}</div>
-              <label style="display:inline-block;font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:9px 16px;background:transparent;border:2px solid #00ED0A;color:#00ED0A;cursor:pointer">
-                <span id="${labelId}">${hasVideo ? 'Edit AR Video' : 'Upload AR Video'}</span>
+              <div id="${statusId}" style="font-size:12px;color:var(--ink-700);margin-bottom:8px">${hasVideo ? 'Your personal video is live.' : 'Showing the default product video &mdash; upload yours to personalize it.'}</div>
+              <div style="font-size:11px;color:var(--ink-500);word-break:break-all;margin-bottom:10px">${escHtml(viewerUrl)}</div>
+              <label class="btn btn-sm btn-outline-dark" style="font-size:.72rem">
+                <span id="${labelId}">${hasVideo ? 'Edit AR video' : 'Upload AR video'}</span>
                 <input type="file" accept="video/*" style="display:none" onchange="uploadArVideo('${safeOrderId}', ${idx}, this, '${statusId}', '${labelId}')">
               </label>
             </div>
@@ -153,7 +157,7 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
         if (statusEl) statusEl.textContent = 'Your personal video is live.';
-        if (labelEl) labelEl.textContent = 'Edit AR Video';
+        if (labelEl) labelEl.textContent = 'Edit AR video';
       } catch (e) {
         if (statusEl) statusEl.textContent = 'Upload failed: ' + (e.message || String(e));
       } finally {
@@ -168,7 +172,7 @@
       if (!window.QRCode || !container) return;
       container.querySelectorAll('canvas[data-ar-qr-url]').forEach(function(canvas) {
         var url = canvas.getAttribute('data-ar-qr-url');
-        QRCode.toCanvas(canvas, url, { width: 120, margin: 2, color: { dark: '#000000', light: '#ffffff' } }, function(err) {
+        QRCode.toCanvas(canvas, url, { width: 96, margin: 2, color: { dark: '#0b0f10', light: '#ffffff' } }, function(err) {
           if (err) console.warn('AR QR render failed', err);
         });
       });
@@ -178,14 +182,14 @@
       if (!Array.isArray(items) || !items.length) return '';
       const rows = items.map(function(it, idx) {
         const img = it.image_url
-          ? `<img src="${escHtml(it.image_url)}" alt="" style="width:40px;height:40px;object-fit:cover;border:1px solid rgba(245,245,240,.15);flex-shrink:0">`
-          : `<div style="width:40px;height:40px;background:rgba(245,245,240,.06);border:1px solid rgba(245,245,240,.15);flex-shrink:0"></div>`;
+          ? `<img src="${escHtml(it.image_url)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0">`
+          : `<div style="width:40px;height:40px;background:var(--line-100);border-radius:6px;flex-shrink:0"></div>`;
         const arHtml = enableAr ? renderArControls(it, orderId, it.item_index != null ? it.item_index : idx) : '';
         return `
-          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(245,245,240,.08)">
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line-200)">
             ${img}
-            <div style="flex:1;font-size:13px;color:#F5F5F0">${escHtml(it.name || '')}<div style="font-size:11px;color:rgba(245,245,240,.4)">Qty: ${escHtml(it.qty || 1)}</div></div>
-            <div style="font-size:13px;color:rgba(245,245,240,.6)">${escHtml(formatMoney((it.price_cents || 0) * (it.qty || 1), currency))}</div>
+            <div style="flex:1;font-size:13px;color:var(--ink-900)">${escHtml(it.name || '')}<div style="font-size:11px;color:var(--ink-500)">Qty: ${escHtml(it.qty || 1)}</div></div>
+            <div style="font-size:13px;color:var(--ink-700)">${escHtml(formatMoney((it.price_cents || 0) * (it.qty || 1), currency))}</div>
           </div>
           ${arHtml}`;
       }).join('');
@@ -196,28 +200,23 @@
     // the "Your Orders" list (which can show several).
     function buildOrderCardHtml(order, headerLabel, enableAr) {
       const pfStatus = (order.printful_status || 'pending').toLowerCase();
-      const statusInfo = STATUS_LABELS[pfStatus] || { label: pfStatus, color: 'rgba(245,245,240,.5)' };
+      const statusInfo = STATUS_LABELS[pfStatus] || { label: pfStatus, color: 'var(--ink-500)' };
 
       let trackingHtml = '';
       if (order.tracking_url) {
         trackingHtml = `
-          <div style="margin-top:16px;padding:14px 16px;border:2px solid rgba(0,237,10,.2);background:rgba(0,237,10,.04)">
-            <div style="font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:6px">Tracking</div>
-            ${order.carrier ? `<div style="font-size:12px;color:rgba(245,245,240,.5);margin-bottom:6px">${escHtml(order.carrier)}</div>` : ''}
-            <a href="${escHtml(order.tracking_url)}" target="_blank" rel="noopener"
-               style="display:inline-block;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:9px 18px;background:#00ED0A;color:#1C1C1C;text-decoration:none">
-              Track Package &rarr;
-            </a>
+          <div style="margin-top:16px;padding:14px 16px;border-radius:10px;background:rgba(18,162,184,.06)">
+            <div class="eyebrow" style="margin-bottom:6px">Tracking</div>
+            ${order.carrier ? `<div style="font-size:12px;color:var(--ink-500);margin-bottom:6px">${escHtml(order.carrier)}</div>` : ''}
+            <a href="${escHtml(order.tracking_url)}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">Track package &rarr;</a>
             ${order.tracking_number ? `
-            <button onclick="navigator.clipboard && navigator.clipboard.writeText('${escHtml(order.tracking_number)}').then(()=>this.textContent='Copied!').catch(()=>{})" style="margin-left:8px;font-family:'Roboto Mono',monospace;font-size:10px;padding:9px 14px;background:transparent;border:2px solid rgba(245,245,240,.2);color:rgba(245,245,240,.6);cursor:pointer">
-              Copy #
-            </button>` : ''}
+            <button onclick="navigator.clipboard && navigator.clipboard.writeText('${escHtml(order.tracking_number)}').then(()=>this.textContent='Copied!').catch(()=>{})" class="btn btn-sm btn-outline-dark ms-2">Copy #</button>` : ''}
           </div>`;
       } else if (order.tracking_number) {
         trackingHtml = `
-          <div style="margin-top:16px;padding:14px 16px;border:2px solid rgba(245,245,240,.1)">
-            <div style="font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.4);margin-bottom:6px">Tracking Number</div>
-            <div style="font-family:'Roboto Mono',monospace;font-size:13px;color:#F5F5F0">${escHtml(order.tracking_number)}</div>
+          <div style="margin-top:16px;padding:14px 16px;border-radius:10px;border:1px solid var(--line-200)">
+            <div class="eyebrow" style="margin-bottom:6px">Tracking number</div>
+            <div style="font-size:13px;color:var(--ink-900)">${escHtml(order.tracking_number)}</div>
           </div>`;
       }
 
@@ -228,33 +227,33 @@
       const isCancelled = pfStatus === 'cancelled' || order.status === 'cancelled' || order.status === 'canceled';
       const needsPayment = !isCancelled && order.payment_status && order.payment_status !== 'paid';
       const paymentHtml = needsPayment ? `
-        <div style="margin-top:16px;padding:14px 16px;border:2px solid rgba(254,253,0,.3);background:rgba(254,253,0,.05)">
-          <div style="font-size:12px;color:rgba(245,245,240,.6);margin-bottom:10px">Payment wasn't completed for this order &mdash; it hasn't been sent to production yet.</div>
+        <div style="margin-top:16px;padding:14px 16px;border-radius:10px;background:rgba(193,122,46,.08)">
+          <div style="font-size:12px;color:var(--ink-700);margin-bottom:10px">Payment wasn't completed for this order &mdash; it hasn't been sent to production yet.</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button onclick="resumePayment('${escHtml(order.id)}', this)" style="padding:10px 20px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer">Complete Payment</button>
-            <button onclick="cancelOrder('${escHtml(order.id)}', this)" style="padding:10px 20px;background:transparent;border:2px solid rgba(255,77,79,.5);color:#ff4d4f;font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer">Cancel Order</button>
+            <button onclick="resumePayment('${escHtml(order.id)}', this)" class="btn btn-sm btn-primary">Complete payment</button>
+            <button onclick="cancelOrder('${escHtml(order.id)}', this)" class="btn btn-sm btn-outline-dark" style="border-color:var(--danger-500);color:var(--danger-500)">Cancel order</button>
           </div>
         </div>` : '';
 
       return `
-        <div style="padding:20px;border:2px solid rgba(0,237,10,.25);background:rgba(0,237,10,.04)">
+        <div style="padding:24px;border-radius:12px;background:var(--surface-50)">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#00ED0A">${escHtml(headerLabel || 'Order Found')}</div>
-            <div style="font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 10px;border:2px solid ${statusInfo.color};color:${statusInfo.color}">${escHtml(statusInfo.label)}</div>
+            <div class="eyebrow" style="color:var(--accent-700)">${escHtml(headerLabel || 'Order found')}</div>
+            <div class="ar-layer-tag" style="color:${statusInfo.color}">${escHtml(statusInfo.label)}</div>
           </div>
-          <p style="font-size:13px;line-height:1.7;color:rgba(245,245,240,.6);margin:0 0 6px">
-            Order <strong style="color:#F5F5F0">${escHtml(order.id)}</strong>${nameSuffix}
+          <p style="font-size:13px;line-height:1.7;color:var(--ink-700);margin:0 0 6px">
+            Order <strong style="color:var(--ink-900)">${escHtml(order.id)}</strong>${nameSuffix}
             ${order.created_at ? `&mdash; placed ${escHtml(String(order.created_at).slice(0,10))}` : ''}
           </p>
-          ${order.shipped_at ? `<p style="font-size:12px;color:rgba(245,245,240,.4);margin:0">Shipped: ${escHtml(order.shipped_at.slice(0,10))}</p>` : ''}
+          ${order.shipped_at ? `<p style="font-size:12px;color:var(--ink-500);margin:0">Shipped: ${escHtml(order.shipped_at.slice(0,10))}</p>` : ''}
           ${paymentHtml}
           ${!needsPayment ? trackingHtml : ''}
-          ${!needsPayment && !order.tracking_url && !order.tracking_number && pfStatus !== 'shipped' ? `<p style="font-size:12px;color:rgba(245,245,240,.4);margin:6px 0 0">Tracking will appear here once your order ships. Questions? <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a></p>` : ''}
+          ${!needsPayment && !order.tracking_url && !order.tracking_number && pfStatus !== 'shipped' ? `<p style="font-size:12px;color:var(--ink-500);margin:6px 0 0">Tracking will appear here once your order ships. Questions? <a href="mailto:contact@inrl.co" style="color:var(--accent-700)">contact@inrl.co</a></p>` : ''}
           ${renderOrderItems(order.items, order.currency, order.id, enableAr)}
           ${Number.isFinite(order.total_cents) ? `
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:10px;border-top:2px solid rgba(245,245,240,.15)">
-            <span style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:rgba(245,245,240,.5)">Total</span>
-            <strong style="font-size:15px;color:#F5F5F0">${escHtml(formatMoney(order.total_cents, order.currency))}</strong>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:10px;border-top:1px solid var(--line-200)">
+            <span class="eyebrow">Total</span>
+            <strong style="font-size:15px;color:var(--ink-900);font-family:var(--font-display)">${escHtml(formatMoney(order.total_cents, order.currency))}</strong>
           </div>` : ''}
         </div>`;
     }
@@ -275,7 +274,7 @@
         location.href = data.checkout_url;
       } catch (e) {
         alert(e.message || String(e));
-        if (btn) { btn.disabled = false; btn.textContent = 'Complete Payment'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Complete payment'; }
       }
     }
 
@@ -296,14 +295,14 @@
         location.reload();
       } catch (e) {
         alert(e.message || String(e));
-        if (btn) { btn.disabled = false; btn.textContent = 'Cancel Order'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Cancel order'; }
       }
     }
 
     function renderTrackResult(order) {
       const resultEl = document.getElementById('trackResult');
       if (!resultEl) return;
-      resultEl.innerHTML = buildOrderCardHtml(order, 'Order Found');
+      resultEl.innerHTML = buildOrderCardHtml(order, 'Order found');
       resultEl.style.display = 'block';
     }
 
@@ -311,7 +310,7 @@
       const sectionEl = document.getElementById('myOrdersSection');
       const listEl = document.getElementById('myOrdersList');
       const introEl = document.getElementById('lookupIntro');
-      const manualFormEl = document.querySelector('#trackForm')?.closest('div[style*="border:3px solid rgba(245,245,240,.08)"]');
+      const manualFormEl = document.getElementById('manualLookupCard');
       if (!sectionEl || !listEl) return;
 
       try {
@@ -320,7 +319,7 @@
         const data = await res.json();
         const orders = Array.isArray(data.items) ? data.items : [];
         if (!orders.length) {
-          listEl.innerHTML = '<p style="font-size:13px;color:rgba(245,245,240,.4)">No orders on your account yet.</p>';
+          listEl.innerHTML = '<p style="font-size:13px;color:var(--ink-500)">No orders on your account yet.</p>';
           // No orders — keep manual form visible, show "Your Orders" section with empty state
           sectionEl.style.display = '';
           if (introEl) introEl.textContent = 'Looking up a different order (placed as a guest, or under another email)? Use the form below.';
@@ -340,7 +339,7 @@
     // Toggle to show manual lookup form again
     document.getElementById('showTrackForm')?.addEventListener('click', function(e) {
       e.preventDefault();
-      const manualFormEl = document.querySelector('#trackForm')?.closest('div[style*="border:3px solid rgba(245,245,240,.08)"]');
+      const manualFormEl = document.getElementById('manualLookupCard');
       if (manualFormEl) manualFormEl.style.display = '';
       // Also make sure "Your Orders" section stays visible (user might want to reference it)
     });
@@ -351,27 +350,27 @@
       const email = (document.getElementById('orderEmailInput').value || '').trim();
       if (!id || !email) {
         const resultEl = document.getElementById('trackResult');
-        resultEl.innerHTML = '<div style="font-size:13px;color:#ff4d4f;padding:12px 0">Enter both your order ID and the email used at checkout.</div>';
+        resultEl.innerHTML = '<div style="font-size:13px;color:var(--danger-500);padding:12px 0">Enter both your order ID and the email used at checkout.</div>';
         resultEl.style.display = 'block';
         return;
       }
 
       const resultEl = document.getElementById('trackResult');
-      resultEl.innerHTML = '<div style="font-family:\'Roboto Mono\',monospace;font-size:12px;color:rgba(245,245,240,.4);padding:12px 0">Looking up order…</div>';
+      resultEl.innerHTML = '<div style="font-size:13px;color:var(--ink-500);padding:12px 0">Looking up order…</div>';
       resultEl.style.display = 'block';
       _trackLookupActive = true;
 
       try {
         const res = await fetch(`/api/orders/${encodeURIComponent(id)}/track?email=${encodeURIComponent(email)}`);
         if (res.status === 404) {
-          resultEl.innerHTML = '<div style="font-size:13px;color:#ff4d4f;padding:12px 0">No order found for that ID and email. Double-check both and try again.</div>';
+          resultEl.innerHTML = '<div style="font-size:13px;color:var(--danger-500);padding:12px 0">No order found for that ID and email. Double-check both and try again.</div>';
           return;
         }
         if (!res.ok) throw new Error(`Server error ${res.status}`);
         const data = await res.json();
         renderTrackResult(data.order);
       } catch (e) {
-        resultEl.innerHTML = `<div style="font-size:13px;color:#ff4d4f;padding:12px 0">Lookup failed: ${escHtml(e.message)}</div>`;
+        resultEl.innerHTML = `<div style="font-size:13px;color:var(--danger-500);padding:12px 0">Lookup failed: ${escHtml(e.message)}</div>`;
       } finally {
         _trackLookupActive = false;
       }

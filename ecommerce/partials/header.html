@@ -1,6 +1,8 @@
-  <!-- SVG SPRITE (shared icons used by the nav search button and footer social links) -->
+  <!-- SVG SPRITE (shared icons used by the nav search/account/bag buttons and footer social links) -->
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
     <symbol id="search" viewBox="0 0 24 24"><path fill="currentColor" d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z"/></symbol>
+    <symbol id="user" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12a5 5 0 1 0-5-5a5 5 0 0 0 5 5Zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.76-3.58-5-8-5Z"/></symbol>
+    <symbol id="bag" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M6 8h12l-1 12H7L6 8Zm3 0V6a3 3 0 0 1 6 0v2"/></symbol>
     <symbol id="facebook" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M7.5 14.5a7 7 0 1 1 0-14a7 7 0 0 1 0 14Zm0 0v-8a2 2 0 0 1 2-2h.5m-5 4h5"/></symbol>
     <symbol id="twitter" viewBox="0 0 15 15"><path fill="currentColor" d="m14.478 1.5l.5-.033a.5.5 0 0 0-.871-.301l.371.334Zm-.498 2.959a.5.5 0 1 0-1 0h1Zm-6.49.082h-.5h.5Zm0 .959h.5h-.5Zm-6.99 7V12a.5.5 0 0 0-.278.916L.5 12.5Zm.998-11l.469-.175a.5.5 0 0 0-.916-.048l.447.223Zm3.994 9l.354.353a.5.5 0 0 0-.195-.827l-.159.474Z"/></symbol>
     <symbol id="youtube" viewBox="0 0 15 15"><path fill="currentColor" d="m1.61 12.738l-.104.489l.105-.489Zm11.78 0l.104.489l-.105-.489Zm0-10.476l.104-.489l-.105.489Zm-11.78 0l.106.489l-.105-.489ZM6.5 5.5l.277-.416A.5.5 0 0 0 6 5.5h.5Zm0 4H6a.5.5 0 0 0 .777.416L6.5 9.5Zm3-2l.277.416a.5.5 0 0 0 0-.832L9.5 7.5Z"/></symbol>
@@ -11,7 +13,7 @@
   <div class="search-popup">
     <div class="search-popup-container">
       <form role="search" method="get" class="search-popup-form" action="shop.html">
-        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Type and press enter" name="s">
+        <input type="search" id="search-form" class="form-control border-0 border-bottom" placeholder="Search pieces" name="s">
         <button type="submit" class="search-submit border-0 position-absolute bg-transparent" style="top:15px;right:15px"><svg width="24" height="24" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></button>
       </form>
       <h5 class="cat-list-title">Browse Categories</h5>
@@ -23,17 +25,14 @@
     </div>
   </div>
 
-  <!-- CART OFFCANVAS -->
-  <div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="offcanvasCart" aria-labelledby="My Cart">
-    <div class="offcanvas-header justify-content-center">
+  <!-- CART OFFCANVAS ("Bag") -->
+  <div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="offcanvasCart" aria-labelledby="My Bag">
+    <div class="offcanvas-header justify-content-between border-bottom" style="border-color:var(--line-200)">
+      <h6 class="mb-0 eyebrow">Your bag</h6>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body">
       <div class="order-md-last">
-        <h4 class="d-flex justify-content-between align-items-center mb-3">
-          <span>Your cart</span>
-          <span class="badge bg-primary rounded-pill" id="cart-count">0</span>
-        </h4>
         <ul id="cart-list" class="list-group mb-3"></ul>
         <div class="d-flex justify-content-between align-items-center mb-3">
           <strong>Total (USD)</strong>
@@ -45,35 +44,105 @@
   </div>
 
   <!-- NAVBAR -->
-  <nav class="navbar navbar-expand-lg fixed-top p-3">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:36px" data-site-logo></a>
-      <div class="d-flex align-items-center gap-3 order-lg-last">
-        <a href="#" class="text-white text-uppercase" style="font-size:.75rem;font-weight:600;letter-spacing:.1em" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">Cart (<span class="js-cart-count">0</span>)</a>
-        <a href="#search" class="search-button text-white"><svg width="22" height="22" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></a>
-      </div>
-      <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar">
+  <nav class="navbar navbar-expand-lg fixed-top py-3">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+
+      <!-- left: primary links (desktop) -->
+      <ul class="navbar-nav d-none d-lg-flex flex-row gap-4">
+        <li class="nav-item"><a class="nav-link" data-page="shop" href="shop.html">Shop</a></li>
+        <li class="nav-item"><a class="nav-link" data-page="about" href="about.html">About</a></li>
+        <li class="nav-item"><a class="nav-link" data-page="contact" href="contact.html">Contact</a></li>
+      </ul>
+
+      <button class="navbar-toggler border-0 d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar">
         <span class="navbar-toggler-icon"></span>
       </button>
+
+      <!-- center: wordmark -->
+      <a class="navbar-brand mx-lg-auto" href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:26px" data-site-logo></a>
+
+      <!-- right: search / account / bag (desktop) -->
+      <div class="d-none d-lg-flex align-items-center gap-4">
+        <a href="#search" class="search-button nav-link d-flex align-items-center gap-1">
+          <svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg> Search
+        </a>
+        <div class="dropdown">
+          <a href="login.html" id="navLogin" class="nav-link d-flex align-items-center gap-1" data-bs-toggle="dropdown" aria-expanded="false">
+            <svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#user"></use></svg> Account
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="wardrobe.html">My wardrobe</a></li>
+            <li><a class="dropdown-item" href="profile.html">Profile</a></li>
+            <li><a class="dropdown-item" href="wishlist.html">Wishlist</a></li>
+            <li><a class="dropdown-item" href="order-tracking.html">Track your order</a></li>
+            <li><a class="dropdown-item" id="navDashboard" href="dashboard.html" style="display:none">Product dashboard</a></li>
+            <li><a class="dropdown-item" id="navArDashboard" href="/admin.html" style="display:none">AR dashboard</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" id="navLogout" href="#" style="display:none">Log out</a></li>
+          </ul>
+        </div>
+        <a href="#" class="nav-link d-flex align-items-center gap-1" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">
+          <svg width="16" height="16" viewBox="0 0 24 24"><use xlink:href="#bag"></use></svg> Bag (<span class="js-cart-count">0</span>)
+        </a>
+      </div>
+
+      <!-- right: search + bag (mobile, account lives in the offcanvas menu) -->
+      <div class="d-flex d-lg-none align-items-center gap-3 order-2">
+        <a href="#search" class="search-button" style="color:var(--ink-900)"><svg width="20" height="20" viewBox="0 0 24 24"><use xlink:href="#search"></use></svg></a>
+        <a href="#" style="color:var(--ink-900)" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart">
+          <svg width="20" height="20" viewBox="0 0 24 24"><use xlink:href="#bag"></use></svg>
+        </a>
+      </div>
+
+      <!-- mobile menu -->
       <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
         <div class="offcanvas-header">
-          <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Menu</h5>
+          <a class="navbar-brand" href="index.html"><img src="images/main-logo.png" alt="INRL" style="height:22px" data-site-logo></a>
           <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body">
-          <ul class="navbar-nav justify-content-end flex-grow-1 gap-1 gap-md-4 pe-3">
-            <li class="nav-item"><a class="nav-link" data-page="home" href="index.html">Home</a></li>
+          <ul class="navbar-nav gap-1 mb-3">
             <li class="nav-item"><a class="nav-link" data-page="shop" href="shop.html">Shop</a></li>
-            <li class="nav-item"><a class="nav-link" data-page="track" href="order-tracking.html">Track Order</a></li>
             <li class="nav-item"><a class="nav-link" data-page="about" href="about.html">About</a></li>
             <li class="nav-item"><a class="nav-link" data-page="contact" href="contact.html">Contact</a></li>
+          </ul>
+          <hr style="border-color:var(--line-200)">
+          <p class="eyebrow mb-2">Account</p>
+          <ul class="navbar-nav gap-1">
+            <li class="nav-item"><a class="nav-link" data-page="login" href="login.html" id="navLoginMobile">Login</a></li>
+            <li class="nav-item"><a class="nav-link" href="wardrobe.html">My wardrobe</a></li>
             <li class="nav-item"><a class="nav-link" data-page="profile" href="profile.html">Profile</a></li>
-            <li class="nav-item"><a class="nav-link" data-page="login" id="navLogin" href="login.html">Login</a></li>
-            <li class="nav-item"><a class="nav-link" id="navDashboard" href="dashboard.html" style="display:none">Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" id="navArDashboard" href="/admin.html" style="display:none">AR Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" id="navLogout" href="#" style="display:none">Logout</a></li>
+            <li class="nav-item"><a class="nav-link" href="wishlist.html">Wishlist</a></li>
+            <li class="nav-item"><a class="nav-link" href="order-tracking.html">Track your order</a></li>
+            <li class="nav-item"><a class="nav-link" id="navDashboardMobile" href="dashboard.html" style="display:none">Product dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navArDashboardMobile" href="/admin.html" style="display:none">AR dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" id="navLogoutMobile" href="#" style="display:none">Log out</a></li>
           </ul>
         </div>
       </div>
     </div>
   </nav>
+
+  <script>
+    /* Mirror the desktop Account-dropdown auth state (set by include.js on
+       #navLogin/#navLogout/#navDashboard/#navArDashboard) onto the mobile
+       offcanvas duplicates, since only one set of real IDs can exist per page. */
+    document.addEventListener('auth:ready', function (e) {
+      var user = e.detail && e.detail.user;
+      var loginM = document.getElementById('navLoginMobile');
+      var logoutM = document.getElementById('navLogoutMobile');
+      var dashM = document.getElementById('navDashboardMobile');
+      var arDashM = document.getElementById('navArDashboardMobile');
+      if (loginM) loginM.style.display = user ? 'none' : '';
+      if (logoutM) {
+        logoutM.style.display = user ? '' : 'none';
+        logoutM.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          document.getElementById('navLogout').click();
+        });
+      }
+      var canDashboard = user && (user.role === 'admin' || user.role === 'brand');
+      if (dashM) dashM.style.display = canDashboard ? '' : 'none';
+      if (arDashM) arDashM.style.display = canDashboard ? '' : 'none';
+    });
+  </script>

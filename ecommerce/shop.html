@@ -1,7 +1,7 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Shop INRL</title>
+  <title>Shop | INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
@@ -11,33 +11,24 @@
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
 <style>
-  body{background:#1C1C1C}
-  .shop-card{border:3px solid #333;overflow:hidden;box-shadow:6px 6px 0 rgba(0,237,10,.15);transition:transform .15s,box-shadow .15s}
-  .shop-card:hover{transform:translate(-3px,-3px);box-shadow:9px 9px 0 #00ED0A}
-  .shop-card-title{background:#1C1C1C;border-bottom:3px solid #333;padding:14px 18px;font-family:'Roboto Mono',monospace;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#F5F5F0}
-  .shop-card-image{display:flex;align-items:center;justify-content:center;aspect-ratio:1;overflow:hidden;background:#E8E8E3}
+  .shop-card{overflow:hidden}
+  .shop-card-image{display:flex;align-items:center;justify-content:center;aspect-ratio:3/4;overflow:hidden;background:var(--surface-50)}
   .shop-card-image img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
-  .shop-card:hover .shop-card-image img{transform:scale(1.05)}
-  .shop-card-footer{display:grid;grid-template-columns:1fr 1fr;border-top:3px solid #333}
-  .shop-card-price{background:#00ED0A;padding:14px 18px;font-family:'Roboto Mono',monospace;font-size:16px;font-weight:700;color:#1C1C1C;display:flex;align-items:center}
-  .shop-card-buy{background:#1C1C1C;padding:14px 18px;font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#F5F5F0;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;border-left:3px solid #333;transition:background .15s,color .15s}
-  .shop-card-buy:hover{background:#222;color:#00ED0A}
-  #shopSearchInput,#shopSortSelect{background:rgba(255,255,255,.05);border:3px solid #333;color:#F5F5F0;font-family:'Roboto Mono',monospace}
-  #shopSearchInput::placeholder{color:rgba(245,245,240,.3)}
-  #shopSearchInput:focus,#shopSortSelect:focus{border-color:#00ED0A;box-shadow:none;background:rgba(255,255,255,.08);color:#F5F5F0}
-  #shopSortSelect option{background:#1C1C1C;color:#F5F5F0}
+  .shop-card:hover .shop-card-image img{transform:scale(1.03)}
+  .shop-card-body{padding:14px 0 0}
+  .shop-card-title{font-family:var(--font-body);font-size:14px;font-weight:400;color:var(--ink-900);margin-bottom:2px}
+  .shop-card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+  .shop-card-price{font-family:var(--font-body);font-size:14px;color:var(--ink-900)}
+  .shop-cat-pill{border:1px solid var(--line-200);border-radius:999px;padding:.4rem 1.1rem;font-size:.8rem;color:var(--ink-700);background:var(--surface-0);cursor:pointer;transition:all .15s}
+  .shop-cat-pill:hover{border-color:var(--ink-500)}
+  .shop-cat-pill.active{background:var(--ink-900);color:var(--surface-0);border-color:var(--ink-900)}
 </style>
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
     <symbol id="heart" viewBox="0 0 24 24"><path fill="currentColor" d="M20.16 4.61A6.27 6.27 0 0 0 12 4a6.27 6.27 0 0 0-8.16 9.48l7.45 7.45a1 1 0 0 0 1.42 0l7.45-7.45a6.27 6.27 0 0 0 0-8.87Zm-1.41 7.46L12 18.81l-6.75-6.74a4.28 4.28 0 0 1 3-7.3a4.25 4.25 0 0 1 3 1.25a1 1 0 0 0 1.42 0a4.27 4.27 0 0 1 6 6.05Z"/></symbol>
-    <symbol id="cart" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 19a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 8.5 19ZM19 16H7a1 1 0 0 1 0-2h8.491a3.013 3.013 0 0 0 2.885-2.176l1.585-5.55A1 1 0 0 0 19 5H6.74a3.007 3.007 0 0 0-2.82-2H3a1 1 0 0 0 0 2h.921a1.005 1.005 0 0 1 .962.725l.155.545v.005l1.641 5.742A3 3 0 0 0 7 18h12a1 1 0 0 0 0-2Zm-1.326-9l-1.22 4.274a1.005 1.005 0 0 1-.963.726H8.754l-.255-.892L7.326 7ZM16.5 19a1.5 1.5 0 1 0 1.5 1.5a1.5 1.5 0 0 0-1.5-1.5Z"/></symbol>
-    <symbol id="star-outline" viewBox="0 0 15 15"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.5 9.804L5.337 11l.413-2.533L4 6.674l2.418-.37L7.5 4l1.082 2.304l2.418.37l-1.75 1.793L9.663 11L7.5 9.804Z"/></symbol>
-    <symbol id="star-solid" viewBox="0 0 15 15"><path fill="currentColor" d="M7.953 3.788a.5.5 0 0 0-.906 0L6.08 5.85l-2.154.33a.5.5 0 0 0-.283.843l1.574 1.613l-.373 2.284a.5.5 0 0 0 .736.518l1.92-1.063l1.921 1.063a.5.5 0 0 0 .736-.519l-.373-2.283l1.574-1.613a.5.5 0 0 0-.283-.844L8.921 5.85l-.968-2.062Z"/></symbol>
-    <symbol id="angle-left" viewBox="0 0 24 24"><path fill="currentColor" d="m11.29 12l3.54-3.54a1 1 0 0 0 0-1.41a1 1 0 0 0-1.42 0l-4.24 4.24a1 1 0 0 0 0 1.42L13.41 17a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29a1 1 0 0 0 0-1.41Z"/></symbol>
-    <symbol id="angle-right" viewBox="0 0 24 24"><path fill="currentColor" d="m14.83 11.29l-4.24-4.24a1 1 0 0 0-1.42 0a1 1 0 0 0 0 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29l4.24-4.24a1 1 0 0 0 0-1.42Z"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><path fill="currentColor" d="M21.71 20.29L18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7a7 7 0 0 1-7 7Z"/></symbol>
   </defs></svg>
 
   <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
@@ -45,44 +36,42 @@
   <div id="site-header" data-page="shop"></div>
 
   <!-- Page Header -->
-  <div class="page-header text-white py-5" style="margin-top:76px">
-    <div class="container pt-4">
-      <h1 id="shopTitle" class="text-uppercase mb-2" style="color:#F5F5F0">Shop</h1>
-      <p id="liveCatalogUser" class="mb-0" style="font-size:13px;opacity:.5"></p>
+  <div style="padding:132px 0 32px;background:var(--surface-0)">
+    <div class="container">
+      <h1 id="shopTitle" class="mb-2" style="color:var(--ink-900);text-transform:uppercase;font-size:clamp(36px,5vw,64px);letter-spacing:-0.03em">Shop</h1>
+      <p id="liveCatalogUser" class="mb-0 eyebrow"></p>
     </div>
   </div>
 
   <!-- Shop Controls + Grid -->
-  <section class="py-5" style="background:#1C1C1C">
+  <section class="pb-5" style="background:var(--surface-0)">
     <div class="container">
-      <div class="row mb-4 g-3 align-items-center">
-        <div class="col-md-5">
-          <input type="text" id="shopSearchInput" class="form-control" placeholder="Search products">
+      <div class="row mb-3 g-3 align-items-center">
+        <div class="col-md-6">
+          <div class="position-relative">
+            <svg width="16" height="16" viewBox="0 0 24 24" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--ink-500)"><use xlink:href="#search"></use></svg>
+            <input type="text" id="shopSearchInput" class="form-control" style="padding-left:42px" placeholder="Search pieces">
+          </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 offset-md-3">
           <select id="shopSortSelect" class="form-select">
-            <option value="relevance">Sort by Relevance</option>
+            <option value="relevance">Newest first</option>
             <option value="price_asc">Price: Low to High</option>
             <option value="price_desc">Price: High to Low</option>
             <option value="popularity">Popularity</option>
           </select>
         </div>
-        <div class="col-md-4 text-md-end">
-          <span id="shopResultsLabel" style="font-size:13px;color:rgba(245,245,240,.4)"></span>
-        </div>
       </div>
-      <div id="shopStatus" class="mb-3" style="font-size:14px;color:rgba(245,245,240,.5)">Loading products</div>
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+        <button type="button" class="shop-cat-pill active" data-cat="">All</button>
+        <button type="button" class="shop-cat-pill" data-cat="Men">Men</button>
+        <button type="button" class="shop-cat-pill" data-cat="Women">Women</button>
+        <button type="button" class="shop-cat-pill" data-cat="Accessories">Accessories</button>
+        <span id="shopResultsLabel" class="eyebrow ms-auto"></span>
+      </div>
+      <div id="shopStatus" class="mb-3" style="font-size:14px;color:var(--ink-500)">Loading products</div>
       <div class="row" id="shopProductsGrid"></div>
     </div>
-  </section>
-
-  <!-- Newsletter -->
-  <section style="background:#1C1C1C;padding:60px 56px;display:flex;align-items:center;justify-content:space-between;gap:40px;flex-wrap:wrap;border-top:3px solid #1C1C1C">
-    <h2 style="font-family:'Averia Serif Libre',serif;font-size:clamp(30px,4vw,48px);color:#F5F5F0;line-height:1;letter-spacing:-0.04em;margin:0">Stay in the <span style="color:#FEFD00">loop</span></h2>
-    <form id="newsletter-form" style="display:flex;gap:0;flex-wrap:wrap">
-      <input type="email" name="email" placeholder="your@email.com" required style="font-family:'Roboto Mono',monospace;font-size:14px;padding:14px 20px;border:3px solid #F5F5F0;background:transparent;color:#F5F5F0;outline:none;width:260px">
-      <button type="submit" style="font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:14px 24px;background:#FEFD00;color:#1C1C1C;border:3px solid #F5F5F0;border-left:none;cursor:pointer">Sign Up</button>
-    </form>
   </section>
 
   <!-- Footer -->
@@ -101,10 +90,10 @@
   <!-- Size Picker Modal -->
   <div class="modal fade" id="shopSizePickerModal" tabindex="-1" aria-labelledby="shopSizePickerLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content" style="background:#1C1C1C;border:2px solid #333;border-radius:0">
-        <div class="modal-header" style="border-bottom:2px solid #333">
-          <h5 class="modal-title text-uppercase" id="shopSizePickerLabel" style="font-family:'Roboto Mono',monospace;font-size:14px;color:#F5F5F0;letter-spacing:.08em">Select a Size</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="shopSizePickerLabel">Select a size</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body py-4" id="shopSizePickerBody">
         </div>
@@ -113,8 +102,7 @@
   </div>
 
   <script>
-    (function(){var f=document.getElementById('newsletter-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();alert('Thanks! Newsletter signup is a demo.');try{f.reset()}catch{}})})();
-    document.addEventListener('auth:ready',function(e){var userEl=document.getElementById('liveCatalogUser');if(!userEl)return;var user=e.detail&&e.detail.user;userEl.textContent=user?'Signed in as '+user.email+' ('+user.role+')':'Not signed in'});
+    document.addEventListener('auth:ready',function(e){var userEl=document.getElementById('liveCatalogUser');if(!userEl)return;var user=e.detail&&e.detail.user;userEl.textContent=user?'Signed in as '+user.email+' ('+user.role+')':''});
 
     function moneyFromCents(cents,currency){var amt=(Number(cents||0)/100);var sym=(currency||'USD')==='USD'?'$':'';return sym+amt.toFixed(2)}
     function normalizeCatalogImageUrl(u){var s=(u||'').toString();if(!s)return s;if(s.startsWith('data:'))return s;if(s.startsWith('http://')||s.startsWith('https://'))return s;if(s.startsWith('/api/'))return s;if(s.startsWith('/ecommerce/'))return s;if(s.startsWith('/images/'))return s.replace(/^\/images\//,'images/');return s}
@@ -135,33 +123,37 @@
     }
     function matchesQuery(p,q){var query=normText(q);if(!query)return true;var title=normText(p&&p.title);var category=normText(p&&p.category);var brand=normText(p&&p.brand);return title.includes(query)||category.includes(query)||brand.includes(query)}
     function readShopStateFromUrl(){var url=new URL(location.href);var categoryRaw=(url.searchParams.get('category')||'').trim();var q=(url.searchParams.get('q')||'').trim();var sort=(url.searchParams.get('sort')||'relevance').trim();return{categoryRaw:categoryRaw,category:categoryRaw.toLowerCase(),q:q,sort:sort}}
-    function updateShopUrlParams(next){var url=new URL(location.href);if('q' in next){var q=String(next.q||'').trim();if(q)url.searchParams.set('q',q);else url.searchParams.delete('q')}if('sort' in next){var s=String(next.sort||'').trim();if(s&&s!=='relevance')url.searchParams.set('sort',s);else url.searchParams.delete('sort')}history.replaceState(null,'',url.toString())}
+    function updateShopUrlParams(next){var url=new URL(location.href);if('q' in next){var q=String(next.q||'').trim();if(q)url.searchParams.set('q',q);else url.searchParams.delete('q')}if('sort' in next){var s=String(next.sort||'').trim();if(s&&s!=='relevance')url.searchParams.set('sort',s);else url.searchParams.delete('sort')}if('category' in next){var c=String(next.category||'').trim();if(c)url.searchParams.set('category',c);else url.searchParams.delete('category')}history.replaceState(null,'',url.toString())}
 
     var SHOP_ALL_ITEMS=null;var SHOP_LOADING=null;
     async function ensureShopProducts(){if(Array.isArray(SHOP_ALL_ITEMS))return SHOP_ALL_ITEMS;if(SHOP_LOADING)return SHOP_LOADING;SHOP_LOADING=(async function(){var res=await fetch('/api/products',{credentials:'include'});if(!res.ok)throw new Error('Products API error ('+res.status+')');var data=await res.json();var items=Array.isArray(data&&data.items)?data.items:[];SHOP_ALL_ITEMS=items;SHOP_LOADING=null;return items})();return SHOP_LOADING}
 
     function sortItems(items,sort,q){var s=(sort||'relevance').toLowerCase();var query=String(q||'').trim();var list=items.slice();if(s==='price_asc'){list.sort(function(a,b){return toNum(a&&a.price_cents,0)-toNum(b&&b.price_cents,0)});return list}if(s==='price_desc'){list.sort(function(a,b){return toNum(b&&b.price_cents,0)-toNum(a&&a.price_cents,0)});return list}if(s==='popularity'){list.sort(function(a,b){return createdAtKey(b)-createdAtKey(a)});return list}if(!query)return list;list.sort(function(a,b){var sa=relevanceScore(a,query);var sb=relevanceScore(b,query);if(sb!==sa)return sb-sa;return createdAtKey(b)-createdAtKey(a)});return list}
 
-    function setShopControlsFromUrl(){var state=readShopStateFromUrl();var searchEl=document.getElementById('shopSearchInput');var sortEl=document.getElementById('shopSortSelect');var popupSearchEl=document.getElementById('search-form');if(searchEl&&searchEl.value!==state.q)searchEl.value=state.q;if(popupSearchEl&&popupSearchEl.value!==state.q)popupSearchEl.value=state.q;var allowed=['relevance','price_asc','price_desc','popularity'];var nextSort=allowed.includes(String(state.sort||'').toLowerCase())?String(state.sort).toLowerCase():'relevance';if(sortEl)sortEl.value=nextSort}
+    function setShopControlsFromUrl(){var state=readShopStateFromUrl();var searchEl=document.getElementById('shopSearchInput');var sortEl=document.getElementById('shopSortSelect');var popupSearchEl=document.getElementById('search-form');if(searchEl&&searchEl.value!==state.q)searchEl.value=state.q;if(popupSearchEl&&popupSearchEl.value!==state.q)popupSearchEl.value=state.q;var allowed=['relevance','price_asc','price_desc','popularity'];var nextSort=allowed.includes(String(state.sort||'').toLowerCase())?String(state.sort).toLowerCase():'relevance';if(sortEl)sortEl.value=nextSort;document.querySelectorAll('.shop-cat-pill').forEach(function(p){p.classList.toggle('active',(p.getAttribute('data-cat')||'').toLowerCase()===state.category)})}
 
     async function renderShopProducts(){
       var gridEl=document.getElementById('shopProductsGrid');var statusEl=document.getElementById('shopStatus');var labelEl=document.getElementById('shopResultsLabel');var titleEl=document.getElementById('shopTitle');
       if(!gridEl)return;var state=readShopStateFromUrl();
-      if(titleEl)titleEl.textContent=state.categoryRaw?'Shop: '+state.categoryRaw:'Shop';
+      if(titleEl)titleEl.textContent=state.categoryRaw?state.categoryRaw:'Shop';
       try{
         if(statusEl)statusEl.textContent='Loading products';var items=await ensureShopProducts();
         var categoryFiltered=state.category?items.filter(function(p){return(p&&p.category!=null?String(p.category):'').toLowerCase().includes(state.category)}):items;
         var searched=state.q?categoryFiltered.filter(function(p){return matchesQuery(p,state.q)}):categoryFiltered;
         var sorted=sortItems(searched,state.sort,state.q);
-        if(sorted.length===0){if(statusEl){if(state.q)statusEl.textContent='No products found for "'+state.q+'".';else if(state.categoryRaw)statusEl.textContent='No products found for "'+state.categoryRaw+'".';else statusEl.textContent='No published products yet.'}if(labelEl)labelEl.textContent='Showing 0 results';gridEl.innerHTML='';return}
-        if(statusEl)statusEl.textContent='';if(labelEl)labelEl.textContent='Showing 1\u2013'+Math.min(sorted.length,12)+' of '+sorted.length+' results';
+        if(sorted.length===0){if(statusEl){if(state.q)statusEl.textContent='No products found for "'+state.q+'".';else if(state.categoryRaw)statusEl.textContent='No products found for "'+state.categoryRaw+'".';else statusEl.textContent='No published products yet.'}if(labelEl)labelEl.textContent='0 pieces';gridEl.innerHTML='';return}
+        if(statusEl)statusEl.textContent='';if(labelEl)labelEl.textContent=sorted.length+' piece'+(sorted.length===1?'':'s');
         gridEl.innerHTML=sorted.slice(0,12).map(function(p){
           var title=escapeHtml((p.title||'Product').toString());var slug=encodeURIComponent((p.slug||'').toString());var price=escapeHtml(moneyFromCents(p.price_cents,p.currency));
           var img=escapeHtml(normalizeCatalogImageUrl((p.image_url||'images/product-thumb-1.jpg').toString()));
-          var viewer=(p.viewer_url||'').toString();var href=slug?'product.html?slug='+slug:'product.html';
+          var href=slug?'product.html?slug='+slug:'product.html';
           var pfMapJson = p.printful_variant_map ? JSON.stringify(p.printful_variant_map) : '';
           var pfSizes = p.sizes ? (p.sizes||'').split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
-          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><div class="shop-card-title">'+title+'</div><a href="'+escapeHtml(href)+'" class="shop-card-image"><img src="'+img+'" alt="'+title+'"></a><div class="shop-card-footer"><div class="shop-card-price">'+price+'</div><a href="#" class="shop-card-buy" data-sku="'+escapeHtml((p.slug||'').toString())+'" data-href="'+escapeHtml(href)+'" data-printful-variant="'+escapeHtml(String(p.printful_sync_variant_id||''))+'" data-printful-variant-map="'+escapeHtml(pfMapJson)+'" data-sizes="'+escapeHtml(pfSizes.join(','))+'">BUY NOW</a></div></div></div>';
+          var arTag = p.ar_target_id ? '<span class="ar-layer-tag">AR Layer</span>' : '<span class="ar-layer-tag is-muted">No layer yet</span>';
+          return '<div class="col-md-3 col-sm-6 mb-4"><div class="shop-card"><a href="'+escapeHtml(href)+'" class="shop-card-image d-block"><img src="'+img+'" alt="'+title+'"></a>'
+            +'<div class="shop-card-body"><div class="shop-card-title">'+title+'</div>'+arTag
+            +'<div class="shop-card-meta"><span class="shop-card-price">From '+price+'</span>'
+            +'<a href="#" class="btn btn-sm btn-outline-dark shop-card-buy" style="font-size:.72rem;padding:.3rem .9rem" data-sku="'+escapeHtml((p.slug||'').toString())+'" data-href="'+escapeHtml(href)+'" data-printful-variant="'+escapeHtml(String(p.printful_sync_variant_id||''))+'" data-printful-variant-map="'+escapeHtml(pfMapJson)+'" data-sizes="'+escapeHtml(pfSizes.join(','))+'">Add</a></div></div></div></div>';
         }).join('');
       }catch(e){if(statusEl)statusEl.textContent='Failed to load products.';if(labelEl)labelEl.textContent='';gridEl.innerHTML='';console.warn('Shop products failed:',e)}
     }
@@ -170,6 +162,7 @@
       var searchEl=document.getElementById('shopSearchInput');var sortEl=document.getElementById('shopSortSelect');setShopControlsFromUrl();var t=null;
       if(searchEl)searchEl.addEventListener('input',function(){if(t)clearTimeout(t);t=setTimeout(function(){updateShopUrlParams({q:searchEl.value});setShopControlsFromUrl();renderShopProducts()},200)});
       if(sortEl)sortEl.addEventListener('change',function(){updateShopUrlParams({sort:sortEl.value});setShopControlsFromUrl();renderShopProducts()});
+      document.querySelectorAll('.shop-cat-pill').forEach(function(p){p.addEventListener('click',function(){updateShopUrlParams({category:p.getAttribute('data-cat')||''});setShopControlsFromUrl();renderShopProducts()})});
       window.addEventListener('popstate',function(){setShopControlsFromUrl();renderShopProducts()});
     }
 
@@ -211,7 +204,7 @@
       if(sizes.length>1){
         _shopBuyPending={sku:sku,name:name,price:price,image:image,pfVariant:pfVariant,variantMap:variantMap};
         var modalBody=document.getElementById('shopSizePickerBody');
-        if(modalBody){modalBody.innerHTML='<div class="d-flex flex-wrap gap-2 justify-content-center">'+sizes.map(function(s){return'<button class="btn btn-outline-dark text-uppercase fw-bold px-4 py-2" data-pick-size="'+s+'">'+s+'</button>';}).join('')+'</div>';}
+        if(modalBody){modalBody.innerHTML='<div class="d-flex flex-wrap gap-2 justify-content-center">'+sizes.map(function(s){return'<button class="btn btn-outline-dark px-4 py-2" data-pick-size="'+s+'">'+s+'</button>';}).join('')+'</div>';}
         var modalEl=document.getElementById('shopSizePickerModal');
         if(modalEl&&window.bootstrap){new bootstrap.Modal(modalEl).show();}
         return;

@@ -3,52 +3,113 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <title>INRL AR Viewer (Stabilized)</title>
+    <title>INRL — The layer</title>
 
     <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="ecommerce/css/global.css">
 
     <style>
-      /* start-screen removed in favor of minimal, non-blocking sound toggle */
-
-      /* Floating sound toggle (minimal, non-blocking) */
-      .sound-toggle {
-        position: fixed;
-        right: 14px;
-        bottom: 14px;
-        width: 44px;
-        height: 44px;
-        border-radius: 8px;
-        border: none;
-        background: rgba(255,255,255,0.92);
-        box-shadow: 0 6px 18px rgba(2,6,23,0.15);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        cursor: pointer;
-        z-index: 10002;
-      }
-      .sound-toggle.hidden { display: none; }
-
-      /* Ensure canvas fills the viewport in both orientations */
-      html, body { height: 100%; margin: 0; }
+      html, body { height: 100%; margin: 0; background: var(--dark-900); overflow: hidden; }
+      body { font-family: var(--font-body); }
       a-scene { width: 100vw; height: 100vh; }
+
+      /* ---------- shared overlay chrome ---------- */
+      .ar-state { position: fixed; inset: 0; z-index: 10000; display: none; }
+      .ar-state.is-active { display: block; }
+      .ar-topbar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 16px; z-index: 10010; pointer-events: none; }
+      .ar-topbar > * { pointer-events: auto; }
+      .ar-icon-btn { width: 40px; height: 40px; border-radius: 999px; border: none; background: rgba(20,25,26,.65); backdrop-filter: blur(6px); color: var(--paper-100); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+      .ar-icon-btn.is-active { background: var(--paper-100); color: var(--dark-900); }
+      .ar-pill-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(20,25,26,.65); backdrop-filter: blur(6px); color: var(--paper-100); font-size: 13px; padding: 8px 16px; border-radius: 999px; }
+      .ar-pill-badge .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--accent-400); flex-shrink: 0; }
+      .ar-pill-badge.is-warn .dot { background: var(--warn-500); }
+
+      /* ---------- full-panel informational states (M1 / M6 / no-target) ---------- */
+      .ar-panel { position: fixed; inset: 0; background: var(--dark-900); display: flex; flex-direction: column; justify-content: center; padding: 32px; box-sizing: border-box; }
+      .ar-panel .eyebrow { color: var(--accent-400); font-size: 13px; font-weight: 500; letter-spacing: .04em; margin-bottom: 20px; }
+      .ar-panel h1 { font-family: var(--font-display); text-transform: uppercase; color: var(--paper-100); font-size: clamp(30px, 8vw, 40px); line-height: .96; letter-spacing: -.02em; margin: 0 0 20px; }
+      .ar-panel p { color: var(--paper-300); font-size: 15px; line-height: 1.6; margin: 0 0 28px; max-width: 340px; }
+      .ar-panel .btn-open { display: inline-block; width: 100%; max-width: 340px; background: var(--paper-100); color: var(--dark-900); border: none; border-radius: 999px; padding: 16px; font-size: 15px; font-weight: 500; text-align: center; cursor: pointer; text-decoration: none; }
+      .ar-panel .link-muted { display: inline-block; margin-top: 16px; color: var(--accent-400); font-size: 13px; text-decoration: none; }
+      .ar-panel .fine-print { color: var(--paper-500); font-size: 12px; line-height: 1.6; margin-top: 12px; max-width: 340px; }
+
+      /* ---------- scanning viewfinder overlay (M2 / M3 / M5) ---------- */
+      .ar-viewfinder { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -46%); width: min(72vw, 320px); height: min(48vh, 220px); pointer-events: none; }
+      .ar-viewfinder .corner { position: absolute; width: 22px; height: 22px; border: 2px solid var(--paper-100); }
+      .ar-viewfinder.is-found .corner { border-color: var(--accent-400); }
+      .ar-viewfinder .corner.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+      .ar-viewfinder .corner.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+      .ar-viewfinder .corner.bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+      .ar-viewfinder .corner.br { bottom: 0; right: 0; border-left: none; border-top: none; }
+      .ar-viewfinder .progress { position: absolute; bottom: -14px; left: 22px; right: 22px; height: 2px; background: rgba(240,240,240,.25); overflow: hidden; }
+      .ar-viewfinder .progress span { display: block; height: 100%; width: 0%; background: var(--accent-400); transition: width .32s linear; }
+
+      .ar-scan-caption { position: fixed; top: calc(50% + 12vh); left: 50%; transform: translateX(-50%); text-align: center; z-index: 10010; width: 90%; max-width: 340px; }
+      .ar-scan-caption .pill { display: inline-block; background: rgba(20,25,26,.75); backdrop-filter: blur(6px); color: var(--paper-100); font-size: 14px; padding: 10px 18px; border-radius: 999px; margin-bottom: 8px; }
+      .ar-scan-caption .hint { color: var(--paper-500); font-size: 12px; }
+      .ar-scan-caption .link-muted { display: inline-block; margin-top: 18px; color: var(--accent-400); font-size: 13px; text-decoration: none; }
+
+      /* ---------- not-recognised tips card (M5) ---------- */
+      .ar-tips-card { position: fixed; left: 20px; right: 20px; bottom: 28px; background: rgba(11,15,16,.9); backdrop-filter: blur(8px); border-radius: 14px; padding: 20px; z-index: 10010; }
+      .ar-tips-card h3 { font-family: var(--font-body); font-weight: 500; color: var(--paper-100); font-size: 16px; margin: 0 0 10px; }
+      .ar-tips-card p { color: var(--paper-500); font-size: 12px; margin: 0 0 6px; }
+      .ar-tips-card ul { list-style: none; margin: 0 0 8px; padding: 0; }
+      .ar-tips-card li { color: var(--paper-300); font-size: 13px; padding: 4px 0 4px 16px; position: relative; }
+      .ar-tips-card li::before { content: ''; position: absolute; left: 2px; top: 11px; width: 4px; height: 4px; border-radius: 999px; background: var(--paper-500); }
+      .ar-tips-card a { color: var(--accent-400); font-size: 13px; text-decoration: none; }
+
+      /* ---------- playing overlay (M4) ---------- */
+      .ar-playing-caption { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); text-align: center; z-index: 10010; width: 90%; max-width: 340px; }
+      .ar-playing-caption .see-piece { display: inline-flex; align-items: center; gap: 8px; background: var(--paper-100); color: var(--dark-900); border-radius: 999px; padding: 10px 20px; font-size: 14px; text-decoration: none; margin-top: 14px; }
+      .ar-footer { position: fixed; left: 0; right: 0; bottom: 20px; text-align: center; z-index: 10010; font-size: 12px; color: var(--paper-500); pointer-events: none; }
+      .ar-footer .dot { display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: var(--accent-400); margin-right: 6px; }
+
+      /* ---------- desktop fallback (AR-D1) ---------- */
+      .ar-desktop { position: fixed; inset: 0; background: var(--dark-900); display: none; }
+      .ar-desktop.is-active { display: block; }
+      .ar-desktop-topbar { display: flex; align-items: center; justify-content: space-between; padding: 20px 32px; border-bottom: 1px solid rgba(240,240,240,.1); }
+      .ar-desktop-topbar img { height: 20px; filter: brightness(0) saturate(100%) invert(1); }
+      .ar-desktop-topbar .meta { color: var(--paper-500); font-size: 12px; }
+      .ar-desktop-body { display: flex; height: calc(100vh - 65px); }
+      .ar-desktop-video { flex: 1; background: #000; display: flex; align-items: center; justify-content: center; position: relative; }
+      .ar-desktop-video video { max-width: 100%; max-height: 100%; }
+      .ar-desktop-video .play-btn { width: 64px; height: 64px; border-radius: 999px; border: 2px solid var(--paper-100); background: transparent; color: var(--paper-100); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+      .ar-desktop-video .caption { position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: var(--paper-500); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+      .ar-desktop-info { flex: 1; max-width: 460px; padding: 48px; overflow-y: auto; box-sizing: border-box; }
+      .ar-desktop-info .eyebrow { color: var(--accent-400); font-size: 12px; font-weight: 500; letter-spacing: .06em; margin-bottom: 16px; }
+      .ar-desktop-info h1 { font-family: var(--font-display); text-transform: uppercase; color: var(--paper-100); font-size: clamp(28px, 3vw, 40px); line-height: .96; letter-spacing: -.02em; margin: 0 0 20px; }
+      .ar-desktop-info p { color: var(--paper-300); font-size: 15px; line-height: 1.6; margin: 0 0 28px; }
+      .ar-qr-card { background: rgba(240,240,240,.05); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+      .ar-qr-card canvas { border-radius: 8px; flex-shrink: 0; }
+      .ar-qr-card strong { display: block; color: var(--paper-100); font-size: 14px; margin-bottom: 4px; }
+      .ar-qr-card span { color: var(--paper-500); font-size: 12px; }
+      .ar-product-card { display: flex; align-items: center; gap: 16px; padding-top: 24px; border-top: 1px solid rgba(240,240,240,.1); }
+      .ar-product-card img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+      .ar-product-card .ph { width: 56px; height: 56px; border-radius: 8px; background: rgba(240,240,240,.08); flex-shrink: 0; }
+      .ar-product-card strong { display: block; color: var(--paper-100); font-size: 14px; margin-bottom: 2px; }
+      .ar-product-card span { color: var(--paper-500); font-size: 13px; }
+      .ar-product-card a { margin-left: auto; background: var(--accent-700); color: var(--paper-100); border-radius: 999px; padding: 8px 18px; font-size: 13px; text-decoration: none; white-space: nowrap; }
+      @media (max-width: 860px) { .ar-desktop-body { flex-direction: column; height: auto; min-height: calc(100vh - 65px); } .ar-desktop-video { min-height: 40vh; } .ar-desktop-info { max-width: none; } }
     </style>
 
     <!-- Viewer: fetch active target from Worker (Cloudflare D1) -->
     <script type="module">
       async function loadActiveTarget() {
         try {
-          console.log('📡 Loading active target from Worker...');
           const params = new URLSearchParams(window.location.search);
           const order = (params.get('order') || '').trim();
           const item = params.get('item');
+          const piece = (params.get('piece') || '').trim();
           let url;
-          if (order && item !== null && item !== '') {
-            // Personal link/QR a customer attached to their own shirt — resolves to their
-            // uploaded video (or the product's default, if they haven't uploaded one yet).
+          if (piece) {
+            const qs = new URLSearchParams();
+            qs.set('code', piece);
+            url = `/api/viewer/piece?${qs.toString()}`;
+          } else if (order && item !== null && item !== '') {
             const qs = new URLSearchParams();
             qs.set('order', order);
             qs.set('item', item);
@@ -65,11 +126,9 @@
           const isJSON = res.headers.get('content-type')?.includes('application/json');
           const data = isJSON ? await res.json().catch(() => null) : null;
           if (!res.ok) {
-            const msg = (data && (data.error || data.message)) || res.statusText || 'Request failed';
-            console.warn('No active target (or fetch failed):', res.status, msg);
+            console.warn('No active target (or fetch failed):', res.status, data);
             return null;
           }
-          console.log('✅ Active target loaded:', data);
           return data;
         } catch (e) {
           console.warn('Active target fetch threw:', e);
@@ -77,307 +136,214 @@
         }
       }
 
-      // debounce helper
       function debounce(fn, wait) {
         let t = null;
-        return function(...args) {
-          clearTimeout(t);
-          t = setTimeout(() => fn.apply(this, args), wait);
-        };
+        return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
       }
 
-      // When device orientation or window resizes, re-apply the active target
-      const handleOrientationOrResize = debounce(() => {
-        try {
-          const target = window.currentActiveTarget || null;
-          if (typeof window.applyActiveTarget === 'function') {
-            window.applyActiveTarget(target);
-          }
-          // also trigger resize/refresh on aframe scene if available
-          const sceneEl = document.querySelector('a-scene');
-          if (sceneEl && sceneEl.resize) sceneEl.resize();
-          // re-size inner plane to maintain correct fit on rotation
-          if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal();
-        } catch (e) {
-          console.warn('orientation/resize handler error', e);
-        }
-      }, 250);
+      function isMobileLike() {
+        const ua = navigator.userAgent || '';
+        if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return true;
+        if (navigator.maxTouchPoints > 1 && window.matchMedia && window.matchMedia('(pointer:coarse)').matches) return true;
+        return false;
+      }
 
-      // On orientation change, perform soft reinit + rescale after a short settle delay
-      window.addEventListener('orientationchange', () => {
-        try {
-          setTimeout(() => {
-            try { if (typeof window.softReinit === 'function') window.softReinit(); } catch (e) {}
-            handleOrientationOrResize();
-          }, 200);
-        } catch (e) {}
-      });
-      window.addEventListener('resize', handleOrientationOrResize);
+      function fmtDate(iso) {
+        if (!iso) return '';
+        try { return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso)).toUpperCase(); }
+        catch { return ''; }
+      }
 
-      document.addEventListener("DOMContentLoaded", async () => {
-        const tOverallStart = performance.now();
+      function money(cents, currency) {
+        if (cents == null) return '';
+        const v = Number(cents) / 100;
+        try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' }).format(v); }
+        catch { return '$' + v.toFixed(2); }
+      }
+
+      // ---------------- UI state machine ----------------
+      const STATES = ['gate', 'scanning', 'found', 'playing', 'notrecognised', 'blocked', 'notarget'];
+      function showState(name) {
+        STATES.forEach(s => {
+          const el = document.getElementById('state-' + s);
+          if (el) el.classList.toggle('is-active', s === name);
+        });
+        document.getElementById('ar-viewfinder-wrap').style.display = (name === 'scanning' || name === 'found' || name === 'notrecognised') ? '' : 'none';
+        document.getElementById('state-scanning').querySelector('.ar-viewfinder')?.classList.toggle('is-found', name === 'found');
+        document.getElementById('ar-topbar').style.display = (name === 'gate' || name === 'notarget') ? 'none' : '';
+      }
+
+      document.addEventListener('DOMContentLoaded', async () => {
         const activeTarget = await loadActiveTarget();
-        console.log(`timing: fetched active target in ${Math.round(performance.now()-tOverallStart)}ms`);
-        if (!activeTarget) {
-          console.warn('No active target found; continuing to show camera for scanning.');
-          // show a small non-blocking notice rather than replacing the page
-          const note = document.createElement('div');
-          note.id = 'no-target-note';
-          note.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:8px 12px;border-radius:8px;z-index:10003;font-size:13px;';
-          note.textContent = 'No active target configured — camera ready for scanning.';
-          document.body.appendChild(note);
-          setTimeout(() => { try { note.remove(); } catch(e){} }, 6000);
-        }
-
-        const mindUrl = activeTarget ? activeTarget.mindurl : null;
-        const videoUrl = activeTarget ? activeTarget.videourl : null;
-        // expose current active target for orientation/resize handlers
         window.currentActiveTarget = activeTarget;
 
-        const scene = document.querySelector("a-scene");
-        const aframeVideoAsset = document.querySelector("#card");
-        const planeEl = document.querySelector("#video-plane");
-        const target = document.querySelector("#target");
+        const scene = document.querySelector('a-scene');
+        const aframeVideoAsset = document.querySelector('#card');
+        const planeEl = document.querySelector('#video-plane');
+        const target = document.querySelector('#target');
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         let lastTargetVisible = false;
+        let notRecognisedTimer = null;
+        let foundPulseTimer = null;
 
-        // Landscape support: no overlay; keep tracking stable and rescale inner plane on rotation
+        // ---- footer / "see this piece" ----
+        if (activeTarget) {
+          const label = activeTarget.product_title || activeTarget.name || 'INRL';
+          const meta = `${label} &middot; V${activeTarget.version || 1}${activeTarget.updated_at ? ' &middot; UPDATED ' + fmtDate(activeTarget.updated_at) : ''}`;
+          document.getElementById('footerMeta').innerHTML = meta;
+          const seeLink = document.getElementById('seePieceLink');
+          if (activeTarget.product) { seeLink.href = 'ecommerce/product.html?slug=' + encodeURIComponent(activeTarget.product); seeLink.style.display = ''; }
+        }
 
-        // --- Sound toggle and AudioContext unlock helper ---
+        // ---- sound toggle (shared across states) ----
         let audioCtx = null;
-        const soundToggle = document.getElementById('soundToggle');
         let soundEnabled = localStorage.getItem('inrl_sound_enabled') === 'true';
-
         function updateSoundUI() {
-          if (!soundToggle) return;
-          soundToggle.textContent = soundEnabled ? '🔊' : '❌';
-          soundToggle.setAttribute('aria-pressed', String(!!soundEnabled));
+          document.querySelectorAll('.js-sound-toggle').forEach(btn => {
+            btn.classList.toggle('is-active', !soundEnabled);
+            btn.innerHTML = soundEnabled ? ICONS.soundOn : ICONS.soundOff;
+          });
         }
-
-        async function initAudioContextIfNeeded() {
-          if (audioCtx) return audioCtx;
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          return audioCtx;
-        }
-
         async function unlockAudio() {
           try {
-            const ctx = await initAudioContextIfNeeded();
-            if (ctx.state === 'suspended') {
-              await ctx.resume();
-              // play silent buffer to ensure some browsers fully unlock
-              const buf = ctx.createBuffer(1, 1, 22050);
-              const src = ctx.createBufferSource();
-              src.buffer = buf;
-              src.connect(ctx.destination);
-              src.start(0);
-              src.stop(0);
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+              await audioCtx.resume();
+              const buf = audioCtx.createBuffer(1, 1, 22050);
+              const src = audioCtx.createBufferSource();
+              src.buffer = buf; src.connect(audioCtx.destination); src.start(0); src.stop(0);
             }
-          } catch (err) {
-            console.warn('unlockAudio failed', err);
-          }
+          } catch (err) { console.warn('unlockAudio failed', err); }
         }
-
-        async function enableSound() {
-          soundEnabled = true;
-          localStorage.setItem('inrl_sound_enabled', 'true');
-          updateSoundUI();
-          await unlockAudio();
-          try { aframeVideoAsset.muted = false; } catch(e){}
-        }
-
-        function disableSound() {
-          soundEnabled = false;
-          localStorage.setItem('inrl_sound_enabled', 'false');
-          updateSoundUI();
-          try { aframeVideoAsset.muted = true; } catch(e){}
-        }
-
-        // Toggle button handler
-        soundToggle?.addEventListener('click', async (ev) => {
+        document.querySelectorAll('.js-sound-toggle').forEach(btn => btn.addEventListener('click', async (ev) => {
           ev.stopPropagation();
-          if (!soundEnabled) await enableSound(); else disableSound();
-        });
+          soundEnabled = !soundEnabled;
+          localStorage.setItem('inrl_sound_enabled', String(soundEnabled));
+          updateSoundUI();
+          if (soundEnabled) { await unlockAudio(); try { aframeVideoAsset.muted = false; } catch (e) {} }
+          else { try { aframeVideoAsset.muted = true; } catch (e) {} }
+        }));
+        updateSoundUI();
 
-        // First user interaction should always prime media playback on Safari/iOS
-        const primePlaybackOnce = async () => {
-          await unlockAudio().catch(()=>{});
+        // ---- torch toggle (best-effort — many browsers/devices don't support it) ----
+        let torchOn = false;
+        document.querySelectorAll('.js-torch-toggle').forEach(btn => btn.addEventListener('click', async (ev) => {
+          ev.stopPropagation();
           try {
-            // Safari sometimes needs a play+pause gesture to allow future autoplay
-            await aframeVideoAsset.play();
-            aframeVideoAsset.pause();
-          } catch (err) {
-            console.warn('primePlaybackOnce play/ pause failed (expected on locked browsers):', err);
-          }
-          window.removeEventListener('touchend', primePlaybackOnce);
-          window.removeEventListener('click', primePlaybackOnce);
-        };
-        window.addEventListener('touchend', primePlaybackOnce, { once: true });
-        window.addEventListener('click', primePlaybackOnce, { once: true });
+            const videoEl = document.querySelector('video[mindar-video], a-scene video');
+            const stream = videoEl && videoEl.srcObject;
+            const track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
+            if (!track) return;
+            torchOn = !torchOn;
+            await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+            btn.classList.toggle('is-active', torchOn);
+          } catch (e) { /* unsupported — no-op */ }
+        }));
 
-        // Initialize UI from stored preference
-        if (soundEnabled) {
-          // ensure audio unlocked when page loads if preference was enabled
-          unlockAudio().catch(()=>{});
-          try { aframeVideoAsset.muted = false; } catch(e){}
+        const backBtn = document.querySelector('.js-back');
+        if (backBtn) backBtn.addEventListener('click', () => { if (history.length > 1) history.back(); else location.href = 'ecommerce/shop.html'; });
+
+        // ---- "play as a page" fallback (no camera / blocked / desktop) ----
+        function playAsPage() {
+          document.getElementById('ar-viewfinder-wrap').style.display = 'none';
+          document.getElementById('ar-topbar').style.display = 'none';
+          showState(null);
+          document.getElementById('pageVideoWrap').style.display = 'flex';
+          const v = document.getElementById('pageVideo');
+          if (activeTarget && activeTarget.videourl) v.src = activeTarget.videourl;
+          v.muted = false;
+          v.play().catch(() => {});
+        }
+        document.querySelectorAll('.js-play-as-page').forEach(el => el.addEventListener('click', (e) => { e.preventDefault(); playAsPage(); }));
+
+        // ---- no target configured at all: nothing to scan for ----
+        if (!activeTarget) {
+          showState('notarget');
+          return;
         }
 
-        // Prefetch the .mind file to warm the browser cache - MindAR will still
-        // request it, but this can reduce latency on initial load.
-        (async () => {
-          if (!mindUrl) return;
-          try {
-            const t = performance.now();
-            await fetch(mindUrl, { method: 'GET', mode: 'cors', cache: 'force-cache' });
-            console.log(`timing: prefetched .mind in ${Math.round(performance.now()-t)}ms`);
-          } catch (e) {
-            console.warn('Could not prefetch .mind (non-fatal):', e);
-          }
-        })();
+        // ---- device branch: desktop vs mobile ----
+        if (!isMobileLike()) {
+          renderDesktopFallback(activeTarget);
+          return;
+        }
+
+        showState('gate');
 
         // function to apply the active target to the scene (re-usable on rotate/resize)
-        async function applyActiveTarget(target) {
-          const mindUrlLocal = target ? target.mindurl : null;
-          const videoUrlLocal = target ? target.videourl : null;
+        async function applyActiveTarget(t) {
+          const mindUrlLocal = t ? t.mindurl : null;
+          const videoUrlLocal = t ? t.videourl : null;
           if (mindUrlLocal && videoUrlLocal) {
             const mindarOpts = [
               `imageTargetSrc: ${mindUrlLocal}`,
-              'autoStart: true',
+              'autoStart: false',
               'filterMinCF: 0.0001',
               'filterBeta: 0.01',
               'warmupTolerance: 5',
               'missTolerance: 5'
             ];
-            if (isIOS) {
-              mindarOpts.push('maxTrack: 1');
-              mindarOpts.push('uiScanning: false');
-              mindarOpts.push('uiLoading: false');
-            }
+            if (isIOS) { mindarOpts.push('maxTrack: 1'); mindarOpts.push('uiScanning: false'); mindarOpts.push('uiLoading: false'); }
             scene.setAttribute('mindar-image', mindarOpts.join('; '));
             try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
-            // Always reassign source so browser refetches metadata (helps on rotation)
             aframeVideoAsset.src = videoUrlLocal;
             aframeVideoAsset.loop = true;
             aframeVideoAsset.muted = !(localStorage.getItem('inrl_sound_enabled') === 'true');
             aframeVideoAsset.playsInline = true;
             aframeVideoAsset.preload = 'auto';
-            // Respond to video dimension availability and changes (portrait/landscape)
-            const onVideoDimChange = () => { try { if (typeof sizeInnerPlaneGlobal === 'function') sizeInnerPlaneGlobal(); } catch(e){} };
+            const onVideoDimChange = () => { try { if (typeof sizeInnerPlaneGlobal === 'function') sizeInnerPlaneGlobal(); } catch (e) {} };
             aframeVideoAsset.addEventListener('loadedmetadata', onVideoDimChange);
             aframeVideoAsset.addEventListener('loadeddata', onVideoDimChange);
             aframeVideoAsset.addEventListener('resize', onVideoDimChange);
-          } else {
-            try { aframeVideoAsset.removeAttribute('src'); } catch(e){}
-            try { aframeVideoAsset.muted = true; } catch(e){}
           }
         }
-
-        // expose for external use
         window.applyActiveTarget = applyActiveTarget;
+        await applyActiveTarget(activeTarget);
 
-        // initially apply
-        applyActiveTarget(activeTarget).catch(()=>{});
-
-        // Wait until mesh is ready. More robust: listen for both 'loaded' (A-Frame primitive)
-        // and 'model-loaded' events, and poll for a longer window before giving up.
         function whenPlaneMeshReady(cb) {
           try {
-            const existingMesh = planeEl.getObject3D && planeEl.getObject3D("mesh");
-            if (existingMesh) {
-              console.log('whenPlaneMeshReady: mesh already present');
-              return cb(existingMesh);
-            }
-
-            const onLoaded = () => {
-              const m = planeEl.getObject3D && planeEl.getObject3D('mesh');
-              if (m) {
-                cleanup();
-                return cb(m);
-              }
-            };
-
-            const onModelLoaded = () => {
-              const m = planeEl.getObject3D && planeEl.getObject3D('mesh');
-              if (m) {
-                cleanup();
-                return cb(m);
-              }
-            };
-
+            const existingMesh = planeEl.getObject3D && planeEl.getObject3D('mesh');
+            if (existingMesh) return cb(existingMesh);
+            const onLoaded = () => { const m = planeEl.getObject3D && planeEl.getObject3D('mesh'); if (m) { cleanup(); return cb(m); } };
+            const onModelLoaded = onLoaded;
             planeEl.addEventListener('loaded', onLoaded);
             planeEl.addEventListener('model-loaded', onModelLoaded);
-
             let tries = 0;
             const iv = setInterval(() => {
               const m = planeEl.getObject3D && planeEl.getObject3D('mesh');
-              if (m) {
-                cleanup();
-                console.log('whenPlaneMeshReady: mesh found via polling');
-                return cb(m);
-              }
+              if (m) { cleanup(); return cb(m); }
               tries++;
-              if (tries > 100) { // ~10s
-                console.warn('whenPlaneMeshReady: Could not find plane mesh after polling');
-                cleanup();
-              }
+              if (tries > 100) cleanup();
             }, 100);
-
-            function cleanup() {
-              planeEl.removeEventListener('loaded', onLoaded);
-              planeEl.removeEventListener('model-loaded', onModelLoaded);
-              clearInterval(iv);
-            }
-          } catch (err) {
-            console.error('whenPlaneMeshReady error:', err);
-          }
+            function cleanup() { planeEl.removeEventListener('loaded', onLoaded); planeEl.removeEventListener('model-loaded', onModelLoaded); clearInterval(iv); }
+          } catch (err) { console.error('whenPlaneMeshReady error:', err); }
         }
 
-        // Helper: infer target aspect ratio from stored marker image URL if available
         async function getTargetAspectFromImage(active) {
           const url = active?.imageurl;
           if (!url) return null;
           try {
             const img = new Image();
             img.crossOrigin = 'anonymous';
-            const p = new Promise((resolve, reject) => {
-              img.onload = () => resolve(img);
-              img.onerror = reject;
-            });
+            const p = new Promise((resolve, reject) => { img.onload = () => resolve(img); img.onerror = reject; });
             img.src = url;
             const loaded = await p;
-            const w = loaded.naturalWidth || 0;
-            const h = loaded.naturalHeight || 0;
-            if (w > 0 && h > 0) return w / h; // width/height
-          } catch (e) {
-            console.warn('Could not infer target aspect from imageurl:', e);
-          }
+            const w = loaded.naturalWidth || 0, h = loaded.naturalHeight || 0;
+            if (w > 0 && h > 0) return w / h;
+          } catch (e) { console.warn('Could not infer target aspect from imageurl:', e); }
           return null;
         }
 
-        // Decide whether borders are needed and which type (letterbox = top/bottom, pillarbox = left/right)
-        function decideBorder(targetAspect, videoAspect, tol = 0.02) {
-          const tAspect = targetAspect && Number.isFinite(targetAspect) && targetAspect > 0 ? targetAspect : 1;
-          const vAspect = Number.isFinite(videoAspect) && videoAspect > 0 ? videoAspect : 1;
-          if (Math.abs(tAspect - vAspect) <= tol) return { same: true, mode: 'none' };
-          if (vAspect > tAspect) return { same: false, mode: 'letterbox' };
-          return { same: false, mode: 'pillarbox' };
-        }
-
-        // Size the plane to match the marker's real aspect (width=1 unit, height=1/targetAspect)
         const targetAspect = await getTargetAspectFromImage(activeTarget) || 1;
         const planeWidthUnits = 1;
         const planeHeightUnits = 1 / targetAspect;
 
-        whenPlaneMeshReady((mesh) => {
-          // Make the main plane act as the black border (fills the marker)
-          planeEl.setAttribute("width", planeWidthUnits);
-          planeEl.setAttribute("height", planeHeightUnits);
-          try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch(e) {}
-          // Ensure the outer plane does not render the video; only the inner plane should
-          try { planeEl.removeAttribute('src'); } catch(e) {}
+        whenPlaneMeshReady(() => {
+          planeEl.setAttribute('width', planeWidthUnits);
+          planeEl.setAttribute('height', planeHeightUnits);
+          try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch (e) {}
+          try { planeEl.removeAttribute('src'); } catch (e) {}
 
-          // Create (or reuse) an inner video plane that will display the <video> element directly.
           let inner = target.querySelector('#video-inner-plane');
           if (!inner) {
             inner = document.createElement('a-plane');
@@ -390,33 +356,20 @@
             target.appendChild(inner);
           }
 
-          // Size the inner plane to preserve the video's aspect ratio and fit inside the marker.
           function sizeInnerPlane() {
-            const vw = aframeVideoAsset.videoWidth;
-            const vh = aframeVideoAsset.videoHeight;
+            const vw = aframeVideoAsset.videoWidth, vh = aframeVideoAsset.videoHeight;
             if (!vw || !vh) return;
             const videoAspect = vw / vh;
-
-            const markerW = planeWidthUnits;
-            const markerH = planeHeightUnits;
+            const markerW = planeWidthUnits, markerH = planeHeightUnits;
             let videoUnitW, videoUnitH;
-            if (videoAspect > (markerW / markerH)) {
-              videoUnitW = markerW;
-              videoUnitH = markerW / videoAspect;
-            } else {
-              videoUnitH = markerH;
-              videoUnitW = markerH * videoAspect;
-            }
-
+            if (videoAspect > (markerW / markerH)) { videoUnitW = markerW; videoUnitH = markerW / videoAspect; }
+            else { videoUnitH = markerH; videoUnitW = markerH * videoAspect; }
             inner.setAttribute('width', videoUnitW);
             inner.setAttribute('height', videoUnitH);
             inner.setAttribute('visible', 'true');
-            try { planeEl.setAttribute('visible', 'true'); } catch(e) {}
+            try { planeEl.setAttribute('visible', 'true'); } catch (e) {}
           }
-          // expose global resizer for orientation/resize handler
-          try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch(e) {}
-
-          // Size now if metadata is ready; otherwise attach handlers to run soon
+          try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch (e) {}
           if (aframeVideoAsset.readyState >= 1) sizeInnerPlane();
           else {
             aframeVideoAsset.addEventListener('loadedmetadata', sizeInnerPlane);
@@ -425,14 +378,10 @@
           }
         });
 
-        // start-screen removed; playback will attempt on targetFound and prompt if blocked
-
-        // Stabilizer - smooth movement/rotation
         const SMOOTHING_FACTOR = 0.05;
         let lastPosition = new THREE.Vector3();
         let lastRotation = new THREE.Euler();
-
-        scene.addEventListener("renderstart", () => {
+        scene.addEventListener('renderstart', () => {
           const obj = target.object3D;
           const tick = () => {
             lastPosition.lerp(obj.position, SMOOTHING_FACTOR);
@@ -446,112 +395,273 @@
           tick();
         });
 
-        target.addEventListener("targetFound", () => {
-          console.log("🎯 Target found — play video");
+        function startNotRecognisedTimer() {
+          clearTimeout(notRecognisedTimer);
+          notRecognisedTimer = setTimeout(() => { showState('notrecognised'); }, 10000);
+        }
+
+        target.addEventListener('targetFound', () => {
           lastTargetVisible = true;
-          aframeVideoAsset.play().catch((e) => {
-            console.warn("play blocked (no user gesture):", e);
-            const prompt = document.createElement('div');
-            prompt.id = 'play-prompt';
-            prompt.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 12px;border-radius:8px;z-index:10001;cursor:pointer;';
-            prompt.textContent = 'Tap to enable video playback';
-            document.body.appendChild(prompt);
-            prompt.addEventListener('click', async () => {
-              await unlockAudio().catch(()=>{});
-              try { aframeVideoAsset.muted = false; } catch(e){}
-              aframeVideoAsset.play().catch(() => {});
-              prompt.remove();
-            }, { once: true });
-          });
+          clearTimeout(notRecognisedTimer);
+          showState('found');
+          const bar = document.getElementById('foundProgressBar');
+          if (bar) { bar.style.width = '0%'; requestAnimationFrame(() => { bar.style.width = '100%'; }); }
+          clearTimeout(foundPulseTimer);
+          foundPulseTimer = setTimeout(() => {
+            showState('playing');
+            aframeVideoAsset.play().catch((e) => { console.warn('play blocked (no user gesture):', e); });
+          }, 320);
         });
 
-        target.addEventListener("targetLost", () => {
-          console.log("👀 Target lost — pause video");
+        target.addEventListener('targetLost', () => {
           lastTargetVisible = false;
+          clearTimeout(foundPulseTimer);
           aframeVideoAsset.pause();
+          showState('scanning');
+          startNotRecognisedTimer();
         });
 
         document.addEventListener('visibilitychange', () => {
-          if (document.hidden) {
-            aframeVideoAsset.pause();
-          } else if (lastTargetVisible) {
-            aframeVideoAsset.play().catch(()=>{});
-          }
+          if (document.hidden) aframeVideoAsset.pause();
+          else if (lastTargetVisible) aframeVideoAsset.play().catch(() => {});
         });
-        // Soft reinit routine used on orientation changes
-        try {
-          window.softReinit = function() {
+
+        // ---- Gate (M1): request camera on tap, branch on the resulting error type ----
+        async function requestCameraAndScan() {
+          try {
+            const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            probe.getTracks().forEach(t => t.stop());
+          } catch (e) {
+            const name = e && e.name;
+            if (name === 'NotFoundError' || name === 'OverconstrainedError') { renderDesktopFallback(activeTarget); return; }
+            showState('blocked');
+            return;
+          }
+          showState('scanning');
+          startNotRecognisedTimer();
+          try {
+            const sys = scene.systems && scene.systems['mindar-image-system'];
+            if (sys && sys.start) sys.start();
+          } catch (e) { console.warn('mindar start failed', e); }
+        }
+        document.getElementById('openCameraBtn').addEventListener('click', requestCameraAndScan);
+        document.getElementById('retryCameraLink').addEventListener('click', (e) => { e.preventDefault(); requestCameraAndScan(); });
+
+        document.getElementById('blockedOpenPageBtn').addEventListener('click', (e) => { e.preventDefault(); playAsPage(); });
+        document.getElementById('whereIsPrintLink').addEventListener('click', (e) => { e.preventDefault(); clearTimeout(notRecognisedTimer); showState('notrecognised'); });
+
+        // Soft reinit on orientation change (unchanged core logic)
+        window.softReinit = function () {
+          try {
+            try { aframeVideoAsset.pause(); } catch (e) {}
+            try { if (scene && scene.removeAttribute) scene.removeAttribute('mindar-image'); } catch (e) {}
+            try { window.applyActiveTarget(window.currentActiveTarget || null); } catch (e) {}
             try {
-              // pause while reconfiguring
-              try { aframeVideoAsset.pause(); } catch(e) {}
-              // Force mindar component to rebuild by removing and re-setting attribute
-              try {
-                if (scene && scene.removeAttribute) scene.removeAttribute('mindar-image');
-              } catch(e) {}
-              // re-apply target and rescale (includes setting mindar-image again)
-              try { window.applyActiveTarget(window.currentActiveTarget || null); } catch(e) {}
-              // restart MindAR tracking system if available
-              try {
-                const sys = scene && scene.systems && scene.systems['mindar-image-system'];
-                if (sys && sys.stop) sys.stop();
-                if (sys && sys.start) sys.start();
-              } catch(e) {}
-              // rescale inner plane after viewport settle
-              try {
-                if (typeof window.sizeInnerPlaneGlobal === 'function') {
-                  setTimeout(() => { try { window.sizeInnerPlaneGlobal(); } catch(_){} }, 50);
-                }
-              } catch(e) {}
-              // refresh aframe scene sizing
-              try {
-                const sceneEl = document.querySelector('a-scene');
-                if (sceneEl && sceneEl.resize) sceneEl.resize();
-              } catch(e) {}
-              // update camera projection for new aspect
-              try {
-                const camEl = document.querySelector('a-camera');
-                const cam = camEl && camEl.getObject3D && camEl.getObject3D('camera');
-                if (cam && cam.updateProjectionMatrix) cam.updateProjectionMatrix();
-              } catch(e) {}
-              // resume if target visible
-              if (lastTargetVisible) { aframeVideoAsset.play().catch(()=>{}); }
-            } catch (err) { console.warn('softReinit failed', err); }
-          };
-        } catch(e) {}
-        // initial rescale pass after scene setup (in case rotation occurred before video metadata)
-        try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch(e) {}
+              const sys = scene && scene.systems && scene.systems['mindar-image-system'];
+              if (sys && sys.stop) sys.stop();
+              if (sys && sys.start) sys.start();
+            } catch (e) {}
+            try { if (typeof window.sizeInnerPlaneGlobal === 'function') setTimeout(() => { try { window.sizeInnerPlaneGlobal(); } catch (_) {} }, 50); } catch (e) {}
+            try { const sceneEl = document.querySelector('a-scene'); if (sceneEl && sceneEl.resize) sceneEl.resize(); } catch (e) {}
+            try { const camEl = document.querySelector('a-camera'); const cam = camEl && camEl.getObject3D && camEl.getObject3D('camera'); if (cam && cam.updateProjectionMatrix) cam.updateProjectionMatrix(); } catch (e) {}
+            if (lastTargetVisible) aframeVideoAsset.play().catch(() => {});
+          } catch (err) { console.warn('softReinit failed', err); }
+        };
+        const handleOrientationOrResize = debounce(() => {
+          try {
+            if (typeof window.applyActiveTarget === 'function') window.applyActiveTarget(window.currentActiveTarget || null);
+            const sceneEl = document.querySelector('a-scene');
+            if (sceneEl && sceneEl.resize) sceneEl.resize();
+            if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal();
+          } catch (e) { console.warn('orientation/resize handler error', e); }
+        }, 250);
+        window.addEventListener('orientationchange', () => { try { setTimeout(() => { try { if (typeof window.softReinit === 'function') window.softReinit(); } catch (e) {} handleOrientationOrResize(); }, 200); } catch (e) {} });
+        window.addEventListener('resize', handleOrientationOrResize);
       });
+
+      // ---------------- desktop fallback (AR-D1) ----------------
+      function renderDesktopFallback(activeTarget) {
+        document.getElementById('ar-mobile-root').style.display = 'none';
+        const el = document.getElementById('ar-desktop');
+        el.classList.add('is-active');
+
+        const label = activeTarget && (activeTarget.product_title || activeTarget.name) || 'INRL';
+        el.querySelector('.meta').innerHTML = `${label}${activeTarget && activeTarget.version ? ' &middot; V' + activeTarget.version : ''}`;
+
+        const video = el.querySelector('#desktopVideo');
+        const playBtn = el.querySelector('.play-btn');
+        if (activeTarget && activeTarget.videourl) video.src = activeTarget.videourl;
+        playBtn.addEventListener('click', () => {
+          video.play().catch(() => {});
+          playBtn.style.display = 'none';
+        });
+
+        const qrCanvas = el.querySelector('#desktopQr');
+        if (window.QRCode) {
+          QRCode.toCanvas(qrCanvas, window.location.href, { width: 92, margin: 1, color: { dark: '#0b0f10', light: '#ffffff' } }, function (err) { if (err) console.warn('QR render failed', err); });
+        }
+
+        const productCard = el.querySelector('#desktopProductCard');
+        if (activeTarget && activeTarget.product_title) {
+          productCard.style.display = 'flex';
+          productCard.querySelector('.title').textContent = activeTarget.product_title;
+          productCard.querySelector('.price').textContent = money(activeTarget.price_cents, activeTarget.currency);
+          const link = productCard.querySelector('a');
+          if (activeTarget.product) link.href = 'ecommerce/product.html?slug=' + encodeURIComponent(activeTarget.product);
+          else link.style.display = 'none';
+        }
+      }
+
+      const ICONS = {
+        back: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+        soundOn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M16 8a5 5 0 0 1 0 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+        soundOff: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m19 9-4 4m0-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+        flash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>',
+      };
+      document.querySelectorAll('.js-back').forEach(el => el.innerHTML = ICONS.back);
+      document.querySelectorAll('.js-torch-toggle').forEach(el => el.innerHTML = ICONS.flash);
     </script>
   </head>
 
   <body>
 
-      <!-- Minimal floating sound toggle -->
-      <button id="soundToggle" class="sound-toggle" aria-pressed="false" aria-label="Enable sound">🔈</button>
+    <div id="ar-mobile-root">
+      <!-- shared top bar (hidden on gate / no-target states) -->
+      <div class="ar-topbar" id="ar-topbar">
+        <button class="ar-icon-btn js-back" aria-label="Back"></button>
+        <div id="ar-pill-slot"></div>
+        <div style="display:flex;gap:10px">
+          <button class="ar-icon-btn js-sound-toggle" aria-label="Toggle sound"></button>
+          <button class="ar-icon-btn js-torch-toggle" aria-label="Toggle flashlight"></button>
+        </div>
+      </div>
 
-    <a-scene
-      color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false">
+      <!-- shared scanning viewfinder, reused by scanning / found / not-recognised -->
+      <div id="ar-viewfinder-wrap" style="display:none">
+        <div class="ar-viewfinder">
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+          <div class="progress"><span id="foundProgressBar"></span></div>
+        </div>
+      </div>
 
-      <a-assets>
-        <video id="card" preload="auto" crossorigin="anonymous" playsinline webkit-playsinline muted></video>
-      </a-assets>
+      <!-- M1: before the camera -->
+      <div class="ar-state" id="state-gate">
+        <div class="ar-panel">
+          <div class="eyebrow">INRL&reg;</div>
+          <h1>There is more<br>on this shirt.</h1>
+          <p>Point your camera at the print. Whatever is behind it right now will play.</p>
+          <button class="btn-open" id="openCameraBtn">Open the camera</button>
+          <div class="fine-print">The camera runs on your device. Nothing is uploaded, and nothing is recorded.</div>
+          <a href="#" class="link-muted js-play-as-page">No camera? Open it as a page instead</a>
+        </div>
+      </div>
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <!-- M2: scanning -->
+      <div class="ar-state" id="state-scanning">
+        <div class="ar-scan-caption">
+          <div class="pill">Scan the print to start</div>
+          <div class="hint">Hold steady &middot; good light helps</div>
+          <a href="#" class="link-muted" id="whereIsPrintLink">Where is the print?</a>
+        </div>
+      </div>
 
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-plane
-          id="video-plane"
-          src="#card"
-          position="0 0 0"
-          width="1"
-          height="1"
-          rotation="0 0 0"
-          material="shader: flat; transparent: false; color: #fff;">
-        </a-plane>
-      </a-entity>
-    </a-scene>
+      <!-- M3: found (brief pulse, reuses the viewfinder + a "loading" caption) -->
+      <div class="ar-state" id="state-found">
+        <div class="ar-scan-caption"><div class="hint">Loading the layer</div></div>
+      </div>
+
+      <!-- M4: playing -->
+      <div class="ar-state" id="state-playing">
+        <div class="ar-playing-caption">
+          <a href="#" id="seePieceLink" style="display:none" class="see-piece">See this piece &rarr;</a>
+        </div>
+      </div>
+
+      <!-- M5: not recognised -->
+      <div class="ar-state" id="state-notrecognised">
+        <div class="ar-tips-card">
+          <h3>Still looking</h3>
+          <p>Three things usually fix it:</p>
+          <ul><li>Get closer, until the print fills the frame</li><li>Move somewhere brighter</li><li>Flatten the fabric — folds break the read</li></ul>
+        </div>
+      </div>
+
+      <!-- M6: camera blocked -->
+      <div class="ar-state" id="state-blocked">
+        <div class="ar-panel">
+          <h1>No camera,<br>no problem.</h1>
+          <p>A scan is an entrance, not a gate. Everything behind this print is on a page you can open right now.</p>
+          <a href="#" class="btn-open" id="blockedOpenPageBtn">Open the page</a>
+          <a href="#" class="link-muted" id="retryCameraLink" style="margin-top:0">Or allow the camera in your browser settings</a>
+        </div>
+      </div>
+
+      <!-- no target configured at all -->
+      <div class="ar-state" id="state-notarget">
+        <div class="ar-panel">
+          <h1>Nothing to<br>scan here yet.</h1>
+          <p>This link isn't tied to a piece or a drop. Head back to the shop to find something real.</p>
+          <a href="ecommerce/shop.html" class="btn-open">Back to shop</a>
+        </div>
+      </div>
+
+      <div class="ar-footer" id="ar-footer"><span class="dot"></span><span id="footerMeta">INRL</span></div>
+
+      <!-- "play as a page" — no-camera video-only fallback, shared by M1's link and M6 -->
+      <div id="pageVideoWrap" style="display:none;position:fixed;inset:0;background:#000;align-items:center;justify-content:center;z-index:10020">
+        <video id="pageVideo" playsinline controls style="max-width:100%;max-height:100%"></video>
+      </div>
+
+      <a-scene
+        color-space="sRGB"
+        renderer="colorManagement: true, physicallyCorrectLights"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false">
+
+        <a-assets>
+          <video id="card" preload="auto" crossorigin="anonymous" playsinline webkit-playsinline muted></video>
+        </a-assets>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity id="target" mindar-image-target="targetIndex: 0">
+          <a-plane id="video-plane" src="#card" position="0 0 0" width="1" height="1" rotation="0 0 0" material="shader: flat; transparent: false; color: #fff;"></a-plane>
+        </a-entity>
+      </a-scene>
+    </div>
+
+    <!-- AR-D1: desktop fallback -->
+    <div class="ar-desktop" id="ar-desktop">
+      <div class="ar-desktop-topbar">
+        <img src="ecommerce/images/main-logo.png" alt="INRL">
+        <div class="meta"></div>
+      </div>
+      <div class="ar-desktop-body">
+        <div class="ar-desktop-video">
+          <video id="desktopVideo" playsinline muted></video>
+          <button class="play-btn" aria-label="Play">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg>
+          </button>
+          <div class="caption">The layer, playing as a page</div>
+        </div>
+        <div class="ar-desktop-info">
+          <div class="eyebrow">No camera here</div>
+          <h1>You are on<br>a laptop.</h1>
+          <p>On a phone this plays on the shirt itself, anchored to the print. Here it is just a video — same layer, none of the trick.</p>
+          <div class="ar-qr-card">
+            <canvas id="desktopQr" width="92" height="92"></canvas>
+            <div>
+              <strong>Open it on your phone</strong>
+              <span>Point a camera at this, then hold the phone up to the shirt.</span>
+            </div>
+          </div>
+          <div class="ar-product-card" id="desktopProductCard" style="display:none">
+            <div class="ph"></div>
+            <div><strong class="title"></strong><span class="price"></span></div>
+            <a href="#">See this piece</a>
+          </div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

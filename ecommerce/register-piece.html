@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Register a piece | INRL</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+  <link rel="stylesheet" type="text/css" href="css/vendor.css">
+  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    .code-input{text-transform:uppercase;letter-spacing:.12em;font-family:var(--font-body);font-weight:500;text-align:center;font-size:22px}
+  </style>
+</head>
+<body>
+  <div id="site-header" data-page="register-piece"></div>
+
+  <section style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:120px 16px 60px;background:var(--surface-50)">
+    <div style="width:100%;max-width:440px">
+
+      <div class="text-center mb-4">
+        <div class="eyebrow mb-2" style="color:var(--ink-500)">Claim the garment</div>
+        <h1 style="font-family:var(--font-display);font-size:28px;color:var(--ink-900);letter-spacing:-0.02em;text-transform:uppercase">Register a piece</h1>
+      </div>
+
+      <div style="border:1px solid var(--line-200);border-radius:16px;padding:40px 36px;background:var(--surface-0)">
+        <p style="font-size:14px;color:var(--ink-500);text-align:center;margin-bottom:24px">Scan the tag inside the collar, or enter the code printed on it below.</p>
+
+        <div id="status" style="font-size:13px;margin-bottom:16px;display:none"></div>
+
+        <form id="claimForm" novalidate>
+          <div class="mb-3">
+            <label for="codeInput" class="form-label">Code</label>
+            <input type="text" id="codeInput" class="form-control code-input" placeholder="XXXX-XXXX" maxlength="9" required autocomplete="off">
+          </div>
+          <div class="mb-4">
+            <label for="nicknameInput" class="form-label">Give it a name <span style="font-weight:400;color:var(--ink-500)">(optional)</span></label>
+            <input type="text" id="nicknameInput" class="form-control" placeholder="e.g. My concert fit" maxlength="120">
+          </div>
+          <button type="submit" id="submitBtn" class="btn btn-primary w-100">Register</button>
+        </form>
+      </div>
+
+      <div class="text-center mt-4">
+        <a href="wardrobe.html" style="font-size:13px;color:var(--ink-500)">&larr; Back to my wardrobe</a>
+      </div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/include.js"></script>
+  <script>
+    (function () {
+      const statusEl = document.getElementById('status');
+      function showStatus(msg, type) {
+        statusEl.textContent = msg;
+        statusEl.style.display = msg ? '' : 'none';
+        statusEl.style.color = type === 'error' ? 'var(--danger-500)' : 'var(--accent-700)';
+      }
+
+      // Redirect to sign in if not authenticated, returning here afterwards.
+      auth.me().then(user => {
+        if (!user) location.href = 'login.html?next=' + encodeURIComponent(location.pathname + location.search);
+      });
+
+      const codeInput = document.getElementById('codeInput');
+      codeInput.addEventListener('input', () => {
+        let v = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (v.length > 4) v = v.slice(0, 4) + '-' + v.slice(4, 8);
+        codeInput.value = v;
+      });
+
+      const form = document.getElementById('claimForm');
+      const submitBtn = document.getElementById('submitBtn');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const code = codeInput.value.trim();
+        const nickname = document.getElementById('nicknameInput').value.trim();
+        if (!code) { showStatus('Enter the code from the tag.', 'error'); return; }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Registering…';
+        showStatus('', '');
+        try {
+          const res = await fetch('/api/pieces/claim', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ claim_code: code, nickname: nickname || undefined }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Registration failed');
+          showStatus('Registered! Redirecting…', 'success');
+          setTimeout(() => { location.href = 'piece.html?id=' + encodeURIComponent(data.id); }, 600);
+        } catch (e) {
+          showStatus(e.message || 'Something went wrong.', 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Register';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

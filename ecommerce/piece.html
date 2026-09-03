@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Piece | INRL</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+  <link rel="stylesheet" type="text/css" href="css/vendor.css">
+  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    .panel{border:1px solid var(--line-200);border-radius:12px;padding:28px}
+    .status-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:7px}
+    .status-dot.live{background:var(--accent-500)}
+    .status-dot.draft{background:var(--warn-500)}
+    #nicknameInput{border:none;background:transparent;font-family:var(--font-display);font-size:clamp(24px,3vw,32px);color:var(--ink-900);text-transform:uppercase;letter-spacing:-0.02em;padding:0;width:100%}
+    #nicknameInput:focus{outline:none;box-shadow:none}
+    .dropzone{border:1px dashed var(--line-200);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:border-color .15s}
+    .dropzone:hover,.dropzone.is-drag{border-color:var(--accent-500);background:rgba(18,162,184,.04)}
+    .version-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-100);font-size:13px}
+    .version-row:last-child{border-bottom:none}
+  </style>
+</head>
+<body>
+  <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
+
+  <div id="site-header" data-page="piece"></div>
+
+  <section style="padding:132px 0 100px">
+    <div class="container" style="max-width:880px">
+      <a href="wardrobe.html" style="font-size:13px;color:var(--ink-500);display:inline-block;margin-bottom:20px">&larr; My wardrobe</a>
+
+      <div id="loadState" style="font-size:14px;color:var(--ink-500)">Loading…</div>
+
+      <div id="pieceContent" style="display:none">
+        <div class="row g-5 mb-5">
+          <div class="col-lg-5">
+            <div id="pieceImage" style="aspect-ratio:1/1;background:var(--surface-50);border-radius:12px;overflow:hidden"></div>
+          </div>
+          <div class="col-lg-7">
+            <div id="productTitle" class="eyebrow mb-2"></div>
+            <input id="nicknameInput" type="text" placeholder="Untitled piece" maxlength="120">
+            <div id="nicknameStatus" style="font-size:12px;color:var(--accent-700);margin-top:4px;display:none">Saved</div>
+
+            <div class="d-flex flex-wrap gap-4 mt-4 pt-4" style="border-top:1px solid var(--line-200)">
+              <div><div class="eyebrow mb-1">Status</div><div id="statusValue" style="font-size:14px;color:var(--ink-900)"></div></div>
+              <div><div class="eyebrow mb-1">Code</div><div id="codeValue" style="font-size:14px;color:var(--ink-900)"></div></div>
+              <div><div class="eyebrow mb-1">Scans</div><div id="scansValue" style="font-size:14px;color:var(--ink-900)"></div></div>
+              <div><div class="eyebrow mb-1">Registered</div><div id="claimedValue" style="font-size:14px;color:var(--ink-900)"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <div class="col-lg-6">
+            <div class="panel mb-4">
+              <h6 class="mb-3" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">See what it plays</h6>
+              <div class="d-flex align-items-center gap-3">
+                <canvas id="qrCanvas" width="88" height="88" style="background:#fff;border-radius:8px;flex-shrink:0"></canvas>
+                <div style="font-size:13px;color:var(--ink-500);word-break:break-all" id="viewerUrlText"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h6 class="mb-3" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">History</h6>
+              <div id="versionHistory" style="font-size:13px;color:var(--ink-500)"></div>
+            </div>
+          </div>
+
+          <div class="col-lg-6">
+            <div class="panel">
+              <h6 class="mb-1" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Replace the layer</h6>
+              <p style="font-size:13px;color:var(--ink-500);margin-bottom:20px">Upload a new video. It replaces what plays immediately — the previous one stays in this piece's history.</p>
+
+              <label class="dropzone d-block mb-2" id="dropzone">
+                <input type="file" id="fileInput" accept="video/*" style="display:none">
+                <div id="dropzoneLabel" style="color:var(--ink-500);font-size:13px">Tap to choose a video, or drag one here</div>
+              </label>
+              <div id="uploadStatus" style="font-size:13px;margin-top:8px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/include.js"></script>
+  <script>
+    function escHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function fmtDate(iso) { if (!iso) return ''; try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)); } catch { return iso; } }
+
+    const id = new URLSearchParams(location.search).get('id');
+    let currentPiece = null;
+
+    function renderPiece(p) {
+      currentPiece = p;
+      document.getElementById('loadState').style.display = 'none';
+      document.getElementById('pieceContent').style.display = '';
+
+      document.title = (p.nickname || p.product.title || 'Piece') + ' | INRL';
+      const imgEl = document.getElementById('pieceImage');
+      imgEl.innerHTML = p.product.image_url ? `<img src="${escHtml(p.product.image_url)}" alt="" style="width:100%;height:100%;object-fit:cover">` : '';
+
+      document.getElementById('productTitle').textContent = p.product.title || '';
+      document.getElementById('nicknameInput').value = p.nickname || '';
+
+      const isLive = !!p.current_layer;
+      document.getElementById('statusValue').innerHTML = isLive
+        ? `<span class="status-dot live"></span>Live &middot; V${p.current_layer.version}`
+        : `<span class="status-dot draft"></span>Not published`;
+      document.getElementById('codeValue').textContent = p.claim_code;
+      document.getElementById('scansValue').textContent = (p.scan_count || 0).toLocaleString();
+      document.getElementById('claimedValue').textContent = fmtDate(p.claimed_at) || '—';
+
+      document.getElementById('viewerUrlText').textContent = p.viewer_url;
+      const canvas = document.getElementById('qrCanvas');
+      if (window.QRCode) {
+        QRCode.toCanvas(canvas, p.viewer_url, { width: 88, margin: 1, color: { dark: '#0b0f10', light: '#ffffff' } }, function (err) {
+          if (err) console.warn('QR render failed', err);
+        });
+      }
+
+      const historyEl = document.getElementById('versionHistory');
+      if (!p.layers.length) {
+        historyEl.innerHTML = 'No layer uploaded yet.';
+      } else {
+        historyEl.innerHTML = p.layers.map(function (l, i) {
+          return `<div class="version-row"><span>V${l.version}${i === 0 ? ' &middot; current' : ''}</span><span>${fmtDate(l.created_at)}</span></div>`;
+        }).join('');
+      }
+    }
+
+    async function loadPiece() {
+      const loadEl = document.getElementById('loadState');
+      if (!id) { loadEl.textContent = 'No piece specified.'; return; }
+      try {
+        const res = await fetch('/api/pieces/' + encodeURIComponent(id), { credentials: 'include' });
+        if (res.status === 401) {
+          location.href = 'login.html?next=' + encodeURIComponent(location.pathname + location.search);
+          return;
+        }
+        if (res.status === 404) { loadEl.textContent = "Piece not found, or it isn't yours."; return; }
+        if (!res.ok) throw new Error('Failed to load (' + res.status + ')');
+        renderPiece(await res.json());
+      } catch (e) {
+        loadEl.textContent = 'Something went wrong: ' + (e.message || e);
+      }
+    }
+    loadPiece();
+
+    // Inline nickname rename
+    let nicknameSaveTimer = null;
+    document.getElementById('nicknameInput').addEventListener('input', function () {
+      clearTimeout(nicknameSaveTimer);
+      nicknameSaveTimer = setTimeout(async () => {
+        try {
+          const res = await fetch('/api/pieces/' + encodeURIComponent(id), {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nickname: this.value.trim() }),
+          });
+          if (!res.ok) throw new Error();
+          const s = document.getElementById('nicknameStatus');
+          s.style.display = '';
+          setTimeout(() => { s.style.display = 'none'; }, 1500);
+        } catch (e) {}
+      }, 700);
+    });
+
+    // Replace-layer upload
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadStatus = document.getElementById('uploadStatus');
+
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('is-drag'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-drag'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('is-drag');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) uploadLayer(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files && fileInput.files[0]) uploadLayer(fileInput.files[0]);
+    });
+
+    async function uploadLayer(file) {
+      if (!file.type.startsWith('video/')) {
+        uploadStatus.textContent = 'Only video files are allowed.';
+        uploadStatus.style.color = 'var(--danger-500)';
+        return;
+      }
+      document.getElementById('dropzoneLabel').textContent = 'Publishing…';
+      uploadStatus.textContent = '';
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch('/api/pieces/' + encodeURIComponent(id) + '/layer', {
+          method: 'POST',
+          credentials: 'include',
+          body: form,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        uploadStatus.textContent = 'Published — this piece now plays V' + data.version + '.';
+        uploadStatus.style.color = 'var(--accent-700)';
+        document.getElementById('dropzoneLabel').textContent = 'Tap to choose a video, or drag one here';
+        fileInput.value = '';
+        loadPiece();
+      } catch (e) {
+        uploadStatus.textContent = 'Upload failed: ' + (e.message || e);
+        uploadStatus.style.color = 'var(--danger-500)';
+        document.getElementById('dropzoneLabel').textContent = 'Tap to choose a video, or drag one here';
+      }
+    }
+  </script>
+</body>
+</html>

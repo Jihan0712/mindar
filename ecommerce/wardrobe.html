@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>My wardrobe | INRL</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Manage the pieces you own and what they play.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+  <link rel="stylesheet" type="text/css" href="css/vendor.css">
+  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    .stat-card{border:1px solid var(--line-200);border-radius:12px;padding:20px}
+    .piece-card{border:1px solid var(--line-200);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;height:100%}
+    .piece-img{aspect-ratio:1/1;background:var(--surface-50);display:flex;align-items:center;justify-content:center}
+    .piece-img .eyebrow{color:var(--ink-500)}
+    .piece-body{padding:18px;display:flex;flex-direction:column;flex:1}
+    .status-dot{display:inline-block;width:7px;height:7px;border-radius:999px;margin-right:6px}
+    .status-dot.live{background:var(--accent-500)}
+    .status-dot.draft{background:var(--warn-500)}
+    .register-card{border:1px dashed var(--line-200);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;color:var(--ink-500);text-decoration:none;height:100%;min-height:260px}
+    .register-card:hover{border-color:var(--ink-500);color:var(--ink-700)}
+  </style>
+</head>
+<body>
+  <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
+
+  <div id="site-header" data-page="wardrobe"></div>
+
+  <section style="padding:132px 0 100px">
+    <div class="container">
+      <div id="authGate" style="font-size:14px;color:var(--ink-500)">Checking authentication…</div>
+
+      <div id="wardrobeContent" style="display:none">
+        <div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-3">
+          <div>
+            <h1 class="mb-2" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:-0.02em;color:var(--ink-900);font-size:clamp(28px,4vw,40px)">My wardrobe</h1>
+            <p id="wardrobeSummary" class="mb-0" style="color:var(--ink-500);font-size:14px"></p>
+          </div>
+          <a href="register-piece.html" class="btn btn-primary">Register a piece</a>
+        </div>
+
+        <div id="statsRow" class="row g-3 mb-4" style="display:none">
+          <div class="col-6 col-md-3"><div class="stat-card"><div class="eyebrow mb-1">Pieces</div><div style="font-family:var(--font-display);font-size:1.8rem;color:var(--ink-900)" id="statPieces">0</div></div></div>
+          <div class="col-6 col-md-3"><div class="stat-card"><div class="eyebrow mb-1">Live layers</div><div style="font-family:var(--font-display);font-size:1.8rem;color:var(--ink-900)" id="statLive">0</div></div></div>
+          <div class="col-6 col-md-3"><div class="stat-card"><div class="eyebrow mb-1">Not published</div><div style="font-family:var(--font-display);font-size:1.8rem;color:var(--ink-900)" id="statDraft">0</div></div></div>
+          <div class="col-6 col-md-3"><div class="stat-card"><div class="eyebrow mb-1">Total scans</div><div style="font-family:var(--font-display);font-size:1.8rem;color:var(--ink-900)" id="statScans">0</div></div></div>
+        </div>
+
+        <div id="wardrobeEmpty" style="display:none;text-align:center;padding:100px 0">
+          <div style="font-size:64px;line-height:1;color:var(--line-200);margin-bottom:20px">&#9679;</div>
+          <p class="eyebrow mb-2">Your wardrobe is empty</p>
+          <p style="color:var(--ink-500);max-width:420px;margin:0 auto 24px">Scan the tag inside the collar of a piece you own to register it and start controlling what it plays.</p>
+          <a href="register-piece.html" class="btn btn-primary btn-lg">Register a piece</a>
+        </div>
+
+        <div id="wardrobeGrid" class="row g-4"></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="js/jquery.min.js"></script>
+  <script src="js/plugins.js"></script>
+  <script src="js/SmoothScroll.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+  <script src="js/script.min.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/include.js"></script>
+  <script>
+    function escHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function fmtDate(iso) { if (!iso) return ''; try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)); } catch { return iso; } }
+
+    async function loadWardrobe() {
+      const gateEl = document.getElementById('authGate');
+      const contentEl = document.getElementById('wardrobeContent');
+      try {
+        const res = await fetch('/api/pieces', { credentials: 'include' });
+        if (res.status === 401) {
+          const next = encodeURIComponent(location.pathname + location.search);
+          location.href = 'login.html?next=' + next;
+          return;
+        }
+        if (!res.ok) throw new Error('Failed to load wardrobe (' + res.status + ')');
+        const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+
+        gateEl.style.display = 'none';
+        contentEl.style.display = '';
+
+        const live = items.filter(i => i.is_published).length;
+        const draft = items.length - live;
+        const totalScans = items.reduce((a, i) => a + (i.scan_count || 0), 0);
+
+        document.getElementById('wardrobeSummary').textContent =
+          items.length ? `${items.length} piece${items.length === 1 ? '' : 's'} · ${live} carrying a live layer · ${totalScans.toLocaleString()} scans` : '';
+
+        if (!items.length) {
+          document.getElementById('wardrobeEmpty').style.display = '';
+          document.getElementById('statsRow').style.display = 'none';
+          document.getElementById('wardrobeGrid').innerHTML = '';
+          return;
+        }
+
+        document.getElementById('statsRow').style.display = '';
+        document.getElementById('statPieces').textContent = items.length;
+        document.getElementById('statLive').textContent = live;
+        document.getElementById('statDraft').textContent = draft;
+        document.getElementById('statScans').textContent = totalScans.toLocaleString();
+
+        const gridEl = document.getElementById('wardrobeGrid');
+        gridEl.innerHTML = items.map(function (p) {
+          const title = escHtml(p.nickname || p.product.title || 'Untitled piece');
+          const statusHtml = p.is_published
+            ? `<span class="status-dot live"></span>Live &middot; V${p.version}`
+            : `<span class="status-dot draft"></span>Not published`;
+          const sinceHtml = p.claimed_at ? `since ${fmtDate(p.claimed_at)}` : '';
+          return `<div class="col-sm-6 col-lg-4">
+            <div class="piece-card">
+              <a href="piece.html?id=${escHtml(p.id)}" class="piece-img">
+                ${p.product.image_url ? `<img src="${escHtml(p.product.image_url)}" alt="" style="width:100%;height:100%;object-fit:cover">` : `<span class="eyebrow">Garment</span>`}
+              </a>
+              <div class="piece-body">
+                <div style="font-size:12px;margin-bottom:8px" class="d-flex align-items-center">${statusHtml}</div>
+                <h6 style="font-size:16px;color:var(--ink-900);margin-bottom:2px">${title}</h6>
+                <div style="font-size:13px;color:var(--ink-500);margin-bottom:auto">${escHtml(p.product.title || '')} ${sinceHtml ? '&middot; ' + sinceHtml : ''}</div>
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top:1px solid var(--line-100)">
+                  <span style="font-size:12px;color:var(--ink-500)">${(p.scan_count || 0).toLocaleString()} scans</span>
+                  <a href="piece.html?id=${escHtml(p.id)}" style="font-size:13px;color:var(--accent-700)">${p.is_published ? 'Manage' : 'Publish'} &rarr;</a>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        }).join('') + `<div class="col-sm-6 col-lg-4"><a href="register-piece.html" class="register-card">
+            <div style="font-size:28px;line-height:1;margin-bottom:12px">+</div>
+            <div style="font-weight:500;color:var(--ink-700);margin-bottom:4px">Register a piece</div>
+            <div style="font-size:13px">Scan the tag inside the collar.</div>
+          </a></div>`;
+      } catch (e) {
+        gateEl.textContent = 'Something went wrong loading your wardrobe: ' + (e.message || e);
+      }
+    }
+
+    loadWardrobe();
+  </script>
+</body>
+</html>

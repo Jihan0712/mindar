@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wishlist &mdash; INRL</title>
+  <title>Wishlist | INRL</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="description" content="Your INRL wishlist — save favourites and shop when ready.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
@@ -12,31 +12,30 @@
   <script src="/assets/js/auth-worker.js?v=20260206"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
 </head>
 <body>
 
   <div id="site-header" data-page="wishlist"></div>
 
   <!-- PAGE HERO -->
-  <section style="background:#1C1C1C;padding:140px 0 60px;border-bottom:3px solid #00ED0A">
+  <section style="background:var(--surface-0);padding:140px 0 40px">
     <div class="container">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.28em;color:#00ED0A;margin-bottom:14px">&mdash;&nbsp;Saved Items</div>
-      <h1 style="font-family:'Averia Serif Libre',serif;font-size:clamp(40px,6vw,80px);line-height:.92;letter-spacing:-0.05em;color:#F5F5F0">Your <span style="color:#FEFD00">Wishlist</span></h1>
+      <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:14px">Saved pieces</div>
+      <h1 style="font-family:var(--font-display);font-size:clamp(36px,5.5vw,68px);line-height:.95;letter-spacing:-0.03em;color:var(--ink-900);text-transform:uppercase">Your wishlist</h1>
     </div>
   </section>
 
   <!-- WISHLIST CONTENT -->
-  <section style="background:#1C1C1C;padding:64px 0 100px">
+  <section style="background:var(--surface-0);padding:24px 0 100px">
     <div class="container">
       <div id="wishlistEmpty" style="text-align:center;padding:100px 0;display:none">
-        <div style="font-family:'Averia Serif Libre',serif;font-size:80px;line-height:1;color:rgba(245,245,240,.06);margin-bottom:20px">&#9825;</div>
-        <p style="font-family:'Roboto Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.2em;color:rgba(245,245,240,.35);margin-bottom:28px">Your wishlist is empty</p>
-        <a href="shop.html" style="display:inline-flex;align-items:center;gap:10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:13px 24px;background:#00ED0A;color:#1C1C1C;text-decoration:none;border:3px solid #1C1C1C;box-shadow:4px 4px 0 rgba(0,237,10,.22);transition:transform .12s,box-shadow .12s" onmouseover="this.style.transform='translate(-2px,-2px)';this.style.boxShadow='7px 7px 0 rgba(0,237,10,.22)'" onmouseout="this.style.transform='';this.style.boxShadow='4px 4px 0 rgba(0,237,10,.22)'">Browse the Collection</a>
+        <div style="font-size:64px;line-height:1;color:var(--line-200);margin-bottom:20px">&#9825;</div>
+        <p class="eyebrow" style="margin-bottom:28px">Your wishlist is empty</p>
+        <a href="shop.html" class="btn btn-primary btn-lg">Browse the collection</a>
       </div>
-      <div id="wishlistItems" style="border:3px solid rgba(245,245,240,.08);display:none"></div>
+      <div id="wishlistItems" style="border:1px solid var(--line-200);border-radius:12px;overflow:hidden;display:none"></div>
       <div id="wishlistActions" style="margin-top:24px;display:none;gap:12px;flex-wrap:wrap">
-        <a href="shop.html" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:12px 22px;border:2px solid rgba(245,245,240,.2);color:rgba(245,245,240,.7);text-decoration:none;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#00ED0A';this.style.color='#00ED0A'" onmouseout="this.style.borderColor='rgba(245,245,240,.2)';this.style.color='rgba(245,245,240,.7)'">Continue Shopping</a>
+        <a href="shop.html" class="btn btn-outline-dark">Continue shopping</a>
       </div>
     </div>
   </section>
@@ -71,18 +70,18 @@
       tableEl.style.display = 'block';
       actionsEl.style.display = 'flex';
       tableEl.innerHTML = items.map(function(item, i) {
-        var topBorder = i > 0 ? 'border-top:3px solid rgba(245,245,240,.08);' : '';
+        var topBorder = i > 0 ? 'border-top:1px solid var(--line-200);' : '';
         return '<div class="d-flex align-items-center gap-3 p-3" style="' + topBorder + '">'
-          + '<a href="product.html?product=' + escHtml(item.slug || item.id) + '" style="flex-shrink:0;display:block;overflow:hidden;border:2px solid rgba(245,245,240,.08)">'
-          + '<img src="' + escHtml(item.image || '') + '" alt="' + escHtml(item.name) + '" style="width:80px;height:80px;object-fit:cover;display:block">'
+          + '<a href="product.html?product=' + escHtml(item.slug || item.id) + '" style="flex-shrink:0;display:block;overflow:hidden;border-radius:8px">'
+          + '<img src="' + escHtml(item.image || '') + '" alt="' + escHtml(item.name) + '" style="width:72px;height:72px;object-fit:cover;display:block">'
           + '</a>'
           + '<div class="flex-grow-1" style="min-width:0">'
-          + '<a href="product.html?product=' + escHtml(item.slug || item.id) + '" style="font-family:\'Averia Serif Libre\',serif;font-size:17px;color:#F5F5F0;text-decoration:none;letter-spacing:-0.02em;display:block;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(item.name) + '</a>'
-          + '<div style="font-family:\'Roboto Mono\',monospace;font-size:13px;color:#00ED0A;letter-spacing:.05em">$' + (+(item.price) || 0).toFixed(2) + '</div>'
+          + '<a href="product.html?product=' + escHtml(item.slug || item.id) + '" style="font-family:var(--font-body);font-size:14px;color:var(--ink-900);text-decoration:none;display:block;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(item.name) + '</a>'
+          + '<div style="font-size:13px;color:var(--ink-500)">$' + (+(item.price) || 0).toFixed(2) + '</div>'
           + '</div>'
           + '<div class="d-flex gap-2 align-items-center flex-shrink-0">'
-          + '<button data-wish-to-cart="' + escHtml(item.id) + '" style="padding:9px 16px;background:#00ED0A;border:2px solid #00ED0A;color:#1C1C1C;font-family:\'Roboto Mono\',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;white-space:nowrap">Add to Cart</button>'
-          + '<button data-wish-remove="' + escHtml(item.id) + '" style="padding:9px 12px;background:transparent;border:2px solid rgba(245,245,240,.15);color:rgba(245,245,240,.4);font-size:14px;line-height:1;cursor:pointer" title="Remove from Wishlist">&#x2715;</button>'
+          + '<button data-wish-to-cart="' + escHtml(item.id) + '" class="btn btn-sm btn-primary" style="font-size:.72rem">Add to bag</button>'
+          + '<button data-wish-remove="' + escHtml(item.id) + '" style="width:32px;height:32px;border-radius:999px;background:transparent;border:1px solid var(--line-200);color:var(--ink-500);font-size:13px;line-height:1;cursor:pointer" title="Remove from wishlist">&#x2715;</button>'
           + '</div>'
           + '</div>';
       }).join('');

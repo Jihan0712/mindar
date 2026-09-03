@@ -1,69 +1,28 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>FAQs &mdash; INRL</title>
+  <title>FAQs | INRL</title>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Frequently asked questions about INRL — orders, shipping, AR, and returns.">
+  <meta name="description" content="Frequently asked questions about INRL — orders, shipping, the AR layer, and returns.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="css/vendor.css">
   <link rel="stylesheet" type="text/css" href="css/global.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700&family=Averia+Serif+Libre:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
   <style>
-    /* FAQ accordion custom styles */
-    .faq-item { border-bottom: 1.5px solid rgba(245,245,240,.08); }
+    .faq-section-label{font-family:var(--font-body);font-size:.68rem;font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:var(--accent-700);padding:10px 0;border-top:1px solid var(--line-200);margin-bottom:8px}
+    .faq-item { border-bottom: 1px solid var(--line-200); }
     .faq-item:last-child { border-bottom: none; }
-    .faq-btn {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      background: transparent;
-      border: none;
-      padding: 22px 0;
-      cursor: pointer;
-      text-align: left;
-      gap: 16px;
-    }
-    .faq-btn:hover .faq-q { color: #00ED0A; }
-    .faq-q {
-      font-family: 'Averia Serif Libre', serif;
-      font-size: 18px;
-      color: #F5F5F0;
-      letter-spacing: -0.02em;
-      line-height: 1.3;
-      transition: color .15s;
-    }
-    .faq-icon {
-      flex-shrink: 0;
-      width: 28px;
-      height: 28px;
-      border: 1.5px solid rgba(245,245,240,.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #F5F5F0;
-      font-size: 18px;
-      line-height: 1;
-      transition: background .15s, border-color .15s, color .15s, transform .2s;
-    }
-    .faq-btn[aria-expanded="true"] .faq-icon {
-      background: #00ED0A;
-      border-color: #00ED0A;
-      color: #1C1C1C;
-      transform: rotate(45deg);
-    }
-    .faq-answer {
-      font-size: 14px;
-      line-height: 1.8;
-      color: rgba(245,245,240,.5);
-      padding-bottom: 22px;
-      max-width: 680px;
-    }
+    .faq-btn { display:flex;justify-content:space-between;align-items:center;width:100%;background:transparent;border:none;padding:20px 0;cursor:pointer;text-align:left;gap:16px; }
+    .faq-btn:hover .faq-q { color: var(--accent-700); }
+    .faq-q { font-family: var(--font-body); font-weight: 500; font-size: 16px; color: var(--ink-900); line-height: 1.3; transition: color .15s; }
+    .faq-icon { flex-shrink:0;width:26px;height:26px;border:1px solid var(--line-200);border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--ink-700);font-size:16px;line-height:1;transition:background .15s,border-color .15s,color .15s,transform .2s; }
+    .faq-btn[aria-expanded="true"] .faq-icon { background: var(--accent-700); border-color: var(--accent-700); color: var(--surface-0); transform: rotate(45deg); }
+    .faq-answer { font-size: 14px; line-height: 1.8; color: var(--ink-700); padding-bottom: 20px; max-width: 640px; }
+    .faq-side-card{border:1px solid var(--line-200);border-radius:12px;padding:32px}
   </style>
 </head>
 <body>
@@ -71,16 +30,16 @@
   <div id="site-header" data-page="faqs"></div>
 
   <!-- PAGE HERO -->
-  <section style="background:#1C1C1C;padding:160px 0 80px;border-bottom:3px solid #00ED0A">
+  <section style="background:var(--surface-0);padding:160px 0 60px">
     <div class="container">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.28em;color:#00ED0A;margin-bottom:18px">&mdash;&nbsp;Help Center</div>
-      <h1 style="font-family:'Averia Serif Libre',serif;font-size:clamp(52px,7vw,96px);line-height:.9;letter-spacing:-0.05em;color:#F5F5F0;margin-bottom:24px">Frequently<br><span style="color:#FEFD00">asked questions.</span></h1>
-      <p style="font-size:15px;line-height:1.7;color:rgba(245,245,240,.5);max-width:480px">Can't find your answer? <a href="contact.html" style="color:#00ED0A;text-decoration:none;border-bottom:1px solid rgba(0,237,10,.4)">Contact us directly</a> and we'll get back to you within 24 hours.</p>
+      <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:18px">Help center</div>
+      <h1 style="font-family:var(--font-display);font-size:clamp(40px,6vw,76px);line-height:.92;letter-spacing:-0.03em;color:var(--ink-900);margin-bottom:24px;text-transform:uppercase">Frequently asked questions.</h1>
+      <p style="font-size:15px;line-height:1.7;color:var(--ink-500);max-width:480px">Can't find your answer? <a href="contact.html" style="color:var(--accent-700)">Contact us directly</a> and we'll get back to you within 24 hours.</p>
     </div>
   </section>
 
   <!-- MAIN FAQ CONTENT -->
-  <section style="background:#1C1C1C;padding:80px 0">
+  <section style="background:var(--surface-0);padding:40px 0 100px">
     <div class="container">
       <div class="row g-5">
 
@@ -88,41 +47,41 @@
         <div class="col-lg-8">
 
           <!-- SECTION: ORDERING -->
-          <div style="margin-bottom:56px">
-            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;padding:10px 0;border-top:3px solid #00ED0A;margin-bottom:8px">Ordering</div>
+          <div style="margin-bottom:48px">
+            <div class="faq-section-label">Ordering</div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">How do I place an order?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Browse our shop, add items to your cart, and proceed to checkout. You can pay by card or supported digital payment methods. Once your order is confirmed, you'll receive an email with your order details and tracking info.</div>
+              <div class="faq-answer" style="display:none">Browse the shop, add pieces to your bag, and proceed to checkout. You can pay by card or supported digital payment methods. Once your order is confirmed, you'll receive an email with your order details and tracking info.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">Can I modify or cancel my order after placing it?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Orders can be modified or cancelled within 1 hour of placement. After that, your order enters processing and changes are no longer possible. Contact us immediately at <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a> if you need to make a change.</div>
+              <div class="faq-answer" style="display:none">Orders can be modified or cancelled within 1 hour of placement. After that, your order enters processing and changes are no longer possible. Contact us immediately at <a href="mailto:contact@inrl.co" style="color:var(--accent-700)">contact@inrl.co</a> if you need to make a change.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">Do I need an account to order?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">No account is required to purchase. However, creating an account lets you track orders, save your wishlist, and access your order history from any device.</div>
+              <div class="faq-answer" style="display:none">No account is required to purchase. However, creating an account lets you track orders, save your wishlist, register the pieces you own, and manage what they play.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">What currencies do you accept?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">All prices are listed in USD. We accept major credit cards and debit cards. Currency conversion, if needed, is handled by your payment provider at the point of checkout.</div>
+              <div class="faq-answer" style="display:none">All prices are listed in USD. We accept major credit and debit cards. Currency conversion, if needed, is handled by your payment provider at checkout.</div>
             </div>
           </div>
 
           <!-- SECTION: SHIPPING -->
-          <div style="margin-bottom:56px">
-            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;padding:10px 0;border-top:3px solid #00ED0A;margin-bottom:8px">Shipping</div>
+          <div style="margin-bottom:48px">
+            <div class="faq-section-label">Shipping</div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">Where do you ship?</span>
@@ -135,14 +94,14 @@
                 <span class="faq-q">How long does delivery take?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Standard delivery takes 5&ndash;10 business days depending on your location. Express options (2&ndash;4 business days) are available at checkout for most destinations. All orders are dispatched within 1&ndash;2 business days of payment confirmation.</div>
+              <div class="faq-answer" style="display:none">Standard delivery takes 5&ndash;10 business days depending on your location. Express options (2&ndash;4 business days) are available at checkout for most destinations. Orders are dispatched within 1&ndash;2 business days of payment confirmation.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">How do I track my order?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Once your order ships, you'll receive a tracking number by email. You can also visit our <a href="order-tracking.html" style="color:#00ED0A">Order Tracking</a> page and enter your order ID to see the latest status.</div>
+              <div class="faq-answer" style="display:none">Once your order ships, you'll receive a tracking number by email. You can also visit <a href="order-tracking.html" style="color:var(--accent-700)">order tracking</a> and enter your order ID to see the latest status.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
@@ -153,69 +112,69 @@
             </div>
           </div>
 
-          <!-- SECTION: AR & DIGITAL IDENTITY -->
-          <div style="margin-bottom:56px">
-            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;padding:10px 0;border-top:3px solid #00ED0A;margin-bottom:8px">AR &amp; Digital Identity</div>
+          <!-- SECTION: THE LAYER -->
+          <div style="margin-bottom:48px">
+            <div class="faq-section-label">The layer</div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
-                <span class="faq-q">What is the AR feature on INRL garments?</span>
+                <span class="faq-q">What is the layer on an INRL piece?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Each INRL garment contains a unique AR marker printed or embedded into the design. When you point a phone camera at it, an augmented reality experience launches directly in your browser &mdash; no app download required. The AR layer can include animations, your personal digital identity card, or brand-specific content.</div>
+              <div class="faq-answer" style="display:none">Every INRL garment carries a printed marker. Point a phone camera at it and whatever's attached to that piece right now plays &mdash; directly in the browser, no app download required. The owner controls what that is, and can replace it any number of times.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
-                <span class="faq-q">Do I need a special app to use the AR?</span>
+                <span class="faq-q">Do I need a special app?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">No app is needed. INRL uses web-based AR (powered by MindAR technology), which runs directly in any modern mobile browser. Just open your camera or scan the QR on your garment tag to launch the experience instantly.</div>
+              <div class="faq-answer" style="display:none">No app is needed. INRL uses web-based AR (powered by MindAR), which runs directly in any modern mobile browser. Open your camera and point it at the print to launch the experience instantly.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
-                <span class="faq-q">Can I customize my AR digital identity?</span>
+                <span class="faq-q">Can I change what my piece plays?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Yes. Create an INRL account and visit your Profile page to customize your digital identity card. Changes are reflected live &mdash; anyone who scans your garment will see your updated identity layer.</div>
+              <div class="faq-answer" style="display:none">Yes. Register the piece to your account, then upload and publish a new layer any time from your wardrobe. Anyone who scans it will see whatever's live right now.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
-                <span class="faq-q">Does the AR work after washing?</span>
+                <span class="faq-q">Does it still work after washing?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Yes. The AR marker is screen-printed using durable, wash-resistant inks. We recommend following the care label instructions (cold wash, air dry) to maintain the marker's quality over time. The digital content is stored permanently in the cloud and is not affected by wear.</div>
+              <div class="faq-answer" style="display:none">Yes. The print is screen-printed using durable, wash-resistant inks. We recommend following the care label (cold wash, air dry) to keep it reading cleanly. The layer itself lives in the cloud and isn't affected by wear.</div>
             </div>
           </div>
 
           <!-- SECTION: RETURNS & EXCHANGES -->
           <div>
-            <div style="font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;padding:10px 0;border-top:3px solid #00ED0A;margin-bottom:8px">Returns &amp; Exchanges</div>
+            <div class="faq-section-label">Returns &amp; exchanges</div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">What is your return policy?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">We accept returns within 30 days of delivery for unworn, unwashed items with original tags attached. Sale items and items marked as final sale are not eligible for return. To initiate a return, email us at <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a> with your order number.</div>
+              <div class="faq-answer" style="display:none">We accept returns within 30 days of delivery for unworn, unwashed items with original tags attached. Sale items and items marked as final sale are not eligible. To start a return, email <a href="mailto:contact@inrl.co" style="color:var(--accent-700)">contact@inrl.co</a> with your order number.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">How do I exchange for a different size?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Contact us within 30 days of receiving your order. We'll arrange a return of the original item and ship your new size once we confirm stock availability. Exchanges are subject to availability at the time of the request.</div>
+              <div class="faq-answer" style="display:none">Contact us within 30 days of receiving your order. We'll arrange a return of the original item and ship your new size once we confirm stock availability.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">When will I receive my refund?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">Refunds are processed within 5&ndash;7 business days after we receive and inspect your returned item. The credit will appear on your original payment method. Processing time varies by your bank or card issuer.</div>
+              <div class="faq-answer" style="display:none">Refunds are processed within 5&ndash;7 business days after we receive and inspect your returned item. The credit will appear on your original payment method.</div>
             </div>
             <div class="faq-item">
               <button class="faq-btn" aria-expanded="false" onclick="toggleFaq(this)">
                 <span class="faq-q">My item arrived damaged. What do I do?</span>
                 <span class="faq-icon">+</span>
               </button>
-              <div class="faq-answer" style="display:none">We're sorry to hear that. Email us at <a href="mailto:contact@inrl.com" style="color:#00ED0A">contact@inrl.com</a> within 7 days of receiving your order, including your order number and photos of the damage. We'll arrange a replacement or full refund immediately at no cost to you.</div>
+              <div class="faq-answer" style="display:none">Email <a href="mailto:contact@inrl.co" style="color:var(--accent-700)">contact@inrl.co</a> within 7 days of receiving your order, including your order number and photos of the damage. We'll arrange a replacement or full refund at no cost to you.</div>
             </div>
           </div>
 
@@ -224,20 +183,20 @@
         <!-- RIGHT: STICKY CONTACT CARD -->
         <div class="col-lg-4">
           <div style="position:sticky;top:100px">
-            <div style="border:3px solid rgba(245,245,240,.08);padding:36px;margin-bottom:24px">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00ED0A;margin-bottom:16px">Still need help?</div>
-              <h5 style="font-family:'Averia Serif Libre',serif;font-size:22px;color:#F5F5F0;letter-spacing:-0.03em;margin-bottom:12px">Talk to us directly</h5>
-              <p style="font-size:14px;color:rgba(245,245,240,.45);line-height:1.7;margin-bottom:24px">Our team responds to all enquiries within 24 hours on business days.</p>
-              <a href="contact.html" style="display:block;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:14px 20px;background:#00ED0A;color:#1C1C1C;text-decoration:none;border:3px solid #1C1C1C;box-shadow:4px 4px 0 rgba(0,237,10,.25);transition:transform .12s,box-shadow .12s;margin-bottom:12px" onmouseover="this.style.transform='translate(-2px,-2px)';this.style.boxShadow='6px 6px 0 rgba(0,237,10,.25)'" onmouseout="this.style.transform='';this.style.boxShadow='4px 4px 0 rgba(0,237,10,.25)'">Contact Support</a>
-              <a href="mailto:contact@inrl.com" style="display:block;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:14px 20px;border:1.5px solid rgba(245,245,240,.15);background:transparent;color:rgba(245,245,240,.6);text-decoration:none;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='rgba(245,245,240,.4)';this.style.color='#F5F5F0'" onmouseout="this.style.borderColor='rgba(245,245,240,.15)';this.style.color='rgba(245,245,240,.6)'">contact@inrl.com</a>
+            <div class="faq-side-card" style="margin-bottom:24px">
+              <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:16px">Still need help?</div>
+              <h5 style="font-family:var(--font-display);font-size:20px;color:var(--ink-900);letter-spacing:-0.02em;margin-bottom:12px;text-transform:uppercase">Talk to us directly</h5>
+              <p style="font-size:14px;color:var(--ink-500);line-height:1.7;margin-bottom:24px">Our team responds to enquiries within 24 hours on business days.</p>
+              <a href="contact.html" class="btn btn-primary w-100 mb-2">Contact support</a>
+              <a href="mailto:contact@inrl.co" class="btn btn-outline-dark w-100">contact@inrl.co</a>
             </div>
-            <div style="border:3px solid rgba(245,245,240,.08);padding:28px">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:rgba(245,245,240,.3);margin-bottom:12px">Quick links</div>
+            <div class="faq-side-card">
+              <div class="eyebrow mb-3">Quick links</div>
               <ul style="list-style:none;padding:0;margin:0">
-                <li style="padding:8px 0;border-bottom:1px solid rgba(245,245,240,.06)"><a href="order-tracking.html" style="font-size:13px;color:rgba(245,245,240,.5);text-decoration:none;transition:color .15s" onmouseover="this.style.color='#00ED0A'" onmouseout="this.style.color='rgba(245,245,240,.5)'">Track Your Order &rarr;</a></li>
-                <li style="padding:8px 0;border-bottom:1px solid rgba(245,245,240,.06)"><a href="shop.html" style="font-size:13px;color:rgba(245,245,240,.5);text-decoration:none;transition:color .15s" onmouseover="this.style.color='#00ED0A'" onmouseout="this.style.color='rgba(245,245,240,.5)'">Browse the Shop &rarr;</a></li>
-                <li style="padding:8px 0;border-bottom:1px solid rgba(245,245,240,.06)"><a href="profile.html" style="font-size:13px;color:rgba(245,245,240,.5);text-decoration:none;transition:color .15s" onmouseover="this.style.color='#00ED0A'" onmouseout="this.style.color='rgba(245,245,240,.5)'">My Profile &rarr;</a></li>
-                <li style="padding:8px 0"><a href="about.html" style="font-size:13px;color:rgba(245,245,240,.5);text-decoration:none;transition:color .15s" onmouseover="this.style.color='#00ED0A'" onmouseout="this.style.color='rgba(245,245,240,.5)'">About INRL &rarr;</a></li>
+                <li style="padding:8px 0;border-bottom:1px solid var(--line-100)"><a href="order-tracking.html" style="font-size:13px;color:var(--ink-700);text-decoration:none">Track your order &rarr;</a></li>
+                <li style="padding:8px 0;border-bottom:1px solid var(--line-100)"><a href="shop.html" style="font-size:13px;color:var(--ink-700);text-decoration:none">Browse the shop &rarr;</a></li>
+                <li style="padding:8px 0;border-bottom:1px solid var(--line-100)"><a href="profile.html" style="font-size:13px;color:var(--ink-700);text-decoration:none">My profile &rarr;</a></li>
+                <li style="padding:8px 0"><a href="about.html" style="font-size:13px;color:var(--ink-700);text-decoration:none">About INRL &rarr;</a></li>
               </ul>
             </div>
           </div>

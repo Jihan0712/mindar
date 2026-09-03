@@ -5,88 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>INRL AR Admin Dashboard</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" />
-  <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" type="text/css" href="ecommerce/css/global.css" />
   <style>
-    body { background:#1C1C1C; color:#F5F5F0; font-family:'Roboto Mono',monospace; }
+    body { background:var(--surface-50); color:var(--ink-900); font-family:var(--font-body); }
     .hidden { display:none !important; }
     .overflow-hidden { overflow:hidden !important; }
     /* Active tab state reuses Tailwind class name so existing JS works without changes */
-    .bg-blue-600 { background-color:#00ED0A !important; color:#1C1C1C !important; border-color:#00ED0A !important; }
-    .btn-inrl-outline.bg-blue-600 { background-color:#00ED0A !important; color:#1C1C1C !important; border-color:#00ED0A !important; }
-    .inrl-brand { font-family:'Averia Serif Libre',serif; font-size:1.4rem; font-weight:700; color:#00ED0A !important; text-decoration:none; letter-spacing:.05em; }
-    .inrl-card { background:#212121; border:3px solid #333; box-shadow:6px 6px 0 rgba(0,237,10,.12); border-radius:0; }
-    .inrl-card-header { background:#111 !important; border-bottom:3px solid #333 !important; padding:.85rem 1.25rem; text-transform:uppercase; font-size:.7rem; letter-spacing:.09em; color:#888; font-weight:700; }
-    .btn-inrl { background:#00ED0A; border:3px solid #1C1C1C; color:#1C1C1C !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; letter-spacing:.05em; }
-    .btn-inrl:hover, .btn-inrl:focus { background:#00c409; color:#1C1C1C !important; }
-    .btn-inrl-outline { background:transparent; border:2px solid #00ED0A; color:#00ED0A !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
-    .btn-inrl-outline:hover, .btn-inrl-outline:focus { background:#00ED0A; color:#1C1C1C !important; }
-    .btn-danger-inrl { background:#ff4d4f; border:2px solid #ff4d4f; color:#fff !important; font-family:'Roboto Mono',monospace; font-weight:700; text-transform:uppercase; border-radius:0; }
-    .btn-danger-inrl:hover { background:#d9363e; border-color:#d9363e; color:#fff !important; }
-    .form-control, .form-select { background:#1C1C1C !important; border:2px solid #444 !important; color:#F5F5F0 !important; font-family:'Roboto Mono',monospace; border-radius:0; }
-    .form-control:focus, .form-select:focus { background:#1C1C1C !important; border-color:#00ED0A !important; color:#F5F5F0 !important; box-shadow:0 0 0 2px rgba(0,237,10,.2) !important; }
-    .form-control::placeholder { color:#555; }
-    .form-select { background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23888888' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important; background-repeat:no-repeat !important; background-position:right .75rem center !important; background-size:16px 12px !important; padding-right:2.25rem !important; }
+    .bg-blue-600 { background-color:rgba(18,162,184,.16) !important; color:var(--paper-100) !important; border-color:transparent !important; }
+    .btn-inrl-outline.bg-blue-600 { background-color:var(--accent-700) !important; color:var(--paper-100) !important; border-color:var(--accent-700) !important; }
+    .inrl-brand { font-family:var(--font-display); font-size:1.4rem; font-weight:500; color:var(--paper-100) !important; text-decoration:none; letter-spacing:.02em; text-transform:uppercase; }
+    .inrl-card { background:var(--surface-0); border:1px solid var(--line-200); box-shadow:none; border-radius:12px; }
+    .inrl-card-header { background:var(--surface-50) !important; border-bottom:1px solid var(--line-200) !important; padding:.85rem 1.25rem; font-size:.72rem; letter-spacing:.04em; color:var(--ink-500); font-weight:500; border-radius:12px 12px 0 0; }
+    .btn-inrl { background:var(--accent-700); border:1px solid var(--accent-700); color:var(--paper-100) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; letter-spacing:0; }
+    .btn-inrl:hover, .btn-inrl:focus { background:var(--accent-500); border-color:var(--accent-500); color:var(--paper-100) !important; }
+    .btn-inrl-outline { background:transparent; border:1px solid var(--line-200); color:var(--ink-700) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
+    .btn-inrl-outline:hover, .btn-inrl-outline:focus { background:var(--surface-50); color:var(--ink-900) !important; }
+    .btn-danger-inrl { background:transparent; border:1px solid var(--danger-500); color:var(--danger-500) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
+    .btn-danger-inrl:hover { background:var(--danger-500); border-color:var(--danger-500); color:#fff !important; }
+    .form-control, .form-select { background:var(--surface-0) !important; border:1px solid var(--line-200) !important; color:var(--ink-900) !important; font-family:var(--font-body); border-radius:8px; }
+    .form-control:focus, .form-select:focus { background:var(--surface-0) !important; border-color:var(--accent-500) !important; color:var(--ink-900) !important; box-shadow:0 0 0 3px rgba(18,162,184,.12) !important; }
+    .form-control::placeholder { color:var(--ink-500); opacity:.7; }
+    .form-select { background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23737373' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important; background-repeat:no-repeat !important; background-position:right .75rem center !important; background-size:16px 12px !important; padding-right:2.25rem !important; }
     .form-control[type=file] { padding:.3rem .5rem; }
-    .form-control[type=file]::file-selector-button { background:#111; color:#777; border:0; border-right:2px solid #444; font-family:'Roboto Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.3rem .7rem; margin-right:.75rem; cursor:pointer; border-radius:0; transition:color .15s; }
-    .form-control[type=file]:hover::file-selector-button, .form-control[type=file]:focus::file-selector-button { color:#00ED0A; }
-    .form-label { color:#999; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; margin-bottom:.35rem; }
-    .inrl-table th { background:#111 !important; border-bottom:3px solid #333 !important; color:#888 !important; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.65rem; letter-spacing:.09em; padding:.7rem .9rem !important; }
-    .inrl-table td { border-bottom:1px solid #2a2a2a !important; vertical-align:middle; color:#F5F5F0; font-size:.78rem; padding:.65rem .9rem !important; }
-    .inrl-table tr:hover td { background:rgba(0,237,10,.04) !important; }
-    #imageModal { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:9999; display:flex; align-items:center; justify-content:center; }
+    .form-control[type=file]::file-selector-button { background:var(--surface-50); color:var(--ink-700); border:0; border-right:1px solid var(--line-200); font-family:var(--font-body); font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.3rem .7rem; margin-right:.75rem; cursor:pointer; border-radius:0; transition:color .15s; }
+    .form-control[type=file]:hover::file-selector-button, .form-control[type=file]:focus::file-selector-button { color:var(--accent-700); }
+    .form-label { color:var(--ink-500); font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; margin-bottom:.35rem; }
+    .inrl-table th { background:var(--surface-50) !important; border-bottom:1px solid var(--line-200) !important; color:var(--ink-500) !important; font-family:var(--font-body); text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; padding:.7rem .9rem !important; font-weight:500; }
+    .inrl-table td { border-bottom:1px solid var(--line-100) !important; vertical-align:middle; color:var(--ink-900); font-size:.78rem; padding:.65rem .9rem !important; }
+    .inrl-table tr:hover td { background:var(--surface-50) !important; }
+    #imageModal { position:fixed; inset:0; background:rgba(11,15,16,.85); z-index:9999; display:flex; align-items:center; justify-content:center; }
     #imageModal.hidden { display:none; }
-    .target-thumb { width:72px; height:72px; object-fit:contain; cursor:zoom-in; border:1px solid #333; background:#111; }
-    #status { font-size:.78rem; padding:.55rem .9rem; border-radius:0; margin-bottom:.75rem; border-left:3px solid #444; color:#00ED0A; background:rgba(0,237,10,.05); }
+    .target-thumb { width:72px; height:72px; object-fit:contain; cursor:zoom-in; border:1px solid var(--line-200); border-radius:8px; background:var(--surface-50); }
+    #status { font-size:.78rem; padding:.55rem .9rem; border-radius:8px; margin-bottom:.75rem; border-left:2px solid var(--accent-500); color:var(--accent-700); background:rgba(18,162,184,.06); }
     #status:empty { display:none !important; }
-    .inrl-heading { font-family:'Averia Serif Libre',serif; color:#00ED0A; font-size:1.3rem; font-weight:700; border-left:4px solid #00ED0A; padding-left:.75rem; margin-bottom:1.1rem; }
-    .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; background:#00ED0A; color:#1C1C1C; font-weight:700; font-size:.75rem; flex-shrink:0; }
-    .input-group .btn { border-radius:0; }
-    .input-group>.form-control:not(:first-child),.input-group>.form-select:not(:first-child),.input-group>.input-group-text:not(:first-child),.input-group>.btn:not(:first-child) { margin-left:-2px; }
+    .inrl-heading { font-family:var(--font-display); text-transform:uppercase; color:var(--ink-900); font-size:1.3rem; font-weight:500; border-left:none; padding-left:0; margin-bottom:1.1rem; letter-spacing:-.01em; }
+    .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border-radius:999px; background:var(--accent-700); color:var(--paper-100); font-weight:500; font-size:.75rem; flex-shrink:0; }
+    .input-group .btn { border-radius:999px; }
+    .input-group>.form-control:not(:first-child),.input-group>.form-select:not(:first-child),.input-group>.input-group-text:not(:first-child),.input-group>.btn:not(:first-child) { margin-left:-1px; }
     ::-webkit-scrollbar { width:6px; height:6px; }
-    ::-webkit-scrollbar-track { background:#111; }
-    ::-webkit-scrollbar-thumb { background:#333; }
+    ::-webkit-scrollbar-track { background:var(--surface-50); }
+    ::-webkit-scrollbar-thumb { background:var(--line-200); }
     .table-responsive::-webkit-scrollbar { height:4px; }
-    .table-responsive::-webkit-scrollbar-track { background:#1a1a1a; }
-    .table-responsive::-webkit-scrollbar-thumb { background:#444; }
+    .table-responsive::-webkit-scrollbar-track { background:var(--surface-50); }
+    .table-responsive::-webkit-scrollbar-thumb { background:var(--line-200); }
 
     /* ---- Sidebar shell (same design language as the Product Dashboard) ---- */
     .inrl-dash-shell { display:flex; align-items:stretch; min-height:100vh; }
-    .inrl-sidebar { flex:0 0 264px; width:264px; background:#111; border-right:3px solid #333; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
-    .inrl-sidebar-header { padding:1.4rem 1.25rem 1.1rem; border-bottom:3px solid #333; }
+    .inrl-sidebar { flex:0 0 264px; width:264px; background:var(--dark-800); border-right:1px solid rgba(240,240,240,.08); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .inrl-sidebar-header { padding:1.4rem 1.25rem 1.1rem; border-bottom:1px solid rgba(240,240,240,.08); }
     .inrl-sidebar-header .inrl-brand { display:flex; align-items:center; gap:.55rem; margin-bottom:.55rem; }
-    .inrl-sidebar-header .inrl-brand-mark { flex:0 0 auto; width:32px; height:32px; background:#00ED0A; color:#1C1C1C; display:flex; align-items:center; justify-content:center; font-family:'Averia Serif Libre',serif; font-weight:700; font-size:1.15rem; }
-    .inrl-sidebar-header .inrl-brand-name { font-family:'Averia Serif Libre',serif; font-size:1.25rem; font-weight:700; color:#F5F5F0; letter-spacing:.02em; }
-    .inrl-sidebar-header .inrl-subtitle { font-size:.64rem; text-transform:uppercase; letter-spacing:.12em; color:#00ED0A; font-weight:700; }
-    .inrl-sidebar-nav { flex:1 1 auto; padding:1.1rem .8rem; gap:.3rem; }
-    .inrl-sidebar-nav .nav-link { display:flex; align-items:center; gap:.7rem; color:#999; font-family:'Roboto Mono',monospace; text-transform:uppercase; font-size:.7rem; letter-spacing:.06em; font-weight:700; border:none; border-radius:0; padding:.7rem .75rem; background:transparent; text-align:left; width:100%; transition:color .12s,background .12s; }
-    .inrl-sidebar-nav .nav-link .inrl-nav-icon { flex:0 0 auto; width:18px; height:18px; opacity:.75; transition:opacity .12s; }
-    .inrl-sidebar-nav .nav-link:hover { color:#F5F5F0; background:rgba(255,255,255,.05); }
+    .inrl-sidebar-header .inrl-brand-mark { display:none; }
+    .inrl-sidebar-header img.inrl-brand-logo { height:22px; filter:brightness(0) saturate(100%) invert(1); }
+    .inrl-sidebar-header .inrl-subtitle { font-size:.64rem; text-transform:uppercase; letter-spacing:.1em; color:var(--paper-500); font-weight:500; }
+    .inrl-sidebar-nav { flex:1 1 auto; padding:1.1rem .8rem; gap:.2rem; }
+    .inrl-sidebar-nav .nav-link { display:flex; align-items:center; gap:.7rem; color:var(--paper-300); font-family:var(--font-body); font-size:.78rem; letter-spacing:0; font-weight:400; border:none; border-radius:8px; padding:.6rem .75rem; background:transparent; text-align:left; width:100%; transition:color .12s,background .12s; }
+    .inrl-sidebar-nav .nav-link .inrl-nav-icon { flex:0 0 auto; width:17px; height:17px; opacity:.7; transition:opacity .12s; }
+    .inrl-sidebar-nav .nav-link:hover { color:var(--paper-100); background:rgba(255,255,255,.05); }
     .inrl-sidebar-nav .nav-link:hover .inrl-nav-icon { opacity:1; }
     .inrl-sidebar-nav .nav-link.active,
-    .inrl-sidebar-nav .nav-link.bg-blue-600 { color:#1C1C1C !important; background:#00ED0A !important; box-shadow:3px 3px 0 rgba(0,237,10,.25); border-color:transparent !important; }
+    .inrl-sidebar-nav .nav-link.bg-blue-600 { color:var(--paper-100) !important; background:rgba(18,162,184,.16) !important; box-shadow:none; border-color:transparent !important; }
     .inrl-sidebar-nav .nav-link.active .inrl-nav-icon,
-    .inrl-sidebar-nav .nav-link.bg-blue-600 .inrl-nav-icon { opacity:1; }
-    .inrl-sidebar-footer { border-top:3px solid #333; padding:1rem 1.25rem 1.25rem; }
+    .inrl-sidebar-nav .nav-link.bg-blue-600 .inrl-nav-icon { opacity:1; color:var(--accent-400); }
+    .inrl-sidebar-footer { border-top:1px solid rgba(240,240,240,.08); padding:1rem 1.25rem 1.25rem; }
     .inrl-sidebar-footer .inrl-user-row { display:flex; align-items:center; gap:.6rem; margin-bottom:.9rem; }
-    .inrl-sidebar-footer .inrl-user-avatar { flex:0 0 auto; width:30px; height:30px; background:#212121; border:2px solid #333; color:#00ED0A; display:flex; align-items:center; justify-content:center; font-family:'Roboto Mono',monospace; font-weight:700; font-size:.72rem; text-transform:uppercase; }
+    .inrl-sidebar-footer .inrl-user-avatar { flex:0 0 auto; width:30px; height:30px; background:var(--dark-700); border:1px solid rgba(240,240,240,.1); border-radius:999px; color:var(--accent-400); display:flex; align-items:center; justify-content:center; font-family:var(--font-body); font-weight:500; font-size:.72rem; text-transform:uppercase; }
     .inrl-sidebar-footer .inrl-user-meta { min-width:0; }
-    .inrl-sidebar-footer .inrl-user-email { font-size:.66rem; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .inrl-sidebar-footer .inrl-user-role { font-size:.58rem; text-transform:uppercase; letter-spacing:.08em; color:#555; }
+    .inrl-sidebar-footer .inrl-user-email { font-size:.68rem; color:var(--paper-200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .inrl-sidebar-footer .inrl-user-role { font-size:.6rem; text-transform:uppercase; letter-spacing:.06em; color:var(--paper-500); }
     .inrl-sidebar-footer .inrl-quicklinks { display:flex; flex-direction:column; gap:.5rem; margin-bottom:.9rem; }
-    .inrl-sidebar-footer .inrl-quicklinks a { font-size:.65rem; text-transform:uppercase; letter-spacing:.06em; color:#777; text-decoration:none; transition:color .12s; }
-    .inrl-sidebar-footer .inrl-quicklinks a:hover { color:#00ED0A; }
+    .inrl-sidebar-footer .inrl-quicklinks a { font-size:.7rem; color:var(--paper-500); text-decoration:none; transition:color .12s; }
+    .inrl-sidebar-footer .inrl-quicklinks a:hover { color:var(--accent-400); }
     .inrl-dash-main { flex:1 1 auto; min-width:0; padding:1.5rem 2rem 3rem; max-width:1400px; }
     @media (max-width:991.98px) {
       .inrl-dash-shell { flex-direction:column; }
       .inrl-sidebar { position:static; width:100%; height:auto; flex-direction:row; align-items:center; flex-wrap:wrap; }
-      .inrl-sidebar-header { border-bottom:none; border-right:3px solid #333; padding:.65rem 1rem; }
+      .inrl-sidebar-header { border-bottom:none; border-right:1px solid rgba(240,240,240,.08); padding:.65rem 1rem; }
       .inrl-sidebar-header .inrl-brand { margin-bottom:.2rem; }
       .inrl-sidebar-header .inrl-subtitle { display:none; }
       .inrl-sidebar-nav { display:flex; flex-direction:row; overflow-x:auto; padding:.5rem; flex:1 1 auto; gap:.25rem; }
       .inrl-sidebar-nav .nav-link { white-space:nowrap; width:auto; }
       .inrl-sidebar-nav .nav-link.active,
       .inrl-sidebar-nav .nav-link.bg-blue-600 { box-shadow:none; }
-      .inrl-sidebar-footer { border-top:none; border-left:3px solid #333; display:flex; align-items:center; gap:.75rem; padding:.6rem 1rem; flex:0 0 auto; }
+      .inrl-sidebar-footer { border-top:none; border-left:1px solid rgba(240,240,240,.08); display:flex; align-items:center; gap:.75rem; padding:.6rem 1rem; flex:0 0 auto; }
       .inrl-sidebar-footer .inrl-user-row { margin-bottom:0; }
       .inrl-sidebar-footer .inrl-quicklinks { flex-direction:row; gap:.6rem; margin-bottom:0; }
       .inrl-dash-main { padding:1.25rem 1rem 2.5rem; }
@@ -97,8 +97,8 @@
     @media (max-width:1300px) { .dash-metrics-grid { grid-template-columns:repeat(3,1fr); } }
     @media (max-width:700px) { .dash-metrics-grid { grid-template-columns:repeat(2,1fr); } }
     .dash-metric-card { padding:1.1rem 1.25rem; }
-    .dash-metric-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.09em; color:#888; font-weight:700; margin-bottom:.5rem; }
-    .dash-metric-value { font-family:'Averia Serif Libre',serif; font-size:1.9rem; font-weight:700; color:#00ED0A; line-height:1; }
+    .dash-metric-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-500); font-weight:500; margin-bottom:.5rem; }
+    .dash-metric-value { font-family:var(--font-display); font-size:1.9rem; font-weight:500; color:var(--ink-900); line-height:1; }
   </style>
   <script src="assets/js/auth-worker.js?v=20260205"></script>
 </head>
@@ -110,8 +110,7 @@
   <aside class="inrl-sidebar">
     <div class="inrl-sidebar-header">
       <a class="inrl-brand" href="/admin.html">
-        <span class="inrl-brand-mark">I</span>
-        <span class="inrl-brand-name">INRL</span>
+        <img class="inrl-brand-logo" src="ecommerce/images/main-logo.png" alt="INRL">
       </a>
       <div class="inrl-subtitle">AR Admin Dashboard</div>
     </div>
@@ -164,28 +163,28 @@
   <div id="imageModal" class="hidden">
     <div class="inrl-card p-4" style="max-width:600px;width:90%;position:relative;">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 id="imageModalTitle" class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;"></h5>
+        <h5 id="imageModalTitle" class="mb-0" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900);font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;"></h5>
         <div class="d-flex gap-2">
           <button id="downloadImageBtn" class="btn btn-sm btn-inrl">Download</button>
           <button id="closeImageModal" class="btn btn-sm btn-danger-inrl">✕ Close</button>
         </div>
       </div>
       <div id="imageModalFooter">
-        <img id="imageModalImg" src="" alt="Target preview" style="width:100%;max-height:65vh;object-fit:contain;border:2px solid #333;background:#111;" />
+        <img id="imageModalImg" src="" alt="Target preview" style="width:100%;max-height:65vh;object-fit:contain;border:1px solid var(--line-200);border-radius:8px;background:var(--surface-50);" />
       </div>
       <div id="imageModalMeta" class="text-secondary small mt-2"></div>
     </div>
   </div>
 
   <!-- ===== QR CODE MODAL ===== -->
-  <div id="qrModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div id="qrModal" class="hidden" style="position:fixed;inset:0;background:rgba(11,15,16,.75);z-index:9999;display:flex;align-items:center;justify-content:center;">
     <div class="inrl-card p-4" style="max-width:380px;width:90%;position:relative;">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;font-size:1rem;">AR Viewer QR Code</h5>
+        <h5 class="mb-0" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900);font-size:1rem;">AR Viewer QR Code</h5>
         <button id="closeQrModal" class="btn btn-sm btn-inrl-outline" style="padding:.2rem .6rem;">&#x2715;</button>
       </div>
       <div id="qrCanvasWrap" class="d-flex justify-content-center mb-3" style="background:#fff;padding:20px;"></div>
-      <div id="qrUrlDisplay" class="mb-3" style="word-break:break-all;font-family:'Roboto Mono',monospace;font-size:.7rem;color:#888;line-height:1.6;"></div>
+      <div id="qrUrlDisplay" class="mb-3" style="word-break:break-all;font-family:var(--font-body);font-size:.7rem;color:var(--ink-500);line-height:1.6;"></div>
       <div class="d-flex gap-2">
         <button id="copyQrUrlBtn" class="btn btn-sm btn-inrl-outline" style="flex:1;">Copy URL</button>
         <button id="downloadQrBtn" class="btn btn-sm btn-inrl" style="flex:1;">Download QR</button>
@@ -201,11 +200,11 @@
     <div class="inrl-card p-4 mb-4">
       <div class="d-flex align-items-center gap-2 mb-3">
         <span class="step-badge">1</span>
-        <span style="font-weight:700;text-transform:uppercase;color:#FEFD00;letter-spacing:.05em;">Target Info</span>
+        <span style="font-weight:500;text-transform:uppercase;color:var(--ink-900);letter-spacing:.04em;">Target Info</span>
       </div>
       <div class="row g-3">
         <div class="col-12 col-md-6">
-          <label class="form-label text-secondary small text-uppercase mb-1">Name <span style="color:#ff4d4f;">*</span></label>
+          <label class="form-label text-secondary small text-uppercase mb-1">Name <span style="color:var(--danger-500);">*</span></label>
           <input id="name" type="text" class="form-control" placeholder="e.g. Summer Campaign Poster" />
         </div>
         <div class="col-12 col-md-6">
@@ -221,7 +220,7 @@
     <div class="inrl-card p-4 mb-4">
       <div class="d-flex align-items-center gap-2 mb-3">
         <span class="step-badge">2</span>
-        <span style="font-weight:700;text-transform:uppercase;color:#FEFD00;letter-spacing:.05em;">Marker Image(s)</span>
+        <span style="font-weight:500;text-transform:uppercase;color:var(--ink-900);letter-spacing:.04em;">Marker Image(s)</span>
       </div>
       <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" multiple class="form-control mb-2" />
       <p id="markerFilesInfo" class="text-secondary small mb-3"></p>
@@ -236,9 +235,9 @@
     <div class="inrl-card p-4 mb-4">
       <div class="d-flex align-items-center gap-2 mb-3">
         <span class="step-badge">3</span>
-        <span style="font-weight:700;text-transform:uppercase;color:#FEFD00;letter-spacing:.05em;">AR Content (Video)</span>
+        <span style="font-weight:500;text-transform:uppercase;color:var(--ink-900);letter-spacing:.04em;">AR Content (Video)</span>
       </div>
-      <label class="form-label text-secondary small text-uppercase mb-1">Video file (.mp4) <span style="color:#ff4d4f;">*</span></label>
+      <label class="form-label text-secondary small text-uppercase mb-1">Video file (.mp4) <span style="color:var(--danger-500);">*</span></label>
       <input id="videoFile" type="file" accept="video/mp4" class="form-control mb-3" />
       <button id="upload" class="btn btn-inrl">Upload Target</button>
     </div>
@@ -340,7 +339,7 @@
 
     <!-- Brand user creation -->
     <div id="brandUserProvision" class="inrl-card p-4 mb-4 hidden">
-      <h5 class="mb-1" style="font-family:'Averia Serif Libre',serif;color:#FEFD00;border-left:3px solid #FEFD00;padding-left:.5rem;">Create Brand User</h5>
+      <h5 class="mb-1" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900);">Create Brand User</h5>
       <p class="text-secondary small mb-3">Creates a brand-scoped login. Share credentials securely — password is shown only once.</p>
       <div id="brandUserStatus" class="small mb-3" style="min-height:1em;"></div>
       <div class="row g-3">
@@ -364,13 +363,13 @@
       <div class="mt-3">
         <button id="createBrandUserBtn" class="btn btn-inrl">Create Brand User</button>
       </div>
-      <div id="brandUserCredentials" class="inrl-card p-3 mt-4 hidden" style="border-color:#00ED0A;">
+      <div id="brandUserCredentials" class="inrl-card p-3 mt-4 hidden" style="border-color:var(--accent-500);">
         <p class="mb-2 text-secondary small text-uppercase">New credentials — copy before leaving</p>
-        <div style="font-family:'Roboto Mono',monospace;font-size:.875rem;line-height:1.9;">
-          <div>Brand: <span id="credsBrand" style="color:#00ED0A;"></span></div>
-          <div>Email: <span id="credsEmail" style="color:#00ED0A;"></span></div>
-          <div>Password: <span id="credsPassword" style="color:#00ED0A;"></span></div>
-          <div>Login: <a id="credsLoginUrl" href="#" style="color:#FEFD00;" target="_blank"></a></div>
+        <div style="font-family:var(--font-body);font-size:.875rem;line-height:1.9;">
+          <div>Brand: <span id="credsBrand" style="color:var(--accent-700);"></span></div>
+          <div>Email: <span id="credsEmail" style="color:var(--accent-700);"></span></div>
+          <div>Password: <span id="credsPassword" style="color:var(--accent-700);"></span></div>
+          <div>Login: <a id="credsLoginUrl" href="#" style="color:var(--accent-700);" target="_blank"></a></div>
         </div>
         <button id="copyCredsBtn" class="btn btn-sm btn-inrl mt-3">Copy Credentials</button>
       </div>
@@ -378,8 +377,8 @@
 
     <!-- All accounts table -->
     <div class="inrl-card p-0 mb-4" id="accountsTableWrap">
-      <div class="d-flex justify-content-between align-items-center p-3 flex-wrap gap-2" style="border-bottom:3px solid #333;">
-        <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#00ED0A;">All Accounts</h5>
+      <div class="d-flex justify-content-between align-items-center p-3 flex-wrap gap-2" style="border-bottom:1px solid var(--line-200);">
+        <h5 class="mb-0" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900);">All Accounts</h5>
         <div class="d-flex align-items-center gap-2">
           <select id="accountsRoleFilter" class="form-select form-select-sm" style="width:auto;">
             <option value="">All roles</option>
@@ -414,8 +413,8 @@
 
     <!-- Brand design submissions queue -->
     <div class="inrl-card p-0 mb-4" id="brandDesignsWrap">
-      <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom:3px solid #333;">
-        <h5 class="mb-0" style="font-family:'Averia Serif Libre',serif;color:#FEFD00;">Brand Design Submissions</h5>
+      <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom:1px solid var(--line-200);">
+        <h5 class="mb-0" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900);">Brand Design Submissions</h5>
         <button id="refreshDesignsBtn" class="btn btn-sm btn-inrl-outline">Refresh</button>
       </div>
       <p class="text-secondary small px-3 pt-3 mb-0">Raw designs brands have sent in. Build the real product (Upload AR Target above + Product Dashboard) using the image below, assign it to the brand, then dismiss the entry.</p>
@@ -837,7 +836,7 @@
         function setStatus(msg, isError = false) {
           if (!status) return;
           status.textContent = msg || '';
-          status.style.color = isError ? '#ff4d4f' : (msg ? '#00ED0A' : '#888');
+          status.style.color = isError ? '#c0392b' : (msg ? '#1c5d68' : '#737373');
         }
 
         // Show/hide password toggle
@@ -1037,8 +1036,8 @@
             const orderCount = u.order_count != null ? String(u.order_count) : '—';
             const isSuspended = u.suspended_until && new Date(u.suspended_until).getTime() > Date.now();
             const statusHtml = isSuspended
-              ? `<span style="color:#ff4d4f;font-size:.65rem;font-weight:700;text-transform:uppercase;">Suspended until ${new Date(u.suspended_until).toLocaleString()}</span>`
-              : '<span style="color:#00ED0A;font-size:.65rem;font-weight:700;text-transform:uppercase;">Active</span>';
+              ? `<span style="color:#c0392b;font-size:.65rem;font-weight:500;text-transform:uppercase;">Suspended until ${new Date(u.suspended_until).toLocaleString()}</span>`
+              : '<span style="color:#1c5d68;font-size:.65rem;font-weight:500;text-transform:uppercase;">Active</span>';
             const roleSelectId = 'role-select-' + u.id;
             const isSelf = currentUser && String(currentUser.id) === String(u.id);
             const actionsHtml = isSelf
@@ -1053,8 +1052,8 @@
                   <button onclick="adminDeleteAccount('${u.id}')" class="btn btn-sm btn-danger-inrl" style="font-size:.62rem;padding:.15rem .4rem;">Delete</button>
                 </div>`;
             return `<tr>
-              <td class="px-4 py-2 small" style="font-family:'Roboto Mono',monospace;">${email}${isSelf ? ' <span class="text-secondary" style="font-size:.62rem;">(you)</span>' : ''}</td>
-              <td class="px-4 py-2 small text-uppercase" style="color:#888;font-size:.68rem;">${role}</td>
+              <td class="px-4 py-2 small">${email}${isSelf ? ' <span class="text-secondary" style="font-size:.62rem;">(you)</span>' : ''}</td>
+              <td class="px-4 py-2 small text-uppercase" style="color:#737373;font-size:.68rem;">${role}</td>
               <td class="px-4 py-2 small">${brands}</td>
               <td class="px-4 py-2 small text-center">${targetCount}</td>
               <td class="px-4 py-2 small text-center">${productCount}</td>
@@ -1065,7 +1064,7 @@
             </tr>`;
           }).join('');
         } catch (e) {
-          tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-3 small" style="color:#ff4d4f;">Failed to load accounts: ${e?.message || e}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-3 small" style="color:var(--danger-500);">Failed to load accounts: ${e?.message || e}</td></tr>`;
         }
       }
 
@@ -1099,7 +1098,7 @@
             </tr>`;
           }).join('');
         } catch (e) {
-          tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-3 small" style="color:#ff4d4f;">Failed to load design submissions: ${e?.message || e}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-3 small" style="color:var(--danger-500);">Failed to load design submissions: ${e?.message || e}</td></tr>`;
         }
       }
 
@@ -1375,7 +1374,7 @@
           } catch {}
           rows.forEach((t) => {
           const isActive = t.is_active ? "✅" : "❌";
-          const activeRowStyle = t.is_active ? 'style="border-left:4px solid #00ED0A;"' : '';
+          const activeRowStyle = t.is_active ? 'style="border-left:3px solid #12a2b8;"' : '';
 
           // iamge display
           const candidates = [];
@@ -1415,7 +1414,7 @@
           };
           const normalizedCandidates = uniq.map(normalizeUrl);
           const initialSrc2 = normalizedCandidates.length ? normalizedCandidates[0] : normalizeUrl(placeholder);
-          const deactivateBtn = t.is_active ? `<button onclick="setInactive('${t.id}')" class="btn btn-sm btn-inrl-outline me-1" style="border-color:#888;color:#888;">Deactivate</button>` : '';
+          const deactivateBtn = t.is_active ? `<button onclick="setInactive('${t.id}')" class="btn btn-sm btn-inrl-outline me-1">Deactivate</button>` : '';
           const brandCell = isAdmin ? `<td class="p-3">${t.brand || ''}</td>` : '';
           const row = `
             <tr ${activeRowStyle}>
@@ -1439,7 +1438,7 @@
           });
         } catch (e) {
           console.error('Error loading targets:', e);
-          targetsTable.innerHTML = `<tr><td class="p-3" style="color:#ff4d4f;">Failed to load targets: ${e.message || e}</td></tr>`;
+          targetsTable.innerHTML = `<tr><td class="p-3" style="color:var(--danger-500);">Failed to load targets: ${e.message || e}</td></tr>`;
         }
       }
 
