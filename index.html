@@ -352,22 +352,44 @@
             inner.setAttribute('position', '0 0 0.001');
             inner.setAttribute('rotation', '0 0 0');
             inner.setAttribute('material', 'shader: flat; transparent: false; color: #fff;');
+            // fill the marker plane exactly so there is never a letterbox gap
+            inner.setAttribute('width', planeWidthUnits);
+            inner.setAttribute('height', planeHeightUnits);
             inner.setAttribute('visible', 'false');
             target.appendChild(inner);
           }
 
-          function sizeInnerPlane() {
+          // Crop (cover-fit) the video texture's UVs so the video fills the marker
+          // plane with no gaps, instead of shrinking the plane to letterbox it.
+          function applyCoverCrop() {
             const vw = aframeVideoAsset.videoWidth, vh = aframeVideoAsset.videoHeight;
-            if (!vw || !vh) return;
+            const mesh = inner.getObject3D && inner.getObject3D('mesh');
+            const map = mesh && mesh.material && mesh.material.map;
+            if (!vw || !vh || !map) return false;
             const videoAspect = vw / vh;
-            const markerW = planeWidthUnits, markerH = planeHeightUnits;
-            let videoUnitW, videoUnitH;
-            if (videoAspect > (markerW / markerH)) { videoUnitW = markerW; videoUnitH = markerW / videoAspect; }
-            else { videoUnitH = markerH; videoUnitW = markerH * videoAspect; }
-            inner.setAttribute('width', videoUnitW);
-            inner.setAttribute('height', videoUnitH);
+            const markerAspect = planeWidthUnits / planeHeightUnits;
+            let repeatX = 1, repeatY = 1;
+            if (videoAspect > markerAspect) { repeatX = markerAspect / videoAspect; }
+            else { repeatY = videoAspect / markerAspect; }
+            map.wrapS = THREE.ClampToEdgeWrapping;
+            map.wrapT = THREE.ClampToEdgeWrapping;
+            map.repeat.set(repeatX, repeatY);
+            map.offset.set((1 - repeatX) / 2, (1 - repeatY) / 2);
+            map.needsUpdate = true;
+            return true;
+          }
+
+          function revealInner() {
             inner.setAttribute('visible', 'true');
             try { planeEl.setAttribute('visible', 'true'); } catch (e) {}
+          }
+
+          function sizeInnerPlane() {
+            if (!applyCoverCrop()) {
+              inner.addEventListener('loaded', () => { if (applyCoverCrop()) revealInner(); }, { once: true });
+              return;
+            }
+            revealInner();
           }
           try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch (e) {}
           if (aframeVideoAsset.readyState >= 1) sizeInnerPlane();
