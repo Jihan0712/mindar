@@ -335,8 +335,14 @@
         }
 
         const targetAspect = await getTargetAspectFromImage(activeTarget) || 1;
-        const planeWidthUnits = 1;
-        const planeHeightUnits = 1 / targetAspect;
+        // Slightly oversize the black cover plane so it fully hides the printed
+        // marker even when the compiled .mind target's aspect ratio doesn't
+        // exactly match imageurl (e.g. client-side resize rounding during
+        // compile) — without this, a thin sliver of the real print can peek
+        // out past the cover's edge (most noticeable at the bottom).
+        const COVER_OVERSCAN = 1.03;
+        const planeWidthUnits = 1 * COVER_OVERSCAN;
+        const planeHeightUnits = (1 / targetAspect) * COVER_OVERSCAN;
 
         whenPlaneMeshReady(() => {
           planeEl.setAttribute('width', planeWidthUnits);
@@ -352,44 +358,22 @@
             inner.setAttribute('position', '0 0 0.001');
             inner.setAttribute('rotation', '0 0 0');
             inner.setAttribute('material', 'shader: flat; transparent: false; color: #fff;');
-            // fill the marker plane exactly so there is never a letterbox gap
-            inner.setAttribute('width', planeWidthUnits);
-            inner.setAttribute('height', planeHeightUnits);
             inner.setAttribute('visible', 'false');
             target.appendChild(inner);
           }
 
-          // Crop (cover-fit) the video texture's UVs so the video fills the marker
-          // plane with no gaps, instead of shrinking the plane to letterbox it.
-          function applyCoverCrop() {
+          function sizeInnerPlane() {
             const vw = aframeVideoAsset.videoWidth, vh = aframeVideoAsset.videoHeight;
-            const mesh = inner.getObject3D && inner.getObject3D('mesh');
-            const map = mesh && mesh.material && mesh.material.map;
-            if (!vw || !vh || !map) return false;
+            if (!vw || !vh) return;
             const videoAspect = vw / vh;
-            const markerAspect = planeWidthUnits / planeHeightUnits;
-            let repeatX = 1, repeatY = 1;
-            if (videoAspect > markerAspect) { repeatX = markerAspect / videoAspect; }
-            else { repeatY = videoAspect / markerAspect; }
-            map.wrapS = THREE.ClampToEdgeWrapping;
-            map.wrapT = THREE.ClampToEdgeWrapping;
-            map.repeat.set(repeatX, repeatY);
-            map.offset.set((1 - repeatX) / 2, (1 - repeatY) / 2);
-            map.needsUpdate = true;
-            return true;
-          }
-
-          function revealInner() {
+            const markerW = planeWidthUnits, markerH = planeHeightUnits;
+            let videoUnitW, videoUnitH;
+            if (videoAspect > (markerW / markerH)) { videoUnitW = markerW; videoUnitH = markerW / videoAspect; }
+            else { videoUnitH = markerH; videoUnitW = markerH * videoAspect; }
+            inner.setAttribute('width', videoUnitW);
+            inner.setAttribute('height', videoUnitH);
             inner.setAttribute('visible', 'true');
             try { planeEl.setAttribute('visible', 'true'); } catch (e) {}
-          }
-
-          function sizeInnerPlane() {
-            if (!applyCoverCrop()) {
-              inner.addEventListener('loaded', () => { if (applyCoverCrop()) revealInner(); }, { once: true });
-              return;
-            }
-            revealInner();
           }
           try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch (e) {}
           if (aframeVideoAsset.readyState >= 1) sizeInnerPlane();
