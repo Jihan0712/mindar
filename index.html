@@ -267,8 +267,22 @@
             const mindarOpts = [
               `imageTargetSrc: ${mindUrlLocal}`,
               'autoStart: false',
-              'filterMinCF: 0.0001',
-              'filterBeta: 0.01',
+              // MindAR smooths the tracked pose with a One Euro filter, on
+              // millisecond timestamps:
+              //     cutoff = filterMinCF + filterBeta * |velocity|
+              //     alpha  = r / (r + 1),  r = 2*PI*cutoff*dt
+              // filterBeta is the point of a One Euro filter: it lets the cutoff
+              // rise with speed, so the pose is steady when still but catches up
+              // when things move. At the previous 0.01 it effectively never rose,
+              // so at 30fps alpha sat near 0.02 whether the shirt was still or
+              // moving — the pose needed ~1.5s to converge, which reads as the
+              // overlay lagging behind and swimming on a worn garment.
+              //
+              // These are MindAR's own defaults. Tune from here: raise
+              // filterMinCF if it feels laggy while holding still; lower
+              // filterBeta if it looks jittery while moving.
+              'filterMinCF: 0.001',
+              'filterBeta: 1000',
               'warmupTolerance: 5',
               'missTolerance: 5'
             ];
