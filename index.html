@@ -367,22 +367,14 @@
           }
         });
 
-        const SMOOTHING_FACTOR = 0.05;
-        let lastPosition = new THREE.Vector3();
-        let lastRotation = new THREE.Euler();
-        scene.addEventListener('renderstart', () => {
-          const obj = target.object3D;
-          const tick = () => {
-            lastPosition.lerp(obj.position, SMOOTHING_FACTOR);
-            obj.position.copy(lastPosition);
-            lastRotation.x += (obj.rotation.x - lastRotation.x) * SMOOTHING_FACTOR;
-            lastRotation.y += (obj.rotation.y - lastRotation.y) * SMOOTHING_FACTOR;
-            lastRotation.z += (obj.rotation.z - lastRotation.z) * SMOOTHING_FACTOR;
-            obj.rotation.copy(lastRotation);
-            requestAnimationFrame(tick);
-          };
-          tick();
-        });
+        // A second smoothing pass used to run here: a requestAnimationFrame loop
+        // lerping target.object3D.position/rotation toward MindAR's pose. It had
+        // no visual effect. mind-ar's `mindar-image-target` component sets
+        // object3D.matrixAutoUpdate = false in its init and writes object3D.matrix
+        // directly every frame, so position/rotation are decoupled from what is
+        // rendered — lerping them changed nothing on screen. All it did was run an
+        // uncancellable rAF loop for the lifetime of the page. Pose smoothing is
+        // MindAR's own job (filterMinCF / filterBeta on the mindar-image component).
 
         function startNotRecognisedTimer() {
           clearTimeout(notRecognisedTimer);
