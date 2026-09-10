@@ -4127,20 +4127,88 @@
 
   // ---------- Existing R2 handlers (unchanged from your current worker) ----------
 
+  // Serves an R2 object with HTTP byte-range support.
+  //
+  // This is what makes video play on iOS. Safari on iOS will not play a video
+  // unless the server honours byte ranges: its first request for a media URL is
+  // typically `Range: bytes=0-1` to probe, and if the server answers 200 with
+  // the whole body instead of 206, iOS refuses to play the file at all — no
+  // error the page can see, it simply never becomes playable. Android Chrome
+  // does not care and plays a plain 200 response happily, which is why this
+  // only ever showed up on iPhone. Seeking also depends on it.
+  async function serveR2Object(request, key, corsOrigin) {
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.get !== 'function') {
+      return new Response('R2 binding missing', { status: 500 });
+    }
+    if (!key) return new Response('Not Found', { status: 404 });
+
+    const rangeHeader = request.headers.get('Range');
+
+    let obj;
+    try {
+      // Passing the request headers lets R2 parse and resolve the range itself.
+      obj = rangeHeader
+        ? await ASSETS_BUCKET.get(key, { range: request.headers })
+        : await ASSETS_BUCKET.get(key);
+    } catch (e) {
+      // An unsatisfiable range throws — answer per RFC 9110 so the player can
+      // recover instead of treating it as a hard media error.
+      const head = await ASSETS_BUCKET.head(key).catch(() => null);
+      if (head) {
+        const h = new Headers();
+        h.set('Content-Range', `bytes */${head.size}`);
+        h.set('Accept-Ranges', 'bytes');
+        if (corsOrigin) h.set('Access-Control-Allow-Origin', corsOrigin);
+        return new Response(null, { status: 416, headers: h });
+      }
+      return new Response('Not Found', { status: 404 });
+    }
+
+    if (!obj) return new Response('Not Found', { status: 404 });
+
+    const headers = new Headers();
+    const ct = (obj.httpMetadata && obj.httpMetadata.contentType) ||
+               (obj.customMetadata && obj.customMetadata.contentType) ||
+               'application/octet-stream';
+    headers.set('Content-Type', ct);
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    // Must be advertised on the full response too — this is the signal that
+    // tells Safari it may range-request and seek at all.
+    headers.set('Accept-Ranges', 'bytes');
+    if (obj.httpEtag) headers.set('ETag', obj.httpEtag);
+    if (corsOrigin) {
+      headers.set('Access-Control-Allow-Origin', corsOrigin);
+      // A cross-origin player can't read range metadata without this.
+      headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, ETag');
+    }
+
+    if (request.method === 'HEAD') {
+      headers.set('Content-Length', String(obj.size));
+      return new Response(null, { status: 200, headers });
+    }
+
+    if (rangeHeader && obj.range) {
+      let offset, length;
+      if (obj.range.suffix != null) {
+        length = obj.range.suffix;
+        offset = Math.max(0, obj.size - length);
+      } else {
+        offset = obj.range.offset || 0;
+        length = obj.range.length != null ? obj.range.length : (obj.size - offset);
+      }
+      headers.set('Content-Range', `bytes ${offset}-${offset + length - 1}/${obj.size}`);
+      headers.set('Content-Length', String(length));
+      return new Response(obj.body, { status: 206, headers });
+    }
+
+    if (!obj.body) return new Response('Not Found', { status: 404 });
+    headers.set('Content-Length', String(obj.size));
+    return new Response(obj.body, { status: 200, headers });
+  }
+
   async function handleR2Asset(request, key) {
     try {
-      if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.get !== 'function') {
-        return new Response('R2 binding missing', { status: 500 });
-      }
-      if (!key) return new Response('Not Found', { status: 404 });
-      const obj = await ASSETS_BUCKET.get(key);
-      if (!obj || !obj.body) return new Response('Not Found', { status: 404 });
-      const headers = new Headers();
-      const ct = (obj.httpMetadata && obj.httpMetadata.contentType) || 'application/octet-stream';
-      headers.set('Content-Type', ct);
-      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-      headers.set('Access-Control-Allow-Origin', '*');
-      return new Response(obj.body, { status: 200, headers });
+      return await serveR2Object(request, key, '*');
     } catch (e) {
       return new Response(String(e), { status: 500 });
     }
@@ -4159,24 +4227,17 @@
       let key = url.pathname.replace(/^\//, '');
       if (!key) return new Response('Not Found', { status: 404 });
 
-      const obj = await ASSETS_BUCKET.get(key, { allowUnencrypted: true });
-      if (!obj || !obj.body) return new Response('Not Found', { status: 404 });
-
-      const headers = new Headers();
-      const ct = (obj.httpMetadata && obj.httpMetadata.contentType) ||
-                (obj.customMetadata && obj.customMetadata.contentType) ||
-                'application/octet-stream';
-      headers.set('Content-Type', ct);
-      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-
       const allowed = getAllowedOrigins();
       const origin = request.headers.get('Origin');
-      if (allowed && origin && allowed.includes(origin)) headers.set('Access-Control-Allow-Origin', origin);
-      else headers.set('Access-Control-Allow-Origin', '*');
-      headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key');
+      const corsOrigin = (allowed && origin && allowed.includes(origin)) ? origin : '*';
 
-      return new Response(obj.body, { status: 200, headers });
+      // Byte-range aware — see serveR2Object. Videos are served from here too,
+      // and iOS will not play one without range support.
+      const res = await serveR2Object(request, key, corsOrigin);
+      const headers = new Headers(res.headers);
+      headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-key, Range');
+      return new Response(res.body, { status: res.status, headers });
     } catch (e) {
       return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
