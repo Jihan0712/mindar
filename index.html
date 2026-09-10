@@ -162,7 +162,7 @@
       }
 
       // ---------------- UI state machine ----------------
-      const STATES = ['gate', 'starting', 'scanning', 'found', 'playing', 'notrecognised', 'blocked', 'notarget'];
+      const STATES = ['gate', 'scanning', 'found', 'playing', 'notrecognised', 'blocked', 'notarget'];
       function showState(name) {
         STATES.forEach(s => {
           const el = document.getElementById('state-' + s);
@@ -270,97 +270,6 @@
 
         showState('gate');
 
-        // ---- camera resolution cap ----
-        // MindAR calls getUserMedia itself, with no resolution constraints, and
-        // then builds its whole pipeline around whatever the browser hands back:
-        //     new Controller({ inputWidth: video.videoWidth, inputHeight: video.videoHeight })
-        // Detection, matching and tracking all run at that native resolution,
-        // every frame. iOS Safari hands back a much larger stream than Android
-        // Chrome typically does, so iOS was doing several times the per-frame
-        // work for no extra tracking quality — which is the stutter that Android
-        // doesn't have.
-        //
-        // MindAR exposes no option for this, so we wrap getUserMedia around its
-        // own acquisition. Deliberately `max` and not `ideal`: this caps devices
-        // that hand back more than we need without forcing lower-resolution
-        // devices upward, so Android keeps exactly the stream it has today.
-        const CAMERA_MAX_WIDTH = 1280;
-        const CAMERA_MAX_HEIGHT = 720;
-        const CAMERA_MAX_FPS = 30;
-
-        function cappedVideoConstraints(base) {
-          return Object.assign({}, base || {}, {
-            width: { max: CAMERA_MAX_WIDTH },
-            height: { max: CAMERA_MAX_HEIGHT },
-            frameRate: { max: CAMERA_MAX_FPS }
-          });
-        }
-
-        // One-shot: caps the next getUserMedia call (MindAR's) and then restores
-        // the original immediately, so nothing else on the page is affected.
-        function capCameraForNextAcquisition() {
-          const md = navigator.mediaDevices;
-          if (!md || !md.getUserMedia) return;
-          const original = md.getUserMedia.bind(md);
-          let restored = false;
-          const restore = () => { if (!restored) { restored = true; md.getUserMedia = original; } };
-          md.getUserMedia = (constraints) => {
-            restore();
-            const c = constraints || {};
-            if (!c.video) return original(c);
-            const capped = Object.assign({}, c, {
-              video: cappedVideoConstraints(typeof c.video === 'object' ? c.video : {})
-            });
-            // A device that can't satisfy the cap should still get a camera.
-            return original(capped)
-              .catch((err) => {
-                console.warn('Capped camera constraints rejected, retrying unconstrained:', err);
-                return original(c);
-              })
-              .then((stream) => {
-                // What the camera actually negotiated drives the whole tracking
-                // cost, and it differs a lot between devices. Log it so the cap
-                // above can be tuned against real hardware rather than guesswork.
-                try {
-                  const s = stream.getVideoTracks()[0].getSettings();
-                  console.log(`[INRL] camera stream: ${s.width}x${s.height} @ ${s.frameRate || '?'}fps`);
-                } catch (e) {}
-                return stream;
-              });
-          };
-          // Safety net — never leave the override installed.
-          setTimeout(restore, 10000);
-        }
-
-        // ---- tracking tuning (see docs/AR-MARKER-PRINT-GUIDE.md) ----
-        // MindAR smooths the tracked pose with a One Euro filter, evaluated on
-        // millisecond timestamps:
-        //     cutoff = filterMinCF + filterBeta * |velocity|
-        //     alpha  = r / (r + 1),  where r = 2*PI*cutoff*dt
-        // filterBeta is the whole point of a One Euro filter: it lets the
-        // cutoff rise with speed, so the pose is steady when still but catches
-        // up immediately when things move. The previous values here
-        // (minCF 0.0001 / beta 0.01) flattened that out — at 30fps they held
-        // alpha near 0.02 whether the shirt was still or moving, which is on
-        // the order of a second of lag on a worn garment.
-        //
-        // These are MindAR's own defaults, which is the right baseline for a
-        // marker on a body: both the print and the phone are moving, so
-        // responsiveness matters more here than it would on a flat poster.
-        // To retune: raise filterMinCF if it feels laggy while holding still,
-        // lower filterBeta if it looks jittery while moving.
-        const TRACKING = {
-          filterMinCF: 0.001,
-          filterBeta: 1000,
-          // Frames of consistent detection before the overlay is shown.
-          warmupTolerance: 5,
-          // Frames of lost detection tolerated before hiding it again. Raised
-          // from MindAR's default of 5 because fabric drops frames constantly —
-          // a fold, a turn, or motion blur breaks the read for a few frames at
-          // a time, and every drop restarts the video from the gate state.
-          missTolerance: 10
-        };
-
         // function to apply the active target to the scene (re-usable on rotate/resize)
         async function applyActiveTarget(t) {
           const mindUrlLocal = t ? t.mindurl : null;
@@ -369,17 +278,12 @@
             const mindarOpts = [
               `imageTargetSrc: ${mindUrlLocal}`,
               'autoStart: false',
-              `filterMinCF: ${TRACKING.filterMinCF}`,
-              `filterBeta: ${TRACKING.filterBeta}`,
-              `warmupTolerance: ${TRACKING.warmupTolerance}`,
-              `missTolerance: ${TRACKING.missTolerance}`
+              'filterMinCF: 0.0001',
+              'filterBeta: 0.01',
+              'warmupTolerance: 5',
+              'missTolerance: 5'
             ];
-            // This page draws its own scanning / loading / error UI, so MindAR's
-            // built-in overlays are turned off. This block used to be fenced
-            // behind isIOS, which meant Android rendered both MindAR's overlays
-            // and ours on top of each other. maxTrack is dropped: its default is
-            // already 1, and there is only one target entity in the scene.
-            mindarOpts.push('uiScanning: false', 'uiLoading: false', 'uiError: false');
+            if (isIOS) { mindarOpts.push('maxTrack: 1'); mindarOpts.push('uiScanning: false'); mindarOpts.push('uiLoading: false'); }
             scene.setAttribute('mindar-image', mindarOpts.join('; '));
             try { aframeVideoAsset.setAttribute('crossorigin', 'anonymous'); } catch (e) {}
             aframeVideoAsset.src = videoUrlLocal;
@@ -430,97 +334,19 @@
           return null;
         }
 
-        // The compiled .mind file, not imageurl, is the authority on the
-        // marker's shape — imageurl can be re-cropped or re-exported after the
-        // fact, and the compile step resizes to fit 1024px. MindAR normalises
-        // the target entity so that 1 unit of width == the marker's width, and
-        // stashes the real compiled dimensions in the target component's
-        // postMatrix (setupMarker composes it with position.x = width/2 and
-        // position.y = height/2). Reading it back gives the exact ratio the
-        // tracker itself is working in, so the cover plane lands on the print's
-        // edges rather than near them.
-        function markerRatioFromCompiledTarget() {
-          try {
-            const pm = target.components && target.components['mindar-image-target'] && target.components['mindar-image-target'].postMatrix;
-            if (!pm) return null;
-            const halfWidth = pm.elements[12];
-            const halfHeight = pm.elements[13];
-            if (halfWidth > 0 && halfHeight > 0) return halfHeight / halfWidth;
-          } catch (e) { console.warn('Could not read marker dimensions from compiled target:', e); }
-          return null;
-        }
-
-        // Fallback only — used until MindAR has loaded the .mind and reported
-        // the compiled dimensions (it needs the camera, which is gated behind a
-        // user tap), and if that read ever fails.
-        const imageAspect = await getTargetAspectFromImage(activeTarget);
-        let markerHeightRatio = imageAspect ? (1 / imageAspect) : 1;
-
-        // Small margin so the cover fully hides the print. This used to be 3%
-        // to paper over the aspect-ratio guess above; now that the ratio is
-        // exact it only has to absorb pose jitter, which on fabric can still
-        // expose a hairline of the real print at an edge.
-        const COVER_JITTER_MARGIN = 1.01;
-        let planeWidthUnits = COVER_JITTER_MARGIN;
-        let planeHeightUnits = markerHeightRatio * COVER_JITTER_MARGIN;
-
-        function applyPlaneDimensions() {
-          planeWidthUnits = COVER_JITTER_MARGIN;
-          planeHeightUnits = markerHeightRatio * COVER_JITTER_MARGIN;
-          try {
-            planeEl.setAttribute('width', planeWidthUnits);
-            planeEl.setAttribute('height', planeHeightUnits);
-          } catch (e) {}
-          try { if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal(); } catch (e) {}
-        }
-
-        // MindAR emits arReady after setupMarker has run for every anchor, so
-        // this is the first point the compiled dimensions can be read. Fires
-        // again after softReinit re-adds the component on orientation change.
-        scene.addEventListener('arReady', () => {
-          const ratio = markerRatioFromCompiledTarget();
-          if (ratio && Math.abs(ratio - markerHeightRatio) > 1e-6) {
-            markerHeightRatio = ratio;
-            applyPlaneDimensions();
-          }
-          // The tracker is only actually live now, so this is where scanning —
-          // and the "still looking" countdown — should begin.
-          if (document.getElementById('state-starting').classList.contains('is-active')) {
-            showState('scanning');
-            startNotRecognisedTimer();
-          }
-        });
-
-        // MindAR's own error overlay is disabled, so surface failures ourselves
-        // rather than leaving the user on a viewfinder that will never resolve.
-        scene.addEventListener('arError', (e) => {
-          console.warn('MindAR error:', e && e.detail);
-          clearTimeout(notRecognisedTimer);
-          showState('blocked');
-        });
-
-        // How the video is fitted to the printed marker area.
-        //   'cover'   — fills the whole print, cropping the video's overflow.
-        //   'contain' — fits the entire video in, leaving bars on two sides.
-        // Cover is the default only because it avoids wasting print area when the
-        // two aspects are already close. Bars themselves are fine: the black
-        // plane underneath is there to hide the print, so a bar falls on
-        // deliberate black rather than on bare fabric.
-        const VIDEO_FIT = 'cover';
-        // ...which is exactly why cover must not be pushed too far. A landscape
-        // video on a portrait print would have ~58% of its width cropped away,
-        // leaving a narrow centre slice of a frame that was composed wide. Since
-        // letterboxing costs nothing but black the cover plane was already
-        // drawing, fall back to 'contain' once cover would discard more than
-        // this fraction of a dimension.
-        const MAX_COVER_CROP = 0.35;
-        const FADE_IN_MS = 200;
-
-        // Assigned once the plane's mesh exists; called from targetFound.
-        let fadeVideoIn = () => {};
+        const targetAspect = await getTargetAspectFromImage(activeTarget) || 1;
+        // Slightly oversize the black cover plane so it fully hides the printed
+        // marker even when the compiled .mind target's aspect ratio doesn't
+        // exactly match imageurl (e.g. client-side resize rounding during
+        // compile) — without this, a thin sliver of the real print can peek
+        // out past the cover's edge (most noticeable at the bottom).
+        const COVER_OVERSCAN = 1.03;
+        const planeWidthUnits = 1 * COVER_OVERSCAN;
+        const planeHeightUnits = (1 / targetAspect) * COVER_OVERSCAN;
 
         whenPlaneMeshReady(() => {
-          applyPlaneDimensions();
+          planeEl.setAttribute('width', planeWidthUnits);
+          planeEl.setAttribute('height', planeHeightUnits);
           try { planeEl.setAttribute('material', 'shader: flat; color: #000;'); } catch (e) {}
           try { planeEl.removeAttribute('src'); } catch (e) {}
 
@@ -531,15 +357,9 @@
             inner.setAttribute('src', '#card');
             inner.setAttribute('position', '0 0 0.001');
             inner.setAttribute('rotation', '0 0 0');
-            // transparent so the reveal below can fade it up over the black cover.
-            inner.setAttribute('material', 'shader: flat; transparent: true; color: #fff;');
+            inner.setAttribute('material', 'shader: flat; transparent: false; color: #fff;');
             inner.setAttribute('visible', 'false');
             target.appendChild(inner);
-          }
-
-          function videoTexture() {
-            const mesh = inner.getObject3D('mesh');
-            return (mesh && mesh.material && mesh.material.map) || null;
           }
 
           function sizeInnerPlane() {
@@ -547,102 +367,39 @@
             if (!vw || !vh) return;
             const videoAspect = vw / vh;
             const markerW = planeWidthUnits, markerH = planeHeightUnits;
-            const markerAspect = markerW / markerH;
-            const tex = videoTexture();
-
-            // How much of a dimension cover would have to throw away.
-            const coverKeep = videoAspect > markerAspect
-              ? markerAspect / videoAspect
-              : videoAspect / markerAspect;
-            const useCover = VIDEO_FIT === 'cover' && tex && (1 - coverKeep) <= MAX_COVER_CROP;
-
-            if (VIDEO_FIT === 'cover' && tex && !useCover) {
-              console.warn(
-                `[INRL] Video ${vw}x${vh} vs marker ${markerAspect.toFixed(3)} aspect: cover would crop ` +
-                `${Math.round((1 - coverKeep) * 100)}% of the frame, so falling back to contain. ` +
-                `Re-export the video closer to the marker's aspect ratio to fill the print.`);
-            }
-
-            if (useCover) {
-              // Crop in UV space and leave the plane exactly on the marker.
-              // Scaling the plane up to cover would push video past the edges of
-              // the print and onto the bare fabric, which looks worse than a bar.
-              inner.setAttribute('width', markerW);
-              inner.setAttribute('height', markerH);
-              if (videoAspect > markerAspect) {
-                const r = coverKeep;
-                tex.repeat.set(r, 1);
-                tex.offset.set((1 - r) / 2, 0);
-              } else {
-                const r = coverKeep;
-                tex.repeat.set(1, r);
-                tex.offset.set(0, (1 - r) / 2);
-              }
-              tex.needsUpdate = true;
-            } else {
-              // Reset any crop a previous pass may have applied (the video's
-              // dimensions can arrive after a first, texture-less sizing pass).
-              if (tex) { tex.repeat.set(1, 1); tex.offset.set(0, 0); tex.needsUpdate = true; }
-              let videoUnitW, videoUnitH;
-              if (videoAspect > markerAspect) { videoUnitW = markerW; videoUnitH = markerW / videoAspect; }
-              else { videoUnitH = markerH; videoUnitW = markerH * videoAspect; }
-              inner.setAttribute('width', videoUnitW);
-              inner.setAttribute('height', videoUnitH);
-            }
-
-            // A shirt is almost never viewed straight on. Anisotropic filtering
-            // is what keeps the video sharp at an oblique angle instead of
-            // smearing, and it costs nothing on a scene this simple.
-            if (tex) {
-              try {
-                const maxAniso = scene.renderer && scene.renderer.capabilities.getMaxAnisotropy();
-                if (maxAniso && tex.anisotropy !== maxAniso) {
-                  tex.anisotropy = maxAniso;
-                  tex.needsUpdate = true;
-                }
-              } catch (e) {}
-            }
-
+            let videoUnitW, videoUnitH;
+            if (videoAspect > (markerW / markerH)) { videoUnitW = markerW; videoUnitH = markerW / videoAspect; }
+            else { videoUnitH = markerH; videoUnitW = markerH * videoAspect; }
+            inner.setAttribute('width', videoUnitW);
+            inner.setAttribute('height', videoUnitH);
             inner.setAttribute('visible', 'true');
             try { planeEl.setAttribute('visible', 'true'); } catch (e) {}
           }
-
-          // Reveal the video over the black cover rather than snapping it on.
-          let fadeRaf = null;
-          fadeVideoIn = function (duration = FADE_IN_MS) {
-            const mesh = inner.getObject3D('mesh');
-            if (!mesh || !mesh.material) return;
-            const mat = mesh.material;
-            mat.transparent = true;
-            mat.opacity = 0;
-            const start = performance.now();
-            cancelAnimationFrame(fadeRaf);
-            const step = (now) => {
-              const k = Math.min(1, (now - start) / duration);
-              mat.opacity = k;
-              if (k < 1) fadeRaf = requestAnimationFrame(step);
-            };
-            fadeRaf = requestAnimationFrame(step);
-          };
-
           try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch (e) {}
-          // The texture doesn't exist until A-Frame has loaded it, and the cover
-          // crop needs it, so re-run once it arrives.
-          inner.addEventListener('materialtextureloaded', sizeInnerPlane);
           if (aframeVideoAsset.readyState >= 1) sizeInnerPlane();
-          aframeVideoAsset.addEventListener('loadedmetadata', sizeInnerPlane);
-          aframeVideoAsset.addEventListener('loadeddata', sizeInnerPlane);
-          aframeVideoAsset.addEventListener('resize', sizeInnerPlane);
+          else {
+            aframeVideoAsset.addEventListener('loadedmetadata', sizeInnerPlane);
+            aframeVideoAsset.addEventListener('loadeddata', sizeInnerPlane);
+            aframeVideoAsset.addEventListener('resize', sizeInnerPlane);
+          }
         });
 
-        // NOTE: there used to be a second smoothing pass here — a requestAnimationFrame
-        // loop that lerped target.object3D.position/rotation toward MindAR's pose.
-        // It never had any visual effect: mindar-image-target sets
-        // object3D.matrixAutoUpdate = false in its init and writes object3D.matrix
-        // directly every frame, so position/rotation are decoupled from what is
-        // rendered and lerping them changed nothing. All it did was run an
-        // uncancellable rAF loop for the lifetime of the page. Pose smoothing is
-        // MindAR's job — tune TRACKING above instead.
+        const SMOOTHING_FACTOR = 0.05;
+        let lastPosition = new THREE.Vector3();
+        let lastRotation = new THREE.Euler();
+        scene.addEventListener('renderstart', () => {
+          const obj = target.object3D;
+          const tick = () => {
+            lastPosition.lerp(obj.position, SMOOTHING_FACTOR);
+            obj.position.copy(lastPosition);
+            lastRotation.x += (obj.rotation.x - lastRotation.x) * SMOOTHING_FACTOR;
+            lastRotation.y += (obj.rotation.y - lastRotation.y) * SMOOTHING_FACTOR;
+            lastRotation.z += (obj.rotation.z - lastRotation.z) * SMOOTHING_FACTOR;
+            obj.rotation.copy(lastRotation);
+            requestAnimationFrame(tick);
+          };
+          tick();
+        });
 
         function startNotRecognisedTimer() {
           clearTimeout(notRecognisedTimer);
@@ -652,17 +409,14 @@
         target.addEventListener('targetFound', () => {
           lastTargetVisible = true;
           clearTimeout(notRecognisedTimer);
-          // Start playback on the same frame the target is found. This used to
-          // wait for the 320ms caption pulse below, which put a third of a second
-          // of frozen video on the print at exactly the moment the user is
-          // deciding whether the thing works.
-          playVideoWithFallback();
-          fadeVideoIn();
           showState('found');
           const bar = document.getElementById('foundProgressBar');
           if (bar) { bar.style.width = '0%'; requestAnimationFrame(() => { bar.style.width = '100%'; }); }
           clearTimeout(foundPulseTimer);
-          foundPulseTimer = setTimeout(() => { showState('playing'); }, 320);
+          foundPulseTimer = setTimeout(() => {
+            showState('playing');
+            aframeVideoAsset.play().catch((e) => { console.warn('play blocked (no user gesture):', e); });
+          }, 320);
         });
 
         target.addEventListener('targetLost', () => {
@@ -675,124 +429,26 @@
 
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) aframeVideoAsset.pause();
-          else if (lastTargetVisible) playVideoWithFallback();
+          else if (lastTargetVisible) aframeVideoAsset.play().catch(() => {});
         });
-
-        // iOS only allows a <video> to be played programmatically once it has
-        // already played inside a user gesture. targetFound fires long after the
-        // tap that starts the camera, so the element is primed here instead.
-        //
-        // It is primed in the exact muted state it will later play in, and
-        // silenced with volume rather than by muting: WebKit's autoplay policy
-        // keys off `muted`, not `volume`, so priming muted and then unmuting
-        // outside a gesture can still get the later play() rejected. volume = 0
-        // keeps the prime inaudible without changing the state being blessed.
-        function primeVideoForPlayback() {
-          try {
-            const wantMuted = localStorage.getItem('inrl_sound_enabled') !== 'true';
-            aframeVideoAsset.muted = wantMuted;
-            const prevVolume = aframeVideoAsset.volume;
-            aframeVideoAsset.volume = 0;
-            const restore = () => {
-              try {
-                aframeVideoAsset.pause();
-                aframeVideoAsset.currentTime = 0;
-                aframeVideoAsset.volume = prevVolume;
-              } catch (e) {}
-            };
-            const p = aframeVideoAsset.play();
-            if (p && typeof p.then === 'function') {
-              p.then(restore).catch((e) => {
-                try { aframeVideoAsset.volume = prevVolume; } catch (_) {}
-                console.warn('Video prime failed; will fall back to muted playback:', e);
-              });
-            } else {
-              restore();
-            }
-          } catch (e) { console.warn('Video prime threw', e); }
-        }
-
-        // Play, and if the browser refuses, retry muted. Muted playback is
-        // permitted unconditionally on both iOS and Android, so this is the
-        // difference between a silent layer and a black rectangle. Falls back to
-        // reflecting the real state in the sound toggle so the user can turn
-        // sound on themselves with a tap, which does carry a gesture.
-        function playVideoWithFallback() {
-          const attempt = aframeVideoAsset.play();
-          if (!attempt || typeof attempt.catch !== 'function') return;
-          attempt.catch((err) => {
-            console.warn('Video play rejected, retrying muted:', err);
-            try {
-              aframeVideoAsset.muted = true;
-              const retry = aframeVideoAsset.play();
-              if (retry && typeof retry.catch === 'function') {
-                retry.then(() => {
-                  // Sound was wanted but the browser withheld it — say so in the UI.
-                  if (localStorage.getItem('inrl_sound_enabled') === 'true') {
-                    soundEnabled = false;
-                    localStorage.setItem('inrl_sound_enabled', 'false');
-                    updateSoundUI();
-                  }
-                }).catch((e2) => console.warn('Muted retry also rejected:', e2));
-              }
-            } catch (e) { console.warn('Muted retry threw', e); }
-          });
-        }
 
         // ---- Gate (M1): request camera on tap, branch on the resulting error type ----
         async function requestCameraAndScan() {
-          // Both of these must run first, synchronously in the tap handler:
-          // awaiting getUserMedia before them spends the user gesture that iOS
-          // requires for media playback.
-          primeVideoForPlayback();
-          if (localStorage.getItem('inrl_sound_enabled') === 'true') unlockAudio();
-
           try {
-            // Same constraints MindAR's own acquisition will use, so the camera
-            // isn't configured at one resolution here and reconfigured a moment
-            // later — that round trip is visible on iOS.
-            const probe = await navigator.mediaDevices.getUserMedia({
-              video: cappedVideoConstraints({ facingMode: 'environment' })
-            });
+            const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
             probe.getTracks().forEach(t => t.stop());
           } catch (e) {
             const name = e && e.name;
-            if (name === 'OverconstrainedError') {
-              // The cap, not the camera, was the problem — retry as before so a
-              // device with unusual capabilities still reaches the AR path.
-              try {
-                const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                probe.getTracks().forEach(t => t.stop());
-              } catch (e2) {
-                if (e2 && e2.name === 'NotFoundError') { renderDesktopFallback(activeTarget); return; }
-                showState('blocked');
-                return;
-              }
-            } else if (name === 'NotFoundError') {
-              renderDesktopFallback(activeTarget);
-              return;
-            } else {
-              showState('blocked');
-              return;
-            }
+            if (name === 'NotFoundError' || name === 'OverconstrainedError') { renderDesktopFallback(activeTarget); return; }
+            showState('blocked');
+            return;
           }
-
-          // start() is async — it downloads the .mind, builds its matching data
-          // and warms up the tracker before arReady. Showing 'scanning' here
-          // would put a live viewfinder in front of a tracker that isn't running
-          // yet, which on iOS is a multi-second window of nothing happening (and
-          // it used to start the 10s "still looking" timer during it).
-          showState('starting');
+          showState('scanning');
+          startNotRecognisedTimer();
           try {
             const sys = scene.systems && scene.systems['mindar-image-system'];
-            if (sys && sys.start) {
-              capCameraForNextAcquisition();
-              sys.start();
-            }
-          } catch (e) {
-            console.warn('mindar start failed', e);
-            showState('blocked');
-          }
+            if (sys && sys.start) sys.start();
+          } catch (e) { console.warn('mindar start failed', e); }
         }
         document.getElementById('openCameraBtn').addEventListener('click', requestCameraAndScan);
         document.getElementById('retryCameraLink').addEventListener('click', (e) => { e.preventDefault(); requestCameraAndScan(); });
@@ -809,13 +465,12 @@
             try {
               const sys = scene && scene.systems && scene.systems['mindar-image-system'];
               if (sys && sys.stop) sys.stop();
-              // Re-acquiring the camera here too, so the cap has to be reapplied.
-              if (sys && sys.start) { capCameraForNextAcquisition(); sys.start(); }
+              if (sys && sys.start) sys.start();
             } catch (e) {}
             try { if (typeof window.sizeInnerPlaneGlobal === 'function') setTimeout(() => { try { window.sizeInnerPlaneGlobal(); } catch (_) {} }, 50); } catch (e) {}
             try { const sceneEl = document.querySelector('a-scene'); if (sceneEl && sceneEl.resize) sceneEl.resize(); } catch (e) {}
             try { const camEl = document.querySelector('a-camera'); const cam = camEl && camEl.getObject3D && camEl.getObject3D('camera'); if (cam && cam.updateProjectionMatrix) cam.updateProjectionMatrix(); } catch (e) {}
-            if (lastTargetVisible) playVideoWithFallback();
+            if (lastTargetVisible) aframeVideoAsset.play().catch(() => {});
           } catch (err) { console.warn('softReinit failed', err); }
         };
         const handleOrientationOrResize = debounce(() => {
@@ -907,14 +562,6 @@
         </div>
       </div>
 
-      <!-- M1b: camera granted, tracker still warming up (MindAR start() is async) -->
-      <div class="ar-state" id="state-starting">
-        <div class="ar-scan-caption">
-          <div class="pill">Starting the camera</div>
-          <div class="hint">One moment &middot; getting the layer ready</div>
-        </div>
-      </div>
-
       <!-- M2: scanning -->
       <div class="ar-state" id="state-scanning">
         <div class="ar-scan-caption">
@@ -973,7 +620,7 @@
 
       <a-scene
         color-space="sRGB"
-        renderer="colorManagement: true, physicallyCorrectLights, antialias: true"
+        renderer="colorManagement: true, physicallyCorrectLights"
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false">
 
