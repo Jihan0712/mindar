@@ -1422,7 +1422,72 @@
           // once it is printed on a shirt it is far too late.
           markerQualityResults = await Promise.all(files.map(analyseMarkerImage));
           renderMarkerQuality(markerQualityResults);
+          checkVideoAspectAgainstMarker();
         } catch (e) { console.warn('Marker analysis failed', e); }
+      });
+
+      // ---- video / marker aspect check ----------------------------------------
+      // The viewer letterboxes the video inside a black plane sized to the marker,
+      // so a video whose aspect differs from the print shows black bars on the
+      // garment. Small differences are unnoticeable; a portrait video on a
+      // landscape print (or vice versa) is mostly bars. Worth knowing here, while
+      // the video can still be re-exported, rather than after it is on a shirt.
+      const ASPECT_WARN_BARS = 0.15; // fraction of the print lost to bars
+
+      function readVideoAspect(file) {
+        return new Promise((resolve) => {
+          try {
+            const url = URL.createObjectURL(file);
+            const v = document.createElement('video');
+            v.preload = 'metadata';
+            v.onloadedmetadata = () => {
+              const a = (v.videoWidth && v.videoHeight) ? v.videoWidth / v.videoHeight : null;
+              URL.revokeObjectURL(url);
+              resolve(a ? { aspect: a, w: v.videoWidth, h: v.videoHeight } : null);
+            };
+            v.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            v.src = url;
+          } catch (e) { resolve(null); }
+        });
+      }
+
+      async function checkVideoAspectAgainstMarker() {
+        const host = document.getElementById('markerQuality');
+        if (!host) return;
+        const existing = document.getElementById('aspectWarning');
+        if (existing) existing.remove();
+
+        const videoFile = document.getElementById('videoFile')?.files?.[0];
+        const marker = markerQualityResults.find(r => r && r.ok);
+        if (!videoFile || !marker) return;
+
+        const vid = await readVideoAspect(videoFile);
+        if (!vid) return;
+
+        const markerAspect = marker.srcW / marker.srcH;
+        // Contain fit: the fraction of the marker area left as black bars.
+        const scale = Math.min(1, markerAspect / vid.aspect, vid.aspect / markerAspect);
+        const barFraction = 1 - scale;
+        if (barFraction < ASPECT_WARN_BARS) return;
+
+        const orientationFlip = (vid.aspect >= 1) !== (markerAspect >= 1);
+        const el = document.createElement('div');
+        el.id = 'aspectWarning';
+        el.className = 'p-3 mb-2';
+        el.style.cssText = 'border:1px solid var(--warn-500,#b8860b);border-radius:8px;';
+        el.innerHTML =
+          `<div class="small mb-1" style="color:var(--warn-500,#b8860b);font-weight:600;">` +
+          `Video and marker shapes don't match${orientationFlip ? ' (orientation is flipped)' : ''}</div>` +
+          `<div class="small" style="color:var(--ink-700,#444);">` +
+          `Video is ${vid.w}&times;${vid.h} (${vid.aspect.toFixed(2)}:1), marker is ` +
+          `${marker.srcW}&times;${marker.srcH} (${markerAspect.toFixed(2)}:1). About ` +
+          `<strong>${Math.round(barFraction * 100)}%</strong> of the print will show as black bars. ` +
+          `Re-export the video near ${markerAspect.toFixed(2)}:1 to fill the print.</div>`;
+        host.appendChild(el);
+      }
+
+      document.getElementById('videoFile')?.addEventListener('change', () => {
+        checkVideoAspectAgainstMarker().catch(e => console.warn('Aspect check failed', e));
       });
 
       // Server Compile button
