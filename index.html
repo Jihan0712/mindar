@@ -325,7 +325,40 @@
 
         const targetAspect = await getTargetAspectFromImage(activeTarget) || 1;
         const planeWidthUnits = 1;
-        const planeHeightUnits = 1 / targetAspect;
+        // `let`, because the compiled .mind may correct this below.
+        let planeHeightUnits = 1 / targetAspect;
+
+        // imageurl is only an approximation of the marker's shape: it can be
+        // re-cropped or re-exported after compiling, and the compile step resizes
+        // to fit 1024px with rounding. The compiled .mind is what the tracker
+        // actually matches against, so it is the authority on where the print's
+        // edges are — and a cover plane built from a slightly different ratio is
+        // what lets a sliver of the real print peek out past the black.
+        //
+        // mind-ar normalises the target entity so 1 unit of width == the marker's
+        // width, and stores the compiled dimensions in the target component's
+        // postMatrix (setupMarker composes it with position.x = width/2 and
+        // position.y = height/2). Reading elements[13]/elements[12] gives the
+        // exact height/width ratio the tracker is working in.
+        //
+        // Deliberately narrow: this only corrects the cover plane's height, only
+        // once MindAR is ready, and only if the value actually differs. If the
+        // read fails for any reason the imageurl-derived value above stands.
+        scene.addEventListener('arReady', () => {
+          try {
+            const comp = target.components && target.components['mindar-image-target'];
+            const pm = comp && comp.postMatrix;
+            if (!pm) return;
+            const halfWidth = pm.elements[12], halfHeight = pm.elements[13];
+            if (!(halfWidth > 0 && halfHeight > 0)) return;
+            const exact = halfHeight / halfWidth;
+            if (Math.abs(exact - planeHeightUnits) < 1e-6) return;
+            console.log(`[INRL] cover plane height ${planeHeightUnits.toFixed(4)} -> ${exact.toFixed(4)} (from compiled .mind)`);
+            planeHeightUnits = exact;
+            planeEl.setAttribute('height', planeHeightUnits);
+            if (typeof window.sizeInnerPlaneGlobal === 'function') window.sizeInnerPlaneGlobal();
+          } catch (e) { console.warn('Could not read marker dimensions from compiled target:', e); }
+        });
 
         whenPlaneMeshReady(() => {
           planeEl.setAttribute('width', planeWidthUnits);
