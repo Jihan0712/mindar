@@ -225,20 +225,9 @@
         }));
         updateSoundUI();
 
-        // ---- torch toggle (best-effort — many browsers/devices don't support it) ----
-        let torchOn = false;
-        document.querySelectorAll('.js-torch-toggle').forEach(btn => btn.addEventListener('click', async (ev) => {
-          ev.stopPropagation();
-          try {
-            const videoEl = document.querySelector('video[mindar-video], a-scene video');
-            const stream = videoEl && videoEl.srcObject;
-            const track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
-            if (!track) return;
-            torchOn = !torchOn;
-            await track.applyConstraints({ advanced: [{ torch: torchOn }] });
-            btn.classList.toggle('is-active', torchOn);
-          } catch (e) { /* unsupported — no-op */ }
-        }));
+        // Torch toggle removed: the `torch` constraint is unsupported on iOS
+        // Safari entirely and unreliable on Android, so the button did nothing
+        // on most devices.
 
         const backBtn = document.querySelector('.js-back');
         if (backBtn) backBtn.addEventListener('click', () => { if (history.length > 1) history.back(); else location.href = 'ecommerce/shop.html'; });
@@ -432,6 +421,32 @@
           else if (lastTargetVisible) aframeVideoAsset.play().catch(() => {});
         });
 
+        // Surfaces a startup failure on screen. MindAR reports camera and target
+        // load failures asynchronously, and its own error UI sits underneath this
+        // page's z-index:10000 overlays — so without this a failed start looks
+        // identical to "the marker just isn't recognised yet": a black screen
+        // that sits on "Still looking" forever. Diagnostic only; it renders text
+        // into the existing tips card and changes nothing else.
+        function showArDiagnostic(what, err) {
+          const detail = err && (err.name || err.message) ? `${err.name || ''} ${err.message || ''}`.trim() : String(err || '');
+          console.error('[INRL AR]', what, err);
+          const card = document.querySelector('#state-notrecognised .ar-tips-card');
+          if (!card) return;
+          let box = card.querySelector('#arDiagnostic');
+          if (!box) {
+            box = document.createElement('p');
+            box.id = 'arDiagnostic';
+            box.style.cssText = 'color:var(--warn-500,#b8860b);font-size:12px;margin:10px 0 0;word-break:break-word;';
+            card.appendChild(box);
+          }
+          box.textContent = `AR failed to start — ${what}: ${detail || 'unknown error'}`;
+          clearTimeout(notRecognisedTimer);
+          showState('notrecognised');
+        }
+        scene.addEventListener('arError', (e) => {
+          showArDiagnostic('camera/tracker error', (e && e.detail && e.detail.error) || 'AR_ERROR');
+        });
+
         // ---- Gate (M1): request camera on tap, branch on the resulting error type ----
         async function requestCameraAndScan() {
           try {
@@ -447,8 +462,14 @@
           startNotRecognisedTimer();
           try {
             const sys = scene.systems && scene.systems['mindar-image-system'];
-            if (sys && sys.start) sys.start();
-          } catch (e) { console.warn('mindar start failed', e); }
+            if (sys && sys.start) {
+              // start() is async: it acquires the camera again and downloads the
+              // .mind. Both can fail well after this call returns, and until now
+              // that rejection was dropped on the floor.
+              const p = sys.start();
+              if (p && typeof p.catch === 'function') p.catch((err) => showArDiagnostic('start failed', err));
+            }
+          } catch (e) { showArDiagnostic('start threw', e); }
         }
         document.getElementById('openCameraBtn').addEventListener('click', requestCameraAndScan);
         document.getElementById('retryCameraLink').addEventListener('click', (e) => { e.preventDefault(); requestCameraAndScan(); });
@@ -522,10 +543,8 @@
         back: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
         soundOn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M16 8a5 5 0 0 1 0 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
         soundOff: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m19 9-4 4m0-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-        flash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>',
       };
       document.querySelectorAll('.js-back').forEach(el => el.innerHTML = ICONS.back);
-      document.querySelectorAll('.js-torch-toggle').forEach(el => el.innerHTML = ICONS.flash);
     </script>
   </head>
 
@@ -538,7 +557,6 @@
         <div id="ar-pill-slot"></div>
         <div style="display:flex;gap:10px">
           <button class="ar-icon-btn js-sound-toggle" aria-label="Toggle sound"></button>
-          <button class="ar-icon-btn js-torch-toggle" aria-label="Toggle flashlight"></button>
         </div>
       </div>
 
