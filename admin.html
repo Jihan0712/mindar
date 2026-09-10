@@ -224,11 +224,31 @@
       </div>
       <input id="markerFile" type="file" accept=".jpg,.jpeg,.png" multiple class="form-control mb-2" />
       <p id="markerFilesInfo" class="text-secondary small mb-3"></p>
+
+      <!-- Trackability report: filled in by analyseMarkerImage() on file select -->
+      <div id="markerQuality" class="mb-3"></div>
+
       <div class="d-flex align-items-center gap-3 flex-wrap">
         <button id="serverCompile" class="btn btn-sm btn-inrl">Compile Marker</button>
         <span id="compileStatus" class="text-secondary small"></span>
       </div>
       <p class="text-secondary small mt-2 mb-0">Images are auto-resized to 1024px. Supports multiple images for multi-target sets.</p>
+
+      <details class="mt-3">
+        <summary class="text-secondary small" style="cursor:pointer;">What makes a marker track well on a shirt?</summary>
+        <div class="text-secondary small mt-2">
+          <p class="mb-2">The tracker converts the print to brightness only and looks for corners. Fabric is harder than paper: lower contrast, a curved surface, and folds.</p>
+          <ul class="mb-2 ps-3">
+            <li><strong>Contrast must be in brightness, not colour.</strong> Two colours that are equally bright (mid-red on mid-green) look identical to the tracker.</li>
+            <li><strong>Busy and irregular beats clean and minimal.</strong> Large flat areas, thin outlines, and lots of empty space give it nothing to lock onto.</li>
+            <li><strong>Avoid repeating patterns</strong> — stripes, grids, and tiled logos match themselves and make the pose jump.</li>
+            <li><strong>Print it big.</strong> 15&nbsp;cm / 6&nbsp;in across minimum; the print has to fill a good part of the frame at arm's length.</li>
+            <li><strong>Matte, not glossy.</strong> Plastisol and foil blow out under a phone light and kill the read.</li>
+            <li><strong>Keep detail off the seams</strong> and away from where the garment folds.</li>
+          </ul>
+          <p class="mb-0">Full guidance: <code>docs/AR-MARKER-PRINT-GUIDE.md</code></p>
+        </div>
+      </details>
     </div>
 
     <!-- Step 3 -->
@@ -1114,6 +1134,183 @@
 
       // ---- Image Modal Logic ----
 
+      // ---- Marker trackability analysis --------------------------------------
+      // mind-ar's compiler flattens every marker to luminance ((R+G+B)/3, see
+      // Compiler.compileImageTargets) and then extracts feature points from
+      // local gradient extrema. If it can't find corners, it can't track.
+      // Fabric makes that harder than paper — the print is lower contrast, the
+      // surface curves, and folds break up the geometry — so a marker that only
+      // just passes on screen will fail on a body. These checks run before the
+      // compile, while the artwork can still be changed, and deliberately mirror
+      // what the compiler itself sees.
+      const MARKER_ANALYSIS = {
+        WORK_MAX_DIM: 512,       // analysis resolution
+        GRID: 8,                 // coverage grid, GRID x GRID cells
+        MIN_SHORT_SIDE: 640,     // px on the source image's short side
+        STRONG_EDGE: 0.06,       // normalised gradient magnitude that counts as an edge
+        CELL_MIN_DENSITY: 0.02,  // edge fraction for a cell to count as "has detail"
+        MAX_ASPECT: 3            // beyond this the target is too elongated
+      };
+
+      async function analyseMarkerImage(file) {
+        const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        try {
+          img.src = objUrl;
+          await img.decode();
+
+          const srcW = img.naturalWidth, srcH = img.naturalHeight;
+          const scale = Math.min(1, MARKER_ANALYSIS.WORK_MAX_DIM / Math.max(srcW, srcH));
+          const w = Math.max(1, Math.round(srcW * scale));
+          const h = Math.max(1, Math.round(srcH * scale));
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, w, h);
+          const px = ctx.getImageData(0, 0, w, h).data;
+
+          // Luminance exactly as the compiler computes it, plus a chroma proxy
+          // so we can tell "no contrast" from "contrast the tracker can't see".
+          const lum = new Float32Array(w * h);
+          let lumSum = 0, chromaSum = 0;
+          for (let i = 0; i < w * h; i++) {
+            const b = i * 4;
+            const r = px[b], g = px[b + 1], bl = px[b + 2];
+            const l = (r + g + bl) / 3;
+            lum[i] = l;
+            lumSum += l;
+            chromaSum += Math.max(r, g, bl) - Math.min(r, g, bl);
+          }
+          const lumMean = lumSum / (w * h);
+          const chromaMean = chromaSum / (w * h);
+
+          let varSum = 0;
+          for (let i = 0; i < w * h; i++) { const d = lum[i] - lumMean; varSum += d * d; }
+          const lumStd = Math.sqrt(varSum / (w * h));
+
+          // Sobel magnitude, normalised to roughly 0..1
+          const cells = MARKER_ANALYSIS.GRID;
+          const cellEdges = new Float32Array(cells * cells);
+          const cellPixels = new Float32Array(cells * cells);
+          let edgePixels = 0;
+          for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+              const i = y * w + x;
+              const gx = (lum[i - w + 1] + 2 * lum[i + 1] + lum[i + w + 1])
+                       - (lum[i - w - 1] + 2 * lum[i - 1] + lum[i + w - 1]);
+              const gy = (lum[i + w - 1] + 2 * lum[i + w] + lum[i + w + 1])
+                       - (lum[i - w - 1] + 2 * lum[i - w] + lum[i - w + 1]);
+              const mag = Math.sqrt(gx * gx + gy * gy) / (4 * 255);
+              const cx = Math.min(cells - 1, Math.floor(x / w * cells));
+              const cy = Math.min(cells - 1, Math.floor(y / h * cells));
+              const ci = cy * cells + cx;
+              cellPixels[ci]++;
+              if (mag > MARKER_ANALYSIS.STRONG_EDGE) { edgePixels++; cellEdges[ci]++; }
+            }
+          }
+          const edgeFraction = edgePixels / Math.max(1, (w - 2) * (h - 2));
+
+          let cellsWithDetail = 0;
+          for (let c = 0; c < cells * cells; c++) {
+            if (cellPixels[c] > 0 && (cellEdges[c] / cellPixels[c]) >= MARKER_ANALYSIS.CELL_MIN_DENSITY) cellsWithDetail++;
+          }
+          const coverage = cellsWithDetail / (cells * cells);
+
+          // Score: contrast, how much detail there is, and how evenly it's spread.
+          // Even coverage matters as much as raw detail — features bunched in one
+          // corner give the tracker nothing to work with when that corner folds.
+          const contrastScore = Math.min(40, (lumStd / 60) * 40);
+          const densityScore  = Math.min(30, (edgeFraction / 0.08) * 30);
+          const coverageScore = coverage * 30;
+          const score = Math.round(contrastScore + densityScore + coverageScore);
+
+          const shortSide = Math.min(srcW, srcH);
+          const aspect = Math.max(srcW, srcH) / Math.max(1, Math.min(srcW, srcH));
+
+          // "hard" marks a problem that on its own makes the marker unsuitable,
+          // regardless of how well it scores elsewhere — a dense, high-contrast
+          // design is still no good if it ships at 300px or 6:1.
+          const warnings = [];
+          const warn = (text, hard = false) => warnings.push({ text, hard });
+
+          if (lumStd < 35 && chromaMean > 40) {
+            warn('Most of this design\'s contrast is in colour, not brightness. The tracker sees brightness only — recolour so light and dark areas differ, or the print will barely register.', true);
+          } else if (lumStd < 25) {
+            warn('Very low contrast. Large areas are the same brightness, which leaves the tracker nothing to lock onto — especially once fabric flattens it further.', true);
+          }
+          if (edgeFraction < 0.02) {
+            warn('Very little detail. Add texture, pattern, or internal edges — clean minimal artwork with a lot of empty space is the hardest thing to track.', true);
+          }
+          if (coverage < 0.4) {
+            warn(`Detail is concentrated in ${Math.round(coverage * 100)}% of the image. Spread it across the whole print, so a fold over one area doesn't lose the read.`, coverage < 0.2);
+          }
+          if (shortSide < MARKER_ANALYSIS.MIN_SHORT_SIDE) {
+            warn(`Source is only ${srcW}x${srcH}px. Supply at least ${MARKER_ANALYSIS.MIN_SHORT_SIDE}px on the short side — this is also what goes to print.`, true);
+          }
+          if (aspect > MARKER_ANALYSIS.MAX_ASPECT) {
+            warn(`Very elongated (${aspect.toFixed(1)}:1). Long thin markers lose tracking as soon as one end leaves the frame.`, true);
+          }
+          if (lumMean > 225 || lumMean < 30) {
+            warn('Image is nearly all white or all black. Mid-tones with strong local contrast track far better than an extreme overall brightness.');
+          }
+
+          // The score only measures contrast, detail and spread, so it can't see
+          // the disqualifiers above — a noisy 300x300 crop scores near 100.
+          // Warnings therefore cap the verdict rather than just annotating it.
+          const hasHard = warnings.some(wn => wn.hard);
+          let verdict = score >= 70 ? 'good' : (score >= 45 ? 'risky' : 'poor');
+          if (hasHard) verdict = 'poor';
+          else if (warnings.length && verdict === 'good') verdict = 'risky';
+          return { ok: true, file, score, verdict, warnings, lumStd, chromaMean, edgeFraction, coverage, srcW, srcH, aspect };
+        } catch (e) {
+          return { ok: false, file, error: e?.message || String(e) };
+        } finally {
+          URL.revokeObjectURL(objUrl);
+        }
+      }
+
+      // Latest analysis results, consulted by the compile button before it runs.
+      let markerQualityResults = [];
+
+      function renderMarkerQuality(results) {
+        const host = document.getElementById('markerQuality');
+        if (!host) return;
+        if (!results.length) { host.innerHTML = ''; return; }
+
+        const palette = {
+          good:  { label: 'Good for fabric',      color: 'var(--success-500, #1a7f5a)' },
+          risky: { label: 'Risky on fabric',      color: 'var(--warn-500, #b8860b)' },
+          poor:  { label: 'Likely to fail',       color: 'var(--danger-500, #b3261e)' }
+        };
+
+        host.innerHTML = results.map((r) => {
+          if (!r.ok) {
+            return `<div class="p-3 mb-2" style="border:1px solid var(--danger-500,#b3261e);border-radius:8px;">
+              <div class="small" style="color:var(--danger-500,#b3261e);">Could not analyse ${escapeHtml(r.file?.name || 'image')}: ${escapeHtml(r.error || '')}</div>
+            </div>`;
+          }
+          const p = palette[r.verdict];
+          const warnHtml = r.warnings.length
+            ? `<ul class="small mb-0 ps-3" style="color:var(--ink-700,#444);">${r.warnings.map(wn => `<li>${wn.hard ? '<strong>' + escapeHtml(wn.text) + '</strong>' : escapeHtml(wn.text)}</li>`).join('')}</ul>`
+            : `<p class="small mb-0" style="color:var(--ink-700,#444);">Good brightness contrast, plenty of detail, evenly spread. Still print it matte and at least 15cm across.</p>`;
+          return `<div class="p-3 mb-2" style="border:1px solid ${p.color};border-radius:8px;">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+              <strong class="small" style="color:var(--ink-900,#111);">${escapeHtml(r.file.name)}</strong>
+              <span class="small" style="color:${p.color};font-weight:600;">${p.label} &middot; ${r.score}/100</span>
+            </div>
+            <div class="small mb-2" style="color:var(--ink-500,#777);">
+              ${r.srcW}&times;${r.srcH}px &middot; brightness contrast ${r.lumStd.toFixed(0)} &middot; detail ${(r.edgeFraction * 100).toFixed(1)}% &middot; coverage ${(r.coverage * 100).toFixed(0)}%
+            </div>
+            ${warnHtml}
+          </div>`;
+        }).join('');
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
       // helper:: compile a marker image file in-browser and return an ArrayBuffer
       async function compileImageClient(markerFileOrFiles, progressCallback) {
         // wait for TF and Compiler to be ready
@@ -1137,39 +1334,95 @@
         if (!Compiler) throw new Error('Compiler not loaded');
 
         const compiler = new Compiler();
-        // compileImageTargets accepts a progress callback one at a time only (probably)
+        // compileImageTargets calls its progress callback unconditionally, so it
+        // must always get one — passing nothing throws inside an async Promise
+        // executor and leaves the promise permanently unsettled.
+        const onProgress = typeof progressCallback === 'function' ? progressCallback : () => {};
         try {
           console.log('tf.version:', tf?.version?.tfjs || 'unknown');
-          if (progressCallback) {
-            await compiler.compileImageTargets(imgs, progressCallback);
-          } else {
-            await compiler.compileImageTargets(imgs);
-          }
+          await compiler.compileImageTargets(imgs, onProgress);
         } catch (err) {
           console.error('compileImageTargets threw', err);
           if (typeof tf === 'undefined') console.error('tf is undefined at catch time');
           throw err;
         }
+
+        // The pre-compile analysis is a proxy; this is the real answer. Count the
+        // feature points the compiler actually extracted, per target, so a marker
+        // that scored well but compiled thin still gets caught before print.
+        lastCompileStats = [];
+        try {
+          (compiler.data || []).forEach((target, i) => {
+            const matching = (target.matchingData || []).reduce(
+              (sum, d) => sum + (d.maximaPoints?.length || 0) + (d.minimaPoints?.length || 0), 0);
+            const tracking = (target.trackingData || []).reduce(
+              (sum, d) => sum + (d.points?.length || 0), 0);
+            lastCompileStats.push({ index: i, name: cleanFiles[i]?.name || `target ${i}`, matching, tracking });
+          });
+        } catch (e) { console.warn('Could not read compile keypoint stats', e); }
+
         const buffer = compiler.exportData ? compiler.exportData() : null;
         if (!buffer) throw new Error('Failed to export compiled data');
         return buffer;
       }
 
+      // Keypoint counts from the most recent compile, reported in the UI.
+      let lastCompileStats = [];
+
+      // Below this many matching keypoints a target is not reliably detectable —
+      // on fabric, where contrast drops further, it will effectively never lock.
+      const MIN_MATCHING_KEYPOINTS = 250;
+
+      function describeCompileStats() {
+        if (!lastCompileStats.length) return '';
+        return lastCompileStats.map(s => {
+          const weak = s.matching < MIN_MATCHING_KEYPOINTS;
+          return `${s.name}: ${s.matching} matching / ${s.tracking} tracking points${weak ? ' — low, expect unreliable detection on fabric' : ''}`;
+        }).join(' · ');
+      }
+
+      // Warn before compiling, not after the shirt is printed. Overridable: the
+      // score is a strong heuristic, not a verdict, and whoever is compiling may
+      // have context it can't see. Returns false if they chose to stop.
+      function confirmMarkerQuality() {
+        const failing = markerQualityResults.filter(r => r.ok && r.verdict !== 'good');
+        if (!failing.length) return true;
+        const detail = failing.map(r => `• ${r.file.name} (${r.score}/100)\n  ${r.warnings.map(wn => wn.text).join('\n  ')}`).join('\n\n');
+        const noun = failing.length === 1 ? 'This marker is' : 'These markers are';
+        return confirm(`${noun} likely to track poorly once printed on fabric:\n\n${detail}\n\nCompile anyway?`);
+      }
+
+      // Reports the compiler's real keypoint counts once a compile has finished.
+      function warnOnWeakCompile() {
+        const weak = lastCompileStats.filter(s => s.matching < MIN_MATCHING_KEYPOINTS);
+        if (!weak.length) return;
+        console.warn('Low keypoint counts:', lastCompileStats);
+        alert(`Compiled, but the tracker found very few features:\n\n${describeCompileStats()}\n\nThis will detect slowly or not at all on fabric. Strongly consider reworking the artwork before printing.`);
+      }
+
       // UI: show selected marker files
       const markerInputEl = document.getElementById('markerFile');
       const markerFilesInfoEl = document.getElementById('markerFilesInfo');
-      markerInputEl?.addEventListener('change', () => {
+      markerInputEl?.addEventListener('change', async () => {
         try {
           const files = Array.from(markerInputEl.files || []);
-          if (!markerFilesInfoEl) return;
+          markerQualityResults = [];
+          lastCompileStats = [];
           if (!files.length) {
-            markerFilesInfoEl.textContent = '';
+            if (markerFilesInfoEl) markerFilesInfoEl.textContent = '';
+            renderMarkerQuality([]);
             return;
           }
-          const names = files.slice(0, 3).map(f => f.name).join(', ');
-          const extra = files.length > 3 ? ` (+${files.length - 3} more)` : '';
-          markerFilesInfoEl.textContent = `Selected: ${files.length} file(s) — ${names}${extra}`;
-        } catch {}
+          if (markerFilesInfoEl) {
+            const names = files.slice(0, 3).map(f => f.name).join(', ');
+            const extra = files.length > 3 ? ` (+${files.length - 3} more)` : '';
+            markerFilesInfoEl.textContent = `Selected: ${files.length} file(s) — ${names}${extra}`;
+          }
+          // Check trackability now, while the artwork can still be changed —
+          // once it is printed on a shirt it is far too late.
+          markerQualityResults = await Promise.all(files.map(analyseMarkerImage));
+          renderMarkerQuality(markerQualityResults);
+        } catch (e) { console.warn('Marker analysis failed', e); }
       });
 
       // Server Compile button
@@ -1180,11 +1433,18 @@
           return;
         }
 
+        if (!confirmMarkerQuality()) {
+          compileStatus.textContent = 'Compile cancelled — adjust the artwork and re-select it.';
+          return;
+        }
+
         try {
           statusEl.textContent = `Compiling ${markerFiles.length} marker image(s) in the browser…`;
           const buffer = await compileImageClient(markerFiles, (p) => {
             compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
           });
+
+          warnOnWeakCompile();
 
           compileStatus.textContent = 'Uploading compiled .mind to storage...';
           const baseName = markerFiles[0]?.name ? markerFiles[0].name.replace(/\.[^/.]+$/, '') : `markers-${Date.now()}`;
@@ -1197,8 +1457,9 @@
           const mindUrl = mindUpload.url;
           // store uploaded mind URL for later use by the Upload flow
           uploadedMindUrl = mindUrl;
+          const stats = describeCompileStats();
           compileStatus.textContent = '✅ Compiled and uploaded to storage! Ready to Upload.';
-          statusEl.textContent = '';
+          statusEl.textContent = stats ? `Feature points — ${stats}` : '';
         } catch (err) {
           // Provide richer debug info for the minified TypeError issue
           console.error('Compile (serverCompile) failed', err);
@@ -1228,11 +1489,17 @@
 
         // If user provided marker image(s) and we dont already have an uploaded .mind, compile+upload now
         if (!uploadedMindUrl && markerFiles.length) {
+          if (!confirmMarkerQuality()) {
+            statusEl.textContent = '';
+            compileStatus.textContent = 'Upload cancelled — adjust the artwork and re-select it.';
+            return;
+          }
           try {
             statusEl.textContent = `Compiling ${markerFiles.length} marker image(s) in the browser...`;
             const buffer = await compileImageClient(markerFiles, (p) => {
               compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
             });
+            warnOnWeakCompile();
 
             compileStatus.textContent = 'Uploading compiled .mind to storage (via Worker)...';
             const baseName = markerFiles[0]?.name ? markerFiles[0].name.replace(/\.[^/.]+$/, '') : `markers-${Date.now()}`;
