@@ -324,14 +324,8 @@
         }
 
         const targetAspect = await getTargetAspectFromImage(activeTarget) || 1;
-        // Slightly oversize the black cover plane so it fully hides the printed
-        // marker even when the compiled .mind target's aspect ratio doesn't
-        // exactly match imageurl (e.g. client-side resize rounding during
-        // compile) — without this, a thin sliver of the real print can peek
-        // out past the cover's edge (most noticeable at the bottom).
-        const COVER_OVERSCAN = 1.03;
-        const planeWidthUnits = 1 * COVER_OVERSCAN;
-        const planeHeightUnits = (1 / targetAspect) * COVER_OVERSCAN;
+        const planeWidthUnits = 1;
+        const planeHeightUnits = 1 / targetAspect;
 
         whenPlaneMeshReady(() => {
           planeEl.setAttribute('width', planeWidthUnits);
