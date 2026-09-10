@@ -656,7 +656,7 @@
           // wait for the 320ms caption pulse below, which put a third of a second
           // of frozen video on the print at exactly the moment the user is
           // deciding whether the thing works.
-          aframeVideoAsset.play().catch((e) => { console.warn('play blocked (no user gesture):', e); });
+          playVideoWithFallback();
           fadeVideoIn();
           showState('found');
           const bar = document.getElementById('foundProgressBar');
@@ -675,31 +675,68 @@
 
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) aframeVideoAsset.pause();
-          else if (lastTargetVisible) aframeVideoAsset.play().catch(() => {});
+          else if (lastTargetVisible) playVideoWithFallback();
         });
 
         // iOS only allows a <video> to be played programmatically once it has
-        // been played inside a user gesture. targetFound fires long after the
-        // tap that starts the camera, so the element is primed here instead —
-        // muted, then immediately paused. Without this the first scan on iOS
-        // shows the black cover plane with no video behind it whenever sound is
-        // enabled, because play() is rejected with no gesture to draw on.
+        // already played inside a user gesture. targetFound fires long after the
+        // tap that starts the camera, so the element is primed here instead.
+        //
+        // It is primed in the exact muted state it will later play in, and
+        // silenced with volume rather than by muting: WebKit's autoplay policy
+        // keys off `muted`, not `volume`, so priming muted and then unmuting
+        // outside a gesture can still get the later play() rejected. volume = 0
+        // keeps the prime inaudible without changing the state being blessed.
         function primeVideoForPlayback() {
           try {
-            const wasMuted = aframeVideoAsset.muted;
-            aframeVideoAsset.muted = true;
+            const wantMuted = localStorage.getItem('inrl_sound_enabled') !== 'true';
+            aframeVideoAsset.muted = wantMuted;
+            const prevVolume = aframeVideoAsset.volume;
+            aframeVideoAsset.volume = 0;
+            const restore = () => {
+              try {
+                aframeVideoAsset.pause();
+                aframeVideoAsset.currentTime = 0;
+                aframeVideoAsset.volume = prevVolume;
+              } catch (e) {}
+            };
             const p = aframeVideoAsset.play();
             if (p && typeof p.then === 'function') {
-              p.then(() => {
-                aframeVideoAsset.pause();
-                try { aframeVideoAsset.currentTime = 0; } catch (e) {}
-                aframeVideoAsset.muted = wasMuted;
-              }).catch((e) => {
-                aframeVideoAsset.muted = wasMuted;
-                console.warn('Video prime failed; playback may be blocked until the next tap:', e);
+              p.then(restore).catch((e) => {
+                try { aframeVideoAsset.volume = prevVolume; } catch (_) {}
+                console.warn('Video prime failed; will fall back to muted playback:', e);
               });
+            } else {
+              restore();
             }
           } catch (e) { console.warn('Video prime threw', e); }
+        }
+
+        // Play, and if the browser refuses, retry muted. Muted playback is
+        // permitted unconditionally on both iOS and Android, so this is the
+        // difference between a silent layer and a black rectangle. Falls back to
+        // reflecting the real state in the sound toggle so the user can turn
+        // sound on themselves with a tap, which does carry a gesture.
+        function playVideoWithFallback() {
+          const attempt = aframeVideoAsset.play();
+          if (!attempt || typeof attempt.catch !== 'function') return;
+          attempt.catch((err) => {
+            console.warn('Video play rejected, retrying muted:', err);
+            try {
+              aframeVideoAsset.muted = true;
+              const retry = aframeVideoAsset.play();
+              if (retry && typeof retry.catch === 'function') {
+                retry.then(() => {
+                  // Sound was wanted but the browser withheld it — say so in the UI.
+                  if (localStorage.getItem('inrl_sound_enabled') === 'true') {
+                    soundEnabled = false;
+                    localStorage.setItem('inrl_sound_enabled', 'false');
+                    updateSoundUI();
+                  }
+                }).catch((e2) => console.warn('Muted retry also rejected:', e2));
+              }
+            } catch (e) { console.warn('Muted retry threw', e); }
+          });
         }
 
         // ---- Gate (M1): request camera on tap, branch on the resulting error type ----
@@ -778,7 +815,7 @@
             try { if (typeof window.sizeInnerPlaneGlobal === 'function') setTimeout(() => { try { window.sizeInnerPlaneGlobal(); } catch (_) {} }, 50); } catch (e) {}
             try { const sceneEl = document.querySelector('a-scene'); if (sceneEl && sceneEl.resize) sceneEl.resize(); } catch (e) {}
             try { const camEl = document.querySelector('a-camera'); const cam = camEl && camEl.getObject3D && camEl.getObject3D('camera'); if (cam && cam.updateProjectionMatrix) cam.updateProjectionMatrix(); } catch (e) {}
-            if (lastTargetVisible) aframeVideoAsset.play().catch(() => {});
+            if (lastTargetVisible) playVideoWithFallback();
           } catch (err) { console.warn('softReinit failed', err); }
         };
         const handleOrientationOrResize = debounce(() => {
