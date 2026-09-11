@@ -449,16 +449,10 @@ textarea.form-control {
   transition: stroke 0.15s ease, fill 0.15s ease;
 }
 
-/* Site-wide brand wordmark image: recolor the single-color PNG via
-   filter instead of shipping separate light/dark exports. */
-img[data-site-logo] {
-  filter: brightness(0) saturate(100%);
-}
-.text-white img[data-site-logo],
-footer img[data-site-logo],
-#footer img[data-site-logo] {
-  filter: brightness(0) saturate(100%) invert(1);
-}
+/* Site-wide brand wordmark: ecommerce/images/logo.svg (dark, for light surfaces) and
+   logo-light.svg (light, for dark surfaces) are picked directly per usage site — see
+   partials/header.html, partials/footer.html, etc. No filter trick needed now that both
+   color variants exist as real files. */
 
 /*--------------------------------------------------------------
   6. PRELOADER

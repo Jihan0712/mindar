@@ -21,10 +21,10 @@
   function applyColors(colors) {
     if (!colors) return;
     const map = {
-      primary: '--nb-green',
-      accent: '--nb-yellow',
-      dark: '--nb-dark',
-      light: '--nb-white',
+      primary: '--accent-500',
+      accent: '--accent-400',
+      dark: '--dark-900',
+      light: '--surface-0',
     };
     const decls = Object.keys(map)
       .filter(k => colors[k])

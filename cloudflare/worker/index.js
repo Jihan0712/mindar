@@ -1239,10 +1239,10 @@
 
   function defaultThemeContent() {
     return normalizeThemePayload({
-      colors: { primary: '#00ED0A', accent: '#FEFD00', dark: '#1C1C1C', light: '#F5F5F0' },
-      logoUrl: 'images/main-logo.png',
+      colors: { primary: '#12a2b8', accent: '#4fc3d5', dark: '#0b0f10', light: '#ffffff' },
+      logoUrl: 'images/logo.svg',
       siteName: 'INRL',
-      tagline: 'Next-gen digital identity and fashion. Bold design, no compromise.',
+      tagline: 'Garments that keep changing after you own them.',
     });
   }
 
