@@ -12,12 +12,12 @@
     .overflow-hidden { overflow:hidden !important; }
     /* Active tab state reuses Tailwind class name so existing JS works without changes */
     .bg-blue-600 { background-color:rgba(18,162,184,.16) !important; color:var(--paper-100) !important; border-color:transparent !important; }
-    .btn-inrl-outline.bg-blue-600 { background-color:var(--accent-700) !important; color:var(--paper-100) !important; border-color:var(--accent-700) !important; }
+    .btn-inrl-outline.bg-blue-600 { background-color:var(--teal-700) !important; color:var(--ink-inverse) !important; border-color:var(--teal-700) !important; }
     .inrl-brand { font-family:var(--font-display); font-size:1.4rem; font-weight:500; color:var(--paper-100) !important; text-decoration:none; letter-spacing:.02em; text-transform:uppercase; }
-    .inrl-card { background:var(--surface-0); border:1px solid var(--line-200); box-shadow:none; border-radius:12px; }
-    .inrl-card-header { background:var(--surface-50) !important; border-bottom:1px solid var(--line-200) !important; padding:.85rem 1.25rem; font-size:.72rem; letter-spacing:.04em; color:var(--ink-500); font-weight:500; border-radius:12px 12px 0 0; }
-    .btn-inrl { background:var(--accent-700); border:1px solid var(--accent-700); color:var(--paper-100) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; letter-spacing:0; }
-    .btn-inrl:hover, .btn-inrl:focus { background:var(--accent-500); border-color:var(--accent-500); color:var(--paper-100) !important; }
+    .inrl-card { background:var(--surface-0); border:1px solid var(--line-200); box-shadow:none; border-radius:var(--radius-md); }
+    .inrl-card-header { background:var(--surface-50) !important; border-bottom:1px solid var(--line-200) !important; padding:.85rem 1.25rem; font-size:.72rem; letter-spacing:.04em; color:var(--ink-500); font-weight:500; border-radius:var(--radius-md) var(--radius-md) 0 0; }
+    .btn-inrl { background:var(--teal-700); border:1px solid var(--teal-700); color:var(--ink-inverse) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; letter-spacing:0; }
+    .btn-inrl:hover, .btn-inrl:focus { background:var(--teal-600); border-color:var(--teal-600); color:var(--ink-inverse) !important; }
     .btn-inrl-outline { background:transparent; border:1px solid var(--line-200); color:var(--ink-700) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
     .btn-inrl-outline:hover, .btn-inrl-outline:focus { background:var(--surface-50); color:var(--ink-900) !important; }
     .btn-danger-inrl { background:transparent; border:1px solid var(--danger-500); color:var(--danger-500) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
@@ -39,8 +39,8 @@
     #status { font-size:.78rem; padding:.55rem .9rem; border-radius:8px; margin-bottom:.75rem; border-left:2px solid var(--accent-500); color:var(--accent-700); background:rgba(18,162,184,.06); }
     #status:empty { display:none !important; }
     .inrl-heading { font-family:var(--font-display); text-transform:uppercase; color:var(--ink-900); font-size:1.3rem; font-weight:500; border-left:none; padding-left:0; margin-bottom:1.1rem; letter-spacing:-.01em; }
-    .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border-radius:999px; background:var(--accent-700); color:var(--paper-100); font-weight:500; font-size:.75rem; flex-shrink:0; }
-    .input-group .btn { border-radius:999px; }
+    .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border-radius:999px; background:var(--teal-700); color:var(--ink-inverse); font-weight:500; font-size:.75rem; flex-shrink:0; }
+    .input-group .btn { border-radius:var(--radius-sm); }
     .input-group>.form-control:not(:first-child),.input-group>.form-select:not(:first-child),.input-group>.input-group-text:not(:first-child),.input-group>.btn:not(:first-child) { margin-left:-1px; }
     ::-webkit-scrollbar { width:6px; height:6px; }
     ::-webkit-scrollbar-track { background:var(--surface-50); }

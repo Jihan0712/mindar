@@ -28,8 +28,9 @@
     .hero-home h1{font-size:clamp(48px,8vw,124px);line-height:.9;letter-spacing:-0.03em;color:var(--paper-100);margin:0 0 24px}
     .section-eyebrow{font-family:var(--font-body);font-size:.68rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
     .why-headline{font-size:clamp(32px,5.5vw,80px);line-height:.98;letter-spacing:-0.03em}
-    .reason-card{padding:40px 32px}
-    .reason-num{font-family:var(--font-display);font-size:1rem;color:var(--accent-400);letter-spacing:.02em}
+    .reason-card{padding:0}
+    .reason-img-placeholder{aspect-ratio:10/9;background:var(--dark-700);display:flex;align-items:center;justify-content:center;color:var(--accent-500);font-family:var(--font-body);font-size:.68rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px}
+    .reason-num{font-family:var(--font-body);font-size:.78rem;font-weight:500;color:var(--accent-500);letter-spacing:.02em;display:block;margin-bottom:8px}
     .na-card{background:var(--surface-0);overflow:hidden}
     .na-img-wrap{position:relative;overflow:hidden;background:var(--surface-50)}
     .na-img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;transition:transform .3s}
@@ -41,8 +42,8 @@
     .na-title a{color:inherit;text-decoration:none}
     .na-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
     .na-price{font-size:14px;font-weight:400;color:var(--ink-900);font-family:var(--font-body)}
-    .na-add-btn{font-size:.72rem;font-weight:500;letter-spacing:.02em;padding:6px 16px;background:var(--accent-700);color:var(--paper-100);border:none;border-radius:999px;cursor:pointer;transition:background .15s}
-    .na-add-btn:hover{background:var(--accent-500)}
+    .na-add-btn{font-size:.72rem;font-weight:500;letter-spacing:.02em;padding:6px 16px;background:var(--teal-700);color:var(--ink-inverse);border:none;border-radius:999px;cursor:pointer;transition:background .15s}
+    .na-add-btn:hover{background:var(--teal-600)}
     .testimonial-card{background:var(--surface-50);padding:32px;height:100%}
     .testimonial-card blockquote{font-family:var(--font-body);font-size:16px;line-height:1.6;color:var(--ink-900)}
     .testimonial-card .review-title{font-size:14px;color:var(--ink-700)}
@@ -95,19 +96,22 @@
         <div id="home-features-label" class="section-eyebrow" style="color:var(--paper-500);margin-bottom:16px">The Experience</div>
         <h3 id="home-features-headline" class="why-headline mb-0" style="color:var(--paper-100);text-transform:uppercase;font-size:clamp(28px,4vw,52px)">How we can actually do this.</h3>
       </div>
-      <div class="row g-0" style="border-top:1px solid rgba(240,240,240,.1)">
-        <div class="col-md-4 reason-card" style="border-right:1px solid rgba(240,240,240,.1)">
-          <div class="reason-num mb-4">01</div>
+      <div class="row g-5">
+        <div class="col-md-4 reason-card">
+          <div class="reason-img-placeholder">Image placeholder</div>
+          <span class="reason-num">01</span>
           <h5 id="home-feature-0-title" style="color:var(--paper-100);font-family:var(--font-body);font-weight:500;font-size:20px;margin-bottom:12px">The print is the marker</h5>
           <p id="home-feature-0-body" style="font-size:15px;color:var(--paper-300);line-height:1.7;margin:0">There's no QR patch stitched into the hem. The artwork on the garment is the thing the camera reads.</p>
         </div>
-        <div class="col-md-4 reason-card" style="border-right:1px solid rgba(240,240,240,.1)">
-          <div class="reason-num mb-4">02</div>
+        <div class="col-md-4 reason-card">
+          <div class="reason-img-placeholder">Image placeholder</div>
+          <span class="reason-num">02</span>
           <h5 id="home-feature-1-title" style="color:var(--paper-100);font-family:var(--font-body);font-weight:500;font-size:20px;margin-bottom:12px">Nothing to install</h5>
           <p id="home-feature-1-body" style="font-size:15px;color:var(--paper-300);line-height:1.7;margin:0">It opens in the browser the way any link does. No app, no account, no store page in between.</p>
         </div>
         <div class="col-md-4 reason-card">
-          <div class="reason-num mb-4">03</div>
+          <div class="reason-img-placeholder">Image placeholder</div>
+          <span class="reason-num">03</span>
           <h5 id="home-feature-2-title" style="color:var(--paper-100);font-family:var(--font-body);font-weight:500;font-size:20px;margin-bottom:12px">Tied to the garment</h5>
           <p id="home-feature-2-body" style="font-size:15px;color:var(--paper-300);line-height:1.7;margin:0">The layer is registered against the piece, not the order. It survives being lent, resold or handed down.</p>
         </div>

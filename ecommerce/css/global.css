@@ -21,30 +21,54 @@ body {
   --heading-color: var(--ink-900);
   --heading-line-height: 1.04;
 
-  /* Light surface (storefront default) */
+  /* Light surface (storefront default)
+     Source: Figma "INRL — FINAL" Web Style Guide (Colour — Core). --line-200
+     is the ink/400 "borders only" token (#879596), not a surface color —
+     the old #ced6d8 border value is now surface/4 (secondary button/chip). */
   --ink-900: #384143;
   --ink-700: #455356;
   --ink-500: #737373;
-  --line-200: #ced6d8;
-  --line-100: #e4e9ea;
+  --ink-400: #879596;
+  --ink-inverse: #ffffff;
+  --line-200: var(--ink-400);
+  --line-100: #e1e8e9;
   --surface-0: #ffffff;
   --surface-50: #f7f8f8;
+  --surface-2: #eeeeee;
+  --surface-3: #e1e8e9;
+  --surface-4: #ced6d8;
+  --surface-dark: #14191a;
 
   /* Dark surface (hero band, footer, dashboards) */
   --dark-900: #0b0f10;
   --dark-800: #14191a;
   --dark-700: #232b2c;
-  --paper-100: #f0f0f0;
+  --paper-100: #ffffff;
   --paper-200: #d5dbdb;
   --paper-300: #a9b3b4;
   --paper-500: #7f8b8c;
 
-  /* Accent (teal) */
+  /* Accent (teal) — brand teal is unchanged as the identity; the extra
+     steps exist only so the accent can legally carry text/fills at AA:
+     500 is the mark (indicator/border/large text), 600 is button hover,
+     700 is button fill (5.5:1), 800 is teal text (7.5:1). */
   --accent-500: #12a2b8;
-  --accent-400: #4fc3d5;
+  --accent-400: var(--accent-500);
+  --teal-200: #bee6ed;
+  --teal-600: #0c7e90;
+  --teal-700: #0a7383;
   --accent-700: #1c5d68;
   --warn-500: #c17a2e;
-  --danger-500: #c0392b;
+  --danger-500: #dc191a;
+  --state-warning: #f0dd2b;
+  --state-like: #ff3b3c;
+  --state-ar: #00f6ff;
+
+  /* Radius scale — 4 values only (Spacing & Radius) */
+  --radius-sm: 8px;
+  --radius-md: 20px;
+  --radius-lg: 32px;
+  --radius-full: 999px;
 
   /* Legacy aliases — some pages still reference these directly;
      point them at the closest new-system equivalent. */
@@ -145,7 +169,7 @@ a {
 
 /* --- Dropdown --- */
 .dropdown-menu {
-  --bs-dropdown-border-radius: 10px;
+  --bs-dropdown-border-radius: var(--radius-md);
   --bs-dropdown-border-width: 1px;
   --bs-dropdown-border-color: var(--line-200);
   background-color: var(--surface-0);
@@ -157,7 +181,7 @@ a {
   --bs-dropdown-item-padding-y: 0.55rem;
   --bs-dropdown-item-padding-x: 0.9rem;
   --bs-dropdown-link-color: var(--ink-700);
-  --bs-dropdown-item-border-radius: 6px;
+  --bs-dropdown-item-border-radius: var(--radius-sm);
   font-family: var(--bs-body-font-family);
   font-size: 0.82rem;
   letter-spacing: 0.02em;
@@ -177,7 +201,7 @@ a {
 /* --- List group (cart items, etc.) --- */
 .list-group {
   border: 1px solid var(--line-200);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 .list-group-item {
@@ -205,18 +229,18 @@ a {
 }
 
 .btn-primary {
-  --bs-btn-color:              var(--paper-100);
-  --bs-btn-bg:                 var(--accent-700);
-  --bs-btn-border-color:       var(--accent-700);
-  --bs-btn-hover-color:        var(--paper-100);
-  --bs-btn-hover-bg:           var(--accent-500);
-  --bs-btn-hover-border-color: var(--accent-500);
-  --bs-btn-active-color:       var(--paper-100);
-  --bs-btn-active-bg:          var(--accent-500);
-  --bs-btn-active-border-color:var(--accent-500);
-  --bs-btn-disabled-color:     var(--paper-100);
-  --bs-btn-disabled-bg:        var(--line-200);
-  --bs-btn-disabled-border-color:var(--line-200);
+  --bs-btn-color:              var(--ink-inverse);
+  --bs-btn-bg:                 var(--teal-700);
+  --bs-btn-border-color:       var(--teal-700);
+  --bs-btn-hover-color:        var(--ink-inverse);
+  --bs-btn-hover-bg:           var(--teal-600);
+  --bs-btn-hover-border-color: var(--teal-600);
+  --bs-btn-active-color:       var(--ink-inverse);
+  --bs-btn-active-bg:          var(--accent-700);
+  --bs-btn-active-border-color:var(--accent-700);
+  --bs-btn-disabled-color:     var(--ink-inverse);
+  --bs-btn-disabled-bg:        var(--teal-200);
+  --bs-btn-disabled-border-color:var(--teal-200);
   border-width: 1px;
 }
 
@@ -247,7 +271,7 @@ a {
 }
 
 .input-group .btn {
-  border-radius: 999px !important;
+  border-radius: var(--radius-sm) !important;
 }
 
 /* --- Pagination --- */
@@ -298,8 +322,8 @@ a {
 .accordion {
   --bs-accordion-border-width: 1px;
   --bs-accordion-border-color: var(--line-200);
-  --bs-accordion-border-radius: 10px;
-  --bs-accordion-inner-border-radius: 10px;
+  --bs-accordion-border-radius: var(--radius-md);
+  --bs-accordion-inner-border-radius: var(--radius-md);
   --bs-accordion-btn-padding-x: 1rem;
   --bs-accordion-btn-padding-y: 0.85rem;
   --bs-accordion-btn-color: var(--ink-900);
@@ -313,7 +337,7 @@ a {
 }
 .accordion-item {
   border: 1px solid var(--line-200) !important;
-  border-radius: 10px !important;
+  border-radius: var(--radius-md) !important;
   margin-bottom: 8px;
   overflow: hidden;
 }
@@ -331,13 +355,13 @@ a {
 .form-control,
 .form-select {
   border: 1px solid var(--line-200);
-  border-radius: 999px !important;
+  border-radius: var(--radius-sm) !important;
   background-color: var(--surface-0);
   color: var(--ink-900);
   transition: border-color 0.2s ease;
 }
 textarea.form-control {
-  border-radius: 16px !important;
+  border-radius: var(--radius-sm) !important;
 }
 .form-control:focus,
 .form-select:focus {
@@ -353,7 +377,7 @@ textarea.form-control {
 /* --- Cards --- */
 .card {
   border: 1px solid var(--line-200) !important;
-  border-radius: 12px !important;
+  border-radius: var(--radius-md) !important;
   box-shadow: none;
   background: var(--surface-0);
 }
@@ -429,7 +453,7 @@ textarea.form-control {
 
 /* Navbar dropdown (Account menu) */
 .navbar .dropdown-menu {
-  --bs-dropdown-border-radius: 10px;
+  --bs-dropdown-border-radius: var(--radius-md);
   background-color: var(--surface-0) !important;
   border: 1px solid var(--line-200) !important;
   box-shadow: 0 12px 32px rgba(11, 15, 16, 0.12);
