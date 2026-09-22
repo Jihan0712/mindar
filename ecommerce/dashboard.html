@@ -290,7 +290,10 @@
       <!-- No standalone "Create Product" nav destination — products are designed on
            printful.com; this dashboard only imports/edits catalog metadata, reached from
            the Products pane's own "+ New Product" and row "Edit" actions (still using
-           #pane-create-product / #tab-create-product under the hood). -->
+           #pane-create-product / #tab-create-product under the hood). Hidden trigger:
+           Bootstrap's Tab JS just needs the id + data-bs-target to switch panes, it
+           doesn't need to sit in the visible sidebar list. -->
+      <button id="tab-create-product" data-bs-toggle="tab" data-bs-target="#pane-create-product" type="button" role="tab" style="display:none" aria-hidden="true" tabindex="-1"></button>
 
       <li class="inrl-nav-group-label" id="navGroupContent" role="presentation" style="display:none">Content</li>
       <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">

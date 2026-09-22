@@ -1,0 +1,19 @@
+- main [ref=f1e2]:
+  - generic [ref=f1e3]:
+    - img "INRL" [ref=f1e4]
+    - paragraph [ref=f1e5]: Product dashboard
+    - heading "The side nobody sees." [level=1] [ref=f1e6]: The sidenobody sees.
+    - paragraph [ref=f1e7]: Orders, stock, the homepage and every layer target. Two people have keys.
+  - generic [ref=f1e9]:
+    - heading "Sign in" [level=2] [ref=f1e10]
+    - generic [ref=f1e11]:
+      - generic [ref=f1e12]: Email
+      - textbox "Email" [ref=f1e13]
+    - generic [ref=f1e14]:
+      - generic [ref=f1e15]: Password
+      - textbox "Password" [ref=f1e16]
+    - button "Sign in" [ref=f1e17] [cursor=pointer]
+    - status
+    - generic [ref=f1e18]:
+      - strong [ref=f1e19]: No self-service here
+      - paragraph [ref=f1e20]: Console accounts are created by hand. There is no sign-up and no password reset link — if you are locked out, ask the other keyholder.

@@ -1,0 +1,4 @@
+- generic [active] [ref=f2e1]:
+  - tablist [ref=f2e2]:
+    - tab "Products" [selected] [ref=f2e3] [cursor=pointer]
+  - tabpanel "Products" [ref=f2e5]: PRODUCTS PANE

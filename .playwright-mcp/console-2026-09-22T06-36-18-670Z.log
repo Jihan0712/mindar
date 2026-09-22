@@ -1,0 +1,3 @@
+[     200ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8792/api/auth/me:0
+[     226ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8792/api/auth/me:0
+[     306ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8792/favicon.ico:0
