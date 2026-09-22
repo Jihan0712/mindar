@@ -1,180 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Order Confirmed | INRL</title>
+  <title>Order confirmed | INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    .oc-hero{background:var(--dark-800);color:var(--paper-300);padding-block:64px}
+    @media (min-width:1024px){.oc-hero{padding-block:96px 80px}}
+    .oc-hero .t-label{color:var(--accent-400)}
+    .oc-hero h1{color:var(--paper-100);margin:14px 0 24px;max-width:560px}
+    .oc-hero p{max-width:560px;font-size:15px;margin-bottom:36px}
+    .b--mark{--b-bg:var(--accent-500);--b-bd:var(--accent-500);--b-fg:var(--dark-900)}
+    .b--mark:hover{--b-bg:#3db6c9;--b-bd:#3db6c9}
+    .b--ghost-dark{--b-bg:transparent;--b-fg:var(--paper-100);--b-bd:rgba(255,255,255,.25)}
+    .b--ghost-dark:hover{--b-bg:rgba(255,255,255,.06);--b-bd:rgba(255,255,255,.6)}
+    .steps{display:grid;gap:16px;margin-top:20px}
+    @media (min-width:768px){.steps{grid-template-columns:repeat(3,1fr);gap:24px}}
+    .step{border:1px solid var(--line-100);padding:22px 22px 26px}
+    .step--on{background:var(--surface-2);border-color:var(--surface-2)}
+    .step .num{font-size:11px;color:var(--ink-500);letter-spacing:.08em}
+    .step--on .num{color:var(--accent-700)}
+    .step h3{font:500 28px/1.1 var(--font-display);color:var(--ink-900);text-transform:none;letter-spacing:0;margin:10px 0 14px}
+    .step p{font-size:14px;margin:0}
+    .receipt{border:1px solid var(--line-100);max-width:650px;margin-top:64px}
+    .receipt__head{display:flex;justify-content:space-between;background:var(--surface-2);padding:16px 20px;font-size:12px;color:var(--ink-900);letter-spacing:.02em}
+    .receipt__head .t-small{color:var(--ink-700)}
+    .rline{display:grid;grid-template-columns:48px 1fr auto;gap:14px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line-100)}
+    .rline .ph{width:48px;height:58px;font-size:8px;background:var(--surface-2)}
+    .rline .n{font-size:14px;color:var(--ink-900);text-transform:uppercase}
+    .receipt .sumrow{padding:8px 20px}
+    .receipt .sumrow--total{margin:0;padding:14px 20px;font-size:17px}
+    .state-box{padding-block:56px}
+  </style>
 </head>
-<body>
+<body class="site">
+  <div id="site-header" data-page="confirmed"></div>
 
-  <div id="site-header" data-page="order-confirmation"></div>
-
-  <section style="min-height:100vh;display:flex;align-items:center;padding:132px 0 60px">
-    <div class="container" style="max-width:640px">
-
-      <!-- CONFIRMING -->
-      <div id="stateConfirming" style="background:var(--surface-50);border-radius:12px;padding:48px 40px;text-align:center">
-        <div class="spinner-border mb-3" role="status" style="color:var(--accent-500);width:2.5rem;height:2.5rem"></div>
-        <h1 class="mb-2" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:-0.02em;color:var(--ink-900);font-size:26px">Confirming payment&hellip;</h1>
-        <p class="mb-0" style="color:var(--ink-500)">Hang tight — this usually takes just a few seconds.</p>
+  <main id="main">
+    <!-- CONFIRMING -->
+    <section class="oc-hero" id="stateConfirming">
+      <div class="wrap wrap--focus">
+        <p class="t-label">Payment received</p>
+        <h1 class="t-task">Confirming your order&hellip;</h1>
+        <p>This takes a few seconds. You don&rsquo;t need to refresh.</p>
       </div>
+    </section>
 
-      <!-- PAID -->
-      <div id="statePaid" style="display:none">
-        <div style="background:var(--dark-900);color:var(--paper-100);border-radius:12px;padding:40px;margin-bottom:24px">
-          <div style="font-size:32px;line-height:1;color:var(--accent-400)">&#10003;</div>
-          <h1 class="mb-1 mt-2" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:-0.02em;font-size:28px">Order confirmed</h1>
-          <p class="mb-0" style="font-size:14px;color:var(--paper-300)">Thanks — your order is paid and on its way to production.</p>
-        </div>
-
-        <div style="background:var(--surface-50);border-radius:12px;padding:32px;margin-bottom:24px">
-          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3 pb-3" style="border-bottom:1px solid var(--line-200)">
-            <div>
-              <div class="eyebrow">Order ID</div>
-              <code id="orderIdOut" style="font-size:14px;color:var(--ink-900)"></code>
-            </div>
-            <div class="text-md-end">
-              <div class="eyebrow">Placed</div>
-              <div id="dateOut" style="font-size:14px;color:var(--ink-900)"></div>
-            </div>
-          </div>
-
-          <ul id="itemsOut" class="list-unstyled mb-3"></ul>
-
-          <div class="d-flex justify-content-between align-items-center pt-3" style="border-top:1px solid var(--line-200)">
-            <strong>Total paid</strong>
-            <strong class="fs-4" id="totalOut" style="font-family:var(--font-display)"></strong>
+    <!-- PAID -->
+    <div id="statePaid" hidden>
+      <section class="oc-hero">
+        <div class="wrap wrap--focus">
+          <p class="t-label">Order <span id="orderIdOut" class="tnum"></span></p>
+          <h1 class="t-task">It is being made.</h1>
+          <p id="paidLead">Printed and sewn to order, so it takes a few days longer than something off a shelf.</p>
+          <div class="b-row b-row--stack">
+            <a class="b b--mark" href="register-piece.html">Register the layer</a>
+            <a class="b b--ghost-dark" id="trackLink" href="order-tracking.html">Track this order</a>
           </div>
         </div>
+      </section>
+      <section class="section" style="padding-top:72px">
+        <div class="wrap wrap--focus">
+          <p class="t-label">What happens now</p>
+          <div class="steps">
+            <div class="step"><span class="num">01</span><h3>Made</h3><p>Printful cuts and prints it. Three to five working days before it leaves the factory.</p></div>
+            <div class="step"><span class="num">02</span><h3>Shipped</h3><p>Tracking arrives by email. Eight to twelve days to the Philippines, faster in the EU.</p></div>
+            <div class="step step--on"><span class="num">03</span><h3>Yours to program</h3><p>The print on the back is a marker. Register the piece and you decide what it plays &mdash; change it whenever you want.</p></div>
+          </div>
 
-        <div style="background:var(--surface-50);border-radius:12px;padding:32px;margin-bottom:24px">
-          <h2 class="mb-3" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900);font-size:16px">What happens next</h2>
-          <ol class="mb-0" style="padding-left:20px;font-size:14px;color:var(--ink-700)">
-            <li class="mb-2"><strong>Printing.</strong> Your design goes straight into production — no extra steps on your end.</li>
-            <li class="mb-2"><strong>Shipping.</strong> Once it ships, you'll get a tracking number and carrier here and via email.</li>
-            <li class="mb-0"><strong>Delivery.</strong> Track progress any time on the order tracking page below.</li>
-          </ol>
+          <div class="receipt">
+            <div class="receipt__head"><span>ORDER&nbsp; <span id="orderIdOut2" class="tnum"></span></span><span class="t-small tnum" id="dateOut"></span></div>
+            <div id="itemsOut"></div>
+            <div class="sumrow" style="padding-top:14px"><span>Subtotal</span><span class="price" id="subOut"></span></div>
+            <div class="sumrow" id="shipRow" hidden><span>Shipping</span><span class="price" id="shipOut"></span></div>
+            <div class="sumrow sumrow--total"><span>Total</span><span class="price" id="totalOut"></span></div>
+          </div>
+          <p class="t-small" id="shipTo" hidden style="margin-top:16px"></p>
         </div>
-
-        <div class="d-flex flex-column flex-sm-row gap-3">
-          <a id="trackLink" href="order-tracking.html" class="btn btn-primary flex-fill">Track your order</a>
-          <a href="shop.html" class="btn btn-outline-dark flex-fill">Continue shopping</a>
-        </div>
-      </div>
-
-      <!-- STILL PENDING (webhook hasn't landed yet) -->
-      <div id="statePending" style="display:none;background:var(--surface-50);border-radius:12px;padding:40px;text-align:center">
-        <h1 class="mb-2" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900);font-size:24px">Still processing</h1>
-        <p style="color:var(--ink-500)">Your payment is taking a little longer than usual to confirm. You don't need to try again — you'll get a confirmation as soon as it clears, or you can check status any time below.</p>
-        <a id="trackLinkPending" href="order-tracking.html" class="btn btn-outline-dark mt-2">Check order status</a>
-      </div>
-
-      <!-- ERROR -->
-      <div id="stateError" style="display:none;background:var(--surface-50);border-radius:12px;padding:40px;text-align:center">
-        <h1 class="mb-2" style="font-family:var(--font-display);text-transform:uppercase;color:var(--danger-500);font-size:24px">Something went wrong</h1>
-        <p id="errorMsg" style="color:var(--ink-500)"></p>
-        <a href="checkout.html" class="btn btn-outline-dark mt-2">Back to checkout</a>
-      </div>
-
+      </section>
     </div>
-  </section>
+
+    <!-- STILL PENDING -->
+    <section class="wrap wrap--focus state-box" id="statePending" hidden>
+      <div class="empty" style="padding-block:24px">
+        <p class="t-label">Order <span id="pendingId" class="tnum"></span></p>
+        <h1 class="t-task">Still processing.</h1>
+        <p class="t-lead">Your payment is taking longer than usual to confirm. Don&rsquo;t pay again &mdash; we&rsquo;ll email you as soon as it clears, and the order page will update.</p>
+        <div class="b-row"><a class="b" id="trackLinkPending" href="order-tracking.html">Check order status</a><a class="b b--ghost" href="contact.html">Contact us</a></div>
+      </div>
+    </section>
+
+    <!-- ERROR -->
+    <section class="wrap wrap--focus state-box" id="stateError" hidden>
+      <div class="empty" style="padding-block:24px">
+        <p class="t-label">Order</p>
+        <h1 class="t-task">Something broke on our side.</h1>
+        <p class="t-lead" id="errorMsg"></p>
+        <div class="b-row"><a class="b" href="order-tracking.html">Find my order</a><a class="b b--ghost" href="checkout.html">Back to checkout</a></div>
+      </div>
+    </section>
+  </main>
 
   <div id="site-footer"></div>
 
-  <script src="js/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
   <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
   <script>
     (function () {
-      const qs = new URLSearchParams(location.search);
-      const orderId = qs.get('order_id');
-      const sessionId = qs.get('session_id');
-
-      const stateConfirming = document.getElementById('stateConfirming');
-      const statePaid = document.getElementById('statePaid');
-      const statePending = document.getElementById('statePending');
-      const stateError = document.getElementById('stateError');
-
-      function show(el) {
-        [stateConfirming, statePaid, statePending, stateError].forEach(e => e.style.display = (e === el ? '' : 'none'));
-      }
-
-      function formatMoney(cents, currency) {
-        const v = Number(cents || 0) / 100;
-        try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' }).format(v); }
-        catch { return '$' + v.toFixed(2); }
-      }
-
-      function formatDate(iso) {
+      var esc = INRL.esc;
+      var qs = new URLSearchParams(location.search);
+      var orderId = qs.get('order_id');
+      var sessionId = qs.get('session_id');
+      var states = ['stateConfirming', 'statePaid', 'statePending', 'stateError'].map(function (id) { return document.getElementById(id); });
+      function show(el) { states.forEach(function (s) { s.hidden = s !== el; }); }
+      function money(cents, cur) { return INRL.moneyFromCents(cents, cur); }
+      function shortDate(iso) {
         if (!iso) return '';
-        try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)); }
-        catch { return iso; }
+        try { return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso)).toUpperCase(); } catch (e) { return iso; }
       }
+      function shortId(id) { return String(id || '').toUpperCase(); }
 
-      function showPaid(data) {
-        document.getElementById('orderIdOut').textContent = data.order_id || orderId || '';
-        document.getElementById('dateOut').textContent = formatDate(data.created_at) || '—';
-        document.getElementById('totalOut').textContent = formatMoney(data.total_cents, data.currency);
-
-        const itemsOut = document.getElementById('itemsOut');
-        itemsOut.innerHTML = (data.items || []).map(function (it) {
-          const img = it.image_url
-            ? '<img src="' + it.image_url + '" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0">'
-            : '<div style="width:48px;height:48px;background:var(--line-100);border-radius:6px;flex-shrink:0"></div>';
-          return '<li class="d-flex align-items-center gap-3 py-2" style="border-bottom:1px solid var(--line-200)">' +
-            img +
-            '<div class="flex-grow-1"><div style="font-size:14px;color:var(--ink-900)">' + (it.name || '') + '</div>' +
-            '<div style="font-size:12px;color:var(--ink-500)">Qty: ' + (it.qty || 1) + '</div></div>' +
-            '<div style="font-size:14px;color:var(--ink-900)">' + formatMoney((it.price_cents || 0) * (it.qty || 1)) + '</div>' +
-          '</li>';
+      function showPaid(d) {
+        var id = shortId(d.order_id || orderId);
+        document.getElementById('orderIdOut').textContent = id;
+        document.getElementById('orderIdOut2').textContent = id;
+        document.getElementById('dateOut').textContent = shortDate(d.created_at);
+        if (d.email) document.getElementById('paidLead').textContent = 'Printed and sewn to order, so it takes a few days longer than something off a shelf. We sent the receipt to ' + d.email + '.';
+        var items = d.items || [];
+        var sub = items.reduce(function (a, it) { return a + (it.price_cents || 0) * (it.qty || 1); }, 0);
+        document.getElementById('itemsOut').innerHTML = items.map(function (it) {
+          var meta = [it.size ? 'Size ' + esc(it.size) : '', 'Qty ' + (it.qty || 1)].filter(Boolean).join(' &middot; ');
+          return '<div class="rline"><div class="ph">' + (it.image_url ? '<img src="' + esc(it.image_url) + '" alt="" onerror="this.remove()">' : 'IMG') + '</div>'
+            + '<div><div class="n">' + esc(it.name || '') + '</div><div class="t-small">' + meta + '</div></div>'
+            + '<div class="price" style="color:var(--ink-900)">' + money((it.price_cents || 0) * (it.qty || 1), d.currency) + '</div></div>';
         }).join('');
-
-        const trackLink = document.getElementById('trackLink');
-        if (trackLink && data.order_id) {
-          var trackUrl = 'order-tracking.html?order=' + encodeURIComponent(data.order_id);
-          if (data.email) trackUrl += '&email=' + encodeURIComponent(data.email);
-          trackLink.href = trackUrl;
+        document.getElementById('subOut').textContent = money(sub || d.total_cents, d.currency);
+        var ship = d.shipping_cents != null ? Number(d.shipping_cents) : (d.total_cents && sub && d.total_cents > sub ? d.total_cents - sub : null);
+        if (ship) { document.getElementById('shipRow').hidden = false; document.getElementById('shipOut').textContent = money(ship, d.currency); }
+        document.getElementById('totalOut').textContent = money(d.total_cents, d.currency);
+        var c = d.customer || d.shipping || null;
+        if (c && (c.address || c.city)) {
+          var st = document.getElementById('shipTo'); st.hidden = false;
+          st.textContent = 'Shipping to  ' + [[c.firstName, c.lastName].filter(Boolean).join(' '), c.address, [c.city, c.zip].filter(Boolean).join(' '), c.country].filter(Boolean).join(', ');
         }
+        var track = 'order-tracking.html?order=' + encodeURIComponent(d.order_id || orderId) + (d.email ? '&email=' + encodeURIComponent(d.email) : '');
+        document.getElementById('trackLink').href = track;
 
-        // Payment is confirmed — safe to clear the cart now and record local order history.
+        // Payment is confirmed — safe to clear the bag now and keep a local order history.
         try {
-          if (window.Cart) Cart.clear();
-          if (window.CartUI) CartUI.render();
-          const ORDERS_KEY = 'mindar_orders_v1';
-          const prev = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
-          if (!prev.some(o => o.order_id === data.order_id)) {
-            prev.unshift({ order_id: data.order_id, total_cents: data.total_cents, ts: Date.now() });
-            localStorage.setItem(ORDERS_KEY, JSON.stringify(prev.slice(0, 50)));
+          Cart.clear(); CartUI.render();
+          sessionStorage.removeItem('inrl_checkout_details');
+          var KEY = 'mindar_orders_v1';
+          var prev = JSON.parse(localStorage.getItem(KEY) || '[]');
+          if (!prev.some(function (o) { return o.order_id === d.order_id; })) {
+            prev.unshift({ order_id: d.order_id, total_cents: d.total_cents, ts: Date.now() });
+            localStorage.setItem(KEY, JSON.stringify(prev.slice(0, 50)));
           }
         } catch (e) {}
-
-        show(statePaid);
+        show(document.getElementById('statePaid'));
       }
 
-      async function poll(attemptsLeft) {
-        try {
-          const res = await fetch('/api/orders/' + encodeURIComponent(orderId) + '/status?session_id=' + encodeURIComponent(sessionId));
-          if (res.ok) {
-            const data = await res.json();
-            if (data.payment_status === 'paid') { showPaid(data); return; }
-          }
-        } catch (e) {}
-
-        if (attemptsLeft <= 0) { show(statePending); return; }
-        setTimeout(function () { poll(attemptsLeft - 1); }, 1500);
+      function poll(left) {
+        fetch('/api/orders/' + encodeURIComponent(orderId) + '/status?session_id=' + encodeURIComponent(sessionId))
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (d && d.payment_status === 'paid') return showPaid(d);
+            if (left <= 0) {
+              document.getElementById('pendingId').textContent = shortId(orderId);
+              document.getElementById('trackLinkPending').href = 'order-tracking.html?order=' + encodeURIComponent(orderId);
+              return show(document.getElementById('statePending'));
+            }
+            setTimeout(function () { poll(left - 1); }, 1500);
+          })
+          .catch(function () { if (left <= 0) show(document.getElementById('statePending')); else setTimeout(function () { poll(left - 1); }, 1500); });
       }
 
       if (!orderId || !sessionId) {
-        document.getElementById('errorMsg').textContent = 'Missing order reference. If you just completed checkout, check your email or visit order tracking.';
-        show(stateError);
+        document.getElementById('errorMsg').textContent = 'This page is missing its order reference. If you just paid, the receipt in your email has the order number — use it to find the order.';
+        show(document.getElementById('stateError'));
       } else {
         poll(20);
       }

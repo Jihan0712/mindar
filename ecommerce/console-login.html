@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Console sign in | INRL</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <style>
+    body.site{background:var(--dark-800);min-height:100vh}
+    .cl{display:grid;min-height:100vh}
+    @media (min-width:1024px){.cl{grid-template-columns:640px 1fr}}
+    .cl__intro{background:#1a1f21;display:flex;flex-direction:column;justify-content:center;padding:48px var(--margin)}
+    @media (min-width:1024px){.cl__intro{padding:0 80px}}
+    .cl__intro img{height:36px;width:auto;align-self:flex-start}
+    .cl__intro .t-label{color:var(--accent-500);margin:18px 0 22px;letter-spacing:.16em}
+    .cl__intro h1{font:500 40px/.96 var(--font-display);text-transform:uppercase;color:var(--paper-100);margin:0 0 24px;letter-spacing:0}
+    .cl__intro p{color:var(--paper-500);font-size:15px;max-width:420px;margin:0}
+    .cl__form{display:flex;align-items:center;padding:48px var(--margin)}
+    @media (min-width:1024px){.cl__form{padding:0 80px}}
+    .cl__form form{width:100%;max-width:640px}
+    .cl__form h2{font:500 32px/1 var(--font-display);text-transform:uppercase;color:var(--paper-100);margin:0 0 24px;letter-spacing:0}
+    .cl__form .field > label{font:500 10px/1 var(--font-body);letter-spacing:.12em;text-transform:uppercase;color:var(--paper-300)}
+    .cl__form .input{background:var(--dark-700);border-color:transparent;color:var(--paper-100);border-radius:0}
+    .cl__form .input:focus{border-color:var(--accent-500)}
+    .cl__form .field.is-error .input{border-color:#ff6b6b}
+    .cl__form .field-help{color:var(--paper-500)}
+    .cl__form .field.is-error .field-help{color:#ff8b8b}
+    .cl__note{border:1px solid rgba(255,255,255,.1);padding:18px 20px;margin-top:20px}
+    .cl__note strong{display:block;color:var(--paper-100);font-weight:500;font-size:14px;margin-bottom:6px}
+    .cl__note p{color:var(--paper-500);font-size:13px;margin:0}
+    .auth__status.is-error{color:#ff8b8b}
+  </style>
+</head>
+<body class="site">
+  <main id="main" class="cl">
+    <section class="cl__intro">
+      <img src="images/logo-light.svg" alt="INRL">
+      <p class="t-label">Product dashboard</p>
+      <h1>The side<br>nobody sees.</h1>
+      <p>Orders, stock, the homepage and every layer target. Two people have keys.</p>
+    </section>
+    <section class="cl__form">
+      <form id="clForm" novalidate>
+        <h2>Sign in</h2>
+        <div class="field"><label for="clEmail">Email</label><input class="input" type="email" id="clEmail" autocomplete="username" required><span class="field-help" data-err hidden>Enter the console email.</span></div>
+        <div class="field"><label for="clPw">Password</label><input class="input" type="password" id="clPw" autocomplete="current-password" required><span class="field-help" data-err hidden>Enter the password.</span></div>
+        <button class="b b--mark b--block" type="submit" id="clBtn">Sign in</button>
+        <p class="auth__status" id="status" role="status" aria-live="polite"></p>
+        <div class="cl__note"><strong>No self-service here</strong><p>Console accounts are created by hand. There is no sign-up and no password reset link &mdash; if you are locked out, ask the other keyholder.</p></div>
+      </form>
+    </section>
+  </main>
+
+  <script src="js/auth-forms.js"></script>
+  <script>
+  (function () {
+    var next = new URLSearchParams(location.search).get('next');
+    if (!next || !/^\/(?!\/)/.test(next)) next = '/ecommerce/dashboard.html';
+    function allowed(u) { return u && (u.role === 'admin' || u.role === 'brand'); }
+    function dest(u) { return u.role === 'brand' && /dashboard\.html/.test(next) ? '/brand.html' : next; }
+    auth.me().then(function (u) { if (allowed(u)) location.href = dest(u); });
+    document.getElementById('clForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var em = document.getElementById('clEmail'), pw = document.getElementById('clPw');
+      var ok = AuthForms.check(em, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim()));
+      ok = AuthForms.check(pw, !!pw.value) && ok;
+      if (!ok) return;
+      var btn = document.getElementById('clBtn'); btn.disabled = true; btn.textContent = 'Signing in…';
+      AuthForms.status('', '');
+      try {
+        await auth.login(em.value.trim(), pw.value);
+        var u = await auth.me();
+        if (!allowed(u)) { await auth.logout(); throw new Error('This account has no console access.'); }
+        location.href = dest(u);
+      } catch (err) {
+        AuthForms.status(/no console/.test(err.message) ? err.message : /too many/i.test(err.message) ? 'Too many attempts. Wait a few minutes.' : 'That email and password don’t match.', 'error');
+        btn.disabled = false; btn.textContent = 'Sign in';
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

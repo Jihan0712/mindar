@@ -3,159 +3,58 @@
 <head>
   <title>About | INRL</title>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="INRL sells a garment made once, carrying a digital layer that can be replaced any number of times afterwards.">
+  <meta name="description" content="INRL makes a garment once, and keeps changing what it carries.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<style>
-  .about-value{padding:40px 32px;transition:background-color .2s}
-  .about-value:hover{background:rgba(240,240,240,.03)}
-  .about-step{padding:32px;border:1px solid var(--line-200);border-radius:12px;height:100%}
-  .about-step.is-active{border-color:var(--accent-500);background:rgba(18,162,184,.04)}
-</style>
+  <style>
+    .nots{display:grid;gap:40px;margin-top:48px}
+    @media (min-width:768px){.nots{grid-template-columns:repeat(3,1fr);gap:24px}}
+    .nots .ph{aspect-ratio:421/300;margin-bottom:24px}
+    .nots .num{font-size:12px;color:var(--accent-500);display:block;margin-bottom:8px}
+    .nots h3{font:500 20px/1.3 var(--font-body);color:var(--paper-100);text-transform:none;letter-spacing:0;margin:0 0 12px}
+    .nots p{font-size:15px;line-height:1.7;color:var(--paper-300);margin:0}
+  </style>
 </head>
-<body>
-
-  <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
-    <symbol id="shopping-bag" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3.977 9.84A2 2 0 0 1 5.971 8h12.058a2 2 0 0 1 1.994 1.84l.803 10A2 2 0 0 1 18.833 22H5.167a2 2 0 0 1-1.993-2.16l.803-10Z"/><path d="M16 11V6a4 4 0 0 0-4-4v0a4 4 0 0 0-4 4v5"/></g></symbol>
-  </defs></svg>
-
+<body class="site">
   <div id="site-header" data-page="about"></div>
 
-  <!-- PAGE HERO -->
-  <section style="background:var(--dark-900);padding:160px 0 100px">
-    <div class="container">
-      <div class="row align-items-end g-5">
-        <div class="col-lg-7">
-          <div class="section-eyebrow" style="color:var(--paper-500);margin-bottom:18px">Our story</div>
-          <h1 style="font-family:var(--font-display);font-size:clamp(44px,6.5vw,88px);line-height:.92;letter-spacing:-0.03em;color:var(--paper-100);margin-bottom:32px;text-transform:uppercase">One shirt.<br>A layer that<br>keeps changing.</h1>
-          <p style="font-size:16px;line-height:1.75;color:var(--paper-300);max-width:520px">INRL makes a garment once, properly, from heavyweight cotton meant to outlast the season. What it carries is made continuously — replaced without anyone touching the shirt.</p>
-        </div>
-        <div class="col-lg-5">
-          <div style="overflow:hidden;border-radius:12px">
-            <img src="images/single-image-2.jpg" alt="INRL" style="width:100%;display:block;object-fit:cover;aspect-ratio:4/3">
-          </div>
+  <main id="main">
+    <section class="wrap info-head">
+      <p class="t-label t-label--teal">About INRL</p>
+      <h1 class="t-page">We make one shirt, and keep changing it.</h1>
+    </section>
+    <section class="wrap">
+      <div class="info-cols">
+        <p>Why the thing you bought is not finished.</p>
+        <div>
+          <p>Every garment ever made is finished the moment it leaves the factory. The print, the message, the moment it belonged to &mdash; all of it fixed at that point, and fixed for as long as the shirt survives. Culture doesn&rsquo;t work that way. It moves weekly.</p>
+          <p>So we build the two halves separately. The garment is made once, properly, from heavyweight cotton meant to outlast the season. The layer it carries is made continuously, and can be replaced without anyone touching the shirt.</p>
+          <p style="margin:0">It is registered against the piece, not the order, so it keeps working for whoever is wearing it. A piece bought in the first drop is not a piece from the first drop any more. It is whatever has been put behind it since.</p>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- MISSION -->
-  <section style="background:var(--surface-0);padding:100px 0">
-    <div class="container">
-      <div class="row g-5 align-items-center">
-        <div class="col-lg-5">
-          <div style="overflow:hidden;border-radius:12px">
-            <img src="images/video-image.jpg" alt="INRL studio" style="width:100%;display:block;object-fit:cover;aspect-ratio:4/3">
-          </div>
-        </div>
-        <div class="col-lg-7" style="padding-left:clamp(20px,4vw,64px)">
-          <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:18px">Our mission</div>
-          <h2 style="font-family:var(--font-display);font-size:clamp(32px,4vw,52px);line-height:.98;letter-spacing:-0.03em;color:var(--ink-900);margin-bottom:24px;text-transform:uppercase">The object stays still. The thing it points at doesn't.</h2>
-          <p style="font-size:15px;line-height:1.8;color:var(--ink-700);margin-bottom:20px">A garment is finished the moment it leaves the factory. Everything about it — the print, the message, the moment it belonged to — is fixed at that point and stays fixed for as long as the shirt survives. Culture doesn't work that way. It moves weekly.</p>
-          <p style="font-size:15px;line-height:1.8;color:var(--ink-700);margin-bottom:32px">So we built the two halves separately. The garment, made once. The layer it carries, made continuously — and registered against the piece, not the order, so it keeps working for whoever is wearing it.</p>
-          <a href="shop.html" class="btn btn-primary btn-lg">Shop the collection</a>
-        </div>
-      </div>
-    </div>
-  </section>
+    <div class="band band--tall" aria-hidden="true"></div>
 
-  <!-- VALUES -->
-  <section style="background:var(--dark-800);padding:100px 0">
-    <div class="container">
-      <div class="mb-5">
-        <div class="section-eyebrow" style="color:var(--paper-500);margin-bottom:14px">What we stand for</div>
-        <h2 style="font-family:var(--font-display);font-size:clamp(28px,4vw,48px);letter-spacing:-0.03em;color:var(--paper-100);line-height:1;text-transform:uppercase">Reasons to believe</h2>
-      </div>
-      <div class="row g-0" style="border-top:1px solid rgba(240,240,240,.1)">
-        <div class="col-md-4 about-value" style="border-right:1px solid rgba(240,240,240,.1)">
-          <div class="reason-num mb-4">01</div>
-          <h5 style="font-family:var(--font-body);font-weight:500;font-size:20px;color:var(--paper-100);margin-bottom:12px">Radical honesty</h5>
-          <p style="font-size:14px;color:var(--paper-300);line-height:1.7;margin:0">No greenwashing, no empty promises. We say what we make, how we make it, and what it costs — in every sense.</p>
-        </div>
-        <div class="col-md-4 about-value" style="border-right:1px solid rgba(240,240,240,.1)">
-          <div class="reason-num mb-4">02</div>
-          <h5 style="font-family:var(--font-body);font-weight:500;font-size:20px;color:var(--paper-100);margin-bottom:12px">The layer is real</h5>
-          <p style="font-size:14px;color:var(--paper-300);line-height:1.7;margin:0">Augmented reality isn't a feature bolted on — every product is designed with its layer in mind from the first sketch.</p>
-        </div>
-        <div class="col-md-4 about-value">
-          <div class="reason-num mb-4">03</div>
-          <h5 style="font-family:var(--font-body);font-weight:500;font-size:20px;color:var(--paper-100);margin-bottom:12px">Built to last</h5>
-          <p style="font-size:14px;color:var(--paper-300);line-height:1.7;margin:0">Heavyweight cotton meant to outlast the season. No fast fashion, no throwaway drops.</p>
+    <section class="section section--dark">
+      <div class="wrap">
+        <h2 class="t-section t-on-dark">What we will<br>not do.</h2>
+        <div class="nots">
+          <article><div class="ph ph--dark"></div><span class="num">01</span><h3>Print more than we sell</h3><p>Nothing is made ahead of demand. A drop closes when it closes, and the overrun does not exist.</p></article>
+          <article><div class="ph ph--dark"></div><span class="num">02</span><h3>Make the tech the point</h3><p>If the layer stopped working tomorrow the shirt would still be worth wearing. That is the test we hold it to.</p></article>
+          <article><div class="ph ph--dark"></div><span class="num">03</span><h3>Sell your scan data</h3><p>A scan resolves a link. We count that a scan happened. It does not build a profile, and there is nothing to sell on.</p></article>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- MANIFESTO PULLQUOTE -->
-  <section style="background:var(--surface-50);padding:100px 40px">
-    <div class="container">
-      <div style="max-width:760px;margin:0 auto;text-align:center">
-        <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:24px">Manifesto</div>
-        <blockquote style="font-family:var(--font-display);font-size:clamp(26px,4vw,44px);line-height:1.1;letter-spacing:-0.03em;color:var(--ink-900);margin:0;text-transform:uppercase">&ldquo;This is not a feature attached to clothing. It's the reason the clothing exists in this shape, sold this way.&rdquo;</blockquote>
-        <div style="margin-top:28px" class="eyebrow">&mdash; INRL, 2026</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- HOW IT WORKS -->
-  <section style="background:var(--surface-0);padding:100px 0">
-    <div class="container">
-      <div class="mb-5">
-        <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:14px">The process</div>
-        <h2 style="font-family:var(--font-display);font-size:clamp(28px,4vw,48px);letter-spacing:-0.03em;color:var(--ink-900);line-height:1;text-transform:uppercase">How it works</h2>
-      </div>
-      <div class="row g-4">
-        <div class="col-md-4">
-          <div class="about-step">
-            <div class="eyebrow mb-4" style="color:var(--accent-700)">Step 01</div>
-            <h5 style="font-family:var(--font-body);font-weight:500;font-size:19px;color:var(--ink-900);margin-bottom:12px">Pick your piece</h5>
-            <p style="font-size:14px;color:var(--ink-500);line-height:1.7;margin:0">Browse the current drop. Every item is a physical and digital pairing from the ground up.</p>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="about-step">
-            <div class="eyebrow mb-4" style="color:var(--accent-700)">Step 02</div>
-            <h5 style="font-family:var(--font-body);font-weight:500;font-size:19px;color:var(--ink-900);margin-bottom:12px">Wear it</h5>
-            <p style="font-size:14px;color:var(--ink-500);line-height:1.7;margin:0">Put it on and go. The garment exists fully in the physical world — heavyweight cotton, considered cuts.</p>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="about-step is-active">
-            <div class="eyebrow mb-4" style="color:var(--accent-700)">Step 03</div>
-            <h5 style="font-family:var(--font-body);font-weight:500;font-size:19px;color:var(--ink-900);margin-bottom:12px">Scan and see what it plays</h5>
-            <p style="font-size:14px;color:var(--ink-500);line-height:1.7;margin:0">Point any phone camera at the print. Watch the layer it carries right now.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA BANNER -->
-  <section style="background:var(--dark-900);padding:100px 0">
-    <div class="container text-center">
-      <div class="section-eyebrow" style="color:var(--paper-500);margin-bottom:18px">Ready?</div>
-      <h2 style="font-family:var(--font-display);font-size:clamp(36px,5vw,68px);line-height:.95;letter-spacing:-0.03em;color:var(--paper-100);margin-bottom:36px;text-transform:uppercase">Wear the<br>future.</h2>
-      <div class="d-flex gap-3 justify-content-center flex-wrap">
-        <a href="shop.html" class="btn btn-primary btn-lg">Shop now</a>
-        <a href="contact.html" class="btn btn-outline-light btn-lg" style="border-color:rgba(240,240,240,.3);color:var(--paper-100)">Get in touch</a>
-      </div>
-    </div>
-  </section>
+    </section>
+  </main>
 
   <div id="site-footer"></div>
 
-  <script src="js/jquery.min.js"></script>
-  <script src="js/plugins.js"></script>
-  <script src="js/SmoothScroll.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
-  <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
 </body>

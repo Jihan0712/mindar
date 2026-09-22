@@ -1,115 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <title>Saved for later | INRL</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wishlist | INRL</title>
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="description" content="Your INRL wishlist — save favourites and shop when ready.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
-  <script src="/assets/js/auth-worker.js?v=20260206"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <style>
+    .wl-head{padding-block:48px 40px;border-bottom:1px solid var(--line-100);margin-bottom:40px}
+    @media (min-width:1024px){.wl-head{padding-block:136px 64px;margin-bottom:80px}}
+    .wl-head .t-page{margin:14px 0 28px}
+    .wl-actions{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;font-size:14px}
+    .wl-actions button{background:none;border:0;padding:0;cursor:pointer;font:inherit}
+    .wl-add{color:var(--accent-700);font-weight:500}
+    .wl-add:hover,.wl-rm:hover{text-decoration:underline}
+    .wl-rm{color:var(--ink-500)}
+    .wl-sold{color:var(--ink-700);font-weight:500}
+    @media (max-width:767.98px){
+      .wl-grid{grid-template-columns:1fr!important;gap:0!important}
+      .wl-item{display:grid;grid-template-columns:72px 1fr auto;gap:14px;padding:16px 0;border-bottom:1px solid var(--line-100)}
+      .wl-item .pcard__img{aspect-ratio:auto;height:88px;margin:0;font-size:8px}
+      .wl-item .wl-actions{flex-direction:column;align-items:flex-end;justify-content:space-between;margin:0}
+    }
+    .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);opacity:0;z-index:1080;background:var(--dark-800);color:var(--paper-100);border-radius:999px;padding:12px 20px;font-size:14px;transition:opacity var(--t-element),transform var(--t-element);pointer-events:none}
+    .toast.is-on{opacity:1;transform:translate(-50%,0)}
+  </style>
 </head>
-<body>
+<body class="site">
+  <div id="site-header" data-page="account"></div>
 
-  <div id="site-header" data-page="wishlist"></div>
-
-  <!-- PAGE HERO -->
-  <section style="background:var(--surface-0);padding:140px 0 40px">
-    <div class="container">
-      <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:14px">Saved pieces</div>
-      <h1 style="font-family:var(--font-display);font-size:clamp(36px,5.5vw,68px);line-height:.95;letter-spacing:-0.03em;color:var(--ink-900);text-transform:uppercase">Your wishlist</h1>
-    </div>
-  </section>
-
-  <!-- WISHLIST CONTENT -->
-  <section style="background:var(--surface-0);padding:24px 0 100px">
-    <div class="container">
-      <div id="wishlistEmpty" style="text-align:center;padding:100px 0;display:none">
-        <div style="font-size:64px;line-height:1;color:var(--line-200);margin-bottom:20px">&#9825;</div>
-        <p class="eyebrow" style="margin-bottom:28px">Your wishlist is empty</p>
-        <a href="shop.html" class="btn btn-primary btn-lg">Browse the collection</a>
+  <main id="main" style="padding-bottom:128px">
+    <div class="wrap" id="full" hidden>
+      <div class="wl-head">
+        <p class="t-label t-label--teal">Saved</p>
+        <h1 class="t-page">Saved for later.</h1>
+        <p class="t-lead" id="count" style="color:var(--ink-500);margin:0"></p>
       </div>
-      <div id="wishlistItems" style="border:1px solid var(--line-200);border-radius:12px;overflow:hidden;display:none"></div>
-      <div id="wishlistActions" style="margin-top:24px;display:none;gap:12px;flex-wrap:wrap">
-        <a href="shop.html" class="btn btn-outline-dark">Continue shopping</a>
-      </div>
+      <div class="pgrid wl-grid" id="grid"></div>
     </div>
-  </section>
 
+    <div class="wrap wrap--focus" id="empty" hidden>
+      <div class="empty">
+        <p class="t-label">Saved</p>
+        <h1 class="t-task">Nothing saved yet.</h1>
+        <p class="t-lead">Saving a piece keeps it here while you decide. It does not hold stock &mdash; a drop can close with something still on your list.</p>
+        <a class="b" href="shop.html">See the drop</a>
+      </div>
+      <p class="t-label" style="margin:0 0 16px">In the drop now</p>
+      <div class="pgrid" id="dropNow"></div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div id="site-footer"></div>
 
-  <script src="js/jquery.min.js"></script>
-  <script src="js/plugins.js"></script>
-  <script src="js/SmoothScroll.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
-  <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
   <script>
-    function escHtml(s) {
-      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
+  (function () {
+    var esc = INRL.esc;
+    var CATALOG = [];
+    var WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+    function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.classList.add('is-on'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('is-on'); }, 2200); }
+    function productFor(item) { return CATALOG.find(function (p) { return p.slug && p.slug === (item.slug || item.id); }) || null; }
 
-    function renderWishlist() {
+    function render() {
       var items = Wishlist.list();
-      var emptyEl = document.getElementById('wishlistEmpty');
-      var tableEl = document.getElementById('wishlistItems');
-      var actionsEl = document.getElementById('wishlistActions');
+      document.getElementById('full').hidden = !items.length;
+      document.getElementById('empty').hidden = !!items.length;
       if (!items.length) {
-        emptyEl.style.display = 'block';
-        tableEl.style.display = 'none';
-        actionsEl.style.display = 'none';
+        var g = document.getElementById('dropNow');
+        if (!g.dataset.done) { g.dataset.done = '1'; g.innerHTML = INRL.skeletonCards(4); INRL.fetchProducts().then(function (l) { g.innerHTML = l.slice(0, 4).map(INRL.productCardRow).join(''); }).catch(function () { g.innerHTML = ''; }); }
         return;
       }
-      emptyEl.style.display = 'none';
-      tableEl.style.display = 'block';
-      actionsEl.style.display = 'flex';
-      tableEl.innerHTML = items.map(function(item, i) {
-        var topBorder = i > 0 ? 'border-top:1px solid var(--line-200);' : '';
-        return '<div class="d-flex align-items-center gap-3 p-3" style="' + topBorder + '">'
-          + '<a href="product.html?product=' + escHtml(item.slug || item.id) + '" style="flex-shrink:0;display:block;overflow:hidden;border-radius:8px">'
-          + '<img src="' + escHtml(item.image || '') + '" alt="' + escHtml(item.name) + '" style="width:72px;height:72px;object-fit:cover;display:block">'
-          + '</a>'
-          + '<div class="flex-grow-1" style="min-width:0">'
-          + '<a href="product.html?product=' + escHtml(item.slug || item.id) + '" style="font-family:var(--font-body);font-size:14px;color:var(--ink-900);text-decoration:none;display:block;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(item.name) + '</a>'
-          + '<div style="font-size:13px;color:var(--ink-500)">$' + (+(item.price) || 0).toFixed(2) + '</div>'
-          + '</div>'
-          + '<div class="d-flex gap-2 align-items-center flex-shrink-0">'
-          + '<button data-wish-to-cart="' + escHtml(item.id) + '" class="btn btn-sm btn-primary" style="font-size:.72rem">Add to bag</button>'
-          + '<button data-wish-remove="' + escHtml(item.id) + '" style="width:32px;height:32px;border-radius:999px;background:transparent;border:1px solid var(--line-200);color:var(--ink-500);font-size:13px;line-height:1;cursor:pointer" title="Remove from wishlist">&#x2715;</button>'
-          + '</div>'
+      var n = items.length;
+      document.getElementById('count').textContent = (n < WORDS.length ? WORDS[n] : n) + ' piece' + (n === 1 ? '' : 's') + ' held. Nothing is reserved — a drop can sell out while it sits here.';
+      document.getElementById('grid').innerHTML = items.map(function (it) {
+        var p = productFor(it) || { title: it.title || it.name, slug: it.slug, price_cents: Math.round((it.price || 0) * 100), image_url: it.image, ar_target_id: it.ar ? 1 : null };
+        var sold = INRL.isSoldOut(p);
+        var href = INRL.productHref(p);
+        var img = INRL.imageUrl(p.image_url || it.image);
+        return '<div class="wl-item' + (sold ? ' pcard is-soldout' : ' pcard') + '">'
+          + '<a class="ph pcard__img" href="' + esc(href) + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '<span>Primary image</span></a>'
+          + '<div><a href="' + esc(href) + '" style="color:inherit;text-decoration:none"><p class="pcard__title">' + esc(p.title || it.name || 'Piece') + '</p></a>'
+          + '<div class="pcard__price tnum">' + (sold ? 'Sold out' : '<span class="from">From</span>' + INRL.moneyFromCents(p.price_cents, p.currency)) + '</div>' + INRL.layerTag(p) + '</div>'
+          + '<div class="wl-actions">' + (sold ? '<span class="wl-sold">Sold out</span>' : '<button type="button" class="wl-add" data-add="' + esc(it.id) + '">Add to bag</button>')
+          + '<button type="button" class="wl-rm" data-rm="' + esc(it.id) + '">Remove</button></div>'
           + '</div>';
       }).join('');
-      try { CartUI.render(); } catch(err) {}
     }
 
-    document.addEventListener('click', function(e) {
-      var removeBtn = e.target.closest('[data-wish-remove]');
-      if (removeBtn) {
-        Wishlist.remove(removeBtn.dataset.wishRemove);
-        renderWishlist();
-        return;
-      }
-      var cartBtn = e.target.closest('[data-wish-to-cart]');
-      if (cartBtn) {
-        var id = cartBtn.dataset.wishToCart;
-        var items = Wishlist.list();
-        var item = null;
-        for (var i = 0; i < items.length; i++) { if (items[i].id === id) { item = items[i]; break; } }
-        if (item) {
-          Cart.add({ id: item.id, slug: item.slug || '', name: item.name, price: item.price, image: item.image, qty: 1 });
-          Wishlist.remove(id);
-          renderWishlist();
-        }
-      }
+    document.addEventListener('click', function (e) {
+      var rm = e.target.closest('[data-rm]');
+      if (rm) { Wishlist.remove(rm.getAttribute('data-rm')); render(); toast('Removed from your saved pieces'); return; }
+      var add = e.target.closest('[data-add]');
+      if (!add) return;
+      var it = Wishlist.list().find(function (x) { return x.id === add.getAttribute('data-add'); });
+      if (!it) return;
+      var p = productFor(it);
+      var sizes = p ? INRL.parseSizes(p) : [];
+      if (sizes.length > 1) { location.href = INRL.productHref(p) ; return; } // the size is chosen on the piece's page
+      var size = sizes[0] || null;
+      var map = p ? INRL.parseVariantMap(p) : {};
+      var variant = (size && map[size]) || (p && p.printful_sync_variant_id) || null;
+      Cart.add({ id: 'sku-' + (it.slug || it.id) + (size ? '-' + size : ''), slug: it.slug || (p && p.slug) || '', size: size, name: (p && p.title || it.name || 'Piece').replace(/^No\.\s*\d+\s+/, ''), price: p ? Number(p.price_cents || 0) / 100 : Number(it.price || 0), image: it.image || '', qty: 1, ar: !!(p ? p.ar_target_id : it.ar), variantId: variant, printful_sync_variant_id: variant });
+      CartUI.render();
+      toast('Added to your bag');
     });
 
-    renderWishlist();
+    render();
+    INRL.fetchProducts().then(function (l) { CATALOG = l; render(); }).catch(function () {});
+  })();
   </script>
 </body>
 </html>

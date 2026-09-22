@@ -4,72 +4,122 @@
   <title>Checkout | INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    .co-page{background:var(--surface-2);padding-block:48px 96px}
+    @media (min-width:1024px){.co-page{padding-block:128px}}
+    .co{display:grid;gap:24px;margin-top:32px}
+    @media (min-width:1024px){.co{grid-template-columns:1fr 1fr;gap:40px;align-items:start}}
+    .co .card-x{border:0;padding:28px}
+    .co h2{font:500 20px/1.2 var(--font-body);color:var(--ink-900);margin:0 0 16px;text-transform:none;letter-spacing:0}
+    .grid2{display:grid;gap:0 16px}
+    @media (min-width:768px){.grid2{grid-template-columns:1fr 1fr}}
+    .field{margin-bottom:16px}
+    .field > label{font-weight:400;color:var(--ink-700)}
+    .co .input,.co .select{min-height:44px}
+    .co-sum .line{grid-template-columns:70px 1fr auto;padding-bottom:16px}
+    .co-sum .line + .line{border-top:0;padding-top:0}
+    .co-sum .line .stepper,.co-sum .line .line__remove{display:none}
+    .co-sum .line__img{aspect-ratio:70/88}
+    .co-sum .sumrow{font-size:14px}
+    .co-sum .sumrow--total{font-size:16px;font-weight:500}
+    .pay-note{display:flex;gap:14px;align-items:flex-start;background:var(--surface-50);border-radius:12px;padding:16px 18px;font-size:14px}
+    .pay-note svg{flex-shrink:0;margin-top:2px;color:var(--accent-700)}
+    .decl{border:1px solid var(--danger-500);background:#fbe5e5;padding:20px 24px;margin-top:24px;color:var(--ink-900)}
+    .decl .t-label{color:var(--ink-900);display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .decl .t-label::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--danger-500)}
+    .decl p{margin:0;font-size:15px}
+    .decl--soft{border-color:var(--line-100);background:var(--surface-0)}
+    .decl--soft .t-label::before{background:var(--accent-500)}
+  </style>
 </head>
-<body>
-  <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
-
+<body class="site">
   <div id="site-header" data-page="checkout"></div>
 
-  <section style="padding:132px 0 100px">
-    <div class="container">
-      <h1 class="mb-4" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:-0.02em;color:var(--ink-900);font-size:clamp(28px,4vw,40px)">Checkout</h1>
-      <div class="row g-5">
-        <div class="col-lg-7">
-          <form id="checkout-form">
-            <div style="background:var(--surface-50);border-radius:12px;padding:28px;margin-bottom:24px">
-              <h5 class="mb-3" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Billing details</h5>
-              <div class="row g-3">
-                <div class="col-md-6"><label for="firstName" class="form-label">First name</label><input type="text" class="form-control" id="firstName" required></div>
-                <div class="col-md-6"><label for="lastName" class="form-label">Last name</label><input type="text" class="form-control" id="lastName" required></div>
-                <div class="col-12"><label for="email" class="form-label">Email</label><input type="email" class="form-control" id="email" required></div>
-                <div class="col-12"><label for="address" class="form-label">Address</label><input type="text" class="form-control" id="address" required></div>
-                <div class="col-12"><label for="city" class="form-label">City</label><input type="text" class="form-control" id="city" required></div>
-                <div class="col-md-5"><label for="country" class="form-label">Country</label><select class="form-select" id="country" required><option value="">Choose</option><option>United States</option><option>United Kingdom</option><option>Canada</option><option>Australia</option></select></div>
-                <div class="col-md-4"><label for="state" class="form-label">State</label><input type="text" class="form-control" id="state" required></div>
-                <div class="col-md-3"><label for="zip" class="form-label">Zip</label><input type="text" class="form-control" id="zip" required></div>
-              </div>
-            </div>
-            <div class="d-flex align-items-center gap-2 mb-4" style="font-size:13px;color:var(--ink-500)">
-              You'll enter your card details on Stripe's secure payment page in the next step — this site never sees your card number.
-            </div>
-            <div id="order-status" class="mb-3" style="font-size:14px"></div>
-            <button type="submit" id="place-order" class="btn btn-primary btn-lg w-100">Continue to payment</button>
-          </form>
-        </div>
-        <div class="col-lg-5">
-          <div style="background:var(--surface-50);border-radius:12px;padding:28px;position:sticky;top:100px">
-            <h5 class="mb-3" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Order summary</h5>
-            <div id="cart-count" style="display:none">0</div>
-            <ul id="cart-list" class="list-group mb-3" style="background:transparent;border:none"></ul>
-            <div class="d-flex justify-content-between align-items-center pt-3" style="border-top:1px solid var(--line-200)">
-              <strong>Total</strong>
-              <strong class="fs-4" id="cart-total" style="font-family:var(--font-display)">$0.00</strong>
-            </div>
-          </div>
+  <main id="main" class="co-page">
+    <div class="wrap">
+      <h1 class="t-task">Checkout</h1>
+      <div id="coBanner"></div>
+
+      <div id="coEmpty" hidden>
+        <div class="empty" style="padding-top:32px">
+          <h2 class="t-title" style="text-transform:uppercase;font-size:32px">Your bag is empty.</h2>
+          <p class="t-lead" style="margin-top:14px">There is nothing to check out. Nothing here is reserved until it is paid for.</p>
+          <a class="b" href="shop.html">See the drop</a>
         </div>
       </div>
+
+      <form class="co" id="checkout-form" novalidate>
+        <div>
+          <section class="card-x" aria-labelledby="billTitle">
+            <h2 id="billTitle">Billing details</h2>
+            <div class="grid2">
+              <div class="field"><label for="firstName">First name</label><input class="input" id="firstName" autocomplete="given-name" required><span class="field-help" hidden>Add your first name.</span></div>
+              <div class="field"><label for="lastName">Last name</label><input class="input" id="lastName" autocomplete="family-name" required><span class="field-help" hidden>Add your last name.</span></div>
+            </div>
+            <div class="field"><label for="email">Email</label><input class="input" id="email" type="email" autocomplete="email" required><span class="field-help" hidden>We send the receipt and tracking here — check the address.</span></div>
+            <div class="field"><label for="address">Address</label><input class="input" id="address" autocomplete="street-address" required><span class="field-help" hidden>Add a street address.</span></div>
+            <div class="grid2">
+              <div class="field"><label for="city">City</label><input class="input" id="city" autocomplete="address-level2" required><span class="field-help" hidden>Add a city.</span></div>
+              <div class="field"><label for="country">Country</label>
+                <select class="select" id="country" autocomplete="country" required>
+                  <option value="">Choose</option>
+                  <option value="PH">Philippines</option>
+                  <option value="AT">Austria</option>
+                  <option value="AU">Australia</option>
+                  <option value="CA">Canada</option>
+                  <option value="FR">France</option>
+                  <option value="DE">Germany</option>
+                  <option value="IT">Italy</option>
+                  <option value="JP">Japan</option>
+                  <option value="NL">Netherlands</option>
+                  <option value="NZ">New Zealand</option>
+                  <option value="ES">Spain</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="US">United States</option>
+                </select><span class="field-help" hidden>Choose where it ships.</span></div>
+            </div>
+            <div class="grid2">
+              <div class="field"><label for="state">State / Region</label><input class="input" id="state" autocomplete="address-level1"></div>
+              <div class="field"><label for="zip">ZIP</label><input class="input tnum" id="zip" autocomplete="postal-code" required><span class="field-help" hidden>Add a postcode.</span></div>
+            </div>
+          </section>
+
+          <section class="card-x" style="margin-top:24px" aria-labelledby="payTitle">
+            <h2 id="payTitle">Payment</h2>
+            <div class="pay-note">
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="3" y="8" width="12" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 8V5.5a3 3 0 0 1 6 0V8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+              <p style="margin:0">You enter your card on Stripe&rsquo;s secure page after <strong style="font-weight:500">Place order</strong>. We never see or store the number, and nothing is charged until you confirm there.</p>
+            </div>
+          </section>
+        </div>
+
+        <div>
+          <section class="card-x co-sum" aria-labelledby="sumTitle">
+            <h2 id="sumTitle">Order summary</h2>
+            <div data-bag-lines></div>
+            <div style="border-top:1px solid var(--line-100);padding-top:14px;margin-top:4px">
+              <div class="sumrow"><span>Subtotal</span><span class="price js-cart-total">$0.00</span></div>
+              <div class="sumrow sumrow--total" style="border:0;margin:0;padding-top:10px"><span>Total</span><span class="price js-cart-total">$0.00</span></div>
+            </div>
+          </section>
+          <button class="b b--block" type="submit" id="place-order" style="margin-top:16px">Place order</button>
+          <p class="t-small" id="order-status" role="status" aria-live="polite" style="margin:14px 0 0">Your bag is saved. Nothing is charged until you place the order.</p>
+        </div>
+      </form>
     </div>
-  </section>
+  </main>
 
   <div id="site-footer"></div>
 
-  <script src="js/jquery.min.js"></script>
-  <script src="js/plugins.js"></script>
-  <script src="js/SmoothScroll.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
-  <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
-  <script src="js/checkout.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
-  <script>
-  CartUI.render();
-  </script>
+  <script src="js/checkout.js"></script>
 </body>
 </html>

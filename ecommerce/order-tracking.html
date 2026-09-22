@@ -1,406 +1,238 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <title>Track your order | INRL</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Order Tracking | INRL</title>
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="description" content="Track your INRL order status.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Track an INRL order with the order number from your confirmation email.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
-  <script src="/assets/js/auth-worker.js?v=20260206"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
+  <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <style>
-    .track-input{width:100%;background:var(--surface-0);border:1px solid var(--line-200);color:var(--ink-900);padding:12px 14px;font-family:var(--font-body);font-size:14px;border-radius:10px;outline:none;transition:border-color .15s}
-    .track-input:focus{border-color:var(--accent-500);box-shadow:0 0 0 3px rgba(18,162,184,.12)}
-    .track-card{border:1px solid var(--line-200);border-radius:12px;padding:40px 36px;margin-bottom:32px}
+    .tr-head{padding-block:48px 40px;border-bottom:1px solid var(--line-100)}
+    @media (min-width:1024px){.tr-head{padding-block:136px 96px}}
+    .tr-head .t-page{margin:14px 0 28px}
+    .tr-body{display:grid;gap:40px;padding-block:40px 72px}
+    @media (min-width:1024px){.tr-body{grid-template-columns:520px 1fr;gap:80px;padding-block:80px 128px}}
+    .field > label{font-weight:400;color:var(--ink-700)}
+    .steps{list-style:none;margin:0;padding:0}
+    .steps li{display:grid;grid-template-columns:12px 1fr auto;gap:16px;align-items:center;padding:18px 0;border-bottom:1px solid var(--line-100);font-size:16px;color:var(--ink-900)}
+    .steps li:first-child{padding-top:6px}
+    .steps li:last-child{border-bottom:0}
+    .steps i{width:9px;height:9px;border-radius:50%;background:var(--accent-500)}
+    .steps li.is-wait{color:var(--ink-500)}
+    .steps li.is-wait i{background:var(--surface-4)}
+    .steps li.is-bad i{background:var(--danger-500)}
+    .steps .when{font-size:13px;color:var(--ink-500)}
+    .steps a{color:var(--accent-700);font-weight:500}
+    .ord-items{margin-top:24px;border-top:1px solid var(--line-100)}
+    .ord-items .rline{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line-100);font-size:14px;color:var(--ink-900)}
+    .ord-items .ph{width:44px;height:54px;font-size:8px;background:var(--surface-3)}
+    .reg-band{background:var(--dark-800);color:var(--paper-300);padding-block:56px}
+    @media (min-width:1024px){.reg-band{padding-block:72px}}
+    .reg-band .t-label{color:var(--accent-400)}
+    .reg-band h2{color:var(--paper-100);font-size:40px;margin:12px 0 16px}
+    .reg-band p{max-width:520px;margin:0}
+    .nf-code{display:flex;justify-content:space-between;align-items:center;max-width:600px;border:1px solid var(--danger-500);background:#fbe5e5;border-radius:8px;padding:14px 18px;margin:24px 0}
+    .nf-code span{font:500 20px/1 var(--font-body);letter-spacing:.04em;color:var(--ink-900)}
+    .nf-tips{display:grid;gap:16px;margin-top:56px}
+    @media (min-width:1024px){.nf-tips{grid-template-columns:repeat(3,1fr);gap:24px}}
+    .nf-tips > div{border:1px solid var(--line-100);padding:20px}
+    .nf-tips p{font-size:14px;margin:6px 0 0}
+    .mine{display:grid;gap:12px}
+    .mine a{display:flex;justify-content:space-between;gap:16px;border:1px solid var(--line-100);padding:14px 18px;color:var(--ink-900);text-decoration:none;font-size:14px}
+    .mine a:hover{border-color:var(--ink-900)}
   </style>
 </head>
-<body>
+<body class="site">
+  <div id="site-header" data-page="account"></div>
 
-  <div id="site-header" data-page="track"></div>
-
-  <!-- PAGE HERO -->
-  <section style="background:var(--surface-0);padding:140px 0 40px">
-    <div class="container">
-      <div class="section-eyebrow" style="color:var(--ink-500);margin-bottom:14px">After your purchase</div>
-      <h1 style="font-family:var(--font-display);font-size:clamp(36px,5.5vw,68px);line-height:.95;letter-spacing:-0.03em;color:var(--ink-900);text-transform:uppercase">Order tracking</h1>
-    </div>
-  </section>
-
-  <!-- TRACKING CONTENT -->
-  <section style="background:var(--surface-0);padding:24px 0 100px">
-    <div class="container" style="max-width:680px">
-
-      <div id="myOrdersSection" style="display:none" class="track-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:20px">
-          <div class="eyebrow" style="color:var(--accent-700)">Your orders</div>
-          <a href="#" id="showTrackForm" style="font-size:12px;color:var(--ink-500);text-decoration:none">Look up a different order &rarr;</a>
-        </div>
-        <div id="myOrdersList"></div>
-      </div>
-
-      <div id="manualLookupCard" class="track-card">
-        <div class="eyebrow mb-3">Check order status</div>
-        <p id="lookupIntro" style="font-size:14px;line-height:1.8;color:var(--ink-500);margin-bottom:24px">Enter your order ID and the email you used at checkout to see what you ordered and its current status.</p>
-        <div id="trackForm">
-          <div class="mb-3">
-            <label for="orderIdInput" class="form-label">Order ID</label>
-            <input id="orderIdInput" type="text" class="track-input" placeholder="e.g. ord_…">
+  <main id="main">
+    <!-- LOOKUP / RESULT -->
+    <div id="vTrack">
+      <section class="wrap tr-head">
+        <p class="t-label t-label--teal" id="trKicker">Track an order</p>
+        <h1 class="t-page" id="trTitle">Where it is.</h1>
+        <p class="t-lead" style="color:var(--ink-500);margin:0">Made to order, so the first few days are the factory, not the post.</p>
+      </section>
+      <section class="wrap tr-body">
+        <div>
+          <form id="trackForm" novalidate>
+            <div class="field"><label for="orderIdInput">Order number</label><input class="input tnum" id="orderIdInput" autocomplete="off" spellcheck="false" required><span class="field-help" data-err hidden>Enter the order number.</span></div>
+            <div class="field"><label for="orderEmailInput">Email used at checkout</label><input class="input" type="email" id="orderEmailInput" autocomplete="email" required><span class="field-help" data-err hidden>Enter the email the receipt went to.</span></div>
+            <button class="b b--block" type="submit" id="trackBtn">Look up order</button>
+            <p class="t-small" style="margin:12px 0 0">It is in your confirmation email. No account needed.</p>
+            <p class="auth__status" id="status" role="status" aria-live="polite"></p>
+          </form>
+          <div id="mineWrap" hidden style="margin-top:48px">
+            <p class="t-label" style="margin-bottom:12px">Your orders</p>
+            <div class="mine" id="mine"></div>
           </div>
-          <div class="mb-3">
-            <label for="orderEmailInput" class="form-label">Email used at checkout</label>
-            <input id="orderEmailInput" type="email" class="track-input" placeholder="you@example.com">
-          </div>
-          <button onclick="submitTrack()" class="btn btn-primary">Look up order</button>
         </div>
-        <div id="trackResult" style="display:none;margin-top:24px"></div>
-      </div>
-
-      <div class="track-card mb-0">
-        <div class="eyebrow mb-3">Need help?</div>
-        <p style="font-size:14px;line-height:1.8;color:var(--ink-500);margin-bottom:20px">Can&rsquo;t find your order or have a question about your shipment? Our team is here to help.</p>
-        <div class="d-flex gap-3 flex-wrap">
-          <a href="contact.html" class="btn btn-outline-dark">Contact support</a>
-          <a href="faqs.html" class="btn btn-outline-dark">View FAQs</a>
-          <a href="shop.html" class="btn btn-primary">Back to shop</a>
+        <div id="result" aria-live="polite">
+          <ol class="steps" id="steps"></ol>
         </div>
-      </div>
-
+      </section>
+      <section class="reg-band">
+        <div class="wrap">
+          <p class="t-label">When it arrives</p>
+          <h2 class="t-section">Register it.</h2>
+          <p>Scan the tag inside the collar and the piece appears in your wardrobe. Then you choose what it plays.</p>
+        </div>
+      </section>
     </div>
-  </section>
+
+    <!-- NOT FOUND -->
+    <section class="wrap wrap--focus" id="vNotFound" hidden style="padding-block:56px 96px">
+      <p class="t-label">Track an order</p>
+      <h1 class="t-task" style="margin-top:12px">No order with that number.</h1>
+      <div class="nf-code"><span id="nfCode" class="tnum"></span><span class="t-label" style="color:var(--ink-900)">Not found</span></div>
+      <p class="t-lead" style="max-width:620px;font-size:16px">Order numbers appear in the confirmation email, not in the shipping notice. Check the email address too &mdash; it has to be the one the receipt went to. If you checked out as a guest there is no account to look in; the email is the only copy.</p>
+      <div class="b-row b-row--stack" style="margin-top:28px"><button class="b" type="button" id="tryAgain">Try another number</button><a class="b b--ghost" id="emailUs" href="mailto:contact@inrl.co?subject=Finding%20my%20order">Email us instead</a></div>
+      <div class="nf-tips">
+        <div><span class="t-label t-label--teal">Check the email</span><p>Search your inbox for &ldquo;INRL order&rdquo;. The number is on the first line.</p></div>
+        <div><span class="t-label t-label--teal">Ordered recently?</span><p>It can take a few minutes after payment before an order is searchable.</p></div>
+        <div><span class="t-label t-label--teal">Have an account?</span><p><a class="t-link--teal" href="login.html?next=order-tracking.html">Sign in</a> and every order is listed &mdash; no number needed.</p></div>
+      </div>
+    </section>
+  </main>
 
   <div id="site-footer"></div>
 
-  <script src="js/jquery.min.js"></script>
-  <script src="js/plugins.js"></script>
-  <script src="js/SmoothScroll.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
-  <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
+  <script src="js/auth-forms.js"></script>
   <script>
-    var _trackLookupActive = false;
+  (function () {
+    var esc = INRL.esc;
+    var idIn = document.getElementById('orderIdInput'), emIn = document.getElementById('orderEmailInput');
+    var busy = false;
 
-    const STATUS_LABELS = {
-      pending:   { label: 'Pending',    color: 'var(--ink-500)' },
-      draft:     { label: 'Draft',      color: 'var(--ink-500)' },
-      confirmed: { label: 'Confirmed',  color: 'var(--accent-700)' },
-      inprocess: { label: 'In Process', color: 'var(--accent-700)' },
-      partial:   { label: 'Partial',    color: 'var(--warn-500)' },
-      fulfilled: { label: 'Fulfilled',  color: 'var(--accent-700)' },
-      shipped:   { label: 'Shipped',    color: 'var(--accent-700)' },
-      returned:  { label: 'Returned',   color: 'var(--danger-500)' },
-      cancelled: { label: 'Cancelled',  color: 'var(--danger-500)' },
-      failed:    { label: 'Failed',     color: 'var(--danger-500)' },
-      error:     { label: 'Error',      color: 'var(--danger-500)' },
-    };
+    function when(iso) { if (!iso) return ''; try { return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)).replace(' at', ','); } catch (e) { return ''; } }
+    function shortId(id) { return String(id || '').toUpperCase(); }
 
-    function escHtml(s) {
-      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    /* Order placed → Sent to Printful → In production → Shipped → Delivered */
+    function stage(o) {
+      var s = String(o.printful_status || '').toLowerCase();
+      if (o.payment_status && o.payment_status !== 'paid') return 0;
+      if (s === 'delivered') return 5;
+      if (s === 'shipped' || s === 'fulfilled' || o.tracking_number || o.tracking_url) return 4;
+      if (s === 'inprocess' || s === 'partial') return 3;
+      if (s === 'pending' || s === 'confirmed' || s === 'draft' || o.printful_order_id) return 2;
+      return 1;
     }
-
-    function formatMoney(cents, currency) {
-      const v = Number(cents || 0) / 100;
-      try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' }).format(v); }
-      catch { return '$' + v.toFixed(2); }
-    }
-
-    // AR controls for one eligible line item — a QR/link that's live the moment the order
-    // exists (it always resolves to something: the customer's own video once uploaded, the
-    // product's default video until then), plus an upload/edit affordance. Only rendered
-    // when enableAr is set (the logged-in "Your Orders" list, not the guest lookup, since
-    // uploading requires a real session).
-    function renderArControls(item, orderId, idx) {
-      if (!item.ar_eligible) return '';
-      const viewerUrl = location.origin + '/index.html?order=' + encodeURIComponent(orderId) + '&item=' + idx;
-      const hasVideo = !!item.ar_video_url;
-      const safeOrderId = escHtml(orderId);
-      const statusId = 'ar-status-' + safeOrderId + '-' + idx;
-      const labelId = 'ar-label-' + safeOrderId + '-' + idx;
-      const canvasId = 'ar-qr-' + safeOrderId + '-' + idx;
-      return `
-        <div style="margin-top:10px;padding:14px 16px;border-radius:10px;background:rgba(18,162,184,.06)">
-          <div class="eyebrow" style="margin-bottom:8px">AR video &mdash; attach this to your shirt</div>
-          <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
-            <canvas id="${canvasId}" data-ar-qr-url="${escHtml(viewerUrl)}" width="96" height="96" style="background:#fff;flex-shrink:0;border-radius:6px"></canvas>
-            <div style="flex:1;min-width:180px">
-              <div id="${statusId}" style="font-size:12px;color:var(--ink-700);margin-bottom:8px">${hasVideo ? 'Your personal video is live.' : 'Showing the default product video &mdash; upload yours to personalize it.'}</div>
-              <div style="font-size:11px;color:var(--ink-500);word-break:break-all;margin-bottom:10px">${escHtml(viewerUrl)}</div>
-              <label class="btn btn-sm btn-outline-dark" style="font-size:.72rem">
-                <span id="${labelId}">${hasVideo ? 'Edit AR video' : 'Upload AR video'}</span>
-                <input type="file" accept="video/*" style="display:none" onchange="uploadArVideo('${safeOrderId}', ${idx}, this, '${statusId}', '${labelId}')">
-              </label>
-            </div>
-          </div>
-        </div>`;
-    }
-
-    async function uploadArVideo(orderId, itemIndex, inputEl, statusElId, labelElId) {
-      const statusEl = document.getElementById(statusElId);
-      const labelEl = document.getElementById(labelElId);
-      const file = inputEl.files && inputEl.files[0];
-      if (!file) return;
-      if (statusEl) statusEl.textContent = 'Uploading…';
-      try {
-        const form = new FormData();
-        form.append('file', file);
-        const res = await fetch('/api/orders/' + encodeURIComponent(orderId) + '/items/' + itemIndex + '/ar-video', {
-          method: 'POST',
-          credentials: 'include',
-          body: form,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
-        if (statusEl) statusEl.textContent = 'Your personal video is live.';
-        if (labelEl) labelEl.textContent = 'Edit AR video';
-      } catch (e) {
-        if (statusEl) statusEl.textContent = 'Upload failed: ' + (e.message || String(e));
-      } finally {
-        inputEl.value = '';
-      }
-    }
-
-    // Draws the QR codes for every AR-eligible item just inserted into the DOM — the QR
-    // library needs a real <canvas> element to draw into, so this runs as a follow-up pass
-    // after buildOrderCardHtml's returned HTML has actually been set via innerHTML.
-    function renderArQrCodes(container) {
-      if (!window.QRCode || !container) return;
-      container.querySelectorAll('canvas[data-ar-qr-url]').forEach(function(canvas) {
-        var url = canvas.getAttribute('data-ar-qr-url');
-        QRCode.toCanvas(canvas, url, { width: 96, margin: 2, color: { dark: '#0b0f10', light: '#ffffff' } }, function(err) {
-          if (err) console.warn('AR QR render failed', err);
-        });
-      });
-    }
-
-    function renderOrderItems(items, currency, orderId, enableAr) {
-      if (!Array.isArray(items) || !items.length) return '';
-      const rows = items.map(function(it, idx) {
-        const img = it.image_url
-          ? `<img src="${escHtml(it.image_url)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0">`
-          : `<div style="width:40px;height:40px;background:var(--line-100);border-radius:6px;flex-shrink:0"></div>`;
-        const arHtml = enableAr ? renderArControls(it, orderId, it.item_index != null ? it.item_index : idx) : '';
-        return `
-          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line-200)">
-            ${img}
-            <div style="flex:1;font-size:13px;color:var(--ink-900)">${escHtml(it.name || '')}<div style="font-size:11px;color:var(--ink-500)">Qty: ${escHtml(it.qty || 1)}</div></div>
-            <div style="font-size:13px;color:var(--ink-700)">${escHtml(formatMoney((it.price_cents || 0) * (it.qty || 1), currency))}</div>
-          </div>
-          ${arHtml}`;
+    function renderSteps(o) {
+      var st = stage(o);
+      var bad = /cancel|fail|error|returned/.test(String(o.printful_status || o.status || '').toLowerCase());
+      var rows = [
+        ['Order placed', o.created_at ? when(o.created_at) : ''],
+        ['Sent to Printful', ''],
+        ['In production', ''],
+        ['Shipped', o.tracking_url ? '<a href="' + esc(o.tracking_url) + '" target="_blank" rel="noopener">' + (o.tracking_number ? esc(o.tracking_number) : 'Track the parcel') + ' &rarr;</a>' : (o.tracking_number ? esc(o.tracking_number) : '')],
+        ['Delivered', '']
+      ];
+      var html = rows.map(function (r, i) {
+        var done = st >= i + 1;
+        return '<li class="' + (done ? '' : 'is-wait') + '"><i></i><span>' + r[0] + '</span><span class="when tnum">' + (done ? (r[1] || 'Done') : '—') + '</span></li>';
       }).join('');
-      return `<div style="margin-top:16px">${rows}</div>`;
-    }
-
-    // Shared order-card renderer — used both for a single manual lookup result and for
-    // the "Your Orders" list (which can show several).
-    function buildOrderCardHtml(order, headerLabel, enableAr) {
-      const pfStatus = (order.printful_status || 'pending').toLowerCase();
-      const statusInfo = STATUS_LABELS[pfStatus] || { label: pfStatus, color: 'var(--ink-500)' };
-
-      let trackingHtml = '';
-      if (order.tracking_url) {
-        trackingHtml = `
-          <div style="margin-top:16px;padding:14px 16px;border-radius:10px;background:rgba(18,162,184,.06)">
-            <div class="eyebrow" style="margin-bottom:6px">Tracking</div>
-            ${order.carrier ? `<div style="font-size:12px;color:var(--ink-500);margin-bottom:6px">${escHtml(order.carrier)}</div>` : ''}
-            <a href="${escHtml(order.tracking_url)}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">Track package &rarr;</a>
-            ${order.tracking_number ? `
-            <button onclick="navigator.clipboard && navigator.clipboard.writeText('${escHtml(order.tracking_number)}').then(()=>this.textContent='Copied!').catch(()=>{})" class="btn btn-sm btn-outline-dark ms-2">Copy #</button>` : ''}
-          </div>`;
-      } else if (order.tracking_number) {
-        trackingHtml = `
-          <div style="margin-top:16px;padding:14px 16px;border-radius:10px;border:1px solid var(--line-200)">
-            <div class="eyebrow" style="margin-bottom:6px">Tracking number</div>
-            <div style="font-size:13px;color:var(--ink-900)">${escHtml(order.tracking_number)}</div>
-          </div>`;
+      if (bad) html += '<li class="is-bad"><i></i><span>' + esc(String(o.printful_status || o.status)).replace(/^./, function (c) { return c.toUpperCase(); }) + '</span><span class="when"><a href="mailto:contact@inrl.co?subject=Order%20' + esc(shortId(o.id)) + '">Contact us</a></span></li>';
+      if (st === 0) html = '<li class="is-bad"><i></i><span>Waiting for payment</span><span class="when"><button class="b b--sm" type="button" data-resume="' + esc(o.id) + '">Complete payment</button></span></li>' + html;
+      document.getElementById('steps').innerHTML = html;
+      var items = o.items || [];
+      if (items.length) {
+        document.getElementById('steps').insertAdjacentHTML('afterend', '<div class="ord-items" id="ordItems">' + items.map(function (it) {
+          return '<div class="rline"><div class="ph">' + (it.image_url ? '<img src="' + esc(it.image_url) + '" alt="" onerror="this.remove()">' : '') + '</div><div>' + esc(it.name || '') + '<div class="t-small">Qty ' + (it.qty || 1) + '</div></div><div class="price">' + INRL.moneyFromCents((it.price_cents || 0) * (it.qty || 1), o.currency) + '</div></div>';
+        }).join('') + '</div>');
       }
-
-      const nameSuffix = (order.first_name || order.last_name)
-        ? ` &mdash; ${escHtml(order.first_name || '')} ${escHtml(order.last_name || '')}`
-        : '';
-
-      const isCancelled = pfStatus === 'cancelled' || order.status === 'cancelled' || order.status === 'canceled';
-      const needsPayment = !isCancelled && order.payment_status && order.payment_status !== 'paid';
-      const paymentHtml = needsPayment ? `
-        <div style="margin-top:16px;padding:14px 16px;border-radius:10px;background:rgba(193,122,46,.08)">
-          <div style="font-size:12px;color:var(--ink-700);margin-bottom:10px">Payment wasn't completed for this order &mdash; it hasn't been sent to production yet.</div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button onclick="resumePayment('${escHtml(order.id)}', this)" class="btn btn-sm btn-primary">Complete payment</button>
-            <button onclick="cancelOrder('${escHtml(order.id)}', this)" class="btn btn-sm btn-outline-dark" style="border-color:var(--danger-500);color:var(--danger-500)">Cancel order</button>
-          </div>
-        </div>` : '';
-
-      return `
-        <div style="padding:24px;border-radius:12px;background:var(--surface-50)">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-            <div class="eyebrow" style="color:var(--accent-700)">${escHtml(headerLabel || 'Order found')}</div>
-            <div class="ar-layer-tag" style="color:${statusInfo.color}">${escHtml(statusInfo.label)}</div>
-          </div>
-          <p style="font-size:13px;line-height:1.7;color:var(--ink-700);margin:0 0 6px">
-            Order <strong style="color:var(--ink-900)">${escHtml(order.id)}</strong>${nameSuffix}
-            ${order.created_at ? `&mdash; placed ${escHtml(String(order.created_at).slice(0,10))}` : ''}
-          </p>
-          ${order.shipped_at ? `<p style="font-size:12px;color:var(--ink-500);margin:0">Shipped: ${escHtml(order.shipped_at.slice(0,10))}</p>` : ''}
-          ${paymentHtml}
-          ${!needsPayment ? trackingHtml : ''}
-          ${!needsPayment && !order.tracking_url && !order.tracking_number && pfStatus !== 'shipped' ? `<p style="font-size:12px;color:var(--ink-500);margin:6px 0 0">Tracking will appear here once your order ships. Questions? <a href="mailto:contact@inrl.co" style="color:var(--accent-700)">contact@inrl.co</a></p>` : ''}
-          ${renderOrderItems(order.items, order.currency, order.id, enableAr)}
-          ${Number.isFinite(order.total_cents) ? `
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:10px;border-top:1px solid var(--line-200)">
-            <span class="eyebrow">Total</span>
-            <strong style="font-size:15px;color:var(--ink-900);font-family:var(--font-display)">${escHtml(formatMoney(order.total_cents, order.currency))}</strong>
-          </div>` : ''}
-        </div>`;
+      document.getElementById('trKicker').textContent = 'Order ' + shortId(o.id);
     }
+    function emptySteps() {
+      document.getElementById('steps').innerHTML = ['Order placed', 'Sent to Printful', 'In production', 'Shipped', 'Delivered'].map(function (t) {
+        return '<li class="is-wait"><i></i><span>' + t + '</span><span class="when">—</span></li>';
+      }).join('');
+    }
+    emptySteps();
 
-    async function resumePayment(orderId, btn) {
-      if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+    async function lookup() {
+      if (busy) return;
+      var id = idIn.value.trim(), email = emIn.value.trim();
+      var ok = AuthForms.check(idIn, !!id);
+      ok = AuthForms.check(emIn, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) && ok;
+      if (!ok) return;
+      busy = true;
+      var btn = document.getElementById('trackBtn'); btn.disabled = true; btn.textContent = 'Looking it up…';
+      AuthForms.status('', '');
+      var old = document.getElementById('ordItems'); if (old) old.remove();
       try {
-        const emailInput = document.getElementById('orderEmailInput');
-        const email = emailInput ? (emailInput.value || '').trim() : '';
-        const res = await fetch('/api/orders/' + encodeURIComponent(orderId) + '/resume-payment', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email, site_url: location.origin }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.checkout_url) throw new Error(data.error || 'Could not resume payment');
-        location.href = data.checkout_url;
-      } catch (e) {
-        alert(e.message || String(e));
-        if (btn) { btn.disabled = false; btn.textContent = 'Complete payment'; }
-      }
-    }
-
-    async function cancelOrder(orderId, btn) {
-      if (!confirm('Cancel this order? This cannot be undone.')) return;
-      if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
-      try {
-        const emailInput = document.getElementById('orderEmailInput');
-        const email = emailInput ? (emailInput.value || '').trim() : '';
-        const res = await fetch('/api/orders/' + encodeURIComponent(orderId) + '/cancel', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.error || 'Could not cancel order');
-        location.reload();
-      } catch (e) {
-        alert(e.message || String(e));
-        if (btn) { btn.disabled = false; btn.textContent = 'Cancel order'; }
-      }
-    }
-
-    function renderTrackResult(order) {
-      const resultEl = document.getElementById('trackResult');
-      if (!resultEl) return;
-      resultEl.innerHTML = buildOrderCardHtml(order, 'Order found');
-      resultEl.style.display = 'block';
-    }
-
-    async function loadMyOrders() {
-      const sectionEl = document.getElementById('myOrdersSection');
-      const listEl = document.getElementById('myOrdersList');
-      const introEl = document.getElementById('lookupIntro');
-      const manualFormEl = document.getElementById('manualLookupCard');
-      if (!sectionEl || !listEl) return;
-
-      try {
-        const res = await fetch('/api/orders/mine', { credentials: 'include' });
-        if (!res.ok) return; // not signed in or nothing to show — leave manual lookup as the primary path
-        const data = await res.json();
-        const orders = Array.isArray(data.items) ? data.items : [];
-        if (!orders.length) {
-          listEl.innerHTML = '<p style="font-size:13px;color:var(--ink-500)">No orders on your account yet.</p>';
-          // No orders — keep manual form visible, show "Your Orders" section with empty state
-          sectionEl.style.display = '';
-          if (introEl) introEl.textContent = 'Looking up a different order (placed as a guest, or under another email)? Use the form below.';
-        } else {
-          listEl.innerHTML = orders.map(function(o) {
-            return '<div style="margin-bottom:16px">' + buildOrderCardHtml(o, 'Order ' + (o.id || ''), true) + '</div>';
-          }).join('');
-          renderArQrCodes(listEl);
-          // Has orders — show "Your Orders" section, HIDE manual form
-          sectionEl.style.display = '';
-          if (manualFormEl) manualFormEl.style.display = 'none';
-          if (introEl) introEl.textContent = 'Looking up a different order (placed as a guest, or under another email)? Use the form below.';
-        }
-      } catch (e) {}
-    }
-
-    // Toggle to show manual lookup form again
-    document.getElementById('showTrackForm')?.addEventListener('click', function(e) {
-      e.preventDefault();
-      const manualFormEl = document.getElementById('manualLookupCard');
-      if (manualFormEl) manualFormEl.style.display = '';
-      // Also make sure "Your Orders" section stays visible (user might want to reference it)
-    });
-
-    async function submitTrack() {
-      if (_trackLookupActive) return;
-      const id = (document.getElementById('orderIdInput').value || '').trim();
-      const email = (document.getElementById('orderEmailInput').value || '').trim();
-      if (!id || !email) {
-        const resultEl = document.getElementById('trackResult');
-        resultEl.innerHTML = '<div style="font-size:13px;color:var(--danger-500);padding:12px 0">Enter both your order ID and the email used at checkout.</div>';
-        resultEl.style.display = 'block';
-        return;
-      }
-
-      const resultEl = document.getElementById('trackResult');
-      resultEl.innerHTML = '<div style="font-size:13px;color:var(--ink-500);padding:12px 0">Looking up order…</div>';
-      resultEl.style.display = 'block';
-      _trackLookupActive = true;
-
-      try {
-        const res = await fetch(`/api/orders/${encodeURIComponent(id)}/track?email=${encodeURIComponent(email)}`);
+        var res = await fetch('/api/orders/' + encodeURIComponent(id) + '/track?email=' + encodeURIComponent(email));
         if (res.status === 404) {
-          resultEl.innerHTML = '<div style="font-size:13px;color:var(--danger-500);padding:12px 0">No order found for that ID and email. Double-check both and try again.</div>';
+          document.getElementById('vTrack').hidden = true;
+          document.getElementById('vNotFound').hidden = false;
+          document.getElementById('nfCode').textContent = shortId(id);
+          document.getElementById('emailUs').href = 'mailto:contact@inrl.co?subject=' + encodeURIComponent('Finding my order ' + id) + '&body=' + encodeURIComponent('I ordered with ' + email + ' and cannot find my order number ' + id + '.');
+          window.scrollTo(0, 0);
           return;
         }
-        if (!res.ok) throw new Error(`Server error ${res.status}`);
-        const data = await res.json();
-        renderTrackResult(data.order);
+        if (!res.ok) throw new Error('server error ' + res.status);
+        renderSteps(((await res.json()) || {}).order || {});
+        var u = new URL(location.href); u.searchParams.set('order', id); u.searchParams.delete('email'); history.replaceState(null, '', u);
       } catch (e) {
-        resultEl.innerHTML = `<div style="font-size:13px;color:var(--danger-500);padding:12px 0">Lookup failed: ${escHtml(e.message)}</div>`;
+        AuthForms.status('The lookup failed (' + e.message + '). Try again in a moment.', 'error');
       } finally {
-        _trackLookupActive = false;
+        busy = false; btn.disabled = false; btn.textContent = 'Look up order';
       }
     }
-
-    document.getElementById('orderIdInput').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') submitTrack();
-    });
-    document.getElementById('orderEmailInput').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') submitTrack();
+    document.getElementById('trackForm').addEventListener('submit', function (e) { e.preventDefault(); lookup(); });
+    document.getElementById('tryAgain').addEventListener('click', function () {
+      document.getElementById('vNotFound').hidden = true; document.getElementById('vTrack').hidden = false;
+      idIn.value = ''; idIn.focus();
     });
 
-    // Pre-fill from query params ?order=ord_xxx&email=you@example.com
-    (function(){
-      var qs = new URLSearchParams(location.search);
-      var orderId = qs.get('order') || qs.get('id');
-      var email = qs.get('email');
-      if (orderId) document.getElementById('orderIdInput').value = orderId;
-      if (email) document.getElementById('orderEmailInput').value = email;
-      if (orderId && email) {
-        submitTrack();
-      }
-    })();
-
-    // Login/logout/dashboard nav links and cart count are handled by include.js
-    // once the shared header is injected; this page just needs to know when auth
-    // state is known so it can load the signed-in user's own orders.
-    document.addEventListener('auth:ready', function (e) {
-      if (e.detail && e.detail.user) loadMyOrders();
+    document.addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-resume]'); if (!b) return;
+      b.disabled = true; b.textContent = 'Opening payment…';
+      try {
+        var res = await fetch('/api/orders/' + encodeURIComponent(b.getAttribute('data-resume')) + '/resume-payment', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: emIn.value.trim(), site_url: location.origin }) });
+        var d = await res.json().catch(function () { return {}; });
+        if (!res.ok || !d.checkout_url) throw new Error(d.error || 'Could not reopen payment');
+        location.href = d.checkout_url;
+      } catch (err) { AuthForms.status(err.message, 'error'); b.disabled = false; b.textContent = 'Complete payment'; }
     });
+
+    var qs = new URLSearchParams(location.search);
+    if (qs.get('order') || qs.get('id')) idIn.value = qs.get('order') || qs.get('id');
+    if (qs.get('email')) emIn.value = qs.get('email');
+    if (idIn.value && emIn.value) lookup();
+
+    /* Signed in: list the account's orders; picking one shows its timeline. */
+    document.addEventListener('auth:ready', async function (e) {
+      var user = e.detail && e.detail.user;
+      if (!user) return;
+      if (!emIn.value) emIn.value = user.email || '';
+      try {
+        var res = await fetch('/api/orders/mine', { credentials: 'include' });
+        if (!res.ok) return;
+        var orders = ((await res.json()) || {}).items || [];
+        if (!orders.length) return;
+        document.getElementById('mineWrap').hidden = false;
+        document.getElementById('mine').innerHTML = orders.map(function (o, i) {
+          return '<a href="#" data-mine="' + i + '"><span>Order <span class="tnum">' + esc(shortId(o.id)) + '</span><span class="t-small" style="display:block">' + esc(when(o.created_at)) + '</span></span><span class="price">' + INRL.moneyFromCents(o.total_cents, o.currency) + '</span></a>';
+        }).join('');
+        document.querySelectorAll('[data-mine]').forEach(function (a) {
+          a.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            var old = document.getElementById('ordItems'); if (old) old.remove();
+            var o = orders[Number(a.getAttribute('data-mine'))];
+            idIn.value = o.id; renderSteps(o);
+          });
+        });
+        if (!idIn.value) { idIn.value = orders[0].id; renderSteps(orders[0]); }
+      } catch (err) {}
+    });
+  })();
   </script>
 </body>
 </html>

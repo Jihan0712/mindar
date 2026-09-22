@@ -209,6 +209,47 @@
     .dash-bar-col.today:hover .dash-bar { background:var(--accent-700); }
     .dash-bar-day { font-size:.58rem; color:var(--ink-500); font-weight:500; text-transform:uppercase; }
     .dash-bar-col.today .dash-bar-day { color:var(--accent-700); }
+
+    /* ===== FINAL console layer (Figma "INRL — FINAL", F8 · Run the shop) =====
+       240 rail + fluid content on surface-2; tiles radius 12; rail items full-bleed
+       with a teal left bar; below 1024 the console asks for a larger screen. */
+    body { background:var(--surface-2); }
+    .inrl-sidebar { flex-basis:240px; width:240px; border-right:0; }
+    .inrl-sidebar-header { border-bottom:0; padding:28px 20px 24px; }
+    .inrl-sidebar-header img.inrl-brand-logo { height:24px; }
+    .inrl-sidebar-header .inrl-subtitle { color:var(--accent-500); font-size:10px; letter-spacing:.1em; }
+    .inrl-sidebar-nav { padding:0; gap:0; }
+    .inrl-sidebar-nav .inrl-nav-group-label { padding:18px 20px 8px; margin:0; font-size:10px; }
+    .inrl-sidebar-nav .nav-link { border-radius:0; padding:10px 20px 10px 17px; border-left:3px solid transparent !important; font-size:14px; gap:12px; }
+    .inrl-sidebar-nav .nav-link .inrl-nav-icon { width:22px; height:22px; stroke-width:1.4; opacity:.9; }
+    .inrl-sidebar-nav .nav-link:hover { background:rgba(255,255,255,.03); }
+    .inrl-sidebar-nav .nav-link.active, .inrl-sidebar-nav .nav-link.active:hover { background:var(--dark-700); border-left-color:var(--accent-500) !important; }
+    .inrl-sidebar-nav .nav-link.active .inrl-nav-icon { color:var(--paper-100); }
+    .inrl-sidebar-footer { padding:18px 0 22px; }
+    .inrl-sidebar-footer .inrl-user-row { padding:0 20px; margin-bottom:14px; }
+    .inrl-sidebar-footer .inrl-user-email { font-size:12px; color:var(--paper-100); }
+    .inrl-sidebar-footer .inrl-user-role { font-size:11px; text-transform:none; letter-spacing:0; }
+    .inrl-sidebar-footer .inrl-quicklinks { gap:0; margin:0; }
+    .inrl-sidebar-footer .inrl-quicklinks a, .inrl-logout-link { display:flex; align-items:center; gap:10px; padding:6px 20px; font-size:13px; color:var(--paper-300); background:none; border:0; width:100%; text-align:left; cursor:pointer; text-decoration:none; }
+    .inrl-sidebar-footer .inrl-quicklinks a:hover, .inrl-logout-link:hover { color:var(--paper-100); }
+    .inrl-sidebar-footer svg { width:20px; height:20px; flex-shrink:0; }
+    .inrl-dash-main { padding:32px; max-width:1240px; }
+    .inrl-card { border-radius:12px !important; border:0 !important; box-shadow:none !important; }
+    .inrl-card-header { background:var(--surface-50) !important; }
+    .dash-metric-icon { display:none !important; }
+    .console-head { margin:0 0 24px; }
+    .console-head h1 { font:500 32px/1 var(--font-display); text-transform:uppercase; color:var(--ink-900); margin:0; letter-spacing:0; }
+    .console-head p { margin:6px 0 0; font-size:14px; color:var(--ink-700); }
+    .inrl-sidebar-nav .nav-item { width:100%; }
+    .inrl-sidebar-nav .nav-link { width:100%; }
+    .console-small { display:none; }
+    @media (max-width:1023.98px) {
+      .console-small { display:flex; position:fixed; inset:0; z-index:3000; background:var(--dark-800); color:var(--paper-300); flex-direction:column; justify-content:center; padding:32px 24px; }
+      .console-small img { height:24px; width:auto; align-self:flex-start; margin-bottom:28px; }
+      .console-small h1 { font-family:var(--font-display); text-transform:uppercase; color:var(--paper-100); font-size:36px; line-height:.96; margin:0 0 16px; letter-spacing:0; }
+      .console-small p { font-size:15px; line-height:1.6; max-width:360px; margin:0 0 24px; }
+      .console-small a { color:var(--accent-400); font-size:14px; }
+    }
   </style>
 </head>
 <body>
@@ -216,6 +257,13 @@
 <div class="inrl-dash-shell">
 
   <!-- SIDEBAR -->
+  <div class="console-small" role="alert">
+    <img src="images/logo-light.svg" alt="INRL">
+    <h1>Use a larger screen.</h1>
+    <p>The console is built for a laptop or desktop &mdash; at least 1024 pixels wide. Orders, products and the homepage all need the room.</p>
+    <a href="/ecommerce/index.html">Back to the store</a>
+  </div>
+
   <aside class="inrl-sidebar">
     <div class="inrl-sidebar-header">
       <a class="inrl-brand" href="/ecommerce/index.html">
@@ -248,7 +296,7 @@
       <li class="nav-item" role="presentation" id="tab-homepage-item" style="display:none">
         <button class="nav-link" id="tab-homepage" data-bs-toggle="tab" data-bs-target="#pane-homepage" type="button" role="tab">
           <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18"/><path d="M8 14h8"/></svg>
-          Homepage Editor
+          Homepage editor
         </button>
       </li>
       <li class="nav-item" role="presentation" id="tab-branding-item" style="display:none">
@@ -282,11 +330,10 @@
         </div>
       </div>
       <div class="inrl-quicklinks">
-        <a href="/ecommerce/index.html">Store</a>
-        <a href="/admin.html">AR Dashboard &#x2197;</a>
-        <a href="/ecommerce/profile.html">Profile</a>
+        <a href="/ecommerce/index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 21V9l5 3V9l5 3V5h8v16z"/></svg>Store</a>
+        <a href="/admin.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><path d="M8 8h3v3H8zM13 13h3v3h-3z"/></svg>AR dashboard</a>
       </div>
-      <button id="logoutBtn" class="btn btn-sm btn-danger-inrl w-100">Logout</button>
+      <button id="logoutBtn" type="button" class="inrl-logout-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M11 12h8M16 9l3 3-3 3"/></svg>Log out</button>
     </div>
   </aside>
 
@@ -300,6 +347,7 @@
 
   <!-- ===== PRODUCTS PANE ===== -->
   <div class="tab-pane fade" id="pane-dashboard" role="tabpanel">
+    <div class="console-head"><h1>Overview</h1><p>What moved since you were last here.</p></div>
 
     <!-- Hero metrics -->
     <div class="dash-metrics-grid">
@@ -392,6 +440,7 @@
   </div><!-- /pane-dashboard -->
 
   <div class="tab-pane fade show active" id="pane-products" role="tabpanel">
+    <div class="console-head"><h1>Products</h1><p>Everything in the catalogue, published or not. Pieces are designed on Printful and imported here.</p></div>
 
     <!-- STATS -->
     <div class="row g-3 mb-4" id="productsStats">
@@ -616,6 +665,7 @@
 
   <!-- ===== HOMEPAGE PANE ===== -->
   <div class="tab-pane fade" id="pane-homepage" role="tabpanel">
+    <div class="console-head"><h1>Homepage</h1><p>What the storefront home says right now.</p></div>
     <div class="inrl-card">
       <div class="inrl-card-header d-flex justify-content-between align-items-center">
         <span>Homepage Editor</span>
@@ -633,12 +683,12 @@
             <input id="homeBillboardTitle" class="form-control" type="text" placeholder="e.g. New Collections" />
           </div>
           <div class="col-12 col-lg-6">
-            <label class="form-label">Image</label>
+            <label class="form-label">Video or image</label>
             <div class="input-group">
               <input id="homeBillboardImage" class="form-control" type="text" placeholder="URL or upload &#8594;" />
               <label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">
                 Upload
-                <input type="file" accept="image/*" data-home-upload="billboard-image" style="display:none">
+                <input type="file" accept="image/*,video/mp4,video/webm" data-home-upload="billboard-image" style="display:none">
               </label>
             </div>
             <img id="homeBillboardImagePreview" src="" alt="" style="display:none;margin-top:8px;max-height:80px;border:1px solid var(--line-200);object-fit:cover">
@@ -713,6 +763,7 @@
 
   <!-- ===== BRANDING PANE ===== -->
   <div class="tab-pane fade" id="pane-branding" role="tabpanel">
+    <div class="console-head"><h1>Branding</h1><p>The name, wordmark and colours the store uses.</p></div>
     <div class="inrl-card">
       <div class="inrl-card-header d-flex justify-content-between align-items-center">
         <span>Branding</span>
@@ -773,6 +824,7 @@
 
   <!-- ===== ORDERS PANE (admin only) ===== -->
   <div class="tab-pane fade" id="pane-orders" role="tabpanel">
+    <div class="console-head"><h1>Orders</h1><p>Every order, and where Printful has it.</p></div>
 
     <!-- Stats row -->
     <div class="row g-3 mb-4">
@@ -872,6 +924,7 @@
 
   <!-- ===== PRINTFUL PANE (admin only) ===== -->
   <div class="tab-pane fade" id="pane-printful" role="tabpanel">
+    <div class="console-head"><h1>Printful</h1><p>The connection that makes and ships every piece.</p></div>
     <div class="row g-4">
 
       <div class="col-12">
@@ -1329,7 +1382,7 @@
           '<label class="form-label">Image</label>' +
           '<div class="input-group">' +
             '<input class="form-control" type="text" data-field="image" value="' + image + '" placeholder="images/banner-image-1.jpg or https://\u2026" />' +
-            '<label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">Upload<input type="file" accept="image/*" data-home-upload="slide-image" style="display:none"></label>' +
+            '<label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">Upload<input type="file" accept="image/*,video/mp4,video/webm" data-home-upload="slide-image" style="display:none"></label>' +
           '</div>' +
           '<img data-field="image-preview" src="' + image + '" alt="" style="' + (image ? '' : 'display:none;') + 'margin-top:6px;max-height:70px;border:1px solid var(--line-200);object-fit:cover">' +
         '</div>' +
@@ -1392,9 +1445,18 @@
     if (featCards) {
       const items = Array.isArray(feat.items) ? feat.items : [];
       featCards.innerHTML = items.slice(0, 3).map(function(item, i) {
+        const fimage = escapeHtml(item.image || '');
         return '<div class="col-12 col-lg-4" data-feature-index="' + i + '">' +
           '<div class="inrl-subcard">' +
             '<div class="inrl-subcard-label">Feature ' + (i + 1) + '</div>' +
+            '<div class="mb-2">' +
+              '<label class="form-label">Image</label>' +
+              '<div class="input-group">' +
+                '<input class="form-control" type="text" data-feat-field="image" value="' + fimage + '" placeholder="images/feature-1.jpg or https://…" />' +
+                '<label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">Upload<input type="file" accept="image/*" data-home-upload="feature-image" style="display:none"></label>' +
+              '</div>' +
+              '<img data-feat-field="image-preview" src="' + fimage + '" alt="" style="' + (fimage ? '' : 'display:none;') + 'margin-top:6px;max-height:70px;border:1px solid var(--line-200);object-fit:cover">' +
+            '</div>' +
             '<div class="mb-2"><label class="form-label">Title</label><input class="form-control" type="text" data-feat-field="title" value="' + escapeHtml(item.title || '') + '" /></div>' +
             '<div><label class="form-label">Body</label><textarea class="form-control" rows="3" data-feat-field="body">' + escapeHtml(item.body || '') + '</textarea></div>' +
           '</div>' +
@@ -1475,6 +1537,7 @@
     if (featCards) {
       home.features.items = Array.from(featCards.querySelectorAll('[data-feature-index]')).map(function(div) {
         return {
+          image: ((div.querySelector('[data-feat-field="image"]') || {}).value || '').trim(),
           title: ((div.querySelector('[data-feat-field="title"]') || {}).value || '').trim(),
           body: ((div.querySelector('[data-feat-field="body"]') || {}).value || '').trim()
         };
@@ -1502,7 +1565,7 @@
     clearStatus();
     // Product Dashboard is admin-only now — brand accounts manage their own design
     // submissions and video uploads entirely through brand.html instead.
-    const user = await auth.requireRole(['admin'], { redirectTo: '/ecommerce/login.html', next: location.pathname + location.search });
+    const user = await auth.requireRole(['admin'], { redirectTo: '/ecommerce/console-login.html', next: location.pathname + location.search });
     if (!user) return;
     el('userEmail').textContent = user.email || '';
     el('userRole').textContent = user.role || '';
@@ -1526,7 +1589,7 @@
     el('logoutBtn').addEventListener('click', async function(ev) {
       ev.preventDefault();
       await auth.logout();
-      location.href = '/ecommerce/login.html';
+      location.href = '/ecommerce/console-login.html';
     });
 
     try {
@@ -1825,6 +1888,14 @@
             if (card) {
               const urlInput = card.querySelector('[data-field="image"]');
               const prev = card.querySelector('[data-field="image-preview"]');
+              if (urlInput) urlInput.value = url;
+              if (prev) { prev.src = url; prev.style.display = ''; }
+            }
+          } else if (uploadType === 'feature-image') {
+            const card = input.closest('[data-feature-index]');
+            if (card) {
+              const urlInput = card.querySelector('[data-feat-field="image"]');
+              const prev = card.querySelector('[data-feat-field="image-preview"]');
               if (urlInput) urlInput.value = url;
               if (prev) { prev.src = url; prev.style.display = ''; }
             }

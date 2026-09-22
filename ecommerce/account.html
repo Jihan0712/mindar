@@ -1,55 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Account | INRL</title>
+  <title>Settings | INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    .set{max-width:760px}
+    .rows{background:var(--surface-0)}
+    .row-x{display:grid;grid-template-columns:150px 1fr auto;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line-100);font-size:15px;color:var(--ink-900)}
+    .row-x:last-child{border-bottom:0}
+    .row-x .k{font-size:12px;color:var(--ink-700);letter-spacing:.02em}
+    .row-x a,.row-x button.lnk{color:var(--accent-700);font-weight:500;font-size:14px;text-decoration:none;background:none;border:0;padding:0;cursor:pointer}
+    .row-x a:hover,.row-x button.lnk:hover{text-decoration:underline}
+    .row-x .muted{font-size:13px;color:var(--ink-500)}
+    @media (max-width:767.98px){.row-x{grid-template-columns:1fr auto;gap:2px 12px}.row-x .k{grid-column:1/-1}}
+    .pwform{padding:20px;border-top:1px solid var(--line-100);background:var(--surface-50)}
+    .pwform .field{max-width:420px}
+    .danger{background:var(--surface-0);border:1px solid #f0b3b3;padding:22px 20px;margin-top:28px}
+    .danger h2{font:500 15px/1.3 var(--font-body);color:var(--danger-500);margin:0 0 6px;text-transform:none;letter-spacing:0}
+    .danger p{font-size:13px;margin:0 0 16px;max-width:620px}
+  </style>
 </head>
-<body>
+<body class="site app">
   <div id="site-header" data-page="account"></div>
 
-  <section style="padding:132px 0 100px">
-    <div class="container" style="max-width:520px">
-      <h1 class="mb-4" style="font-family:var(--font-display);text-transform:uppercase;letter-spacing:-0.02em;color:var(--ink-900);font-size:clamp(28px,4vw,40px)">Account</h1>
-      <div id="status" class="mb-3" style="font-size:14px;color:var(--ink-500)">Checking authentication</div>
-      <div id="signedIn" style="display:none">
-        <div style="background:var(--surface-50);border-radius:12px;padding:28px">
-          <p class="mb-2"><span class="eyebrow">Email</span><br><strong id="userEmail" style="color:var(--ink-900);font-weight:400"></strong></p>
-          <p class="mb-3"><span class="eyebrow">Role</span><br><strong id="userRole" style="color:var(--accent-700);font-weight:400"></strong></p>
-          <button id="logoutBtn" class="btn btn-outline-dark">Log out</button>
-        </div>
+  <div class="shell">
+    <aside class="rail" id="app-rail" data-active="settings"></aside>
+    <main id="main" class="app__main set">
+      <div class="app-head"><div><h1>Settings</h1><p>Your details, and the devices signed in</p></div></div>
+
+      <div class="rows">
+        <div class="row-x"><span class="k">Email</span><span id="email" style="overflow-wrap:anywhere">&hellip;</span><a href="mailto:contact@inrl.co?subject=Change%20my%20account%20email">Change</a></div>
+        <div class="row-x"><span class="k">Account</span><span id="role">&hellip;</span><span></span></div>
+        <div class="row-x"><span class="k">Password</span><span>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span><button type="button" class="lnk" id="pwToggle" aria-expanded="false" aria-controls="pwForm">Change</button></div>
+        <form class="pwform" id="pwForm" hidden novalidate>
+          <div class="field"><label for="pwCur">Current password</label><input class="input" type="password" id="pwCur" autocomplete="current-password" required><span class="field-help" data-err hidden>Enter your current password.</span></div>
+          <div class="field"><label for="pwNew">New password</label><input class="input" type="password" id="pwNew" autocomplete="new-password" placeholder="At least 10 characters" required aria-describedby="pwNewHelp"><span class="field-help" id="pwNewHelp">Long beats complicated. A phrase you will remember is stronger than a short scramble.</span></div>
+          <div class="b-row"><button class="b b--dark" type="submit" id="pwSave">Save password</button><button class="b b--ghost" type="button" id="pwCancel">Cancel</button></div>
+          <p class="auth__status" id="status" role="status" aria-live="polite"></p>
+        </form>
       </div>
-    </div>
-  </section>
+
+      <p class="t-label" style="margin:28px 0 10px">Active sessions</p>
+      <div class="rows">
+        <div class="row-x" style="grid-template-columns:1fr auto"><span><span id="device">This device</span><span class="muted" style="display:block">Now &middot; this device</span></span><button type="button" class="lnk" id="signOutHere">Sign out</button></div>
+      </div>
+      <p class="t-small" style="margin-top:10px">Signed in somewhere you don&rsquo;t recognise? Change the password &mdash; every other device is signed out when you do.</p>
+
+      <section class="danger" aria-labelledby="closeTitle">
+        <h2 id="closeTitle">Close this account</h2>
+        <p>Your garments keep working. Layers you published stay on pieces you sold or gave away &mdash; closing the account only removes your ability to change them.</p>
+        <a class="b b--danger" id="closeBtn" href="mailto:contact@inrl.co?subject=Close%20my%20account">Ask us to close it</a>
+      </section>
+    </main>
+  </div>
 
   <div id="site-footer"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
   <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
+  <script src="js/app-rail.js"></script>
+  <script src="js/auth-forms.js"></script>
   <script>
-  // Login/logout/dashboard nav links are handled by include.js once the shared
-  // header is injected; this listener just handles this page's own account panel.
-  document.addEventListener('auth:ready', function(e){
-    var statusEl=document.getElementById('status');var signedIn=document.getElementById('signedIn');
-    var emailEl=document.getElementById('userEmail');var roleEl=document.getElementById('userRole');var logoutBtn=document.getElementById('logoutBtn');
-    var user=e.detail&&e.detail.user;
-    if(!user){
-      var next=encodeURIComponent(location.pathname+location.search);
-      location.href='login.html?next='+next;
-      return;
+  (function () {
+    function device() {
+      var ua = navigator.userAgent || '';
+      var b = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+      var os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
+      return b + (os ? ', ' + os : '');
     }
-    statusEl.textContent='';signedIn.style.display='';
-    emailEl.textContent=user.email;roleEl.textContent=user.role||'user';
-    logoutBtn.addEventListener('click',async function(){await auth.logout();location.reload()});
-  });
+    document.getElementById('device').textContent = device();
+
+    AppRail.ready.then(function (user) {
+      document.getElementById('email').textContent = user.email || '';
+      document.getElementById('role').textContent = user.role === 'admin' ? 'Admin' : user.role === 'brand' ? 'Brand' : 'Owner';
+      document.getElementById('closeBtn').href = 'mailto:contact@inrl.co?subject=' + encodeURIComponent('Close my account') + '&body=' + encodeURIComponent('Please close the INRL account for ' + (user.email || '') + '.');
+    });
+
+    var form = document.getElementById('pwForm'), tog = document.getElementById('pwToggle');
+    function setOpen(on) { form.hidden = !on; tog.setAttribute('aria-expanded', on ? 'true' : 'false'); tog.textContent = on ? 'Close' : 'Change'; if (on) document.getElementById('pwCur').focus(); }
+    tog.addEventListener('click', function () { setOpen(form.hidden); });
+    document.getElementById('pwCancel').addEventListener('click', function () { form.reset(); setOpen(false); });
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var cur = document.getElementById('pwCur'), nw = document.getElementById('pwNew');
+      var ok = AuthForms.check(cur, !!cur.value);
+      ok = AuthForms.check(nw, nw.value.length >= 10) && ok;
+      if (!ok) { AuthForms.status(nw.value.length < 10 ? 'The new password needs at least 10 characters.' : '', 'error'); return; }
+      var btn = document.getElementById('pwSave'); btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        await auth.changePassword(cur.value, nw.value);
+        form.reset();
+        AuthForms.status('Password changed.', 'ok');
+        setTimeout(function () { setOpen(false); AuthForms.status('', ''); }, 1600);
+      } catch (err) {
+        AuthForms.status(/incorrect|invalid|wrong/i.test(err.message) ? 'The current password isn’t right.' : err.message, 'error');
+      } finally { btn.disabled = false; btn.textContent = 'Save password'; }
+    });
+
+    document.getElementById('signOutHere').addEventListener('click', async function () { try { await auth.logout(); } catch (e) {} location.href = 'index.html'; });
+  })();
   </script>
 </body>
 </html>

@@ -4,107 +4,263 @@
   <title>Register a piece | INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
   <style>
-    .code-input{text-transform:uppercase;letter-spacing:.12em;font-family:var(--font-body);font-weight:500;text-align:center;font-size:22px}
+    .ways{display:grid;gap:16px}
+    @media (min-width:1024px){.ways{grid-template-columns:1fr 1fr}}
+    .ways .panel{padding:28px}
+    .ways h2{margin:10px 0 20px}
+    .qr-row{display:flex;gap:24px;align-items:flex-start}
+    .qr-row canvas{width:124px!important;height:124px!important;flex-shrink:0}
+    .qr-row p{font-size:14px;margin:0 0 10px}
+    .code-in{font:500 18px/1 var(--font-body);letter-spacing:.06em;text-transform:uppercase;min-height:54px}
+    .match{background:var(--surface-0);border:2px solid var(--accent-700);padding:18px 20px;display:grid;grid-template-columns:76px 1fr auto;gap:20px;align-items:center}
+    .match .ph{height:94px;font-size:9px;background:var(--surface-3)}
+    .match h3{font:500 20px/1.2 var(--font-body);text-transform:none;letter-spacing:0;color:var(--ink-900);margin:6px 0 4px}
+    @media (max-width:767.98px){.match{grid-template-columns:64px 1fr}.match .b{grid-column:1/-1}}
+    .alert-red{border:1px solid var(--danger-500);background:#fbe5e5;padding:24px}
+    .alert-amber{border:1px solid #e9c46a;background:#f8efd9;padding:24px}
+    .alert-red .sdot{color:var(--ink-900)}.alert-red .sdot::before{background:var(--danger-500)}
+    .alert-red .input{max-width:400px;border-color:var(--danger-500);margin:14px 0 16px}
+    .owned{display:flex;gap:18px;align-items:center;margin:18px 0}
+    .owned .ph{width:76px;height:94px;font-size:9px;background:var(--surface-3);flex-shrink:0}
+    .owned h3{font:500 20px/1.2 var(--font-body);text-transform:none;letter-spacing:0;color:var(--ink-900);margin:0 0 6px}
+    .tips3{display:grid;gap:16px;margin:16px 0 24px}
+    @media (min-width:1024px){.tips3{grid-template-columns:repeat(3,1fr)}}
+    .tips3 .tile p{font-size:14px;margin:0}
+    /* phone camera */
+    .scan{position:fixed;inset:0;z-index:1065;background:var(--dark-800);color:var(--paper-300);display:flex;flex-direction:column;padding:24px 22px}
+    .scan[hidden]{display:none}
+    .scan video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
+    .scan__top{position:relative;display:flex;justify-content:space-between;align-items:center}
+    .scan__top .t-label{color:var(--paper-100)}
+    .scan__frame{position:relative;margin:auto;width:220px;height:220px}
+    .scan__frame i{position:absolute;width:44px;height:44px;border:3px solid var(--accent-500)}
+    .scan__frame i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+    .scan__frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+    .scan__frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+    .scan__frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+    .scan__msg{position:relative;text-align:center;margin-top:-40%;margin-bottom:auto}
+    .scan__msg .t-label{color:var(--accent-500)}
+    .scan__msg p{max-width:300px;margin:16px auto 0;font-size:15px}
+    .scan__foot{position:relative}
+    .scan__foot .t-small{color:var(--paper-500);margin-top:14px}
   </style>
 </head>
-<body>
-  <div id="site-header" data-page="register-piece"></div>
+<body class="site app">
+  <div id="site-header" data-page="account"></div>
 
-  <section style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:120px 16px 60px;background:var(--surface-50)">
-    <div style="width:100%;max-width:440px">
+  <div class="shell">
+    <aside class="rail" id="app-rail" data-active="register"></aside>
+    <main id="main" class="app__main">
+      <a class="back d-lg-none" href="wardrobe.html">&larr; Back to the wardrobe</a>
+      <div class="app-head"><div><h1>Register a piece</h1><p id="sub">Add a garment you already own. Registering is what lets you change what it plays.</p></div></div>
 
-      <div class="text-center mb-4">
-        <div class="eyebrow mb-2" style="color:var(--ink-500)">Claim the garment</div>
-        <h1 style="font-family:var(--font-display);font-size:28px;color:var(--ink-900);letter-spacing:-0.02em;text-transform:uppercase">Register a piece</h1>
-      </div>
-
-      <div style="border:1px solid var(--line-200);border-radius:16px;padding:40px 36px;background:var(--surface-0)">
-        <p style="font-size:14px;color:var(--ink-500);text-align:center;margin-bottom:24px">Scan the tag inside the collar, or enter the code printed on it below.</p>
-
-        <div id="status" style="font-size:13px;margin-bottom:16px;display:none"></div>
-
-        <form id="claimForm" novalidate>
-          <div class="mb-3">
-            <label for="codeInput" class="form-label">Code</label>
-            <input type="text" id="codeInput" class="form-control code-input" placeholder="XXXX-XXXX" maxlength="9" required autocomplete="off">
+      <!-- DEFAULT -->
+      <section id="vDefault">
+        <div class="ways">
+          <div class="panel d-none d-lg-block">
+            <p class="t-label t-label--teal" style="margin:0">The fast way</p>
+            <h2>Scan the tag with your phone</h2>
+            <div class="qr-row">
+              <canvas id="qr" width="124" height="124" aria-label="QR code that opens this page on your phone"></canvas>
+              <div><p>Point your phone camera at this code. It opens the camera on your phone, then you hold it to the tag sewn inside the collar.</p><p class="t-small">The tag is a small woven label, not the printed graphic on the back.</p></div>
+            </div>
           </div>
-          <div class="mb-4">
-            <label for="nicknameInput" class="form-label">Give it a name <span style="font-weight:400;color:var(--ink-500)">(optional)</span></label>
-            <input type="text" id="nicknameInput" class="form-control" placeholder="e.g. My concert fit" maxlength="120">
-          </div>
-          <button type="submit" id="submitBtn" class="btn btn-primary w-100">Register</button>
-        </form>
-      </div>
+          <form class="panel" id="codeForm" novalidate>
+            <p class="t-label" style="margin:0">Or by hand</p>
+            <h2><label for="codeInput" style="font:inherit;color:inherit">Type the code on the tag</label></h2>
+            <div class="field" style="margin-bottom:14px">
+              <input class="input code-in" id="codeInput" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="INRL-047-8H2K" aria-describedby="codeHelp" required>
+              <span class="field-help" id="codeHelp">Printed under the size. Case does not matter.</span>
+            </div>
+            <button class="b b--dark b--block" type="submit" id="findBtn">Find this piece</button>
+            <button class="b b--ghost b--block d-lg-none" type="button" data-open-scan style="margin-top:12px">Scan the tag instead</button>
+            <p class="auth__status" id="status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <div id="matchWrap" hidden style="margin-top:28px">
+          <p class="t-label" style="margin-bottom:12px">What happens when it matches</p>
+          <div class="match" id="match"></div>
+          <p class="t-body" style="font-size:14px;margin-top:14px">Claiming links the garment to your account. You can then publish a layer to it, and replace that layer whenever you like. If you sell the shirt, the new owner claims it the same way and it leaves your wardrobe.</p>
+        </div>
+      </section>
 
-      <div class="text-center mt-4">
-        <a href="wardrobe.html" style="font-size:13px;color:var(--ink-500)">&larr; Back to my wardrobe</a>
-      </div>
+      <!-- NO MATCH -->
+      <section id="vNone" hidden>
+        <div class="alert-red" role="alert">
+          <span class="sdot">No piece with that code</span>
+          <form id="retryForm" novalidate><label for="retryInput" class="visually-hidden">Code</label><input class="input code-in" id="retryInput" autocomplete="off" spellcheck="false"></form>
+          <p style="margin:0">Nothing in the catalogue carries that code. Codes are twelve characters and case does not matter, so the usual cause is a mistyped character.</p>
+        </div>
+        <div class="tips3">
+          <div class="tile"><span class="t-label t-label--teal">Check these first</span><p>0 and O look alike on a woven label, and so do 1 and I. Try the other one.</p></div>
+          <div class="tile"><span class="t-label t-label--teal">Still nothing?</span><p>Photograph the tag and send it to <a class="t-link--teal" href="mailto:contact@inrl.co?subject=Tag%20code%20not%20found">contact@inrl.co</a>. We can look it up from the picture.</p></div>
+          <div class="tile"><span class="t-label t-label--teal">No tag at all?</span><p>Pieces made before Aug 2026 have the code printed under the size instead.</p></div>
+        </div>
+        <div class="b-row"><button class="b b--dark" type="button" id="tryAnother">Try another code</button><button class="b b--ghost" type="button" data-open-scan>Scan the tag instead</button></div>
+      </section>
+
+      <!-- OWNED BY SOMEONE ELSE -->
+      <section id="vOwned" hidden>
+        <div class="alert-amber" role="alert">
+          <span class="sdot sdot--draft">Registered to another account</span>
+          <div class="owned" id="ownedPiece"></div>
+          <p style="margin:0">A piece can only sit in one wardrobe. If you bought this second hand, the previous owner has to release it &mdash; or you can ask us to move it, and we will check the receipt first.</p>
+        </div>
+        <div class="b-row" style="margin:24px 0"><a class="b b--dark" id="askMove" href="mailto:contact@inrl.co">Ask us to move it</a><button class="b b--ghost" type="button" data-try-another>Try another code</button></div>
+        <div class="panel" style="padding:20px 20px"><p style="font-weight:500;color:var(--ink-900);margin:0 0 4px">Why we check</p><p style="margin:0;font-size:14px">The layer is the owner&rsquo;s to change. If anyone could claim any code, they could replace what plays on a shirt they have never held.</p></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- PHONE CAMERA -->
+  <div class="scan" id="scan" role="dialog" aria-modal="true" aria-label="Scan the tag" hidden>
+    <video id="scanVideo" playsinline muted></video>
+    <div class="scan__top"><span class="t-label">Register a piece</span><button class="mmenu__close" type="button" aria-label="Close camera" data-close-scan><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 1l16 16M17 1L1 17" stroke="currentColor" stroke-width="1.6"/></svg></button></div>
+    <div class="scan__frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="scan__msg"><p class="t-label" id="scanLabel">Hold it over the tag</p><p id="scanMsg">The woven label inside the collar &mdash; not the printed graphic on the back.</p></div>
+    <div class="scan__foot">
+      <button class="b b--ghost-dark b--block" type="button" data-close-scan>Type the code instead</button>
+      <p class="t-small">The camera runs on your device. Nothing is uploaded.</p>
     </div>
-  </section>
+  </div>
 
   <div id="site-footer"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
   <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
+  <script src="js/app-rail.js"></script>
   <script>
-    (function () {
-      const statusEl = document.getElementById('status');
-      function showStatus(msg, type) {
-        statusEl.textContent = msg;
-        statusEl.style.display = msg ? '' : 'none';
-        statusEl.style.color = type === 'error' ? 'var(--danger-500)' : 'var(--accent-700)';
-      }
+  (function () {
+    var esc = INRL.esc;
+    var codeInput = document.getElementById('codeInput');
+    var views = { d: document.getElementById('vDefault'), n: document.getElementById('vNone'), o: document.getElementById('vOwned') };
+    var sub = document.getElementById('sub');
+    var DEFAULT_SUB = sub.textContent;
+    function show(k, subText) { Object.keys(views).forEach(function (x) { views[x].hidden = x !== k; }); sub.textContent = subText || DEFAULT_SUB; }
+    function norm(c) { return String(c || '').trim().toUpperCase().replace(/\s+/g, ''); }
+    function plain(t) { return String(t || '').replace(/^No\.\s*\d+\s+/, ''); }
+    function fmtDate(iso) { try { return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso)); } catch (e) { return ''; } }
+    function thumb(p) { return '<div class="ph">' + (p && p.image_url ? '<img src="' + esc(INRL.imageUrl(p.image_url)) + '" alt="" onerror="this.remove()">' : '') + 'IMG</div>'; }
 
-      // Redirect to sign in if not authenticated, returning here afterwards.
-      auth.me().then(user => {
-        if (!user) location.href = 'login.html?next=' + encodeURIComponent(location.pathname + location.search);
-      });
+    /* QR that opens this page on a phone, straight into the camera */
+    var qrUrl = location.origin + location.pathname + '?scan=1';
+    if (window.QRCode) QRCode.toCanvas(document.getElementById('qr'), qrUrl, { width: 124, margin: 0, color: { dark: '#384143', light: '#ffffff' } }, function () {});
 
-      const codeInput = document.getElementById('codeInput');
-      codeInput.addEventListener('input', () => {
-        let v = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (v.length > 4) v = v.slice(0, 4) + '-' + v.slice(4, 8);
-        codeInput.value = v;
-      });
-
-      const form = document.getElementById('claimForm');
-      const submitBtn = document.getElementById('submitBtn');
-      form.addEventListener('submit', async (ev) => {
-        ev.preventDefault();
-        const code = codeInput.value.trim();
-        const nickname = document.getElementById('nicknameInput').value.trim();
-        if (!code) { showStatus('Enter the code from the tag.', 'error'); return; }
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Registering…';
-        showStatus('', '');
-        try {
-          const res = await fetch('/api/pieces/claim', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ claim_code: code, nickname: nickname || undefined }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error || 'Registration failed');
-          showStatus('Registered! Redirecting…', 'success');
-          setTimeout(() => { location.href = 'piece.html?id=' + encodeURIComponent(data.id); }, 600);
-        } catch (e) {
-          showStatus(e.message || 'Something went wrong.', 'error');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Register';
+    async function lookup(code) {
+      code = norm(code);
+      if (!code) { AuthForms.status('Enter the code from the tag.', 'error'); codeInput.focus(); return; }
+      var btn = document.getElementById('findBtn');
+      btn.disabled = true; btn.textContent = 'Looking it up…';
+      AuthForms.status('', '');
+      try {
+        var res = await fetch('/api/pieces/lookup?code=' + encodeURIComponent(code), { credentials: 'include' });
+        if (res.status === 401) { location.href = 'login.html?next=register-piece.html'; return; }
+        if (res.status === 429) throw new Error('Too many attempts. Wait a few minutes and try again.');
+        if (res.status === 404) {
+          document.getElementById('retryInput').value = code;
+          show('n', 'That code did not match anything');
+          return;
         }
-      });
-    })();
+        if (!res.ok) throw new Error('Could not look the code up (' + res.status + ').');
+        var d = await res.json();
+        if (d.status === 'yours') { location.href = 'piece.html?id=' + encodeURIComponent(d.id); return; }
+        if (d.status === 'owned') {
+          document.getElementById('ownedPiece').innerHTML = thumb(d.product) + '<div><h3>' + esc(plain(d.product.title)) + '</h3><div class="t-small">' + esc(d.claim_code) + (d.claimed_at ? ' &middot; claimed ' + esc(fmtDate(d.claimed_at)) : '') + (d.version ? ' &middot; currently on V' + d.version : '') + '</div></div>';
+          document.getElementById('askMove').href = 'mailto:contact@inrl.co?subject=' + encodeURIComponent('Move piece ' + d.claim_code + ' to my wardrobe') + '&body=' + encodeURIComponent('Hi — I own the piece with tag code ' + d.claim_code + ' and would like it moved to my account. I have attached the receipt.');
+          show('o', 'Someone already owns this piece');
+          return;
+        }
+        show('d');
+        var wrap = document.getElementById('matchWrap');
+        wrap.hidden = false;
+        document.getElementById('match').innerHTML = thumb(d.product)
+          + '<div><span class="sdot">Not registered to anyone</span><h3>' + esc(plain(d.product.title)) + '</h3><div class="t-small">' + esc(d.claim_code) + (d.made_at ? ' &middot; made ' + esc(fmtDate(d.made_at)) : '') + '</div></div>'
+          + '<button class="b" type="button" id="claimBtn" style="--b-bg:var(--accent-700);--b-bd:var(--accent-700)">Claim this piece</button>';
+        document.getElementById('claimBtn').addEventListener('click', function () { claim(d.claim_code, this); });
+        wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (e) {
+        AuthForms.status(e.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Find this piece';
+      }
+    }
+
+    async function claim(code, btn) {
+      btn.disabled = true; btn.textContent = 'Claiming…';
+      try {
+        var res = await fetch('/api/pieces/claim', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim_code: code }) });
+        var d = await res.json().catch(function () { return {}; });
+        if (res.status === 409) { lookup(code); return; }
+        if (!res.ok) throw new Error(d.error || 'Could not claim the piece.');
+        location.href = 'piece.html?id=' + encodeURIComponent(d.id) + '&new=1';
+      } catch (e) {
+        AuthForms.status(e.message, 'error');
+        btn.disabled = false; btn.textContent = 'Claim this piece';
+      }
+    }
+
+    document.getElementById('codeForm').addEventListener('submit', function (e) { e.preventDefault(); lookup(codeInput.value); });
+    document.getElementById('retryForm').addEventListener('submit', function (e) { e.preventDefault(); codeInput.value = this.querySelector('input').value; lookup(codeInput.value); });
+    function tryAnother() { show('d'); document.getElementById('matchWrap').hidden = true; codeInput.value = ''; codeInput.focus(); }
+    document.getElementById('tryAnother').addEventListener('click', tryAnother);
+    document.querySelectorAll('[data-try-another]').forEach(function (b) { b.addEventListener('click', tryAnother); });
+
+    /* ---------- phone camera: reads the QR on the woven tag ---------- */
+    var scanEl = document.getElementById('scan'), stream = null, stop = false;
+    function codeFromText(t) {
+      t = String(t || '').trim();
+      try { var u = new URL(t); return u.searchParams.get('code') || u.searchParams.get('piece') || ''; } catch (e) { return t; }
+    }
+    async function openScan() {
+      scanEl.hidden = false; document.body.classList.add('is-locked'); stop = false;
+      var label = document.getElementById('scanLabel'), msg = document.getElementById('scanMsg');
+      if (!('BarcodeDetector' in window) || !navigator.mediaDevices) {
+        label.textContent = 'This browser can’t read tags';
+        msg.textContent = 'Type the code instead — it is printed on the same label, under the size.';
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        var v = document.getElementById('scanVideo'); v.srcObject = stream; await v.play();
+        var det = new BarcodeDetector({ formats: ['qr_code'] });
+        (async function loop() {
+          if (stop) return;
+          try {
+            var codes = await det.detect(v);
+            if (codes && codes.length) { var c = codeFromText(codes[0].rawValue); if (c) { closeScan(); codeInput.value = norm(c); lookup(c); return; } }
+          } catch (e) {}
+          setTimeout(loop, 250);
+        })();
+      } catch (e) {
+        label.textContent = 'The camera is blocked';
+        msg.textContent = 'Allow camera access for this site in your browser settings, or type the code instead.';
+      }
+    }
+    function closeScan() {
+      stop = true; scanEl.hidden = true; document.body.classList.remove('is-locked');
+      if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    }
+    document.querySelectorAll('[data-open-scan]').forEach(function (b) { b.addEventListener('click', openScan); });
+    document.querySelectorAll('[data-close-scan]').forEach(function (b) { b.addEventListener('click', function () { closeScan(); codeInput.focus(); }); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !scanEl.hidden) closeScan(); });
+
+    AppRail.ready.then(function () {
+      var qs = new URLSearchParams(location.search);
+      var pre = qs.get('code');
+      if (pre) { codeInput.value = norm(pre); lookup(pre); }
+      else if (qs.get('scan') === '1' && window.matchMedia('(max-width: 1023.98px)').matches) openScan();
+    });
+  })();
   </script>
+  <script src="js/auth-forms.js"></script>
 </body>
 </html>

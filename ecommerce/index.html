@@ -3,382 +3,295 @@
 <head>
   <title>INRL — Garments that keep changing after you own them</title>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="INRL sells a garment made once, carrying a digital layer that can be replaced any number of times afterwards.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
-  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <style>
-    .hero-home{padding:112px 0 64px;background:var(--dark-900);color:var(--paper-100);overflow:hidden;position:relative;min-height:640px;display:flex;align-items:center}
-    /* Overrides global.css's .slideshow rule (100vh, sized for the old full-screen hero) —
-       this hero is a fixed min-height band, not full-viewport, and Swiper needs an explicit,
-       measurable width/height on every layer down to .swiper-slide, not just inset:0, or it
-       can size itself off a stale/zero measurement depending on when its resize logic runs. */
-    #heroSlideshow{position:absolute;inset:0;width:100%;height:100%}
-    #heroSlideshow .swiper-wrapper, #heroSlideshow .swiper-slide{width:100%;height:100%}
-    .hero-home .hero-media{position:absolute;inset:0;width:100%;height:100%;z-index:0}
-    .hero-home .hero-media img{width:100%;height:100%;object-fit:cover;display:block;opacity:.55}
-    .hero-home .hero-media::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(11,15,16,.92) 0%,rgba(11,15,16,.55) 55%,rgba(11,15,16,.25) 100%)}
-    .hero-home .hero-content{position:relative;z-index:1}
-    .hero-home h1{font-size:clamp(48px,8vw,124px);line-height:.9;letter-spacing:-0.03em;color:var(--paper-100);margin:0 0 24px}
-    .section-eyebrow{font-family:var(--font-body);font-size:.68rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
-    .why-headline{font-size:clamp(32px,5.5vw,80px);line-height:.98;letter-spacing:-0.03em}
-    .reason-card{padding:0}
-    .reason-img-placeholder{aspect-ratio:10/9;background:var(--dark-700);display:flex;align-items:center;justify-content:center;color:var(--accent-500);font-family:var(--font-body);font-size:.68rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px}
-    .reason-num{font-family:var(--font-body);font-size:.78rem;font-weight:500;color:var(--accent-500);letter-spacing:.02em;display:block;margin-bottom:8px}
-    .na-card{background:var(--surface-0);overflow:hidden}
-    .na-img-wrap{position:relative;overflow:hidden;background:var(--surface-50)}
-    .na-img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;transition:transform .3s}
-    .na-card:hover .na-img{transform:scale(1.03)}
-    .na-wish{position:absolute;top:10px;right:10px;width:34px;height:34px;background:rgba(255,255,255,.92);border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--ink-900);text-decoration:none}
-    .na-wish:hover{color:var(--accent-500)}
-    .na-body{padding:14px 0 0}
-    .na-title{font-family:var(--font-body);font-weight:400;font-size:14px;letter-spacing:0;color:var(--ink-900);margin:0 0 4px;line-height:1.3}
-    .na-title a{color:inherit;text-decoration:none}
-    .na-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
-    .na-price{font-size:14px;font-weight:400;color:var(--ink-900);font-family:var(--font-body)}
-    .na-add-btn{font-size:.72rem;font-weight:500;letter-spacing:.02em;padding:6px 16px;background:var(--teal-700);color:var(--ink-inverse);border:none;border-radius:999px;cursor:pointer;transition:background .15s}
-    .na-add-btn:hover{background:var(--teal-600)}
-    .testimonial-card{background:var(--surface-50);padding:32px;height:100%}
-    .testimonial-card blockquote{font-family:var(--font-body);font-size:16px;line-height:1.6;color:var(--ink-900)}
-    .testimonial-card .review-title{font-size:14px;color:var(--ink-700)}
+    /* HERO — video sits fixed behind the page; the page moves over it. */
+    .hero-media{position:fixed;inset:0;width:100vw;height:100vh;background:radial-gradient(60% 70% at 62% 58%,#0b0f10 0%,#0b0f10 35%,rgba(11,15,16,0) 70%),radial-gradient(45% 60% at 18% 30%,#f4f6f6 0%,rgba(244,246,246,0) 70%),linear-gradient(180deg,#c9d0d1,#2a3234 80%)}
+    .hero-media video,.hero-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .hero{position:relative;height:calc(100vh - var(--bar-h));min-height:620px;max-height:1000px;display:flex;align-items:flex-end;padding-bottom:64px;color:var(--paper-100)}
+    .hero__inner{display:grid;gap:32px;align-items:end;width:100%}
+    /* The headline inverts against the footage — white, no scrim. */
+    .hero h1{position:relative;color:#fff;mix-blend-mode:difference;font-weight:400;margin:0 0 40px}
+    .hero__lead{max-width:420px;color:var(--paper-300);font-size:15px;line-height:1.6;margin:0}
+    .hero__lead .t-rule{background:var(--paper-100)}
+    @media (min-width:1024px){.hero__inner{grid-template-columns:1fr 420px}.hero{padding-bottom:64px}}
+    @media (max-width:1023.98px){.hero{height:auto;min-height:0;padding-top:calc(var(--nav-h) + 180px);padding-bottom:24px}.hero__lead{display:none}.hero .b-row{flex-direction:column}.hero .b-row .b{width:100%}}
+
+    .after{position:relative;z-index:1;background:var(--surface-0)}
+    .sfoot{position:relative;z-index:1}
+
+    .pitch h2{font-size:40px;line-height:.96}
+    @media (min-width:1024px){.pitch h2{font-size:112px;line-height:.92}}
+    .pitch__cols{display:grid;gap:24px;margin-top:48px;padding-top:40px;border-top:1px solid var(--line-100)}
+    @media (min-width:1024px){.pitch__cols{grid-template-columns:440px 1fr;margin-top:88px;gap:0}}
+    .pitch__cols p{font-size:16px;line-height:1.7;color:var(--ink-700)}
+
+    .campaign{position:relative;min-height:420px;display:flex;align-items:flex-end;background:linear-gradient(115deg,#9b938a 0%,#6b6864 40%,#2d2f31 75%,#1b1d20 100%);color:var(--paper-100);overflow:hidden}
+    .campaign img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    .campaign__cap{position:relative;padding-block:56px;max-width:560px;font-size:15px;line-height:1.6}
+    .campaign__cap .t-rule{background:var(--paper-100)}
+    @media (min-width:1024px){.campaign{min-height:720px}}
+
+    .feats{display:grid;gap:40px;margin-top:48px}
+    @media (min-width:768px){.feats{grid-template-columns:repeat(3,1fr);gap:24px}}
+    .feat .ph{aspect-ratio:10/9;margin-bottom:24px}
+    .feat .num{font-size:12px;color:var(--accent-500);letter-spacing:.04em;display:block;margin-bottom:8px}
+    .feat h3{font:500 20px/1.3 var(--font-body);color:var(--paper-100);text-transform:none;letter-spacing:0;margin:0 0 12px}
+    .feat p{font-size:15px;line-height:1.7;color:var(--paper-300);margin:0}
+    @media (max-width:767.98px){.feat .ph{aspect-ratio:16/10}}
+
+    .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:28px}
+    .row-head h2{font:500 20px/1.2 var(--font-body);color:var(--ink-900);margin:0;text-transform:none;letter-spacing:0}
+
+    .worn-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:40px}
+    .arrows{display:flex;gap:12px}
+    .arrow{width:40px;height:40px;border-radius:999px;border:1px solid var(--surface-4);background:var(--surface-0);color:var(--ink-900);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+    .arrow:hover{border-color:var(--ink-900)}
+    .arrow[disabled]{opacity:.35;cursor:default}
+    .track{display:flex;gap:24px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-left:var(--margin);padding-right:var(--margin);scroll-padding-left:var(--margin)}
+    @media (min-width:1440px){.track{padding-left:calc((100vw - var(--content-max)) / 2);scroll-padding-left:calc((100vw - var(--content-max)) / 2)}}
+    .track::-webkit-scrollbar{display:none}
+    .tcard{flex:0 0 256px;height:340px;scroll-snap-align:start}
+    .tcard--quote{background:var(--surface-50);border:1px solid var(--line-100);padding:28px 26px;display:flex;flex-direction:column;justify-content:space-between}
+    .tcard--quote blockquote{margin:0;font-size:16px;line-height:1.5;color:var(--ink-900)}
+    .tcard--quote .who{font-size:15px;color:var(--ink-900)}
+    .tcard--quote .piece{font-size:12px;color:var(--ink-500)}
+    @media (max-width:767.98px){.tcard{flex-basis:84%;height:auto;min-height:340px}}
+    @media (prefers-reduced-motion:reduce){.hero-media video{display:none}}
   </style>
 </head>
-<body class="homepage">
+<body class="site home">
 
-  <!-- SVG SPRITE -->
-  <svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
-    <symbol id="heart" viewBox="0 0 24 24"><path fill="currentColor" d="M20.16 4.61A6.27 6.27 0 0 0 12 4a6.27 6.27 0 0 0-8.16 9.48l7.45 7.45a1 1 0 0 0 1.42 0l7.45-7.45a6.27 6.27 0 0 0 0-8.87Zm-1.41 7.46L12 18.81l-6.75-6.74a4.28 4.28 0 0 1 3-7.3a4.25 4.25 0 0 1 3 1.25a1 1 0 0 0 1.42 0a4.27 4.27 0 0 1 6 6.05Z"/></symbol>
-    <symbol id="angle-left" viewBox="0 0 24 24"><path fill="currentColor" d="m11.29 12l3.54-3.54a1 1 0 0 0 0-1.41a1 1 0 0 0-1.42 0l-4.24 4.24a1 1 0 0 0 0 1.42L13.41 17a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29a1 1 0 0 0 0-1.41Z"/></symbol>
-    <symbol id="angle-right" viewBox="0 0 24 24"><path fill="currentColor" d="m14.83 11.29l-4.24-4.24a1 1 0 0 0-1.42 0a1 1 0 0 0 0 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41a1 1 0 0 0 .71.29a1 1 0 0 0 .71-.29l4.24-4.24a1 1 0 0 0 0-1.42Z"/></symbol>
-  </defs></svg>
+  <div id="site-header" data-page="home" data-over></div>
 
-  <!-- PRELOADER -->
-  <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
+  <!-- HERO MEDIA (fixed behind everything) -->
+  <div class="hero-media" id="heroMedia" aria-hidden="true"></div>
 
-  <div id="site-header" data-page="home"></div>
-
-  <!-- HERO: CMS populates content from dashboard (billboard/slides) -->
-  <section class="hero-home" id="heroSection" style="visibility:hidden">
-    <div class="slideshow slide-in" id="heroSlideshow" style="position:absolute;inset:0">
-      <div class="swiper-wrapper" id="homeHeroSlides"></div>
-      <div class="swiper-pagination"></div>
-    </div>
-    <div class="icon-arrow icon-arrow-left text-white" style="z-index:10"><svg width="20" height="20" viewBox="0 0 24 24"><use xlink:href="#angle-left"></use></svg></div>
-    <div class="icon-arrow icon-arrow-right text-white" style="z-index:10"><svg width="20" height="20" viewBox="0 0 24 24"><use xlink:href="#angle-right"></use></svg></div>
-  </section>
-
-  <!-- WE PRINT IT ONCE: the core pitch, on white -->
-  <section style="background:var(--surface-0);padding:120px 0">
-    <div class="container">
-      <div class="row g-5">
-        <div class="col-lg-6">
-          <div id="home-who-label" class="section-eyebrow" style="color:var(--ink-500);margin-bottom:20px">What we make, and why it keeps moving.</div>
-          <h2 id="home-who-headline" class="why-headline mb-0" style="color:var(--ink-900);text-transform:uppercase">We print it once.<br>What it carries<br>keeps changing.</h2>
+  <main id="main">
+    <section class="hero" data-hero>
+      <div class="wrap hero__inner">
+        <div>
+          <h1 class="t-hero" id="heroTitle">Life is<br>in beta</h1>
+          <div class="b-row">
+            <a class="b b--light b--lg" id="heroCta" href="shop.html">Shop the drop</a>
+            <a class="b b--ghost-light b--lg" href="about.html">How it works</a>
+          </div>
         </div>
-        <div class="col-lg-6 d-flex flex-column justify-content-center">
-          <p id="home-who-body" style="font-size:16px;line-height:1.7;color:var(--ink-700);max-width:520px">A garment is finished the moment it leaves the factory. The print is a marker; scanning it plays whatever is attached to that piece right now &mdash; and the owner decides what that is.</p>
-          <div id="home-who-stats" class="d-flex gap-5 flex-wrap mt-4 pt-4" style="border-top:1px solid var(--line-200)"></div>
+        <div class="hero__lead">
+          <span class="t-rule"></span>
+          <p id="heroText">One shirt. The layer it carries keeps changing &mdash; scan the print and it plays. What it plays is not fixed.</p>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- HOW WE CAN ACTUALLY DO THIS: reasons to believe, on dark -->
-  <section style="background:var(--dark-800);padding:100px 0">
-    <div class="container">
-      <div class="mb-5">
-        <div id="home-features-label" class="section-eyebrow" style="color:var(--paper-500);margin-bottom:16px">The Experience</div>
-        <h3 id="home-features-headline" class="why-headline mb-0" style="color:var(--paper-100);text-transform:uppercase;font-size:clamp(28px,4vw,52px)">How we can actually do this.</h3>
-      </div>
-      <div class="row g-5">
-        <div class="col-md-4 reason-card">
-          <div class="reason-img-placeholder">Image placeholder</div>
-          <span class="reason-num">01</span>
-          <h5 id="home-feature-0-title" style="color:var(--paper-100);font-family:var(--font-body);font-weight:500;font-size:20px;margin-bottom:12px">The print is the marker</h5>
-          <p id="home-feature-0-body" style="font-size:15px;color:var(--paper-300);line-height:1.7;margin:0">There's no QR patch stitched into the hem. The artwork on the garment is the thing the camera reads.</p>
-        </div>
-        <div class="col-md-4 reason-card">
-          <div class="reason-img-placeholder">Image placeholder</div>
-          <span class="reason-num">02</span>
-          <h5 id="home-feature-1-title" style="color:var(--paper-100);font-family:var(--font-body);font-weight:500;font-size:20px;margin-bottom:12px">Nothing to install</h5>
-          <p id="home-feature-1-body" style="font-size:15px;color:var(--paper-300);line-height:1.7;margin:0">It opens in the browser the way any link does. No app, no account, no store page in between.</p>
-        </div>
-        <div class="col-md-4 reason-card">
-          <div class="reason-img-placeholder">Image placeholder</div>
-          <span class="reason-num">03</span>
-          <h5 id="home-feature-2-title" style="color:var(--paper-100);font-family:var(--font-body);font-weight:500;font-size:20px;margin-bottom:12px">Tied to the garment</h5>
-          <p id="home-feature-2-body" style="font-size:15px;color:var(--paper-300);line-height:1.7;margin:0">The layer is registered against the piece, not the order. It survives being lent, resold or handed down.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- NEW ARRIVALS -->
-  <section id="new-arrival" class="new-arrival product-carousel py-5 position-relative overflow-hidden" style="background:var(--surface-0);padding:100px 0">
-    <div class="container">
-      <div class="d-flex flex-wrap justify-content-between align-items-end mb-5">
-        <h4 class="mb-0" style="font-family:var(--font-display);font-size:clamp(28px,3vw,40px);letter-spacing:-0.03em;line-height:1;color:var(--ink-900);text-transform:uppercase">New arrivals</h4>
-        <div class="d-flex align-items-center gap-3">
-          <a href="shop.html" class="eyebrow" style="text-decoration:none;border-bottom:1px solid var(--line-200);padding-bottom:2px">Shop all</a>
-          <button class="new-arrival-prev btn btn-outline-dark btn-sm" style="width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center">
-            <svg width="14" height="14" viewBox="0 0 24 24"><use xlink:href="#angle-left"></use></svg>
-          </button>
-          <button class="new-arrival-next btn btn-outline-dark btn-sm" style="width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center">
-            <svg width="14" height="14" viewBox="0 0 24 24"><use xlink:href="#angle-right"></use></svg>
-          </button>
-        </div>
-      </div>
-      <div id="liveCatalogStatus" style="font-size:12px;color:var(--ink-500);margin-bottom:12px"></div>
-      <div class="swiper product-swiper">
-        <div class="swiper-wrapper d-flex" id="liveProductsRow">
-          <!-- Sample card visible before/if products load -->
-          <div class="swiper-slide">
-            <div class="na-card">
-              <div class="na-img-wrap">
-                <a href="product.html"><img src="images/product-item-1.jpg" alt="Statement Tee" class="na-img"></a>
-                <a href="wishlist.html" class="na-wish"><svg width="15" height="15" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg></a>
-              </div>
-              <div class="na-body">
-                <h6 class="na-title"><a href="product.html">Statement Tee</a></h6>
-                <div class="na-footer">
-                  <span class="na-price">$48.00</span>
-                  <button class="na-add-btn" type="button">Add +</button>
-                </div>
-              </div>
+    <div class="after">
+      <!-- WE PRINT IT ONCE -->
+      <section class="section pitch">
+        <div class="wrap">
+          <h2 class="t-section" id="home-who-headline">We print it once.<br>What it carries<br>keeps changing.</h2>
+          <div class="pitch__cols">
+            <p class="t-meta" id="home-who-label" style="margin:0">What we make, and why it keeps moving.</p>
+            <div id="home-who-body">
+              <p>A garment is finished the moment it leaves the factory. Everything about it &mdash; the print, the message, the moment it belonged to &mdash; is fixed at that point and stays fixed for as long as the shirt survives. Culture does not work that way. It moves weekly.</p>
+              <p>We build the two halves separately. The garment is made once, properly, from heavyweight cotton that is meant to outlast the season. The layer it carries is made continuously, and can be replaced without anyone touching the shirt.</p>
+              <p>What that means in practice is that a piece bought in the first drop is not a piece from the first drop any more. It is whatever we have put behind it since. The object stayed still. The thing it points at did not.</p>
             </div>
           </div>
         </div>
-        <div class="swiper-pagination"></div>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <!-- WORN, AND WORN AGAIN: testimonials -->
-  <section class="testimonials" style="background:var(--surface-50);padding:100px 0">
-    <div class="container">
-      <div class="mb-5">
-        <h3 class="mb-0" style="font-family:var(--font-display);font-size:clamp(28px,4vw,48px);letter-spacing:-0.03em;color:var(--ink-900);text-transform:uppercase">Worn, and worn again</h3>
-      </div>
-      <div class="swiper testimonial-swiper overflow-hidden">
-        <div id="home-testimonials-slides" class="swiper-wrapper d-flex">
-          <div class="swiper-slide"><div class="testimonial-card"><blockquote class="mb-3">&ldquo;More than expected &mdash; crazy soft, flexible, and best fitted.&rdquo;</blockquote><div class="review-title">Casual Way</div></div></div>
-          <div class="swiper-slide"><div class="testimonial-card"><blockquote class="mb-3">&ldquo;Bought it for the print. Three months later it was playing something else.&rdquo;</blockquote><div class="review-title">Uptop</div></div></div>
-          <div class="swiper-slide"><div class="testimonial-card"><blockquote class="mb-3">&ldquo;The fit is right the first time, which almost never happens online.&rdquo;</blockquote><div class="review-title">Denim Craze</div></div></div>
+      <!-- CAMPAIGN IMAGE -->
+      <section class="campaign" id="campaign">
+        <div class="wrap">
+          <div class="campaign__cap">
+            <span class="t-rule"></span>
+            <p id="campaignCaption" style="margin:0">Drop 04 was shot in one afternoon in a car park in Vienna. The layer behind it has been replaced twice since.</p>
+          </div>
         </div>
-      </div>
-      <div class="testimonial-swiper-pagination d-flex justify-content-center mt-4"></div>
+      </section>
+
+      <!-- HOW WE CAN ACTUALLY DO THIS -->
+      <section class="section section--dark">
+        <div class="wrap">
+          <h2 class="t-section t-on-dark" id="home-features-headline">How we can<br>actually do this.</h2>
+          <div class="feats">
+            <article class="feat">
+              <div class="ph ph--dark" id="home-feature-0-img">Image placeholder</div>
+              <span class="num">01</span>
+              <h3 id="home-feature-0-title">The print is the marker</h3>
+              <p id="home-feature-0-body">There is no QR patch stitched into the hem and no code printed on a label. The artwork on the garment is the thing the camera reads, which means nothing had to be added to the design to make it work.</p>
+            </article>
+            <article class="feat">
+              <div class="ph ph--dark" id="home-feature-1-img">Image placeholder</div>
+              <span class="num">02</span>
+              <h3 id="home-feature-1-title">Nothing to install</h3>
+              <p id="home-feature-1-body">It opens in the browser the way any link does. No app, no account, no store page between someone pointing a camera and seeing what is there.</p>
+            </article>
+            <article class="feat">
+              <div class="ph ph--dark" id="home-feature-2-img">Image placeholder</div>
+              <span class="num">03</span>
+              <h3 id="home-feature-2-title">Tied to the garment</h3>
+              <p id="home-feature-2-body">The layer is registered against the piece, not against the order. It survives being lent, resold or handed down, and it keeps working for whoever is wearing it.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- NEW ARRIVALS -->
+      <section class="section" style="padding-bottom:0">
+        <div class="wrap">
+          <div class="row-head">
+            <h2>New arrivals</h2>
+            <a class="t-link" href="shop.html">Shop all</a>
+          </div>
+          <div class="pgrid" id="newArrivals"></div>
+          <p class="t-meta" id="newArrivalsStatus" hidden></p>
+        </div>
+      </section>
+
+      <!-- WORN, AND WORN AGAIN -->
+      <section class="section">
+        <div class="wrap worn-head">
+          <h2 class="t-section" style="font-size:clamp(40px,4.4vw,52px)">Worn, and<br class="d-md-none"> worn again</h2>
+          <div class="arrows d-none d-md-flex">
+            <button class="arrow" type="button" aria-label="Previous" data-track="-1"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 2L4 7l5 5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
+            <button class="arrow" type="button" aria-label="Next" data-track="1"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
+          </div>
+        </div>
+        <div class="track" id="wornTrack" tabindex="0" aria-label="Customer reviews"></div>
+      </section>
     </div>
-  </section>
+  </main>
 
   <div id="site-footer"></div>
 
-  <!-- SCRIPTS -->
-  <script src="js/jquery.min.js"></script>
-  <script src="js/plugins.js"></script>
-  <script src="js/SmoothScroll.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
-  <script src="js/script.min.js"></script>
   <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
   <script>
-    // --- Homepage CMS ---
-    function safeText(s){ return (s || '').toString().replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+    (function () {
+      var esc = INRL.esc;
+      var DEFAULT_TESTIMONIALS = [
+        { quote: 'Bought it for the print. Three months later it was playing something else.', author: 'Elle L.', piece: 'No. 051  Boxy Crew' },
+        { quote: 'The fit is right the first time, which almost never happens online.', author: 'Savannah M.', piece: 'No. 060  Boxy Hood' },
+        { quote: 'My brother scanned it at dinner and it was a different film from the one I showed him last week.', author: 'Nico T.', piece: 'No. 047  Boxy Tee' }
+      ];
 
-    async function initHomepageCms(){
-      const slidesEl = document.getElementById('homeHeroSlides');
-      const heroEl = document.getElementById('heroSlideshow');
-      if (!slidesEl || !heroEl) return;
-      try {
-        const res = await fetch('/api/homepage', { credentials: 'include' });
-        if (!res.ok) { console.warn('Homepage CMS: API returned', res.status, res.statusText); return; }
-        const data = await res.json().catch(() => null);
-        const content = data && data.content ? data.content : null;
-
-        // --- Hero slides ---
-        const billboard = content && content.billboard ? content.billboard : null;
-        const slides = Array.isArray(content && content.slides) ? content.slides : [];
-        const fallbackTitle = billboard && billboard.title ? String(billboard.title) : null;
-        const fallbackText = billboard && billboard.description ? String(billboard.description) : null;
-        const fallbackImage = billboard && billboard.image ? String(billboard.image) : null;
-
-        let normalized;
-        if (slides.length) {
-          normalized = slides;
-        } else if (fallbackTitle || fallbackImage) {
-          normalized = [{ image: fallbackImage || 'images/post-large-image1.jpg', title: fallbackTitle || 'Life is in beta', text: fallbackText || 'One shirt. The layer it carries keeps changing.', href: 'shop.html', linkLabel: 'Shop the drop' }];
-        } else {
-          normalized = [{ image: 'images/post-large-image1.jpg', title: 'Life is in beta', text: 'One shirt. The layer it carries keeps changing — scan the print and it plays.', href: 'shop.html', linkLabel: 'Shop the drop' }];
-        }
-
-        const existingSwiper = heroEl.swiper;
-        if (existingSwiper) { try { existingSwiper.destroy(true, true); } catch(err) { console.warn('[CMS] Swiper destroy error:', err); } }
-        slidesEl.innerHTML = normalized.map(s => {
-          const image = (s.image || 'images/post-large-image1.jpg').toString();
-          const title = (s.title || 'Life is in beta').toString();
-          const text = (s.text || '').toString();
-          const hrefRaw = (s.href || '').toString().trim();
-          const href = hrefRaw && hrefRaw !== '#' ? hrefRaw : 'shop.html';
-          const linkLabel = (s.linkLabel || 'Shop the drop').toString();
-          const safeImgUrl = image.replace(/"/g, '%22');
-          return '<div class="swiper-slide"><div class="hero-media"><img src="' + safeImgUrl + '" alt=""></div>'
-            + '<div class="hero-content container h-100 d-flex flex-column justify-content-center"><div class="row"><div class="col-lg-8">'
-            + '<h1>' + safeText(title) + '</h1>'
-            + '<p style="font-size:16px;color:var(--paper-300);max-width:480px;margin-bottom:32px">' + safeText(text) + '</p>'
-            + '<div class="d-flex gap-3 flex-wrap"><a href="' + safeText(href) + '" class="btn btn-primary btn-lg">' + safeText(linkLabel) + '</a>'
-            + '<a href="about.html" class="btn btn-outline-light btn-lg" style="border-color:rgba(240,240,240,.3);color:var(--paper-100)">How it works</a></div>'
-            + '</div></div></div></div>';
-        }).join('');
-        new Swiper(heroEl, {
-          slidesPerView: 1,
-          spaceBetween: 0,
-          speed: 1000,
-          loop: normalized.length > 1,
-          navigation: normalized.length > 1 ? { nextEl: '.icon-arrow-right', prevEl: '.icon-arrow-left' } : false,
-          pagination: { el: heroEl.querySelector('.swiper-pagination'), clickable: true },
-        });
-        const heroSection = document.getElementById('heroSection');
-        if (heroSection) {
-          heroSection.style.visibility = 'visible';
-          const arrowLeft = heroSection.querySelector('.icon-arrow-left');
-          const arrowRight = heroSection.querySelector('.icon-arrow-right');
-          if (arrowLeft) arrowLeft.style.display = normalized.length > 1 ? '' : 'none';
-          if (arrowRight) arrowRight.style.display = normalized.length > 1 ? '' : 'none';
-        }
-
-        // --- Who We Are (renders as the "We print it once" pitch) ---
-        const wwa = content && content.whoWeAre ? content.whoWeAre : null;
-        if (wwa) {
-          const labelEl = document.getElementById('home-who-label');
-          const headlineEl = document.getElementById('home-who-headline');
-          const bodyEl = document.getElementById('home-who-body');
-          const statsEl = document.getElementById('home-who-stats');
-          if (labelEl && wwa.label) labelEl.textContent = wwa.label;
-          if (headlineEl && wwa.headline) headlineEl.textContent = wwa.headline;
-          if (bodyEl && wwa.body) bodyEl.textContent = wwa.body;
-          if (statsEl && Array.isArray(wwa.stats) && wwa.stats.length) {
-            statsEl.innerHTML = wwa.stats.map(st => '<div><div style="font-family:var(--font-display);font-size:32px;color:var(--ink-900);line-height:1;letter-spacing:-0.02em">' + safeText(st.value || '') + '</div><div class="eyebrow" style="margin-top:6px">' + safeText(st.label || '') + '</div></div>').join('');
-          }
-        }
-
-        // --- Features (What We Offer -> "How we can actually do this") ---
-        const feat = content && content.features ? content.features : null;
-        if (feat) {
-          const flabelEl = document.getElementById('home-features-label');
-          const fheadEl = document.getElementById('home-features-headline');
-          if (flabelEl && feat.label) flabelEl.textContent = feat.label;
-          if (fheadEl && feat.headline) fheadEl.textContent = feat.headline;
-          if (Array.isArray(feat.items)) {
-            feat.items.slice(0, 3).forEach((item, i) => {
-              const titleEl = document.getElementById('home-feature-' + i + '-title');
-              const bodyEl = document.getElementById('home-feature-' + i + '-body');
-              if (titleEl && item.title) titleEl.textContent = item.title;
-              if (bodyEl && item.body) bodyEl.textContent = item.body;
-            });
-          }
-        }
-
-        // --- Testimonials ---
-        const tSlides = document.getElementById('home-testimonials-slides');
-        const testimonials = Array.isArray(content && content.testimonials) ? content.testimonials : null;
-        if (tSlides && testimonials && testimonials.length) {
-          tSlides.innerHTML = testimonials.map(t => '<div class="swiper-slide"><div class="testimonial-card"><blockquote class="mb-3">&ldquo;' + safeText(t.quote || '') + '&rdquo;</blockquote><div class="review-title">' + safeText(t.author || '') + '</div></div></div>').join('');
-          requestAnimationFrame(() => {
-            try { const sw = document.querySelector('.testimonial-swiper'); if (sw && sw.swiper) { sw.swiper.update(); sw.swiper.slideTo(0, 0); } } catch {}
-          });
-        }
-      } catch (e) {
-        console.warn('Homepage CMS load failed:', e && (e.message || String(e)));
-        // Fall back to the static slide already in the markup path above.
-        const heroSection = document.getElementById('heroSection');
-        if (heroSection && !heroSection.querySelector('.swiper-slide')) {
-          document.getElementById('homeHeroSlides').innerHTML = '<div class="swiper-slide"><div class="hero-media"><img src="images/post-large-image1.jpg" alt=""></div>'
-            + '<div class="hero-content container h-100 d-flex flex-column justify-content-center"><div class="row"><div class="col-lg-8">'
-            + '<h1>Life is in beta</h1><p style="font-size:16px;color:var(--paper-300);max-width:480px;margin-bottom:32px">One shirt. The layer it carries keeps changing.</p>'
-            + '<div class="d-flex gap-3 flex-wrap"><a href="shop.html" class="btn btn-primary btn-lg">Shop the drop</a><a href="about.html" class="btn btn-outline-light btn-lg" style="border-color:rgba(240,240,240,.3);color:var(--paper-100)">How it works</a></div>'
-            + '</div></div></div>';
-          heroSection.style.visibility = 'visible';
+      /* ---------- Hero media: video on desktop, poster below 768 / reduced motion ---------- */
+      function setHeroMedia(slide) {
+        var wrap = document.getElementById('heroMedia');
+        if (!wrap || !slide) return;
+        var isVideo = function (u) { return /\.(mp4|webm|mov)(\?|#|$)/i.test(String(u || '')); };
+        var video = slide.video || (isVideo(slide.image) ? slide.image : '');
+        var poster = slide.poster || (isVideo(slide.image) ? '' : slide.image) || '';
+        var small = window.matchMedia('(max-width: 767.98px)').matches;
+        var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (video && !small && !still) {
+          wrap.innerHTML = '<video autoplay muted loop playsinline preload="auto"' + (poster ? ' poster="' + esc(poster) + '"' : '') + '><source src="' + esc(video) + '" type="video/mp4"></video>';
+        } else if (poster) {
+          wrap.innerHTML = '<img src="' + esc(poster) + '" alt="" onerror="this.remove()">';
         }
       }
-    }
 
-    window.addEventListener('load', () => { initHomepageCms(); });
+      function paragraphs(text) {
+        return String(text || '').split(/\n\s*\n/).map(function (p) { return p.trim(); }).filter(Boolean)
+          .map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('');
+      }
 
-    // --- Live catalog ---
-    function moneyFromCents(cents, currency){ const amt = (Number(cents || 0) / 100); const sym = (currency || 'USD') === 'USD' ? '$' : ''; return sym + amt.toFixed(2); }
-    function normalizeCatalogImageUrl(u){ const s = (u || '').toString(); if (!s) return s; if (s.startsWith('data:')) return s; if (s.startsWith('http://') || s.startsWith('https://')) return s; if (s.startsWith('/api/')) return s; if (s.startsWith('/ecommerce/')) return s; if (s.startsWith('/images/')) return s.replace(/^\/images\//, 'images/'); return s; }
-    function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-
-    async function loadLiveCatalog(){
-      const rowEl = document.getElementById('liveProductsRow');
-      const statusEl = document.getElementById('liveCatalogStatus');
-      if (!rowEl) return;
-      try {
-        const res = await fetch('/api/products', { credentials: 'include' });
-        if (!res.ok) throw new Error('Products API error (' + res.status + ')');
-        const data = await res.json();
-        const items = Array.isArray(data && data.items) ? data.items : [];
-        if (items.length === 0) { if (statusEl) statusEl.textContent = ''; return; }
-        if (statusEl) statusEl.textContent = '';
-        rowEl.innerHTML = items.slice(0, 12).map(p => {
-          const title = escapeHtml((p.title || 'Product').toString());
-          const slug = escapeHtml((p.slug || '').toString());
-          const price = escapeHtml(moneyFromCents(p.price_cents, p.currency));
-          const img = escapeHtml(normalizeCatalogImageUrl((p.image_url || 'images/product-item-1.jpg').toString()));
-          const href = escapeHtml(p.slug ? 'product.html?slug=' + encodeURIComponent(p.slug) : 'product.html');
-          const rawPrice = Number(p.price_cents||0)/100;
-          return '<div class="swiper-slide">'
-            + '<div class="na-card" data-slug="'+slug+'" data-name="'+title+'" data-price="'+rawPrice+'" data-img="'+img+'">'
-            + '<div class="na-img-wrap">'
-            + '<a href="'+href+'"><img src="'+img+'" alt="'+title+'" class="na-img"></a>'
-            + '<a href="wishlist.html" class="na-wish"><svg width="15" height="15" viewBox="0 0 24 24"><use xlink:href="#heart"></use></svg></a>'
-            + '</div>'
-            + '<div class="na-body">'
-            + '<h6 class="na-title"><a href="'+href+'">'+title+'</a></h6>'
-            + '<div class="na-footer">'
-            + '<span class="na-price">'+price+'</span>'
-            + '<button class="na-add-btn" type="button">Add +</button>'
-            + '</div>'
-            + '</div>'
-            + '</div>'
-            + '</div>';
+      function renderTestimonials(list) {
+        var track = document.getElementById('wornTrack');
+        if (!track) return;
+        track.innerHTML = list.map(function (t) {
+          var photo = t.image ? '<div class="tcard ph"><img src="' + esc(t.image) + '" alt="' + esc(t.author || 'Customer') + ' wearing the piece" loading="lazy"></div>' : '';
+          return photo + '<figure class="tcard tcard--quote" style="margin:0"><blockquote>&ldquo;' + esc(t.quote || '') + '&rdquo;</blockquote>'
+            + '<figcaption><div class="who">' + esc(t.author || '') + '</div>' + (t.piece ? '<div class="piece">' + esc(t.piece) + '</div>' : '') + '</figcaption></figure>';
         }).join('');
+        updateArrows();
+      }
+      function updateArrows() {
+        var track = document.getElementById('wornTrack');
+        var prev = document.querySelector('[data-track="-1"]'), next = document.querySelector('[data-track="1"]');
+        if (!track || !prev || !next) return;
+        prev.disabled = track.scrollLeft < 4;
+        next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+      }
+      document.querySelectorAll('[data-track]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var track = document.getElementById('wornTrack');
+          track.scrollBy({ left: Number(b.getAttribute('data-track')) * 280, behavior: 'smooth' });
+        });
+      });
+      document.getElementById('wornTrack').addEventListener('scroll', updateArrows, { passive: true });
+      renderTestimonials(DEFAULT_TESTIMONIALS);
+
+      /* ---------- Homepage CMS (dashboard → Homepage editor) ---------- */
+      async function initHomepageCms() {
+        var content = null;
         try {
-          const swiperEl = document.querySelector('#new-arrival .swiper');
-          if (swiperEl && swiperEl.swiper) { swiperEl.swiper.destroy(true, true); }
-          if (typeof Swiper !== 'undefined') {
-            const sw = new Swiper(swiperEl, {slidesPerView:1.2,spaceBetween:16,breakpoints:{576:{slidesPerView:2,spaceBetween:20},992:{slidesPerView:3,spaceBetween:24},1200:{slidesPerView:4,spaceBetween:24}}});
-            const prevBtn = document.querySelector('.new-arrival-prev');
-            const nextBtn = document.querySelector('.new-arrival-next');
-            if (prevBtn) prevBtn.onclick = () => sw.slidePrev();
-            if (nextBtn) nextBtn.onclick = () => sw.slideNext();
-          }
-        } catch(err) { console.warn('Swiper reinit failed:', err); }
-      } catch (e) { if (statusEl) statusEl.textContent = ''; console.warn('Live catalog failed:', e); }
-    }
-    loadLiveCatalog();
+          var res = await fetch('/api/homepage', { credentials: 'include' });
+          if (res.ok) { var data = await res.json().catch(function () { return null; }); content = data && data.content ? data.content : null; }
+        } catch (e) { console.warn('Homepage CMS load failed:', e && e.message); }
+        if (!content) return;
 
-    // Add-to-cart: na-card add button
-    function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
-    document.addEventListener('click', function(e){
-      var btn = e.target.closest('.na-add-btn');
-      if (!btn) return;
-      e.preventDefault();
-      var card = btn.closest('.na-card');
-      if (!card) return;
-      var cardId = 'sku-' + (card.dataset.slug || slugify(card.dataset.name || 'product'));
-      Cart.add({id: cardId, slug: card.dataset.slug || '', name: card.dataset.name || 'Product', price: parseFloat(card.dataset.price || '0'), image: card.dataset.img || '', qty: 1});
-      CartUI.render();
-    });
+        var slides = Array.isArray(content.slides) ? content.slides : [];
+        var bb = content.billboard || {};
+        var hero = slides[0] || (bb.title || bb.image ? { title: bb.title, text: bb.description, image: bb.image } : null);
+        if (hero) {
+          if (hero.title) document.getElementById('heroTitle').textContent = hero.title;
+          if (hero.text) document.getElementById('heroText').textContent = hero.text;
+          var cta = document.getElementById('heroCta');
+          if (hero.linkLabel) cta.textContent = hero.linkLabel;
+          if (hero.href && hero.href !== '#') cta.setAttribute('href', hero.href);
+          setHeroMedia(hero);
+        }
 
-    CartUI.render();
+        var wwa = content.whoWeAre;
+        if (wwa) {
+          if (wwa.headline) document.getElementById('home-who-headline').textContent = wwa.headline;
+          if (wwa.label) document.getElementById('home-who-label').textContent = wwa.label;
+          if (wwa.body) document.getElementById('home-who-body').innerHTML = paragraphs(wwa.body);
+        }
+
+        var camp = content.campaign;
+        if (camp) {
+          if (camp.caption) document.getElementById('campaignCaption').textContent = camp.caption;
+          if (camp.image) document.getElementById('campaign').insertAdjacentHTML('afterbegin', '<img src="' + esc(camp.image) + '" alt="" onerror="this.remove()">');
+        }
+
+        var feat = content.features;
+        if (feat) {
+          if (feat.headline) document.getElementById('home-features-headline').textContent = feat.headline;
+          (Array.isArray(feat.items) ? feat.items : []).slice(0, 3).forEach(function (item, i) {
+            var t = document.getElementById('home-feature-' + i + '-title');
+            var b = document.getElementById('home-feature-' + i + '-body');
+            var img = document.getElementById('home-feature-' + i + '-img');
+            if (t && item.title) t.textContent = item.title;
+            if (b && item.body) b.textContent = item.body;
+            if (img && item.image) img.innerHTML = '<img src="' + esc(item.image) + '" alt="" loading="lazy">';
+          });
+        }
+
+        if (Array.isArray(content.testimonials) && content.testimonials.length) renderTestimonials(content.testimonials);
+      }
+      initHomepageCms();
+
+      /* ---------- New arrivals ---------- */
+      var grid = document.getElementById('newArrivals');
+      grid.innerHTML = INRL.skeletonCards(4);
+      INRL.fetchProducts().then(function (items) {
+        if (!items.length) { grid.innerHTML = ''; var s = document.getElementById('newArrivalsStatus'); s.hidden = false; s.textContent = 'The next drop is being made. Nothing is on sale right now.'; return; }
+        grid.innerHTML = items.slice(0, 4).map(INRL.productCard).join('');
+      }).catch(function () {
+        grid.innerHTML = '';
+        var s = document.getElementById('newArrivalsStatus'); s.hidden = false; s.textContent = 'The shop could not be reached. Try again in a moment.';
+      });
+    })();
   </script>
 </body>
 </html>

@@ -1,72 +1,57 @@
-  <!-- FOOTER -->
-  <footer id="footer">
-    <div class="container-fluid" style="max-width:1400px">
-      <div class="row py-5 align-items-center border-bottom" style="border-color:rgba(240,240,240,.1) !important">
-        <div class="col-lg-6 mb-3 mb-lg-0">
-          <h3 class="mb-2" style="font-size:2rem">Know when it changes</h3>
-          <p class="mb-0" style="color:var(--paper-300)">New drops, and a note whenever a layer you own is replaced. Nothing else.</p>
+  <!-- FOOTER (Footer 1730:1107 · Footer / Mobile 1753:2023) -->
+  <footer class="sfoot" id="footer">
+    <div class="wrap">
+      <div class="sfoot__news">
+        <div>
+          <h2 class="t-section">Know when it changes</h2>
+          <p>New drops, and a note whenever a layer you own is replaced. Nothing else.</p>
         </div>
-        <div class="col-lg-6">
-          <form id="newsletterForm" class="d-flex align-items-end gap-3" style="max-width:420px;margin-left:auto">
-            <div class="flex-grow-1">
-              <input type="email" id="newsletterEmail" required placeholder="your@email.com" class="form-control bg-transparent" style="border:none;border-bottom:1px solid rgba(240,240,240,.3);border-radius:0 !important;color:var(--paper-100);padding-left:0">
-            </div>
-            <button type="submit" class="btn btn-link p-0" style="color:var(--paper-100);text-decoration:underline;font-weight:500">Sign up</button>
+        <div>
+          <form class="sfoot__form" id="newsletterForm" novalidate>
+            <label for="newsletterEmail" class="visually-hidden">Email address</label>
+            <input type="email" id="newsletterEmail" name="email" autocomplete="email" placeholder="your@email.com" required>
+            <button type="submit">Sign up</button>
           </form>
-          <p id="newsletterStatus" class="mt-2 mb-0" style="font-size:.78rem;color:var(--accent-400)"></p>
+          <p class="sfoot__status" id="newsletterStatus" role="status" aria-live="polite"></p>
         </div>
       </div>
 
-      <div class="row py-5">
-        <div class="col-md-4 mb-4">
-          <div style="margin-bottom:16px"><img src="images/logo-light.svg" alt="INRL" style="height:26px"></div>
-          <p data-site-tagline style="max-width:320px">Garments that keep changing after you own them.</p>
-          <div class="d-flex gap-3 mt-3">
-            <a href="#"><svg width="18" height="18" viewBox="0 0 15 15" style="fill:none;stroke:currentColor"><use xlink:href="#facebook"></use></svg></a>
-            <a href="#"><svg width="18" height="18" viewBox="0 0 15 15" style="fill:currentColor"><use xlink:href="#twitter"></use></svg></a>
-            <a href="#"><svg width="18" height="18" viewBox="0 0 15 15" style="fill:currentColor"><use xlink:href="#youtube"></use></svg></a>
-            <a href="#"><svg width="18" height="18" viewBox="0 0 15 15" style="fill:none;stroke:currentColor"><use xlink:href="#instagram"></use></svg></a>
-          </div>
+      <div class="sfoot__cols">
+        <div class="sfoot__brand">
+          <img src="images/logo-light.svg" alt="INRL">
+          <p data-site-tagline>Garments that keep changing after you own them.</p>
         </div>
-        <div class="col-md-2 col-sm-6 mb-4">
-          <h6 class="eyebrow mb-3">Shop</h6>
-          <ul class="list-unstyled">
-            <li class="mb-2"><a href="shop.html">New arrivals</a></li>
-            <li class="mb-2"><a href="shop.html?category=Men">Men</a></li>
-            <li class="mb-2"><a href="shop.html?category=Women">Women</a></li>
-            <li class="mb-2"><a href="shop.html?category=Accessories">Accessories</a></li>
+        <div>
+          <p class="t-label">Shop</p>
+          <ul>
+            <li><a href="shop.html">New arrivals</a></li>
+            <li><a href="shop.html?category=Men">Men</a></li>
+            <li><a href="shop.html?category=Women">Women</a></li>
+            <li><a href="shop.html?category=Accessories">Accessories</a></li>
           </ul>
         </div>
-        <div class="col-md-3 col-sm-6 mb-4">
-          <h6 class="eyebrow mb-3">Help</h6>
-          <ul class="list-unstyled">
-            <li class="mb-2"><a href="order-tracking.html">Track your order</a></li>
-            <li class="mb-2"><a href="faqs.html">FAQs</a></li>
-            <li class="mb-2"><a href="contact.html">Contact us</a></li>
+        <div>
+          <p class="t-label">Help</p>
+          <ul>
+            <li><a href="order-tracking.html">Track your order</a></li>
+            <li><a href="faqs.html">FAQs</a></li>
+            <li><a href="contact.html">Contact us</a></li>
+            <li><a href="returns.html">Returns</a></li>
           </ul>
         </div>
-        <div class="col-md-3 col-sm-6 mb-4">
-          <h6 class="eyebrow mb-3">Contact</h6>
-          <p class="mb-1"><a href="mailto:contact@inrl.co">contact@inrl.co</a></p>
-          <p><a href="tel:+43720115278">+43 720 11 52 78</a></p>
+        <div class="sfoot__contact">
+          <p class="t-label">Contact</p>
+          <ul>
+            <li><a href="mailto:contact@inrl.co">contact@inrl.co</a></li>
+            <li><a href="tel:+43720115278" class="tnum">+43 720 11 52 78</a></li>
+          </ul>
         </div>
       </div>
-      <div class="border-top py-3">
-        <p class="text-center mb-0" style="font-size:12px;color:var(--paper-500)">&copy; 2026 <span data-site-name>INRL</span>. All rights reserved.</p>
+      <p class="sfoot__contact-m"><a href="mailto:contact@inrl.co">contact@inrl.co</a></p>
+
+      <div class="sfoot__bottom">
+        <span>&copy; 2026 <span data-site-name>INRL</span> &nbsp;&middot;&nbsp; <a href="terms.html" style="color:inherit">Terms</a> &middot; <a href="terms.html#privacy" style="color:inherit">Privacy</a></span>
+        <span class="t-label" data-footer-meta>Drop 04 &middot; SS26</span>
       </div>
     </div>
   </footer>
-
-  <script>
-    (function () {
-      var form = document.getElementById('newsletterForm');
-      if (!form) return;
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var status = document.getElementById('newsletterStatus');
-        var email = document.getElementById('newsletterEmail');
-        if (status) status.textContent = "You're on the list.";
-        if (email) email.value = '';
-      });
-    })();
-  </script>

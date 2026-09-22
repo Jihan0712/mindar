@@ -1,226 +1,421 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Piece | INRL</title>
+  <title>Your piece | INRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-  <link rel="stylesheet" type="text/css" href="css/vendor.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
   <style>
-    .panel{border:1px solid var(--line-200);border-radius:12px;padding:28px}
-    .status-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:7px}
-    .status-dot.live{background:var(--accent-500)}
-    .status-dot.draft{background:var(--warn-500)}
-    #nicknameInput{border:none;background:transparent;font-family:var(--font-display);font-size:clamp(24px,3vw,32px);color:var(--ink-900);text-transform:uppercase;letter-spacing:-0.02em;padding:0;width:100%}
-    #nicknameInput:focus{outline:none;box-shadow:none}
-    .dropzone{border:1px dashed var(--line-200);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:border-color .15s}
-    .dropzone:hover,.dropzone.is-drag{border-color:var(--accent-500);background:rgba(18,162,184,.04)}
-    .version-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-100);font-size:13px}
-    .version-row:last-child{border-bottom:none}
+    .two{display:grid;gap:16px}
+    @media (min-width:1024px){.two{grid-template-columns:minmax(0,620px) minmax(0,1fr);gap:16px;align-items:start}}
+    .player{background:var(--dark-800);aspect-ratio:620/460;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;color:var(--paper-500);position:relative;overflow:hidden}
+    .player video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+    .player .t-label{color:var(--paper-300)}
+    .player__bar{background:var(--surface-0);padding:12px 16px;display:flex;justify-content:space-between;font-size:13px;color:var(--ink-500)}
+    .player__bar a{color:var(--accent-700);font-weight:500;text-decoration:none}
+    @media (max-width:1023.98px){.player{aspect-ratio:4/3;margin-inline:calc(-1 * var(--margin))}.player__bar{display:none}}
+    .hist{background:var(--surface-0)}
+    .hist__head{background:var(--surface-50);padding:12px 18px;border-bottom:1px solid var(--line-100)}
+    .hist__row{display:grid;grid-template-columns:38px 1fr auto;gap:8px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line-100);font-size:14px;color:var(--ink-900)}
+    .hist__row:last-child{border-bottom:0}
+    .hist__row .v{font-size:11px;color:var(--ink-500)}
+    .hist__row.is-live .v{color:var(--accent-700)}
+    .hist__row .d{font-size:13px;color:var(--ink-500)}
+    .hist__row.is-live .d{color:var(--accent-700)}
+    .seeit{display:flex;gap:20px;align-items:center}
+    .seeit canvas{width:88px!important;height:88px!important;flex-shrink:0}
+    .seeit p{font-size:13px;margin:0 0 4px}
+    .seeit a{color:var(--accent-700);font-size:13px;font-weight:500;word-break:break-all}
+    .rename{display:none;gap:8px;margin-top:8px}
+    .rename.is-on{display:flex}
+    .icon-btn{background:none;border:0;color:var(--ink-500);padding:4px;cursor:pointer;vertical-align:middle}
+    .icon-btn:hover{color:var(--ink-900)}
+    /* replace */
+    .drop{border:2px dashed var(--accent-500);background:var(--surface-0);min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;cursor:pointer;transition:background var(--t-state)}
+    @media (min-width:1024px){.drop{min-height:520px}}
+    .drop:hover,.drop.is-drag{background:#f2fafb}
+    .drop strong{font:500 18px/1.3 var(--font-body);color:var(--ink-900);margin:14px 0 6px}
+    .drop p{margin:0;font-size:14px}
+    .drop .t-small{margin-top:10px}
+    .drop--bad{border-color:var(--danger-500);background:#fbe5e5;cursor:default}
+    .drop--bad:hover{background:#fbe5e5}
+    .drop--bad h3{font:500 22px/1.2 var(--font-display);color:var(--ink-900);text-transform:none;margin:16px 0 8px}
+    .still{background:var(--surface-0);padding:18px 18px}
+    .still__row{display:flex;gap:14px;align-items:center;margin:12px 0}
+    .still__row .ph{width:48px;height:60px;font-size:9px;background:var(--surface-3);flex-shrink:0}
+    .radio-row{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface-0);border:2px solid var(--accent-700);font-size:14px}
+    .checks{background:var(--surface-0)}
+    .checks__row{display:grid;grid-template-columns:14px 80px 1fr auto;gap:10px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line-100);font-size:14px;color:var(--ink-900)}
+    .checks__row:last-child{border-bottom:0}
+    .checks__row .k{color:var(--ink-500);font-size:13px}
+    .checks__row .r{font-size:12px;color:var(--ink-500)}
+    .checks__row.is-bad .r{color:var(--danger-500);font-weight:500}
+    .checks__row i{width:7px;height:7px;border-radius:50%;background:var(--accent-700)}
+    .checks__row.is-bad i{background:var(--danger-500)}
+    .checks__row.is-wait i{background:var(--surface-4)}
+    .checks__row.is-wait{color:var(--ink-500)}
+    .prog{background:var(--surface-0);min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px}
+    @media (min-width:1024px){.prog{min-height:520px}}
+    .prog h3{font:500 24px/1.2 var(--font-display);color:var(--ink-900);text-transform:none;margin:10px 0 20px}
+    .bar{width:min(420px,100%);height:5px;background:var(--surface-3)}
+    .bar i{display:block;height:100%;background:var(--accent-700);width:0;transition:width var(--t-element)}
+    .note{background:var(--surface-0);padding:18px}
+    .note p{margin:0;font-size:13px}
+    .note strong{display:block;font-weight:500;color:var(--ink-900);margin-bottom:6px;font-size:14px}
+    .welcome{background:#e7f5f8;color:var(--accent-700);padding:14px 18px;margin-bottom:20px;font-size:14px}
   </style>
 </head>
-<body>
-  <div class="preloader text-white fs-6 text-uppercase overflow-hidden"></div>
+<body class="site app">
+  <div id="site-header" data-page="account"></div>
 
-  <div id="site-header" data-page="piece"></div>
+  <div class="shell">
+    <aside class="rail" id="app-rail" data-active="wardrobe"></aside>
+    <main id="main" class="app__main">
+      <p id="loadState" class="t-meta">Loading the piece&hellip;</p>
 
-  <section style="padding:132px 0 100px">
-    <div class="container" style="max-width:880px">
-      <a href="wardrobe.html" style="font-size:13px;color:var(--ink-500);display:inline-block;margin-bottom:20px">&larr; My wardrobe</a>
-
-      <div id="loadState" style="font-size:14px;color:var(--ink-500)">Loading…</div>
-
-      <div id="pieceContent" style="display:none">
-        <div class="row g-5 mb-5">
-          <div class="col-lg-5">
-            <div id="pieceImage" style="aspect-ratio:1/1;background:var(--surface-50);border-radius:12px;overflow:hidden"></div>
+      <!-- THE LAYER -->
+      <section id="vLayer" hidden>
+        <div class="app-head">
+          <div>
+            <a class="back" href="wardrobe.html">&larr; Back to the wardrobe</a>
+            <h1><span id="pName"></span> <button class="icon-btn" type="button" id="renameBtn" aria-label="Rename this piece"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8-4 1z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button></h1>
+            <form class="rename" id="renameForm"><label for="renameInput" class="visually-hidden">Name</label><input class="input" id="renameInput" maxlength="120" style="min-height:40px;max-width:320px"><button class="b b--dark b--sm" type="submit">Save</button><button class="b b--ghost b--sm" type="button" id="renameCancel">Cancel</button></form>
+            <p id="pMeta" class="tnum"></p>
           </div>
-          <div class="col-lg-7">
-            <div id="productTitle" class="eyebrow mb-2"></div>
-            <input id="nicknameInput" type="text" placeholder="Untitled piece" maxlength="120">
-            <div id="nicknameStatus" style="font-size:12px;color:var(--accent-700);margin-top:4px;display:none">Saved</div>
+          <button class="b b--ghost d-none d-lg-inline-flex" type="button" data-go-replace style="background:var(--surface-0)">Replace the layer</button>
+        </div>
+        <div class="welcome" id="welcome" hidden>It&rsquo;s in your wardrobe. Give it something to play &mdash; until you publish a layer, a scan plays the drop&rsquo;s default film.</div>
 
-            <div class="d-flex flex-wrap gap-4 mt-4 pt-4" style="border-top:1px solid var(--line-200)">
-              <div><div class="eyebrow mb-1">Status</div><div id="statusValue" style="font-size:14px;color:var(--ink-900)"></div></div>
-              <div><div class="eyebrow mb-1">Code</div><div id="codeValue" style="font-size:14px;color:var(--ink-900)"></div></div>
-              <div><div class="eyebrow mb-1">Scans</div><div id="scansValue" style="font-size:14px;color:var(--ink-900)"></div></div>
-              <div><div class="eyebrow mb-1">Registered</div><div id="claimedValue" style="font-size:14px;color:var(--ink-900)"></div></div>
+        <div class="tiles">
+          <div class="tile"><span class="t-label">Scans</span><span class="v" id="sScans">0</span></div>
+          <div class="tile"><span class="t-label">Versions</span><span class="v" id="sVersions">0</span></div>
+          <div class="tile"><span class="t-label">Last scanned</span><span class="v" id="sLast" style="font-size:18px">&mdash;</span></div>
+          <div class="tile"><span class="t-label">Registered</span><span class="v teal" id="sSince" style="font-size:18px">&mdash;</span></div>
+        </div>
+
+        <div class="two">
+          <div>
+            <div class="player" id="player"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M26 21l18 11-18 11z" fill="#fff"/></svg><span class="t-label">What plays when someone scans the print</span></div>
+            <div class="player__bar"><span id="fileMeta">No layer yet</span><a id="dl" href="#" download hidden>Download</a></div>
+          </div>
+          <div style="display:grid;gap:16px">
+            <button class="b b--ghost b--block d-lg-none" type="button" data-go-replace style="background:var(--surface-0)">Replace the layer</button>
+            <div class="hist"><div class="hist__head t-label">This piece has carried</div><div id="hist"></div></div>
+            <div class="panel" style="padding:18px 18px">
+              <p class="t-label" style="margin-bottom:14px">See it as they will</p>
+              <div class="seeit"><canvas id="qr" width="88" height="88" aria-hidden="true"></canvas><div><p>Point a phone at this to open the layer exactly as someone scanning the shirt would.</p><a id="viewerLink" href="#" target="_blank" rel="noopener"></a></div></div>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="row g-4">
-          <div class="col-lg-6">
-            <div class="panel mb-4">
-              <h6 class="mb-3" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">See what it plays</h6>
-              <div class="d-flex align-items-center gap-3">
-                <canvas id="qrCanvas" width="88" height="88" style="background:#fff;border-radius:8px;flex-shrink:0"></canvas>
-                <div style="font-size:13px;color:var(--ink-500);word-break:break-all" id="viewerUrlText"></div>
-              </div>
-            </div>
-
-            <div class="panel">
-              <h6 class="mb-3" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">History</h6>
-              <div id="versionHistory" style="font-size:13px;color:var(--ink-500)"></div>
+      <!-- REPLACE THE LAYER (+ rejected) -->
+      <section id="vReplace" hidden>
+        <div class="app-head">
+          <div>
+            <a class="back" href="#" data-go-layer>&larr; Back to the piece</a>
+            <h1>Replace the layer</h1>
+            <p id="rMeta"></p>
+          </div>
+          <button class="b b--dark d-none d-lg-inline-flex" type="button" id="publishTop" disabled>Publish</button>
+        </div>
+        <div class="two">
+          <div>
+            <label class="drop" id="drop" tabindex="0">
+              <input type="file" id="file" accept="video/mp4,video/*" class="visually-hidden">
+              <svg width="30" height="34" viewBox="0 0 30 34" aria-hidden="true"><path d="M15 34V6M3 16L15 3l12 13z" fill="var(--accent-500)" stroke="var(--accent-500)" stroke-width="2"/></svg>
+              <strong id="dropTitle">Drop a file here</strong>
+              <p id="dropSub">or choose one from your device</p>
+              <p class="t-small">Video only &middot; MP4, H.264 &middot; up to 10 MB &middot; vertical reads best on a shirt</p>
+            </label>
+            <div class="drop drop--bad" id="bad" hidden role="alert">
+              <svg width="54" height="54" viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="25" fill="none" stroke="var(--danger-500)" stroke-width="2"/><path d="M19 19l16 16M35 19L19 35" stroke="var(--danger-500)" stroke-width="2"/></svg>
+              <h3 id="badName"></h3>
+              <p class="t-small tnum" id="badMeta" style="color:var(--ink-900);font-weight:500;margin:0 0 12px"></p>
+              <p id="badWhy" style="max-width:420px;font-size:15px"></p>
             </div>
           </div>
-
-          <div class="col-lg-6">
-            <div class="panel">
-              <h6 class="mb-1" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Replace the layer</h6>
-              <p style="font-size:13px;color:var(--ink-500);margin-bottom:20px">Upload a new video. It replaces what plays immediately — the previous one stays in this piece's history.</p>
-
-              <label class="dropzone d-block mb-2" id="dropzone">
-                <input type="file" id="fileInput" accept="video/*" style="display:none">
-                <div id="dropzoneLabel" style="color:var(--ink-500);font-size:13px">Tap to choose a video, or drag one here</div>
-              </label>
-              <div id="uploadStatus" style="font-size:13px;margin-top:8px"></div>
+          <div style="display:grid;gap:16px" id="replaceSide">
+            <div class="still" id="stillLive">
+              <span class="sdot">Still live until you publish</span>
+              <div class="still__row"><div class="ph" id="stillV">V1</div><div><div style="color:var(--ink-900)" id="stillName"></div><div class="t-small" id="stillMeta"></div></div></div>
+              <p style="font-size:13px;margin:0">Publishing replaces this. Anyone who scans the shirt from then on sees the new file &mdash; including people who already own one.</p>
             </div>
+            <div class="field" style="margin:8px 0 0">
+              <label for="label" class="t-label" style="font-weight:500">Name this version</label>
+              <input class="input" id="label" maxlength="80" placeholder="e.g. Rooftop, 4am" aria-describedby="labelHelp">
+              <span class="field-help" id="labelHelp">Only you see this. It is how you find the version again.</span>
+            </div>
+            <div>
+              <p class="t-label" style="margin-bottom:8px">When it goes live</p>
+              <div class="radio-row"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--accent-700)" stroke-width="1.5"/><circle cx="8" cy="8" r="3.5" fill="var(--accent-700)"/></svg>Straight away, as soon as it finishes uploading</div>
+            </div>
+            <button class="b b--dark b--block d-lg-none" type="button" id="publishM" disabled>Publish</button>
+            <p class="auth__status" id="rStatus" role="status" aria-live="polite"></p>
+          </div>
+          <div style="display:grid;gap:16px" id="rejectSide" hidden>
+            <div class="checks"><div class="hist__head t-label">What a layer has to be</div><div id="checks"></div></div>
+            <div class="note"><strong id="untouchedTitle">Nothing was replaced</strong><p id="untouchedBody"></p></div>
+            <button class="b b--dark b--block" type="button" id="chooseAnother">Choose another file</button>
+            <button class="b b--ghost b--block" type="button" data-go-layer>Cancel</button>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
+
+      <!-- PUBLISHING -->
+      <section id="vPublish" hidden>
+        <div class="app-head"><div><h1>Publishing</h1><p id="pubMeta"></p></div></div>
+        <div class="two">
+          <div class="prog">
+            <span class="t-label t-label--teal" id="pubState">Uploading</span>
+            <h3 id="pubName"></h3>
+            <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pubBar"><i></i></div>
+            <p class="tnum" style="margin:14px 0 18px;color:var(--ink-900);font-size:14px" id="pubPct"></p>
+            <p class="t-small" style="max-width:380px;margin:0" id="pubKeep">Keep this tab open. If you close it the upload stops and the shirt keeps playing what it plays now.</p>
+          </div>
+          <div style="display:grid;gap:16px">
+            <div class="checks" id="steps"></div>
+            <div class="note"><strong id="pubStillTitle">The current layer is still what plays</strong><p>The shirt keeps showing the old layer until this finishes. Nobody sees a broken frame in between.</p></div>
+            <button class="b b--ghost b--block" type="button" id="cancelUpload" style="background:var(--surface-0)">Cancel the upload</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <div id="site-footer"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
   <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/include.js"></script>
+  <script src="js/app-rail.js"></script>
+  <script src="js/auth-forms.js"></script>
   <script>
-    function escHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-    function fmtDate(iso) { if (!iso) return ''; try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)); } catch { return iso; } }
+  (function () {
+    var esc = INRL.esc;
+    var qs = new URLSearchParams(location.search);
+    var id = qs.get('id');
+    var P = null, chosen = null, xhr = null;
+    var MAX = 10 * 1024 * 1024, MAX_SECONDS = 30;
+    var views = { layer: document.getElementById('vLayer'), replace: document.getElementById('vReplace'), publish: document.getElementById('vPublish') };
 
-    const id = new URLSearchParams(location.search).get('id');
-    let currentPiece = null;
+    function fmtDate(iso) { if (!iso) return ''; try { return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(iso)); } catch (e) { return iso; } }
+    function mb(b) { return (b / 1048576).toFixed(1) + ' MB'; }
+    function plain(t) { return String(t || '').replace(/^No\.\s*\d+\s+/, ''); }
+    function name() { return P.nickname || 'Untitled'; }
+    function current() { return P.current_layer || null; }
+    function layerName(l) { return l.label || (l.version === 1 ? 'First layer' : 'Version ' + l.version); }
+    function show(v) {
+      Object.keys(views).forEach(function (k) { views[k].hidden = k !== v; });
+      window.scrollTo(0, 0);
+      if (v === 'replace') history.replaceState(null, '', '?id=' + encodeURIComponent(id) + '&replace=1');
+      else if (v === 'layer') history.replaceState(null, '', '?id=' + encodeURIComponent(id));
+    }
 
-    function renderPiece(p) {
-      currentPiece = p;
-      document.getElementById('loadState').style.display = 'none';
-      document.getElementById('pieceContent').style.display = '';
+    function render() {
+      document.getElementById('loadState').hidden = true;
+      document.title = name() + ' | INRL';
+      document.getElementById('pName').textContent = name();
+      var cur = current();
+      document.getElementById('pMeta').textContent = [P.claim_code, plain(P.product && P.product.title), cur ? 'V' + cur.version : 'Not published', cur ? 'published ' + fmtDate(cur.created_at) : ''].filter(Boolean).join(' · ');
+      document.getElementById('sScans').textContent = (P.scan_count || 0).toLocaleString();
+      document.getElementById('sVersions').textContent = (P.layers || []).length;
+      document.getElementById('sLast').textContent = P.last_scanned_at ? fmtDate(P.last_scanned_at) : 'Not yet';
+      document.getElementById('sSince').textContent = fmtDate(P.claimed_at) || '—';
 
-      document.title = (p.nickname || p.product.title || 'Piece') + ' | INRL';
-      const imgEl = document.getElementById('pieceImage');
-      imgEl.innerHTML = p.product.image_url ? `<img src="${escHtml(p.product.image_url)}" alt="" style="width:100%;height:100%;object-fit:cover">` : '';
-
-      document.getElementById('productTitle').textContent = p.product.title || '';
-      document.getElementById('nicknameInput').value = p.nickname || '';
-
-      const isLive = !!p.current_layer;
-      document.getElementById('statusValue').innerHTML = isLive
-        ? `<span class="status-dot live"></span>Live &middot; V${p.current_layer.version}`
-        : `<span class="status-dot draft"></span>Not published`;
-      document.getElementById('codeValue').textContent = p.claim_code;
-      document.getElementById('scansValue').textContent = (p.scan_count || 0).toLocaleString();
-      document.getElementById('claimedValue').textContent = fmtDate(p.claimed_at) || '—';
-
-      document.getElementById('viewerUrlText').textContent = p.viewer_url;
-      const canvas = document.getElementById('qrCanvas');
-      if (window.QRCode) {
-        QRCode.toCanvas(canvas, p.viewer_url, { width: 88, margin: 1, color: { dark: '#0b0f10', light: '#ffffff' } }, function (err) {
-          if (err) console.warn('QR render failed', err);
+      var player = document.getElementById('player');
+      if (cur && cur.video_url) {
+        player.innerHTML = '<video controls playsinline preload="metadata" src="' + esc(cur.video_url) + '"></video>';
+        var v = player.querySelector('video');
+        v.addEventListener('loadedmetadata', function () {
+          var s = Math.round(v.duration || 0);
+          document.getElementById('fileMeta').textContent = '0:' + String(s).padStart(2, '0') + ' · ' + (cur.video_url.split('.').pop() || 'mp4').toUpperCase().slice(0, 4);
         });
+        var dl = document.getElementById('dl'); dl.hidden = false; dl.href = cur.video_url;
       }
 
-      const historyEl = document.getElementById('versionHistory');
-      if (!p.layers.length) {
-        historyEl.innerHTML = 'No layer uploaded yet.';
-      } else {
-        historyEl.innerHTML = p.layers.map(function (l, i) {
-          return `<div class="version-row"><span>V${l.version}${i === 0 ? ' &middot; current' : ''}</span><span>${fmtDate(l.created_at)}</span></div>`;
-        }).join('');
-      }
-    }
+      var layers = P.layers || [];
+      document.getElementById('hist').innerHTML = layers.length ? layers.map(function (l, i) {
+        return '<div class="hist__row' + (i === 0 ? ' is-live' : '') + '"><span class="v">V' + l.version + '</span><span>' + esc(layerName(l)) + '</span><span class="d tnum">' + (i === 0 ? 'Live now' : esc(fmtDate(l.created_at))) + '</span></div>';
+      }).join('') : '<div class="hist__row"><span class="v">&mdash;</span><span>Nothing yet. A scan plays the drop&rsquo;s default film.</span><span></span></div>';
 
-    async function loadPiece() {
-      const loadEl = document.getElementById('loadState');
-      if (!id) { loadEl.textContent = 'No piece specified.'; return; }
-      try {
-        const res = await fetch('/api/pieces/' + encodeURIComponent(id), { credentials: 'include' });
-        if (res.status === 401) {
-          location.href = 'login.html?next=' + encodeURIComponent(location.pathname + location.search);
-          return;
-        }
-        if (res.status === 404) { loadEl.textContent = "Piece not found, or it isn't yours."; return; }
-        if (!res.ok) throw new Error('Failed to load (' + res.status + ')');
-        renderPiece(await res.json());
-      } catch (e) {
-        loadEl.textContent = 'Something went wrong: ' + (e.message || e);
+      var link = document.getElementById('viewerLink');
+      link.href = P.viewer_url; link.textContent = P.viewer_url.replace(/^https?:\/\//, '');
+      if (window.QRCode) QRCode.toCanvas(document.getElementById('qr'), P.viewer_url, { width: 88, margin: 0, color: { dark: '#384143', light: '#ffffff' } }, function () {});
+
+      // replace view header + "still live" card
+      document.getElementById('rMeta').textContent = name().toUpperCase() + ' · ' + P.claim_code + (cur ? ' · replacing V' + cur.version : ' · first layer');
+      var still = document.getElementById('stillLive');
+      still.hidden = !cur;
+      if (cur) {
+        document.getElementById('stillV').textContent = 'V' + cur.version;
+        document.getElementById('stillName').textContent = layerName(cur);
+        document.getElementById('stillMeta').textContent = 'Published ' + fmtDate(cur.created_at) + ' · ' + (P.scan_count || 0).toLocaleString() + ' scans';
       }
     }
-    loadPiece();
 
-    // Inline nickname rename
-    let nicknameSaveTimer = null;
-    document.getElementById('nicknameInput').addEventListener('input', function () {
-      clearTimeout(nicknameSaveTimer);
-      nicknameSaveTimer = setTimeout(async () => {
-        try {
-          const res = await fetch('/api/pieces/' + encodeURIComponent(id), {
-            method: 'PATCH',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nickname: this.value.trim() }),
-          });
-          if (!res.ok) throw new Error();
-          const s = document.getElementById('nicknameStatus');
-          s.style.display = '';
-          setTimeout(() => { s.style.display = 'none'; }, 1500);
-        } catch (e) {}
-      }, 700);
-    });
-
-    // Replace-layer upload
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const uploadStatus = document.getElementById('uploadStatus');
-
-    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('is-drag'); });
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-drag'));
-    dropzone.addEventListener('drop', (e) => {
+    /* ---------- rename ---------- */
+    var rf = document.getElementById('renameForm');
+    document.getElementById('renameBtn').addEventListener('click', function () { rf.classList.add('is-on'); var i = document.getElementById('renameInput'); i.value = P.nickname || ''; i.focus(); });
+    document.getElementById('renameCancel').addEventListener('click', function () { rf.classList.remove('is-on'); });
+    rf.addEventListener('submit', async function (e) {
       e.preventDefault();
-      dropzone.classList.remove('is-drag');
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) uploadLayer(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files && fileInput.files[0]) uploadLayer(fileInput.files[0]);
+      var v = document.getElementById('renameInput').value.trim();
+      try {
+        var res = await fetch('/api/pieces/' + encodeURIComponent(id), { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname: v }) });
+        if (!res.ok) throw new Error();
+        P.nickname = v || null; render(); rf.classList.remove('is-on');
+      } catch (err) { document.getElementById('renameInput').classList.add('is-error'); }
     });
 
-    async function uploadLayer(file) {
-      if (!file.type.startsWith('video/')) {
-        uploadStatus.textContent = 'Only video files are allowed.';
-        uploadStatus.style.color = 'var(--danger-500)';
-        return;
-      }
-      document.getElementById('dropzoneLabel').textContent = 'Publishing…';
-      uploadStatus.textContent = '';
-      try {
-        const form = new FormData();
-        form.append('file', file);
-        const res = await fetch('/api/pieces/' + encodeURIComponent(id) + '/layer', {
-          method: 'POST',
-          credentials: 'include',
-          body: form,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Upload failed');
-        uploadStatus.textContent = 'Published — this piece now plays V' + data.version + '.';
-        uploadStatus.style.color = 'var(--accent-700)';
-        document.getElementById('dropzoneLabel').textContent = 'Tap to choose a video, or drag one here';
-        fileInput.value = '';
-        loadPiece();
-      } catch (e) {
-        uploadStatus.textContent = 'Upload failed: ' + (e.message || e);
-        uploadStatus.style.color = 'var(--danger-500)';
-        document.getElementById('dropzoneLabel').textContent = 'Tap to choose a video, or drag one here';
-      }
+    /* ---------- choose + check a file ---------- */
+    var drop = document.getElementById('drop'), fileIn = document.getElementById('file');
+    drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } });
+    drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('is-drag'); });
+    drop.addEventListener('dragleave', function () { drop.classList.remove('is-drag'); });
+    drop.addEventListener('drop', function (e) { e.preventDefault(); drop.classList.remove('is-drag'); if (e.dataTransfer.files[0]) choose(e.dataTransfer.files[0]); });
+    fileIn.addEventListener('change', function () { if (fileIn.files[0]) choose(fileIn.files[0]); });
+
+    function probe(file) {
+      return new Promise(function (resolve) {
+        var v = document.createElement('video'); var url = URL.createObjectURL(file);
+        v.preload = 'metadata'; v.muted = true;
+        v.onloadedmetadata = function () { resolve({ ok: true, duration: v.duration, w: v.videoWidth, h: v.videoHeight }); URL.revokeObjectURL(url); };
+        v.onerror = function () { resolve({ ok: false }); URL.revokeObjectURL(url); };
+        v.src = url;
+      });
     }
+
+    async function choose(file) {
+      var ext = (file.name.split('.').pop() || '').toUpperCase();
+      var meta = await probe(file);
+      var isMp4 = /mp4/i.test(file.type) || ext === 'MP4' || ext === 'M4V';
+      var checks = [
+        { k: 'Format', want: 'MP4, H.264', bad: !isMp4 || !meta.ok, got: !isMp4 ? (ext || file.type || 'Unknown') : (!meta.ok ? 'Can’t be played' : '—') },
+        { k: 'Size', want: 'Up to 10 MB', bad: file.size > MAX, got: file.size > MAX ? mb(file.size) : mb(file.size) },
+        { k: 'Shape', want: 'Vertical reads best', bad: false, got: meta.ok && meta.w && meta.w > meta.h ? 'Landscape' : '—' },
+        { k: 'Length', want: 'Under 30 seconds', bad: meta.ok && meta.duration > MAX_SECONDS, got: meta.ok && meta.duration ? '0:' + String(Math.round(meta.duration)).padStart(2, '0') : '—' },
+      ];
+      var bad = checks.filter(function (c) { return c.bad; });
+      if (bad.length) return reject(file, ext, checks, bad);
+      chosen = file;
+      document.getElementById('dropTitle').textContent = file.name;
+      document.getElementById('dropSub').textContent = mb(file.size) + (meta.duration ? ' · 0:' + String(Math.round(meta.duration)).padStart(2, '0') : '') + ' · ready to publish';
+      if (!document.getElementById('label').value) document.getElementById('label').value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 80);
+      ['publishTop', 'publishM'].forEach(function (x) { document.getElementById(x).disabled = false; });
+      AuthForms.status('', '', document.getElementById('rStatus'));
+    }
+
+    function reject(file, ext, checks, bad) {
+      document.getElementById('drop').hidden = true;
+      document.getElementById('bad').hidden = false;
+      document.getElementById('replaceSide').hidden = true;
+      document.getElementById('rejectSide').hidden = false;
+      document.getElementById('publishTop').hidden = true;
+      document.getElementById('rMeta').textContent = name().toUpperCase() + ' · that file cannot be used';
+      document.getElementById('badName').textContent = file.name;
+      document.getElementById('badMeta').textContent = mb(file.size) + ' · ' + (ext || 'unknown type');
+      var why = bad.map(function (c) { return c.k === 'Format' ? 'it is ' + (ext ? 'a' + (/^[AEIOU]/.test(ext) ? 'n ' : ' ') + ext : 'not a video this page can read') : c.k === 'Size' ? 'it is over the limit' : 'it runs longer than 30 seconds'; });
+      document.getElementById('badWhy').textContent = (bad.length === 1 ? 'One problem: ' : bad.length === 2 ? 'Two problems: ' : 'Three problems: ') + why.join(' and ') + '. Export it as MP4 (H.264), keep it under 10 MB and under 30 seconds.';
+      document.getElementById('checks').innerHTML = checks.map(function (c) {
+        return '<div class="checks__row' + (c.bad ? ' is-bad' : '') + '"><i></i><span class="k">' + c.k + '</span><span>' + c.want + '</span><span class="r tnum">' + esc(c.got) + '</span></div>';
+      }).join('');
+      var cur = current();
+      document.getElementById('untouchedTitle').textContent = cur ? 'V' + cur.version + ' is untouched' : 'Nothing was replaced';
+      document.getElementById('untouchedBody').textContent = cur
+        ? 'Nothing was replaced. The shirt is still playing “' + layerName(cur) + '” and will keep doing so until a file passes these checks.'
+        : 'Nothing was uploaded. The shirt keeps playing the drop’s default film until a file passes these checks.';
+    }
+    function resetReplace() {
+      chosen = null; fileIn.value = '';
+      document.getElementById('drop').hidden = false; document.getElementById('bad').hidden = true;
+      document.getElementById('replaceSide').hidden = false; document.getElementById('rejectSide').hidden = true;
+      document.getElementById('publishTop').hidden = false;
+      document.getElementById('dropTitle').textContent = 'Drop a file here';
+      document.getElementById('dropSub').textContent = 'or choose one from your device';
+      ['publishTop', 'publishM'].forEach(function (x) { document.getElementById(x).disabled = true; });
+      render();
+    }
+    document.getElementById('chooseAnother').addEventListener('click', function () { resetReplace(); fileIn.click(); });
+
+    /* ---------- publish with progress ---------- */
+    function steps(state) {
+      var cur = current();
+      var rows = [['Uploaded', state >= 1], ['Checked for size and format', true], ['Published to ' + P.claim_code, state >= 2]];
+      document.getElementById('steps').innerHTML = rows.map(function (r, i) {
+        var done = r[1], working = !done && (i === 0 || (i === 2 && state === 1));
+        return '<div class="checks__row' + (done || working ? '' : ' is-wait') + '" style="grid-template-columns:14px 1fr auto"><i></i><span' + (working ? ' style="font-weight:500"' : '') + '>' + esc(r[0]) + '</span><span class="r">' + (done ? 'Done' : working ? 'Working' : '—') + '</span></div>';
+      }).join('');
+      document.getElementById('pubStillTitle').textContent = cur ? 'V' + cur.version + ' is still what plays' : 'The default film is still what plays';
+    }
+    function publish() {
+      if (!chosen) { AuthForms.status('Choose a file first.', 'error', document.getElementById('rStatus')); return; }
+      var cur = current();
+      show('publish');
+      document.getElementById('pubMeta').textContent = name().toUpperCase() + ' · ' + P.claim_code + (cur ? ' · replacing V' + cur.version : '');
+      document.getElementById('pubName').textContent = chosen.name;
+      steps(0);
+      var fd = new FormData(); fd.append('file', chosen); fd.append('label', document.getElementById('label').value.trim());
+      xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/pieces/' + encodeURIComponent(id) + '/layer');
+      xhr.withCredentials = true;
+      xhr.upload.onprogress = function (e) {
+        if (!e.lengthComputable) return;
+        var pct = Math.round(e.loaded / e.total * 100);
+        document.querySelector('#pubBar i').style.width = pct + '%';
+        document.getElementById('pubBar').setAttribute('aria-valuenow', pct);
+        document.getElementById('pubPct').textContent = pct + '%  ·  ' + mb(e.loaded) + ' of ' + mb(e.total);
+        if (pct === 100) { document.getElementById('pubState').textContent = 'Publishing'; steps(1); }
+      };
+      xhr.onload = function () {
+        var d = {}; try { d = JSON.parse(xhr.responseText); } catch (e) {}
+        if (xhr.status >= 200 && xhr.status < 300) {
+          steps(2);
+          document.getElementById('pubState').textContent = 'Live';
+          document.getElementById('pubKeep').textContent = 'Done. Anyone who scans the shirt now sees V' + d.version + '.';
+          setTimeout(function () { location.href = 'piece.html?id=' + encodeURIComponent(id); }, 1200);
+        } else {
+          show('replace');
+          AuthForms.status('The upload failed: ' + (d.error || 'server error ' + xhr.status) + '. Nothing was replaced.', 'error', document.getElementById('rStatus'));
+        }
+      };
+      xhr.onerror = function () { show('replace'); AuthForms.status('The connection dropped. Nothing was replaced — try again.', 'error', document.getElementById('rStatus')); };
+      xhr.onabort = function () { show('replace'); AuthForms.status('Upload cancelled. Nothing was replaced.', '', document.getElementById('rStatus')); };
+      xhr.send(fd);
+    }
+    document.getElementById('publishTop').addEventListener('click', publish);
+    document.getElementById('publishM').addEventListener('click', publish);
+    document.getElementById('cancelUpload').addEventListener('click', function () { if (xhr) xhr.abort(); });
+    window.addEventListener('beforeunload', function (e) { if (xhr && xhr.readyState > 0 && xhr.readyState < 4) { e.preventDefault(); e.returnValue = ''; } });
+
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('[data-go-replace]')) { resetReplace(); show('replace'); }
+      else if (e.target.closest('[data-go-layer]')) { e.preventDefault(); resetReplace(); show('layer'); }
+    });
+
+    AppRail.ready.then(async function () {
+      var ls = document.getElementById('loadState');
+      if (!id) { ls.textContent = 'No piece was chosen. Go back to the wardrobe and pick one.'; return; }
+      try {
+        var res = await fetch('/api/pieces/' + encodeURIComponent(id), { credentials: 'include' });
+        if (res.status === 401) { location.href = 'login.html?next=' + encodeURIComponent('piece.html?id=' + id); return; }
+        if (res.status === 404) { ls.innerHTML = 'That piece isn’t in your wardrobe. <a class="t-link--teal" href="wardrobe.html">Back to the wardrobe</a>'; return; }
+        if (!res.ok) throw new Error('server error ' + res.status);
+        P = await res.json();
+        render();
+        if (qs.get('new') === '1') document.getElementById('welcome').hidden = false;
+        if (qs.get('replace') === '1' || (qs.get('new') === '1' && !current())) show('replace'); else show('layer');
+      } catch (e) {
+        ls.textContent = 'Something broke on our side: ' + e.message + '.';
+      }
+    });
+  })();
   </script>
 </body>
 </html>

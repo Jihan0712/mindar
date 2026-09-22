@@ -860,6 +860,7 @@
     // Wardrobe (garment units — customer-claimed physical pieces, see sql/wardrobe_migration.sql)
     if (request.method === 'POST'  && pathname === '/api/pieces/claim')            return apiClaimPiece(request);
     if (request.method === 'GET'   && pathname === '/api/pieces')                  return apiListMyPieces(request);
+    if (request.method === 'GET'   && pathname === '/api/pieces/lookup')           return apiLookupPiece(request);
     if (request.method === 'POST'  && /^\/api\/pieces\/([^/]+)\/layer$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiUploadPieceLayer(request, id);
@@ -1069,6 +1070,7 @@
       label: clampStr(featIn.label, 60),
       headline: clampStr(featIn.headline, 200),
       items: featItemsIn.slice(0, 6).map(c => ({
+        image: clampStr(c && c.image, 800),
         title: clampStr(c && c.title, 120),
         body: clampStr(c && c.body, 400),
       })),
@@ -1094,21 +1096,34 @@
   function defaultHomepageContent() {
     return normalizeHomepagePayload({
       billboard: {
-        title: 'New Collections',
-        description: 'Discover the latest in neo-brutalist fashion and digital identity.',
+        title: 'Life is in beta',
+        description: 'One shirt. The layer it carries keeps changing — scan the print and it plays.',
         image: ''
       },
       slides: [
         {
-          image: 'images/banner-large-image.jpg',
-          title: 'New Collection',
-          text: 'Discover the latest in neo-brutalist fashion and digital identity.',
+          image: 'images/post-large-image1.jpg',
+          title: 'Life is in beta',
+          text: 'One shirt. The layer it carries keeps changing — scan the print and it plays.',
           href: 'shop.html',
-          linkLabel: 'Shop Collection'
+          linkLabel: 'Shop the drop'
         }
       ],
-      whoWeAre: { label: 'Who We Are', headline: 'Fashion meets digital identity', body: '', stats: [] },
-      features: { label: 'The Experience', headline: 'What makes us different', items: [] },
+      whoWeAre: {
+        label: 'What we make, and why it keeps moving.',
+        headline: 'We print it once. What it carries keeps changing.',
+        body: "A garment is finished the moment it leaves the factory. The print is a marker; scanning it plays whatever is attached to that piece right now — and the owner decides what that is.",
+        stats: [],
+      },
+      features: {
+        label: 'The Experience',
+        headline: 'How we can actually do this.',
+        items: [
+          { image: '', title: 'The print is the marker', body: "There's no QR patch stitched into the hem. The artwork on the garment is the thing the camera reads." },
+          { image: '', title: 'Nothing to install', body: 'It opens in the browser the way any link does. No app, no account, no store page in between.' },
+          { image: '', title: 'Tied to the garment', body: 'The layer is registered against the piece, not the order. It survives being lent, resold or handed down.' },
+        ],
+      },
       testimonials: [],
       newsletter: { headline: '' }
     });
@@ -3904,20 +3919,78 @@
     }
     if (!unit) return jsonResponse({ error: "That code doesn't match a registered piece. Double-check it and try again." }, 404, request);
 
+    // A piece sits in exactly one wardrobe. Re-claiming your own is a no-op; claiming one
+    // that belongs to another account is refused — the previous owner has to release it, or
+    // support moves it after checking the receipt.
+    if (unit.owner_user_id != null) {
+      if (String(unit.owner_user_id) === String(sess.user.id)) return jsonResponse({ ok: true, id: unit.id, already_yours: true }, 200, request);
+      return jsonResponse({ error: 'This piece is registered to another account.', code: 'owned_by_other' }, 409, request);
+    }
+
     const nickname = body.nickname != null ? (String(body.nickname).trim().slice(0, 120) || null) : null;
     if (nickname != null) {
       await dbRun(
-        `update garment_units set owner_user_id = ?, claimed_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')), nickname = ? where id = ?`,
+        `update garment_units set owner_user_id = ?, claimed_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')), nickname = ? where id = ? and owner_user_id is null`,
         sess.user.id, nickname, unit.id
       );
     } else {
       await dbRun(
-        `update garment_units set owner_user_id = ?, claimed_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+        `update garment_units set owner_user_id = ?, claimed_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ? and owner_user_id is null`,
         sess.user.id, unit.id
       );
     }
+    const after = await dbGet('select owner_user_id from garment_units where id = ?', unit.id);
+    if (!after || String(after.owner_user_id) !== String(sess.user.id)) {
+      return jsonResponse({ error: 'This piece is registered to another account.', code: 'owned_by_other' }, 409, request);
+    }
 
     return jsonResponse({ ok: true, id: unit.id }, 200, request);
+  }
+
+  // GET /api/pieces/lookup?code= — what a tag code points at, before claiming it: the
+  // product, and whether the piece is free, already yours, or in another wardrobe. Signed-in
+  // only and rate-limited alongside claim, so it reveals nothing claim itself doesn't.
+  async function apiLookupPiece(request) {
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('claim-piece:' + ip, RATE_LIMIT_MAX_ORDER)) {
+      return jsonResponse({ error: 'Too many attempts. Please try again later.' }, 429, request);
+    }
+    const code = String(new URL(request.url).searchParams.get('code') || '').trim().toUpperCase();
+    if (!code) return jsonResponse({ error: 'code required' }, 400, request);
+
+    let unit;
+    try {
+      unit = await dbGet(
+        `select u.id, u.claim_code, u.owner_user_id, u.claimed_at, u.created_at,
+                p.title as product_title, p.slug as product_slug, p.image_url as product_image
+         from garment_units u join products p on p.id = u.product_id where u.claim_code = ?`,
+        code
+      );
+    } catch (e) {
+      if (String(e || '').toLowerCase().includes('no such table')) return jsonResponse({ error: 'Not found' }, 404, request);
+      throw e;
+    }
+    if (!unit) return jsonResponse({ error: "That code doesn't match a registered piece." }, 404, request);
+
+    let version = 0;
+    try {
+      const l = await dbGet('select max(version) as v from garment_layers where unit_id = ?', unit.id);
+      version = (l && l.v) || 0;
+    } catch (e) {}
+
+    const status = unit.owner_user_id == null ? 'available'
+      : (String(unit.owner_user_id) === String(sess.user.id) ? 'yours' : 'owned');
+    return jsonResponse({
+      status,
+      id: status === 'yours' ? unit.id : null,
+      claim_code: unit.claim_code,
+      made_at: unit.created_at,
+      claimed_at: status === 'available' ? null : unit.claimed_at,
+      version,
+      product: { title: unit.product_title, slug: unit.product_slug, image_url: unit.product_image },
+    }, 200, request);
   }
 
   // GET /api/pieces — the logged-in customer's own wardrobe: every piece they've claimed,
@@ -3980,7 +4053,13 @@
     );
     if (!unit || !ownsGarmentUnit(sess, unit)) return jsonResponse({ error: 'Not found' }, 404, request);
 
-    const layers = await dbAll('select id, video_url, version, created_at from garment_layers where unit_id = ? order by version desc', id);
+    let layers;
+    try {
+      layers = await dbAll('select id, video_url, version, label, created_at from garment_layers where unit_id = ? order by version desc', id);
+    } catch (e) {
+      if (!String(e || '').toLowerCase().includes('label')) throw e;
+      layers = await dbAll('select id, video_url, version, created_at from garment_layers where unit_id = ? order by version desc', id);
+    }
     const origin = new URL(request.url).origin;
 
     return jsonResponse({
@@ -4054,8 +4133,15 @@
     await ASSETS_BUCKET.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'video/mp4' } });
     const videoUrl = buildPublicAssetUrl(request, key);
 
+    const label = String(form.get('label') || '').trim().slice(0, 80) || null;
     try {
-      await dbRun('insert into garment_layers (unit_id, video_url, version) values (?, ?, ?)', id, videoUrl, nextVersion);
+      try {
+        await dbRun('insert into garment_layers (unit_id, video_url, version, label) values (?, ?, ?, ?)', id, videoUrl, nextVersion, label);
+      } catch (e) {
+        // label column not migrated yet — store the layer without its name
+        if (!String(e || '').toLowerCase().includes('label')) throw e;
+        await dbRun('insert into garment_layers (unit_id, video_url, version) values (?, ?, ?)', id, videoUrl, nextVersion);
+      }
     } catch (e) {
       if (String(e || '').toLowerCase().includes('no such table')) {
         return jsonResponse({ error: 'DB migration required: run sql/wardrobe_migration.sql' }, 500, request);
@@ -4063,7 +4149,7 @@
       throw e;
     }
 
-    return jsonResponse({ ok: true, video_url: videoUrl, version: nextVersion }, 200, request);
+    return jsonResponse({ ok: true, video_url: videoUrl, version: nextVersion, label }, 200, request);
   }
 
   // GET /api/viewer/piece?code=<claim_code> — resolves what a specific claimed physical
