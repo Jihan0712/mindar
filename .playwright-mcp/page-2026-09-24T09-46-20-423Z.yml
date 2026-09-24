@@ -1,0 +1,17 @@
+- generic [ref=f3e2]:
+  - generic [ref=f3e3]:
+    - generic [ref=f3e4]:
+      - generic [ref=f3e5]: "2"
+      - generic [ref=f3e6]: Marker Image(s)
+    - button "Choose File" [ref=f3e7] [cursor=pointer]
+    - paragraph
+    - paragraph [ref=f3e8]: Images are auto-resized to 1024px and compiled automatically. Supports multiple images for multi-target sets.
+    - group [ref=f3e9]:
+      - generic "What makes a marker track well on a shirt?" [ref=f3e10] [cursor=pointer]
+  - generic [ref=f3e11]:
+    - generic [ref=f3e12]:
+      - generic [ref=f3e13]: "3"
+      - generic [ref=f3e14]: AR Content (Video)
+    - generic [ref=f3e15]: Video file (.mp4) *
+    - button "Choose File" [ref=f3e16] [cursor=pointer]
+    - button "Create Target" [ref=f3e17] [cursor=pointer]

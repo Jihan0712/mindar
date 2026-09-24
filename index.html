@@ -392,6 +392,21 @@
             target.appendChild(inner);
           }
 
+          // Fit, not cover: shrink the plane to letterbox the whole video inside the
+          // marker (CSS object-fit: contain), preserving its full frame. Cover (crop via
+          // UV offset/repeat to fill edge-to-edge with no bars) was tried and rejected —
+          // when the video's aspect is far from the marker's (e.g. a landscape video on a
+          // portrait marker), cropping to fill zooms in hard enough to lose most of the
+          // shot. A close aspect match still fills the marker almost entirely either way;
+          // a mismatched one gets visible bars instead of a cropped, zoomed-in video.
+          function resetCropIfAny() {
+            try {
+              const mesh = inner.getObject3D && inner.getObject3D('mesh');
+              const map = mesh && mesh.material && mesh.material.map;
+              if (map) { map.repeat.set(1, 1); map.offset.set(0, 0); map.needsUpdate = true; }
+            } catch (e) {}
+          }
+
           function sizeInnerPlane() {
             const vw = aframeVideoAsset.videoWidth, vh = aframeVideoAsset.videoHeight;
             if (!vw || !vh) return;
@@ -404,6 +419,7 @@
             inner.setAttribute('height', videoUnitH);
             inner.setAttribute('visible', 'true');
             try { planeEl.setAttribute('visible', 'true'); } catch (e) {}
+            resetCropIfAny();
           }
           try { window.sizeInnerPlaneGlobal = sizeInnerPlane; } catch (e) {}
           if (aframeVideoAsset.readyState >= 1) sizeInnerPlane();

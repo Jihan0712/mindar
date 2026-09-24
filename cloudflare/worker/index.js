@@ -949,6 +949,9 @@
     if (request.method === 'DELETE' && /^\/api\/targets\/\d+$/.test(pathname)) {
       const id = parseInt(pathname.split('/')[3], 10); return apiDeleteTarget(request, id);
     }
+    if (request.method === 'POST' && /^\/api\/targets\/\d+\/video$/.test(pathname)) {
+      const id = parseInt(pathname.split('/')[3], 10); return apiUploadTargetVideo(request, id);
+    }
 
     // Brand design submissions
     if (request.method === 'GET'  && pathname === '/api/brand/designs')         return apiListBrandDesigns(request);
@@ -2159,6 +2162,73 @@
     return jsonResponse({ ok: true, order_id: orderId, checkout_url: session.url }, 201, request);
   }
 
+  // Mints one garment_units row per unit purchased in a paid order, owned immediately by
+  // whoever bought it — "a QR code created at the time of purchase, tied to the account."
+  // Replaces registration-by-tag-scan as the path a first-time buyer takes: the piece is
+  // already in their wardrobe the moment payment clears, nothing to claim. Ownership is
+  // matched by the order's own email against an existing account (covers both "was signed
+  // in at checkout" and "guest checkout, but the email already has an account"); a guest
+  // order with no matching account leaves the unit unclaimed for now — the existing
+  // /api/pieces/claim code-entry flow remains the right mechanism there, and it is also
+  // still how a piece gets handed off on a second-hand sale (the new owner has to prove
+  // they hold the actual garment), so that flow is kept, not removed.
+  async function provisionGarmentUnitsForOrder(orderId) {
+    const row = await dbGet('select id, user_id, email, items_json from orders where id = ?', orderId);
+    if (!row) return;
+
+    let items = [];
+    try { items = JSON.parse(row.items_json) || []; } catch {}
+    if (!items.length) return;
+
+    let ownerId = row.user_id || null;
+    if (!ownerId && row.email) {
+      try {
+        const u = await dbGet('select id from users where email = ?', String(row.email).trim().toLowerCase());
+        if (u) ownerId = u.id;
+      } catch (e) {}
+    }
+
+    for (const it of items) {
+      const slug = String((it && it.slug) || '').trim();
+      if (!slug) continue;
+      const qty = Math.max(1, Math.min(99, parseInt(it && it.qty, 10) || 1));
+
+      let product;
+      try {
+        product = await dbGet('select id from products where lower(slug) = lower(?)', slug);
+      } catch (e) { continue; }
+      if (!product) continue;
+
+      const nickname = String((it && it.name) || '').trim().slice(0, 120) || null;
+
+      for (let i = 0; i < qty; i++) {
+        try {
+          let code;
+          let attempts = 0;
+          do {
+            code = randomClaimCode();
+            attempts++;
+          } while (attempts < 5 && await dbGet('select 1 from garment_units where claim_code = ?', code));
+          const unitId = randomId('unit_');
+          if (ownerId) {
+            await dbRun(
+              `insert into garment_units (id, claim_code, product_id, owner_user_id, claimed_at, nickname)
+               values (?, ?, ?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ','now')), ?)`,
+              unitId, code, product.id, ownerId, nickname
+            );
+          } else {
+            await dbRun('insert into garment_units (id, claim_code, product_id) values (?, ?, ?)', unitId, code, product.id);
+          }
+        } catch (e) {
+          // sql/wardrobe_migration.sql not yet run, or some other transient issue — never
+          // let this block payment confirmation / Printful submission.
+          if (String(e || '').toLowerCase().includes('no such table')) return;
+          console.error('[wardrobe] Failed to provision garment unit for order', orderId, String(e));
+        }
+      }
+    }
+  }
+
   // POST /api/webhooks/stripe — no session auth (server-to-server), authenticated instead
   // by verifying Stripe's HMAC signature on the raw body before any D1 write.
   async function apiStripeWebhook(request) {
@@ -2190,6 +2260,7 @@
                 'paid', 'paid', session.payment_intent || null, new Date().toISOString(), orderId
               );
               await finalizeOrderPrintfulSubmission(orderId);
+              await provisionGarmentUnitsForOrder(orderId);
             }
           }
         }
@@ -3553,6 +3624,69 @@
       }
     }
     return jsonResponse({ ok: true, deleteResults: results }, 200, request);
+  }
+
+  // POST /api/targets/:id/video — replaces the video on an existing target directly
+  // (admin, or the brand that owns it) without re-uploading the marker image/.mind. Bumps
+  // version/updated_at the same way apiUploadProductVideo does, so the viewer's "V3 ·
+  // updated 12 Aug" footer and any product page pointed at this target pick it up.
+  async function apiUploadTargetVideo(request, id) {
+    if (!id) return jsonResponse({ error: 'id required' }, 400, request);
+    const sess = await getSessionUser(request);
+    if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (!isPrivilegedRole(sess.user.role)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+
+    const target = await dbGet('select id, brand_id, video_url from targets where id = ?', id);
+    if (!target) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (sess.user.role === 'brand') {
+      const brandIds = (sess.user.brands || []).map(b => b.id);
+      if (!brandIds.includes(target.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('target-video-upload:' + ip, RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
+      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
+    }
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
+      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
+    }
+
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
+    if (file.size && file.size > UPLOAD_MAX_SIZE) {
+      return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
+    }
+    const contentType = (file.type || '').toLowerCase();
+    if (!contentType.startsWith('video/')) {
+      return jsonResponse({ error: 'Only video files are allowed' }, 415, request);
+    }
+
+    const rawName = (file.name || `${Date.now()}`).toString();
+    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+    const key = `videos/${id}/${Date.now()}-${filename}`;
+
+    await ASSETS_BUCKET.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type || 'video/mp4' }
+    });
+    const videoUrl = buildPublicAssetUrl(request, key);
+
+    try {
+      await dbRun(
+        `update targets set video_url = ?, version = version + 1, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+        videoUrl, id
+      );
+    } catch (e) {
+      if (!String(e || '').toLowerCase().includes('no such column')) throw e;
+      // sql/targets_version_migration.sql not yet run — still update the video itself.
+      await dbRun('update targets set video_url = ? where id = ?', videoUrl, id);
+    }
+
+    if (target.video_url && target.video_url !== videoUrl) {
+      try { await ASSETS_BUCKET.delete(keyFromPublicUrl(target.video_url)); } catch {}
+    }
+
+    return jsonResponse({ ok: true, video_url: videoUrl }, 200, request);
   }
 
   // ---------- Brand Design Submissions ----------

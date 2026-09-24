@@ -26,9 +26,9 @@
     .form-control:focus, .form-select:focus { background:var(--surface-0) !important; border-color:var(--accent-500) !important; color:var(--ink-900) !important; box-shadow:0 0 0 3px rgba(18,162,184,.12) !important; }
     .form-control::placeholder { color:var(--ink-500); opacity:.7; }
     .form-select { background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23737373' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important; background-repeat:no-repeat !important; background-position:right .75rem center !important; background-size:16px 12px !important; padding-right:2.25rem !important; }
-    .form-control[type=file] { padding:.3rem .5rem; }
-    .form-control[type=file]::file-selector-button { background:var(--surface-50); color:var(--ink-700); border:0; border-right:1px solid var(--line-200); font-family:var(--font-body); font-size:.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.3rem .7rem; margin-right:.75rem; cursor:pointer; border-radius:0; transition:color .15s; }
-    .form-control[type=file]:hover::file-selector-button, .form-control[type=file]:focus::file-selector-button { color:var(--accent-700); }
+    .form-control[type=file] { padding:.3rem .5rem; color:var(--ink-500) !important; }
+    .form-control[type=file]::file-selector-button { background:var(--ink-900); color:var(--ink-inverse); border:0; font-family:var(--font-body); font-size:.65rem; font-weight:500; text-transform:uppercase; letter-spacing:.05em; padding:.45rem .9rem; margin-right:.75rem; cursor:pointer; border-radius:var(--radius-sm); transition:background .15s; }
+    .form-control[type=file]:hover::file-selector-button, .form-control[type=file]:focus::file-selector-button { background:var(--teal-700); }
     .form-label { color:var(--ink-500); font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; margin-bottom:.35rem; }
     .inrl-table th { background:var(--surface-50) !important; border-bottom:1px solid var(--line-200) !important; color:var(--ink-500) !important; font-family:var(--font-body); text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; padding:.7rem .9rem !important; font-weight:500; }
     .inrl-table td { background:var(--surface-0) !important; border-bottom:1px solid var(--line-100) !important; vertical-align:middle; color:var(--ink-900) !important; font-size:.78rem; padding:.65rem .9rem !important; }
@@ -38,6 +38,10 @@
     .target-thumb { width:72px; height:72px; object-fit:contain; cursor:zoom-in; border:1px solid var(--line-200); border-radius:8px; background:var(--surface-50); }
     #status { font-size:.78rem; padding:.55rem .9rem; border-radius:8px; margin-bottom:.75rem; border-left:2px solid var(--accent-500); color:var(--accent-700); background:rgba(18,162,184,.06); }
     #status:empty { display:none !important; }
+    /* Same pill toast used on the storefront (see product.html) — visible without having
+       to scroll back up to the status bar at the top of the page. */
+    .toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%,16px); opacity:0; z-index:10000; background:var(--dark-800); color:var(--paper-100); border-radius:999px; padding:12px 20px; font-size:14px; transition:opacity .2s ease,transform .2s ease; pointer-events:none; }
+    .toast.is-on { opacity:1; transform:translate(-50%,0); }
     .inrl-heading { font-family:var(--font-display); text-transform:uppercase; color:var(--ink-900); font-size:1.3rem; font-weight:500; border-left:none; padding-left:0; margin-bottom:1.1rem; letter-spacing:-.01em; }
     .step-badge { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border-radius:999px; background:var(--teal-700); color:var(--ink-inverse); font-weight:500; font-size:.75rem; flex-shrink:0; }
     .input-group .btn { border-radius:var(--radius-sm); }
@@ -228,11 +232,10 @@
       <!-- Trackability report: filled in by analyseMarkerImage() on file select -->
       <div id="markerQuality" class="mb-3"></div>
 
-      <div class="d-flex align-items-center gap-3 flex-wrap">
-        <button id="serverCompile" class="btn btn-sm btn-inrl">Compile Marker</button>
-        <span id="compileStatus" class="text-secondary small"></span>
-      </div>
-      <p class="text-secondary small mt-2 mb-0">Images are auto-resized to 1024px. Supports multiple images for multi-target sets.</p>
+      <!-- Compiling happens automatically as soon as a marker image is selected —
+           no separate "Compile" step. This just reports progress/result. -->
+      <span id="compileStatus" class="text-secondary small"></span>
+      <p class="text-secondary small mt-2 mb-0">Images are auto-resized to 1024px and compiled automatically. Supports multiple images for multi-target sets.</p>
 
       <details class="mt-3">
         <summary class="text-secondary small" style="cursor:pointer;">What makes a marker track well on a shirt?</summary>
@@ -259,7 +262,7 @@
       </div>
       <label class="form-label text-secondary small text-uppercase mb-1">Video file (.mp4) <span style="color:var(--danger-500);">*</span></label>
       <input id="videoFile" type="file" accept="video/mp4" class="form-control mb-3" />
-      <button id="upload" class="btn btn-inrl">Upload Target</button>
+      <button id="upload" class="btn btn-inrl">Create Target</button>
     </div>
   </section>
 
@@ -618,6 +621,14 @@
 
       const uploadBtn = document.getElementById("upload");
       const statusEl = document.getElementById("status");
+      const toastEl = document.getElementById("toast");
+      function toast(msg) {
+        if (!toastEl) return;
+        toastEl.textContent = msg;
+        toastEl.classList.add('is-on');
+        clearTimeout(toastEl._h);
+        toastEl._h = setTimeout(() => toastEl.classList.remove('is-on'), 2800);
+      }
   const logoutBtn = document.getElementById("logoutBtn");
   const userEmailEl = document.getElementById("userEmail");
       const uploadSection = document.getElementById("uploadSection");
@@ -1408,6 +1419,11 @@
           const files = Array.from(markerInputEl.files || []);
           markerQualityResults = [];
           lastCompileStats = [];
+          // A new (or cleared) selection invalidates whatever was compiled before —
+          // otherwise a swapped-in image would silently upload with the old marker's
+          // compiled .mind still attached.
+          uploadedMindUrl = null;
+          compileStatus.textContent = '';
           if (!files.length) {
             if (markerFilesInfoEl) markerFilesInfoEl.textContent = '';
             renderMarkerQuality([]);
@@ -1423,6 +1439,10 @@
           markerQualityResults = await Promise.all(files.map(analyseMarkerImage));
           renderMarkerQuality(markerQualityResults);
           checkVideoAspectAgainstMarker();
+          // Compile automatically — no separate "Compile" step for the user to
+          // remember. compileAndUploadMarker still gates on confirmMarkerQuality()
+          // for genuinely risky artwork, so a weak marker still asks before compiling.
+          compileAndUploadMarker(files);
         } catch (e) { console.warn('Marker analysis failed', e); }
       });
 
@@ -1490,174 +1510,120 @@
         checkVideoAspectAgainstMarker().catch(e => console.warn('Aspect check failed', e));
       });
 
-      // Server Compile button
-      document.getElementById('serverCompile').addEventListener('click', async () => {
-        const markerFiles = Array.from(document.getElementById('markerFile').files || []);
-        if (!markerFiles.length) {
-          compileStatus.textContent = '⚠️ Please select an image file first.';
-          return;
-        }
-
+      // Compiles the given marker image(s) in the browser, uploads the resulting .mind to
+      // R2, and stores the URL in uploadedMindUrl for the Create Target button to use.
+      // Runs automatically on file select (see markerInputEl's change handler above) —
+      // this is also called as a fallback if the button is clicked before that finishes.
+      // Returns the uploaded .mind URL, or null if cancelled/failed (with the reason
+      // already written to compileStatus).
+      async function compileAndUploadMarker(markerFiles) {
+        if (!markerFiles.length) return null;
         if (!confirmMarkerQuality()) {
           compileStatus.textContent = 'Compile cancelled — adjust the artwork and re-select it.';
-          return;
+          return null;
         }
-
         try {
-          statusEl.textContent = `Compiling ${markerFiles.length} marker image(s) in the browser…`;
+          compileStatus.textContent = `Compiling ${markerFiles.length} marker image(s)…`;
           const buffer = await compileImageClient(markerFiles, (p) => {
-            compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
+            compileStatus.textContent = `Compiling… ${p.toFixed(0)}%`;
           });
-
           warnOnWeakCompile();
 
-          compileStatus.textContent = 'Uploading compiled .mind to storage...';
+          compileStatus.textContent = 'Uploading compiled marker…';
           const baseName = markerFiles[0]?.name ? markerFiles[0].name.replace(/\.[^/.]+$/, '') : `markers-${Date.now()}`;
           const filename = baseName + (markerFiles.length > 1 ? `-${markerFiles.length}x` : '') + '.mind';
           const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
-          const timestamp = Date.now();
-          const mindPath = `minds/${timestamp}-${filename}`;
-          // upload compiled .mind to Worker-backed R2
           const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
-          const mindUrl = mindUpload.url;
-          // store uploaded mind URL for later use by the Upload flow
-          uploadedMindUrl = mindUrl;
+          uploadedMindUrl = mindUpload.url;
           const stats = describeCompileStats();
-          compileStatus.textContent = '✅ Compiled and uploaded to storage! Ready to Upload.';
-          statusEl.textContent = stats ? `Feature points — ${stats}` : '';
+          compileStatus.textContent = '✅ Marker compiled and ready.';
+          if (stats) statusEl.textContent = `Feature points — ${stats}`;
+          return uploadedMindUrl;
         } catch (err) {
-          // Provide richer debug info for the minified TypeError issue
-          console.error('Compile (serverCompile) failed', err);
+          console.error('Marker compile failed', err);
           const tfver = (typeof tf !== 'undefined' && tf?.version?.tfjs) ? tf.version.tfjs : 'tf not loaded';
           compileStatus.textContent = `❌ Compile failed: ${err.message || err}. (tfjs: ${tfver})`;
-          // debugging
           console.error('UserAgent:', navigator.userAgent);
+          return null;
         }
-      });
+      }
 
-      // upload button action
+      // Clears every field in the Upload Target form, including the trackability report
+      // and any pending compile state — called after a successful create so the next
+      // target starts from a blank form instead of the previous one's leftovers.
+      function resetUploadForm() {
+        document.getElementById('name').value = '';
+        const productInputEl = document.getElementById('productInput');
+        if (productInputEl) productInputEl.value = '';
+        document.getElementById('videoFile').value = '';
+        document.getElementById('markerFile').value = '';
+        if (markerFilesInfoEl) markerFilesInfoEl.textContent = '';
+        renderMarkerQuality([]);
+        markerQualityResults = [];
+        lastCompileStats = [];
+        compileStatus.textContent = '';
+        uploadedMindUrl = null;
+        const aspectWarningEl = document.getElementById('aspectWarning');
+        if (aspectWarningEl) aspectWarningEl.remove();
+      }
+
+      // Create Target button — the single submit action for the whole form. Normally the
+      // marker was already compiled automatically when it was selected, so this just
+      // uploads the video (+ marker image, for the preview thumbnail) and creates the
+      // target record; if the auto-compile is somehow still pending, it compiles first.
       uploadBtn.addEventListener("click", async () => {
+        if (uploadBtn.disabled) return;
         const name = document.getElementById("name").value.trim();
         const video = document.getElementById("videoFile").files[0];
         const markerFiles = Array.from(document.getElementById("markerFile").files || []);
-        const markerImage = markerFiles[0] || null;
 
-        // req checker
         if (!name || (!uploadedMindUrl && !markerFiles.length) || !video) {
           alert("⚠️ Please fill all fields and upload required files.");
           return;
         }
 
-        statusEl.textContent = "Uploading files...";
-        const timestamp = Date.now();
-        const videoPath = `videos/${timestamp}-${video.name}`;
+        uploadBtn.disabled = true;
+        const origLabel = uploadBtn.textContent;
+        uploadBtn.textContent = 'Creating…';
+        statusEl.textContent = 'Creating target…';
 
-        // If user provided marker image(s) and we dont already have an uploaded .mind, compile+upload now
-        if (!uploadedMindUrl && markerFiles.length) {
-          if (!confirmMarkerQuality()) {
-            statusEl.textContent = '';
-            compileStatus.textContent = 'Upload cancelled — adjust the artwork and re-select it.';
-            return;
+        try {
+          if (!uploadedMindUrl) {
+            const url = await compileAndUploadMarker(markerFiles);
+            if (!url) { statusEl.textContent = ''; return; }
           }
-          try {
-            statusEl.textContent = `Compiling ${markerFiles.length} marker image(s) in the browser...`;
-            const buffer = await compileImageClient(markerFiles, (p) => {
-              compileStatus.textContent = `Progress: ${p.toFixed(1)}%`;
-            });
-            warnOnWeakCompile();
 
-            compileStatus.textContent = 'Uploading compiled .mind to storage (via Worker)...';
-            const baseName = markerFiles[0]?.name ? markerFiles[0].name.replace(/\.[^/.]+$/, '') : `markers-${Date.now()}`;
-            const filename = baseName + (markerFiles.length > 1 ? `-${markerFiles.length}x` : '') + '.mind';
-            const fileForUpload = new File([buffer], filename, { type: 'application/octet-stream' });
-            const mindUpload = await uploadToWorker(fileForUpload, 'minds', filename);
-            const mindUrlLocal = mindUpload.url;
-
-            // upload video via Worker
-            const videoUpload = await uploadToWorker(video, 'videos', video.name);
-            const videoUrlLocal = videoUpload.url;
-
-            // upload original marker image(s) via Worker (store the first one as preview)
-            let imageUrlLocal = null;
-            try {
-              const uploads = await Promise.all(markerFiles.map(f => uploadToWorker(f, 'markers', f.name)));
-              imageUrlLocal = uploads?.[0]?.url || null;
-            } catch (e) {
-              console.warn('Image upload threw', e);
-            }
-
-            // Create target via Worker API
-            const prodVal = (document.getElementById('productInput')?.value || '').trim();
-            const body = {
-              name,
-              mind_url: mindUrlLocal,
-              video_url: videoUrlLocal,
-              image_url: imageUrlLocal || null,
-            };
-            if (prodVal) body.product = prodVal;
-            if (currentUserBrand) body.brand = currentUserBrand;
-            try {
-              await apiFetch('/targets', { method: 'POST', body });
-            } catch (e) {
-              statusEl.textContent = '❌ Create failed: ' + (e.message || e);
-              return;
-            }
-
-            statusEl.textContent = '✅ Upload complete (client-side compile)!';
-            document.getElementById("name").value = "";
-            document.getElementById("videoFile").value = "";
-            document.getElementById('markerFile').value = "";
-            try { const markerFilesInfoEl = document.getElementById('markerFilesInfo'); if (markerFilesInfoEl) markerFilesInfoEl.textContent = ''; } catch {}
-            compileStatus.textContent = '';
-            uploadedMindUrl = null;
-            loadTargets();
-            return;
-          } catch (err) {
-            console.error(err);
-            statusEl.textContent = '❌ Client compile/upload failed: ' + (err.message || JSON.stringify(err));
-            return;
-          }
-        }
-
-        // .mind upload
-        if (uploadedMindUrl) {
-          // upload video through Worker
+          statusEl.textContent = 'Uploading video…';
           const videoUpload = await uploadToWorker(video, 'videos', video.name);
           const videoUrl = videoUpload.url;
 
-          // if marker image(s) were selected, upload them as well and save imageUrl
-          let imageUrlNew = null;
-          if (markerImage) {
+          let imageUrl = null;
+          if (markerFiles.length) {
             try {
               const uploads = await Promise.all(markerFiles.map(f => uploadToWorker(f, 'markers', f.name)));
-              imageUrlNew = uploads?.[0]?.url || null;
+              imageUrl = uploads?.[0]?.url || null;
             } catch (e) {
-              console.warn('Marker upload threw', e);
+              console.warn('Marker image upload threw', e);
             }
           }
 
-          const prodValNew = (document.getElementById('productInput')?.value || '').trim();
-          const body2 = {
-            name,
-            mind_url: uploadedMindUrl,
-            video_url: videoUrl,
-            image_url: imageUrlNew || null,
-          };
-          if (prodValNew) body2.product = prodValNew;
-          if (currentUserBrand) body2.brand = currentUserBrand;
-          try {
-            await apiFetch('/targets', { method: 'POST', body: body2 });
-          } catch (e) {
-            statusEl.textContent = '❌ Create failed: ' + (e.message || e);
-            return;
-          }
+          const prodVal = (document.getElementById('productInput')?.value || '').trim();
+          const body = { name, mind_url: uploadedMindUrl, video_url: videoUrl, image_url: imageUrl };
+          if (prodVal) body.product = prodVal;
+          if (currentUserBrand) body.brand = currentUserBrand;
 
-          statusEl.textContent = "✅ Upload complete!";
-          document.getElementById("name").value = "";
-          document.getElementById("videoFile").value = "";
-          uploadedMindUrl = null;
+          await apiFetch('/targets', { method: 'POST', body });
+
+          statusEl.textContent = '✅ Target created.';
+          toast('Video uploaded and target created.');
+          resetUploadForm();
           loadTargets();
-          return;
+        } catch (e) {
+          console.error('Create target failed', e);
+          statusEl.textContent = '❌ Create failed: ' + (e.message || e);
+        } finally {
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = origLabel;
         }
       });
 
@@ -1762,8 +1728,9 @@
                 <button onclick="setActive('${t.id}')" class="btn btn-sm btn-inrl me-1">Set Active</button>
                 ${deactivateBtn}
                 <button onclick="deleteTarget('${t.id}', '${t.name}', decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))" class="btn btn-sm btn-danger-inrl me-1">Delete</button>
-                <button onclick="copyViewer('${brandArg}','${productArg}')" class="btn btn-sm btn-inrl-outline">Copy Link</button>
-                <button onclick="showQR('${brandArg}','${productArg}')" class="btn btn-sm btn-inrl-outline">QR Code</button>
+                <button onclick="copyViewer('${brandArg}','${productArg}')" class="btn btn-sm btn-inrl-outline me-1">Copy Link</button>
+                <button onclick="showQR('${brandArg}','${productArg}')" class="btn btn-sm btn-inrl-outline me-1">QR Code</button>
+                <label class="btn btn-sm btn-inrl-outline mb-0" style="cursor:pointer">Replace video<input type="file" accept="video/*" data-replace-video="${t.id}" style="display:none"></label>
               </td>
             </tr>`;
             targetsTable.innerHTML += row;
@@ -2023,6 +1990,37 @@
         }
       });
 
+      // Delegate "Replace video" file inputs — one per target row.
+      targetsTable.addEventListener('change', async (e) => {
+        const input = e.target.closest('input[data-replace-video]');
+        if (!input) return;
+        const targetId = input.getAttribute('data-replace-video');
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const label = input.closest('label');
+        const origText = label ? label.childNodes[0].textContent.trim() : '';
+        if (statusClearTimer) { clearTimeout(statusClearTimer); statusClearTimer = null; }
+        if (label) label.childNodes[0].textContent = 'Uploading…';
+        statusEl.textContent = '⏳ Replacing video…';
+        try {
+          const form = new FormData();
+          form.append('file', file, file.name || `${Date.now()}`);
+          const res = await fetch(`/api/targets/${encodeURIComponent(targetId)}/video`, { method: 'POST', body: form, credentials: 'include' });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || j.error) throw new Error(j.error || ('Upload failed: ' + res.status));
+          statusEl.textContent = '✅ Video replaced.';
+          toast('Video replaced.');
+          statusClearTimer = setTimeout(() => { statusEl.textContent = ''; statusClearTimer = null; }, 5000);
+          loadTargets();
+        } catch (err) {
+          console.error('Failed to replace target video:', err);
+          statusEl.textContent = '❌ Failed to replace video: ' + (err.message || err);
+        } finally {
+          if (label) label.childNodes[0].textContent = origText || 'Replace video';
+          input.value = '';
+        }
+      });
+
       // ---------- QR Code Modal Logic ----------
       const qrModal = document.getElementById('qrModal');
       const qrCanvasWrap = document.getElementById('qrCanvasWrap');
@@ -2100,5 +2098,7 @@
         } catch (e) { if (statusEl) statusEl.textContent = '\u274C QR download failed'; }
       });
     </script>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </body>
 </html>
