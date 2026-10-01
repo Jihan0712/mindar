@@ -2721,7 +2721,7 @@
           var localIdShort = localId ? localId.slice(-10) : '\u2014';
           var pfOrderId = o.printful_order_id ? String(o.printful_order_id) : '';
           var tracking = o.tracking_number || '\u2014';
-          var hasTrackingUrl = !!o.tracking_url;
+          var hasTrackingUrl = /^https?:\/\//i.test(o.tracking_url || '');
           var canForce = shouldShowForceSync(o);
           var forceBtn = '';
           if (canForce) {

@@ -427,18 +427,17 @@
     async fetch(request, env, ctx) {
       setEnvGlobals(env);
       try {
-        return await handleRequest(request);
+        return await handleRequest(request, ctx);
       } catch (e) {
         // Without this, any uncaught exception anywhere in the request chain becomes an
-        // opaque Cloudflare "Worker threw exception" page with no detail at all — this
-        // converts it into a real, debuggable JSON error instead.
-        console.error('[fetch] Uncaught error:', e && e.stack ? e.stack : String(e));
+        // opaque Cloudflare "Worker threw exception" page. The stack goes to the Worker log
+        // (not the client — it exposes code paths and SQL); the client gets a short ref that
+        // matches the log line.
+        const ref = randomId('err_').slice(0, 16);
+        console.error('[fetch] Uncaught error', ref, e && e.stack ? e.stack : String(e));
         const headers = new Headers({ 'Content-Type': 'application/json' });
         try { headers.set('Access-Control-Allow-Origin', buildCorsHeaders(request).get('Access-Control-Allow-Origin') || ''); } catch {}
-        return new Response(JSON.stringify({
-          error: 'Internal server error',
-          detail: String(e && e.stack ? e.stack : e),
-        }), { status: 500, headers });
+        return new Response(JSON.stringify({ error: 'Internal server error', ref }), { status: 500, headers });
       }
     }
   };
@@ -627,8 +626,36 @@
     const res = await DB.prepare(sql).bind(...params).all();
     return res?.results || [];
   }
+  // Returns { changes, lastRowId } from D1's run() meta: `changes` lets a conditional update
+  // double as a claim/lock ("mark paid only if not already paid"), and `lastRowId` is this
+  // statement's own insert id — unlike a follow-up `select ... last_insert_rowid()`, which is
+  // a separate query and can see another request's insert in between.
   async function dbRun(sql, ...params) {
-    await DB.prepare(sql).bind(...params).run();
+    const res = await DB.prepare(sql).bind(...params).run();
+    const meta = (res && res.meta) || {};
+    return { changes: Number(meta.changes) || 0, lastRowId: meta.last_row_id != null ? Number(meta.last_row_id) : null };
+  }
+
+  function safeJsonParse(value, fallback = null) {
+    if (value == null || value === '') return fallback;
+    if (typeof value !== 'string') return value;
+    try { return JSON.parse(value); } catch { return fallback; }
+  }
+
+  // Brand ids the session's user belongs to. Only populated for role 'brand' (see
+  // getSessionUser) — every caller checks role first, admins see everything.
+  function sessionBrandIds(sess) {
+    return ((sess && sess.user && sess.user.brands) || []).map(b => b.id);
+  }
+  function sessionOwnsBrand(sess, brandId) {
+    return sessionBrandIds(sess).includes(brandId);
+  }
+
+  // Only plain web links are ever stored/shown as a tracking link — anything else (notably
+  // javascript: URLs) is dropped, since tracking_url ends up in an <a href> on the shop.
+  function safeHttpUrl(value) {
+    const s = String(value || '').trim();
+    return /^https?:\/\//i.test(s) ? s : null;
   }
 
   // ---------- Sessions ----------
@@ -647,36 +674,28 @@
     (header || '').split(';').map(c => c.trim()).filter(Boolean).forEach(pair => {
       const idx = pair.indexOf('=');
       if (idx === -1) return;
-      const k = decodeURIComponent(pair.slice(0, idx));
-      const v = decodeURIComponent(pair.slice(idx + 1));
-      out[k] = v;
+      // A malformed %-escape in some unrelated cookie must not break every request.
+      try {
+        out[decodeURIComponent(pair.slice(0, idx))] = decodeURIComponent(pair.slice(idx + 1));
+      } catch {}
     });
     return out;
   }
+
+  // Sessions older than the cookie's lifetime are rejected server-side too — otherwise a
+  // copied token would stay valid forever even though the browser drops it after 30 days.
+  // created_at is stored in this same ISO format, so the string comparison is chronological.
+  const SESSION_FRESH_SQL = `s.created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-${SESSION_TTL_DAYS} days')`;
 
   async function getSessionUser(request) {
     try {
       const cookies = parseCookies(request.headers.get('Cookie') || '');
       const token = cookies[SESSION_COOKIE_NAME];
       if (!token) return null;
-      let row;
-      try {
-        row = await dbGet(
-          'select s.token, u.id as user_id, u.email, u.role, u.suspended_until from sessions s join users u on u.id = s.user_id where s.token = ?',
-          token
-        );
-      } catch (e) {
-        const msg = String(e || '');
-        if (msg.toLowerCase().includes('no such column') && msg.includes('suspended_until')) {
-          // sql/user_moderation_migration.sql not yet run — degrade to "never suspended".
-          row = await dbGet(
-            'select s.token, u.id as user_id, u.email, u.role from sessions s join users u on u.id = s.user_id where s.token = ?',
-            token
-          );
-        } else {
-          throw e;
-        }
-      }
+      const row = await dbGet(
+        `select s.token, u.id as user_id, u.email, u.role, u.suspended_until from sessions s join users u on u.id = s.user_id where s.token = ? and ${SESSION_FRESH_SQL}`,
+        token
+      );
       if (!row) return null;
       // A timed-out account's sessions are deleted the moment the timeout is applied
       // (apiAdminTimeoutUser) — this is a defensive second check for any session that
@@ -685,10 +704,14 @@
         await dbRun('delete from sessions where token = ?', token).catch(() => {});
         return null;
       }
-      const brands = await dbAll(
-        'select b.id, b.name from brand_users bu join brands b on b.id = bu.brand_id where bu.user_id = ?',
-        row.user_id
-      );
+      // Only brand accounts are ever scoped by brand — skip the second round trip for
+      // everyone else (every shopper/admin request goes through here).
+      const brands = row.role === 'brand'
+        ? await dbAll(
+            'select b.id, b.name from brand_users bu join brands b on b.id = bu.brand_id where bu.user_id = ?',
+            row.user_id
+          )
+        : [];
       return {
         token,
         user: { id: row.user_id, email: row.email, role: row.role, brands }
@@ -780,7 +803,7 @@
 
   // ---------- Main router ----------
 
-  async function handleRequest(request) {
+  async function handleRequest(request, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/$/, '');
 
@@ -794,7 +817,7 @@
     if (request.method === 'POST' && pathname === '/purge')  return handlePurge(request);
 
     // JSON API
-    if (pathname.startsWith('/api/')) return handleApi(request, pathname);
+    if (pathname.startsWith('/api/')) return handleApi(request, pathname, ctx);
 
     // Health
     if (request.method === 'GET' && (pathname === '' || pathname === '/')) {
@@ -810,7 +833,9 @@
 
   // ---------- /api/* router ----------
 
-  async function handleApi(request, pathname) {
+  // ctx (the Worker ExecutionContext) is threaded through explicitly rather than stored as a
+  // global: globals are shared by every concurrent request in the isolate.
+  async function handleApi(request, pathname, ctx) {
     // Webhooks — token/signature-validated internally, no session cookie required
     if (request.method === 'POST' && pathname === '/api/webhooks/printful') return apiPrintfulWebhook(request);
     if (request.method === 'POST' && pathname === '/api/admin/printful/webhook') return apiPrintfulWebhook(request);
@@ -963,7 +988,7 @@
     // Viewer
     if (request.method === 'GET' && pathname === '/api/viewer/active')         return apiViewerActive(request);
     if (request.method === 'GET' && pathname === '/api/viewer/order')          return apiViewerOrder(request);
-    if (request.method === 'GET' && pathname === '/api/viewer/piece')          return apiViewerPiece(request);
+    if (request.method === 'GET' && pathname === '/api/viewer/piece')          return apiViewerPiece(request, ctx);
 
     // Products (shop catalog)
     if (request.method === 'GET'  && pathname === '/api/product-image')        return apiGetProductImage(request);
@@ -1133,30 +1158,24 @@
   }
 
   async function apiGetHomepage(request) {
-    try {
-      const row = await dbGet('select json, updated_at, updated_by from site_content where key = ?', 'homepage');
-      if (!row || !row.json) {
-        return withCache(
-          jsonResponse({ ok: true, content: defaultHomepageContent(), updated_at: null }, 200, request),
-          'public, max-age=60, s-maxage=300'
-        );
-      }
-      let parsed = null;
-      try { parsed = JSON.parse(String(row.json)); } catch { parsed = null; }
-      // Always normalize on read so old data (cards/string-stats) is transparently migrated for the frontend
-      const rawContent = parsed && typeof parsed === 'object' ? parsed : null;
-      const content = rawContent ? normalizeHomepagePayload(rawContent) : defaultHomepageContent();
-      return withCache(
-        jsonResponse({ ok: true, content, updated_at: row.updated_at || null, updated_by: row.updated_by || null }, 200, request),
-        'public, max-age=60, s-maxage=300'
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
-        return jsonResponse({ error: 'DB migration required: create site_content table (run sql/homepage_content_migration.sql)' }, 500, request);
-      }
-      throw e;
-    }
+    const row = await dbGet('select json, updated_at, updated_by from site_content where key = ?', 'homepage');
+    // Always normalize on read so old data (cards/string-stats) is transparently migrated for the frontend
+    const parsed = row ? safeJsonParse(String(row.json || '')) : null;
+    const content = parsed && typeof parsed === 'object' ? normalizeHomepagePayload(parsed) : defaultHomepageContent();
+    return withCache(
+      jsonResponse({ ok: true, content, updated_at: (row && row.updated_at) || null, updated_by: (row && row.updated_by) || null }, 200, request),
+      'public, max-age=60, s-maxage=300'
+    );
+  }
+
+  // Upserts one site_content key (homepage, theme).
+  function saveSiteContent(key, json, updatedAt, updatedBy) {
+    return dbRun(
+      `insert into site_content (key, json, updated_at, updated_by)
+       values (?, ?, ?, ?)
+       on conflict(key) do update set json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+      key, json, updatedAt, updatedBy
+    );
   }
 
   // Extract all image URLs from a homepage content object
@@ -1197,23 +1216,7 @@
     const now = new Date().toISOString();
     const payload = JSON.stringify(normalized);
 
-    try {
-      await dbRun(
-        `insert into site_content (key, json, updated_at, updated_by)
-        values (?, ?, ?, ?)
-        on conflict(key) do update set json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
-        'homepage',
-        payload,
-        now,
-        sess.user.email || sess.user.id
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
-        return jsonResponse({ error: 'DB migration required: create site_content table (run sql/homepage_content_migration.sql)' }, 500, request);
-      }
-      throw e;
-    }
+    await saveSiteContent('homepage', payload, now, sess.user.email || sess.user.id);
 
     // Delete R2 objects for banner images no longer referenced — fire-and-forget, never fail the save
     if (ASSETS_BUCKET && typeof ASSETS_BUCKET.delete === 'function') {
@@ -1265,28 +1268,13 @@
   }
 
   async function apiGetTheme(request) {
-    try {
-      const row = await dbGet('select json, updated_at from site_content where key = ?', 'theme');
-      if (!row || !row.json) {
-        return withCache(
-          jsonResponse({ ok: true, theme: defaultThemeContent(), updated_at: null }, 200, request),
-          'public, max-age=60, s-maxage=300'
-        );
-      }
-      let parsed = null;
-      try { parsed = JSON.parse(String(row.json)); } catch { parsed = null; }
-      const theme = parsed && typeof parsed === 'object' ? normalizeThemePayload(parsed) : defaultThemeContent();
-      return withCache(
-        jsonResponse({ ok: true, theme, updated_at: row.updated_at || null }, 200, request),
-        'public, max-age=60, s-maxage=300'
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
-        return jsonResponse({ error: 'DB migration required: create site_content table (run sql/homepage_content_migration.sql)' }, 500, request);
-      }
-      throw e;
-    }
+    const row = await dbGet('select json, updated_at from site_content where key = ?', 'theme');
+    const parsed = row ? safeJsonParse(String(row.json || '')) : null;
+    const theme = parsed && typeof parsed === 'object' ? normalizeThemePayload(parsed) : defaultThemeContent();
+    return withCache(
+      jsonResponse({ ok: true, theme, updated_at: (row && row.updated_at) || null }, 200, request),
+      'public, max-age=60, s-maxage=300'
+    );
   }
 
   async function apiUpdateTheme(request) {
@@ -1298,23 +1286,7 @@
     const normalized = normalizeThemePayload(body);
     const now = new Date().toISOString();
 
-    try {
-      await dbRun(
-        `insert into site_content (key, json, updated_at, updated_by)
-        values (?, ?, ?, ?)
-        on conflict(key) do update set json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
-        'theme',
-        JSON.stringify(normalized),
-        now,
-        sess.user.email || sess.user.id
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('site_content')) {
-        return jsonResponse({ error: 'DB migration required: create site_content table (run sql/homepage_content_migration.sql)' }, 500, request);
-      }
-      throw e;
-    }
+    await saveSiteContent('theme', JSON.stringify(normalized), now, sess.user.email || sess.user.id);
 
     return jsonResponse({ ok: true, theme: normalized, updated_at: now }, 200, request);
   }
@@ -1441,7 +1413,7 @@
   async function requirePrivilegedSession(request) {
     const sessData = await getSessionUser(request);
     if (sessData && sessData.error) {
-      return { error: jsonResponse({ error: sessData.error }, 500, request) };
+      return { error: jsonResponse({ error: 'Session lookup failed' }, 500, request) };
     }
     const sess = sessData;
     if (!sess) return { error: jsonResponse({ error: 'Unauthorized' }, 401, request) };
@@ -1452,7 +1424,7 @@
   async function requireAdminSession(request) {
     const sessData = await getSessionUser(request);
     if (sessData && sessData.error) {
-      return { error: jsonResponse({ error: sessData.error }, 500, request) };
+      return { error: jsonResponse({ error: 'Session lookup failed' }, 500, request) };
     }
     const sess = sessData;
     if (!sess) return { error: jsonResponse({ error: 'Unauthorized' }, 401, request) };
@@ -1541,18 +1513,7 @@
     const password = body.password || '';
     if (!email || !password) return jsonResponse({ error: 'email and password required' }, 400, request);
 
-    let user;
-    try {
-      user = await dbGet('select id, email, password_hash, role, suspended_until from users where email = ?', email);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('suspended_until')) {
-        // sql/user_moderation_migration.sql not yet run — degrade to "never suspended".
-        user = await dbGet('select id, email, password_hash, role from users where email = ?', email);
-      } else {
-        throw e;
-      }
-    }
+    const user = await dbGet('select id, email, password_hash, role, suspended_until from users where email = ?', email);
     if (!user) return jsonResponse({ error: 'Invalid credentials' }, 401, request);
 
     const ok = await verifyPassword(password, user.password_hash);
@@ -1665,36 +1626,12 @@
     if (!slug) throw new Error('Cart item is missing a product slug');
     if (!qty) throw new Error(`Invalid quantity for ${slug}`);
 
-    let row;
-    try {
-      row = await dbGet(
-        `select id, slug, title, price_cents, currency, image_url, is_published,
-                printful_variant_map, printful_sync_variant_id, printful_design_images, printful_sync_variant_map
-         from products where slug = ?`,
-        slug
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_map')) {
-        // sync-variant-map migration not yet run — retry without it (products linked via
-        // Printful Sync Products just resolve as unfulfillable until it's applied).
-        row = await dbGet(
-          `select id, slug, title, price_cents, currency, image_url, is_published,
-                  printful_variant_map, printful_sync_variant_id, printful_design_images
-           from products where slug = ?`,
-          slug
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
-        row = await dbGet(
-          `select id, slug, title, price_cents, currency, image_url, is_published,
-                  printful_variant_map, printful_sync_variant_id
-           from products where slug = ?`,
-          slug
-        );
-      } else {
-        throw e;
-      }
-    }
+    const row = await dbGet(
+      `select id, slug, title, price_cents, currency, image_url, is_published,
+              printful_variant_map, printful_sync_variant_id, printful_design_images, printful_sync_variant_map
+       from products where slug = ?`,
+      slug
+    );
     if (!row || !row.is_published) throw new Error(`Product not available: ${slug}`);
 
     let variantMap = null;
@@ -1879,6 +1816,92 @@
     return out;
   }
 
+  // Quotes what Printful will bill the store for shipping these resolved items to this
+  // customer, so checkout can charge it instead of the store silently absorbing it. Uses
+  // Printful's STANDARD method because that is what submitPrintfulOrder gets (it sends no
+  // shipping method, so Printful defaults to STANDARD). v1 /shipping/rates takes catalog
+  // variant ids; Sync Product items only carry a sync_variant_id, so those are mapped to
+  // their catalog variant via /store/variants/{id} first. Returns integer cents. Throws if
+  // no usable rate comes back — checkout refuses rather than charging without shipping.
+  async function quoteShippingCents(resolvedItems, customer, currency) {
+    const items = [];
+    for (const it of resolvedItems) {
+      let variantId = null;
+      if (it.sync_variant_id) {
+        const v = await callPrintfulV1('GET', `/store/variants/${Number(it.sync_variant_id)}`);
+        variantId = v && v.result && v.result.variant_id ? Number(v.result.variant_id) : null;
+      } else if (it.catalog_variant_id) {
+        variantId = Number(it.catalog_variant_id);
+      }
+      if (!variantId) throw new Error(`Could not resolve a Printful variant for ${it.slug}`);
+      items.push({ variant_id: variantId, quantity: it.qty });
+    }
+
+    const data = await callPrintfulV1('POST', '/shipping/rates', {
+      recipient: {
+        address1: customer.address,
+        city: customer.city || '',
+        country_code: toCountryCode(customer.country),
+        state_code: customer.state,
+        zip: customer.zip,
+      },
+      items,
+      currency,
+    });
+    const rates = Array.isArray(data && data.result) ? data.result : [];
+    const rate = rates.find(r => String(r.id || '').toUpperCase() === 'STANDARD') || rates[0];
+    if (!rate) throw new Error('No shipping rate available for this address');
+    if (rate.currency && String(rate.currency).toUpperCase() !== String(currency).toUpperCase()) {
+      throw new Error(`Shipping quoted in ${rate.currency}, order is in ${currency}`);
+    }
+    const cents = Math.round(Number(rate.rate) * 100);
+    if (!Number.isFinite(cents) || cents < 0) throw new Error('Invalid shipping rate');
+    return {
+      cents,
+      name: String(rate.name || 'Standard shipping').slice(0, 100),
+      minDays: Number(rate.minDeliveryDays) || null,
+      maxDays: Number(rate.maxDeliveryDays) || null,
+    };
+  }
+
+  // Stripe Checkout shipping_options entry for a quoted (or previously charged) shipping cost.
+  function stripeShippingOption(shipping, currency) {
+    const rateData = {
+      type: 'fixed_amount',
+      fixed_amount: { amount: shipping.cents, currency: String(currency).toLowerCase() },
+      display_name: shipping.name || 'Shipping',
+    };
+    if (shipping.minDays && shipping.maxDays) {
+      rateData.delivery_estimate = {
+        minimum: { unit: 'business_day', value: shipping.minDays },
+        maximum: { unit: 'business_day', value: shipping.maxDays },
+      };
+    }
+    return [{ shipping_rate_data: rateData }];
+  }
+
+  // The Stripe Checkout Session for an order — shared by first checkout and resume-payment
+  // so both charge exactly the same way. `items` are already D1-priced (resolveOrderItemFromD1
+  // output); a zero/absent shipping amount adds no shipping option.
+  function createOrderCheckoutSession({ orderId, email, items, currency, shipping, siteUrl }) {
+    return Stripe.createCheckoutSession(stripeEnv(), {
+      mode: 'payment',
+      customer_email: email,
+      success_url: `${siteUrl}/ecommerce/order-confirmation.html?order_id=${encodeURIComponent(orderId)}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/ecommerce/checkout.html?cancelled=1`,
+      'metadata[order_id]': orderId,
+      shipping_options: shipping && shipping.cents > 0 ? stripeShippingOption(shipping, currency) : undefined,
+      line_items: items.map(it => ({
+        quantity: it.qty,
+        price_data: {
+          currency: (it.currency || currency).toLowerCase(),
+          unit_amount: it.price_cents,
+          product_data: { name: it.name, images: it.image_url ? [it.image_url] : undefined },
+        },
+      })),
+    });
+  }
+
   // Admin-only manual/comp order path still accepts a client-supplied price (a trusted
   // admin, not a customer, is entering these values) — kept distinct from the public
   // checkout path, which always re-prices from D1 via resolveOrderItemFromD1.
@@ -1969,21 +1992,13 @@
     const orderId = randomId('ord_');
     const now = new Date().toISOString();
 
-    try {
-      await insertOrderRow({
-        id: orderId, user_id: null, email: customer.email, first_name: customer.firstName,
-        last_name: customer.lastName, address: customer.address, city: customer.city,
-        country: customer.country, state: customer.state, zip: customer.zip,
-        currency, total_cents: totalCents, items_json: JSON.stringify(cart),
-        status: 'created', created_at: now,
-      });
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
-        return jsonResponse({ error: 'DB migration required: create orders table (run sql/orders_migration.sql)' }, 500, request);
-      }
-      throw e;
-    }
+    await insertOrderRow({
+      id: orderId, user_id: null, email: customer.email, first_name: customer.firstName,
+      last_name: customer.lastName, address: customer.address, city: customer.city,
+      country: customer.country, state: customer.state, zip: customer.zip,
+      currency, total_cents: totalCents, items_json: JSON.stringify(cart),
+      status: 'created', created_at: now,
+    });
 
     return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency }, 201, request);
   }
@@ -2025,22 +2040,10 @@
       const overallStatus = (v2Ok && v1Ok && (printfulOrderId || printfulOrderIdV1)) ? 'pending' : 'error';
 
       if (printfulOrderId || printfulOrderIdV1) {
-        try {
-          await dbRun(
-            `update orders set printful_order_id = ?, printful_order_id_v1 = ?, printful_status = ?, status = ? where id = ?`,
-            printfulOrderId, printfulOrderIdV1, overallStatus, 'pending_fulfillment', orderId
-          );
-        } catch (e) {
-          const msg = String(e || '');
-          if (msg.toLowerCase().includes('no such column') && msg.includes('printful_order_id_v1')) {
-            // v1-order-id migration not yet run — fall back to just the (far more common)
-            // v2 column so that half still records correctly.
-            await dbRun(
-              `update orders set printful_order_id = ?, printful_status = ?, status = ? where id = ?`,
-              printfulOrderId, overallStatus, 'pending_fulfillment', orderId
-            ).catch(() => {/* ignore if columns not yet migrated at all */});
-          }
-        }
+        await dbRun(
+          `update orders set printful_order_id = ?, printful_order_id_v1 = ?, printful_status = ?, status = ? where id = ?`,
+          printfulOrderId, printfulOrderIdV1, overallStatus, 'pending_fulfillment', orderId
+        );
       } else {
         await dbRun(`update orders set printful_status = ? where id = ?`, 'error', orderId).catch(() => {});
       }
@@ -2099,10 +2102,22 @@
       return jsonResponse({ error: `Not available for purchase yet: ${unfulfillable.join(', ')}` }, 400, request);
     }
 
-    const totalCents = resolvedItems.reduce((sum, it) => sum + it.price_cents * it.qty, 0);
-    if (!Number.isFinite(totalCents) || totalCents <= 0) return jsonResponse({ error: 'Invalid cart pricing' }, 400, request);
+    const itemsCents = resolvedItems.reduce((sum, it) => sum + it.price_cents * it.qty, 0);
+    if (!Number.isFinite(itemsCents) || itemsCents <= 0) return jsonResponse({ error: 'Invalid cart pricing' }, 400, request);
 
     const currency = (resolvedItems[0] && resolvedItems[0].currency) || 'USD';
+
+    // Printful bills the store for shipping on every order — charge the customer the same
+    // quote. total_cents includes it, so the webhook's amount_total check still holds, and
+    // resume-payment recovers it as total_cents minus the items.
+    let shipping;
+    try {
+      shipping = await quoteShippingCents(resolvedItems, customer, currency);
+    } catch (e) {
+      console.error('[checkout] Shipping quote failed:', String(e && e.message ? e.message : e));
+      return jsonResponse({ error: "We couldn't calculate shipping to that address. Check the country, state and ZIP and try again." }, 400, request);
+    }
+    const totalCents = itemsCents + shipping.cents;
     const siteUrl = String(body.site_url || new URL(request.url).origin).replace(/\/$/, '');
 
     const sess = await getSessionUser(request);
@@ -2118,32 +2133,14 @@
         status: 'pending_payment', payment_status: 'unpaid', created_at: now,
       });
     } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
-        return jsonResponse({ error: 'DB migration required: create orders table (run sql/orders_migration.sql)' }, 500, request);
-      }
-      if (msg.toLowerCase().includes('no such column')) {
-        return jsonResponse({ error: 'DB migration required: run sql/stripe_migration.sql', detail: msg }, 500, request);
-      }
-      return jsonResponse({ error: 'Could not create order', detail: msg }, 500, request);
+      console.error('[checkout] Could not insert order', orderId, String(e));
+      return jsonResponse({ error: 'Could not create order' }, 500, request);
     }
 
     let session;
     try {
-      session = await Stripe.createCheckoutSession(stripeEnv(), {
-        mode: 'payment',
-        customer_email: customer.email,
-        success_url: `${siteUrl}/ecommerce/order-confirmation.html?order_id=${encodeURIComponent(orderId)}&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/ecommerce/checkout.html?cancelled=1`,
-        'metadata[order_id]': orderId,
-        line_items: resolvedItems.map(it => ({
-          quantity: it.qty,
-          price_data: {
-            currency: (it.currency || currency).toLowerCase(),
-            unit_amount: it.price_cents,
-            product_data: { name: it.name, images: it.image_url ? [it.image_url] : undefined },
-          },
-        })),
+      session = await createOrderCheckoutSession({
+        orderId, email: customer.email, items: resolvedItems, currency, shipping, siteUrl,
       });
     } catch (e) {
       await dbRun(`update orders set status = ? where id = ?`, 'stripe_error', orderId).catch(() => {});
@@ -2192,39 +2189,15 @@
       const slug = String((it && it.slug) || '').trim();
       if (!slug) continue;
       const qty = Math.max(1, Math.min(99, parseInt(it && it.qty, 10) || 1));
-
-      let product;
-      try {
-        product = await dbGet('select id from products where lower(slug) = lower(?)', slug);
-      } catch (e) { continue; }
-      if (!product) continue;
-
       const nickname = String((it && it.name) || '').trim().slice(0, 120) || null;
 
-      for (let i = 0; i < qty; i++) {
-        try {
-          let code;
-          let attempts = 0;
-          do {
-            code = randomClaimCode();
-            attempts++;
-          } while (attempts < 5 && await dbGet('select 1 from garment_units where claim_code = ?', code));
-          const unitId = randomId('unit_');
-          if (ownerId) {
-            await dbRun(
-              `insert into garment_units (id, claim_code, product_id, owner_user_id, claimed_at, nickname)
-               values (?, ?, ?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ','now')), ?)`,
-              unitId, code, product.id, ownerId, nickname
-            );
-          } else {
-            await dbRun('insert into garment_units (id, claim_code, product_id) values (?, ?, ?)', unitId, code, product.id);
-          }
-        } catch (e) {
-          // sql/wardrobe_migration.sql not yet run, or some other transient issue — never
-          // let this block payment confirmation / Printful submission.
-          if (String(e || '').toLowerCase().includes('no such table')) return;
-          console.error('[wardrobe] Failed to provision garment unit for order', orderId, String(e));
-        }
+      try {
+        const product = await dbGet('select id from products where lower(slug) = lower(?)', slug);
+        if (!product) continue;
+        await mintGarmentUnits(product.id, qty, ownerId ? { userId: ownerId, nickname } : null);
+      } catch (e) {
+        // Never let this block payment confirmation / Printful submission.
+        console.error('[wardrobe] Failed to provision garment units for order', orderId, String(e));
       }
     }
   }
@@ -2255,12 +2228,19 @@
             if (!amountOk) {
               console.error('[stripe] Order', orderId, 'amount mismatch: session', session.amount_total, 'vs order', order.total_cents);
             } else {
-              await dbRun(
-                `update orders set payment_status = ?, status = ?, stripe_payment_intent_id = ?, paid_at = ? where id = ?`,
+              // The conditional update is the idempotency lock: Stripe can deliver the same
+              // event twice (retries, overlapping deliveries), and both copies can pass the
+              // read above. Only the delivery that actually flips the row to 'paid' goes on
+              // to create + confirm the Printful order and mint wardrobe pieces.
+              const { changes } = await dbRun(
+                `update orders set payment_status = ?, status = ?, stripe_payment_intent_id = ?, paid_at = ?
+                 where id = ? and (payment_status is null or payment_status != 'paid')`,
                 'paid', 'paid', session.payment_intent || null, new Date().toISOString(), orderId
               );
-              await finalizeOrderPrintfulSubmission(orderId);
-              await provisionGarmentUnitsForOrder(orderId);
+              if (changes === 1) {
+                await finalizeOrderPrintfulSubmission(orderId);
+                await provisionGarmentUnitsForOrder(orderId);
+              }
             }
           }
         }
@@ -2287,26 +2267,12 @@
     const sid = String(sessionId || '').trim();
     if (!rawId || !sid) return jsonResponse({ error: 'order id and session_id required' }, 400, request);
 
-    // The Printful migration (sql/printful_migration.sql) adds tracking columns to orders.
-    // If it hasn't been run yet, fall back to the base columns so this endpoint still works
-    // instead of throwing "no such column" and crashing the whole request.
-    const FULL_SQL = `select id, email, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
+    const row = await dbGet(
+      `select id, email, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
               total_cents, currency, items_json, stripe_session_id, created_at
-       from orders where id = ?`;
-    const BASE_SQL = `select id, email, status, payment_status, total_cents, currency, items_json, stripe_session_id, created_at
-       from orders where id = ?`;
-
-    let row;
-    try {
-      row = await dbGet(FULL_SQL, rawId);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column')) {
-        row = await dbGet(BASE_SQL, rawId);
-      } else {
-        throw e;
-      }
-    }
+       from orders where id = ?`,
+      rawId
+    );
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
     if (!row.stripe_session_id || row.stripe_session_id !== sid) {
@@ -2347,40 +2313,29 @@
     const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
 
-    let rows;
-    try {
-      rows = await dbAll(
-        `select id, user_id, email, first_name, last_name, address, city, country, state, zip,
-                currency, total_cents, status, printful_order_id, printful_status, created_at
-         from orders
-         order by created_at desc
-         limit ? offset ?`,
-        limit, offset
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      // Graceful fallback if printful / city columns aren't migrated yet.
-      if (msg.toLowerCase().includes('no such column')) {
-        rows = await dbAll(
-          `select id, user_id, email, first_name, last_name, address, country, state, zip,
-                  currency, total_cents, status, created_at
-           from orders
-           order by created_at desc
-           limit ? offset ?`,
-          limit, offset
-        );
-      } else if (msg.toLowerCase().includes('no such table') && msg.includes('orders')) {
-        return jsonResponse({ error: 'DB migration required: run sql/orders_migration.sql' }, 500, request);
-      } else {
-        throw e;
-      }
-    }
+    const rows = await dbAll(
+      `select id, user_id, email, first_name, last_name, address, city, country, state, zip,
+              currency, total_cents, status, printful_order_id, printful_status, created_at
+       from orders
+       order by created_at desc
+       limit ? offset ?`,
+      limit, offset
+    );
 
-    return jsonResponse({ items: rows || [], limit, offset }, 200, request);
+    return jsonResponse({ items: rows, limit, offset }, 200, request);
   }
 
   // POST /api/webhooks/printful and /api/admin/printful/webhook — receive Printful event notifications.
   async function apiPrintfulWebhook(request) {
+    // Printful calls the URL we registered (apiPrintfulWebhookRegister), which carries
+    // ?token=<PRINTFUL_WEBHOOK_SECRET>. Without that check anyone could forge
+    // shipment/failure events for any (sequential, guessable) Printful order id.
+    const secret = typeof PRINTFUL_WEBHOOK_SECRET === 'string' ? PRINTFUL_WEBHOOK_SECRET.trim() : '';
+    const token = new URL(request.url).searchParams.get('token') || '';
+    if (!secret || !timingSafeEqual(token, secret)) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
     const rawBody = await request.text();
 
     let payload = {};
@@ -2417,12 +2372,11 @@
             data.trackingNumber ||
             ''
           ).trim() || null;
-          const trackingUrl = String(
+          const trackingUrl = safeHttpUrl(
             (shipmentObj && (shipmentObj.tracking_url || shipmentObj.trackingUrl)) ||
             data.tracking_url ||
-            data.trackingUrl ||
-            ''
-          ).trim() || null;
+            data.trackingUrl
+          );
           const carrier = String((shipmentObj && shipmentObj.carrier) || data.carrier || '').trim() || null;
           await dbRun(
             `update orders
@@ -2526,36 +2480,8 @@
     if (where.length) sql += ' where ' + where.join(' and ');
     sql += ' group by u.id order by u.created_at desc';
 
-    let rows;
-    try {
-      rows = await dbAll(sql, ...params);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('brand_designs')) {
-        // sql/brand_designs_migration.sql not yet run — degrade to no pending-design counts
-        // rather than fail account listing entirely.
-        const fallbackSql = sql.replace(/,\s*\(select count\(\*\) from brand_designs[\s\S]*?as pending_design_count/, '');
-        try {
-          rows = await dbAll(fallbackSql, ...params);
-        } catch (e2) {
-          const msg2 = String(e2 || '');
-          if (msg2.toLowerCase().includes('no such column') && msg2.includes('suspended_until')) {
-            rows = await dbAll(fallbackSql.replace('u.suspended_until, ', ''), ...params);
-            for (const r of rows || []) r.suspended_until = null;
-          } else {
-            throw e2;
-          }
-        }
-        for (const r of rows || []) r.pending_design_count = 0;
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('suspended_until')) {
-        // sql/user_moderation_migration.sql not yet run — degrade to "never suspended".
-        rows = await dbAll(sql.replace('u.suspended_until, ', ''), ...params);
-        for (const r of rows || []) r.suspended_until = null;
-      } else {
-        throw e;
-      }
-    }
-    return jsonResponse({ items: rows || [] }, 200, request);
+    const rows = await dbAll(sql, ...params);
+    return jsonResponse({ items: rows }, 200, request);
   }
 
   // ---------- Account moderation (admin only) ----------
@@ -2622,15 +2548,7 @@
       ? new Date(Date.now() + minutes * 60_000).toISOString()
       : null;
 
-    try {
-      await dbRun('update users set suspended_until = ? where id = ?', suspendedUntil, userId);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('suspended_until')) {
-        return jsonResponse({ error: 'DB migration required: run sql/user_moderation_migration.sql' }, 500, request);
-      }
-      throw e;
-    }
+    await dbRun('update users set suspended_until = ? where id = ?', suspendedUntil, userId);
 
     if (suspendedUntil) {
       await dbRun('delete from sessions where user_id = ?', userId);
@@ -2663,112 +2581,96 @@
     return jsonResponse({ ok: true }, 200, request);
   }
 
+  // Every product column the API returns, plus whether an inline image exists (the image
+  // bytes themselves are only served by /api/product-image).
+  const PRODUCT_SELECT = `
+    select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency,
+           p.image_url, p.image_urls,
+           case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
+           p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id,
+           p.printful_variant_map, p.printful_design_images, p.printful_design_layers,
+           p.created_at, p.updated_at, b.name as brand
+    from products p
+    left join brands b on b.id = p.brand_id`;
+
+  // The one API shape for a product row — list, get, create and update all return it.
+  function shapeProduct(r) {
+    const imageUrls = parseImageUrlsFromRow(r.image_urls);
+    const firstUrl = firstImageUrl(r.image_url, imageUrls || r.image_urls);
+    const qs = new URLSearchParams();
+    if (r.brand) qs.set('brand', r.brand);
+    if (r.slug) qs.set('product', r.slug);
+    return {
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      category: r.category || null,
+      color: r.color || null,
+      sizes: r.sizes || null,
+      description: r.description,
+      price_cents: r.price_cents,
+      currency: r.currency,
+      image_url: firstUrl || (r.has_image_data ? `/api/product-image?id=${encodeURIComponent(r.id)}&i=0` : null),
+      image_urls: imageUrls,
+      is_published: !!r.is_published,
+      ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
+      printful_sync_product_id: r.printful_sync_product_id || null,
+      printful_sync_variant_id: r.printful_sync_variant_id || null,
+      printful_variant_map: safeJsonParse(r.printful_variant_map),
+      printful_design_images: safeJsonParse(r.printful_design_images),
+      printful_design_layers: safeJsonParse(r.printful_design_layers),
+      brand: r.brand || null,
+      viewer_url: `/index.html${qs.toString() ? `?${qs}` : ''}`,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    };
+  }
+
+  async function loadProduct(id) {
+    const row = await dbGet(`${PRODUCT_SELECT} where p.id = ?`, id);
+    return row ? shapeProduct(row) : null;
+  }
+
+  // JSON-ish product fields (variant map, design images/layers) arrive either as an object
+  // or as an already-serialized string; store both as text, empty as null.
+  function jsonFieldValue(v) {
+    if (v == null) return null;
+    return typeof v === 'object' ? JSON.stringify(v) : (String(v).trim() || null);
+  }
+
+  function isSlugConflict(e) {
+    const msg = String(e || '').toLowerCase();
+    return msg.includes('unique') && msg.includes('slug');
+  }
+
   async function apiListProducts(request) {
     const url = new URL(request.url);
     const brandName = (url.searchParams.get('brand') || '').trim();
     const includeUnpublished = url.searchParams.get('includeUnpublished') === '1';
 
     const sess = await getSessionUser(request);
-    const role = sess?.user?.role || 'anonymous';
+    const role = (sess && sess.user && sess.user.role) || 'anonymous';
 
-    let sql = `
-      select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-            case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-        p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_design_images, p.printful_design_layers, p.created_at, p.updated_at,
-            b.name as brand
-      from products p
-      left join brands b on b.id = p.brand_id
-    `;
     const where = [];
     const params = [];
-
-    if (sess && role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
+    if (role === 'brand') {
+      const brandIds = sessionBrandIds(sess);
       if (!brandIds.length) return jsonResponse({ items: [] }, 200, request);
       where.push(`p.brand_id in (${brandIds.map(() => '?').join(',')})`);
       params.push(...brandIds);
     }
-
     if (brandName) {
       where.push('lower(b.name) = lower(?)');
       params.push(brandName);
     }
+    const canSeeUnpublished = isPrivilegedRole(role) && includeUnpublished;
+    if (!canSeeUnpublished) where.push('p.is_published = 1');
 
-    const canSeeUnpublished = sess && isPrivilegedRole(role) && includeUnpublished;
-    if (!canSeeUnpublished) {
-      where.push('p.is_published = 1');
-    }
-
-    if (where.length) sql += ' where ' + where.join(' and ');
-    sql += ' order by p.created_at desc';
-
-    let rows;
-    try {
-      rows = await dbAll(sql, ...params);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_layers')) {
-        // design-layers migration not yet run — retry without it
-        const sql2 = sql.replace(', p.printful_design_layers', '');
-        rows = await dbAll(sql2, ...params);
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
-        // design-images migration not yet run — retry without it (and design_layers, same migration gap)
-        const sql2 = sql.replace(', p.printful_design_images', '').replace(', p.printful_design_layers', '');
-        rows = await dbAll(sql2, ...params);
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        // variant map migration not yet run — retry without it
-        const sql2 = sql.replace(', p.printful_variant_map', '').replace(', p.printful_design_images', '').replace(', p.printful_design_layers', '');
-        rows = await dbAll(sql2, ...params);
-      } else if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls') || msg.includes('printful_sync_variant_id'))) {
-        // Backward-compatible fallback if DB hasn't been migrated yet.
-        const fallbackSql = `
-          select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
-                p.is_published, p.ar_target_id, p.created_at, p.updated_at,
-                b.name as brand
-          from products p
-          left join brands b on b.id = p.brand_id
-        `;
-        let fb = fallbackSql;
-        if (where.length) fb += ' where ' + where.join(' and ');
-        fb += ' order by p.created_at desc';
-        rows = await dbAll(fb, ...params);
-      } else {
-        throw e;
-      }
-    }
-    const items = rows.map(r => {
-      const qs = new URLSearchParams();
-      if (r.brand) qs.set('brand', r.brand);
-      if (r.slug) qs.set('product', r.slug);
-      const viewer_url = `/index.html${qs.toString() ? `?${qs.toString()}` : ''}`;
-      const parsedImageUrls = parseImageUrlsFromRow(r.image_urls);
-      const firstUrl = firstImageUrl(r.image_url, parsedImageUrls || r.image_urls);
-      const computedImageUrl = firstUrl || ((r.has_image_data || 0) ? `/api/product-image?id=${encodeURIComponent(r.id)}&i=0` : null);
-      return {
-        id: r.id,
-        title: r.title,
-        slug: r.slug,
-        category: r.category || null,
-        color: r.color || null,
-        sizes: r.sizes || null,
-        description: r.description,
-        price_cents: r.price_cents,
-        currency: r.currency,
-        image_url: computedImageUrl,
-        image_urls: parsedImageUrls,
-        is_published: !!r.is_published,
-        ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
-        printful_sync_product_id: r.printful_sync_product_id || null,
-        printful_sync_variant_id: r.printful_sync_variant_id || null,
-        printful_variant_map: r.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_map) : null,
-        printful_design_images: r.printful_design_images ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_design_images) : null,
-        printful_design_layers: r.printful_design_layers ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_design_layers) : null,
-        brand: r.brand || null,
-        viewer_url,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-      };
-    });
+    const rows = await dbAll(
+      `${PRODUCT_SELECT}${where.length ? ' where ' + where.join(' and ') : ''} order by p.created_at desc`,
+      ...params
+    );
+    const items = rows.map(shapeProduct);
     return canSeeUnpublished
       ? jsonResponse({ items }, 200, request)
       : withCache(jsonResponse({ items }, 200, request), 'public, max-age=30, s-maxage=120');
@@ -2778,53 +2680,9 @@
     const raw = String(ref || '').trim();
     if (!raw) return jsonResponse({ error: 'Product reference required' }, 400, request);
     const byId = isDigits(raw);
-    const whereClause = byId ? 'p.id = ?' : 'p.slug = ?';
-    const param = byId ? Number(raw) : raw;
-
-    let row;
-    try {
-      row = await dbGet(
-        `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.created_at, p.updated_at, b.name as brand
-        from products p left join brands b on b.id = p.brand_id
-        where ${whereClause}`, param
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        row = await dbGet(
-          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                  p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at, b.name as brand
-          from products p left join brands b on b.id = p.brand_id
-          where ${whereClause}`, param
-        );
-      } else if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls') || msg.includes('printful_sync_variant_id'))) {
-        row = await dbGet(
-          `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
-                  p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
-          from products p left join brands b on b.id = p.brand_id
-          where ${whereClause}`, param
-        );
-      } else { throw e; }
-    }
+    const row = await dbGet(`${PRODUCT_SELECT} where ${byId ? 'p.id' : 'p.slug'} = ?`, byId ? Number(raw) : raw);
     if (!row || !row.is_published) return jsonResponse({ error: 'Not found' }, 404, request);
-
-    const parsedImageUrls = parseImageUrlsFromRow(row.image_urls);
-    const firstUrl = firstImageUrl(row.image_url, parsedImageUrls || row.image_urls);
-    const computedImageUrl = firstUrl || ((row.has_image_data || 0) ? `/api/product-image?id=${encodeURIComponent(row.id)}&i=0` : null);
-    const product = {
-      id: row.id, title: row.title, slug: row.slug,
-      category: row.category || null, color: row.color || null, sizes: row.sizes || null,
-      description: row.description, price_cents: row.price_cents, currency: row.currency,
-      image_url: computedImageUrl, image_urls: parsedImageUrls,
-      is_published: !!row.is_published, ar_target_id: row.ar_target_id == null ? null : Number(row.ar_target_id),
-      printful_sync_variant_id: row.printful_sync_variant_id || null,
-      printful_variant_map: row.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_variant_map) : null,
-      brand: row.brand || null, created_at: row.created_at, updated_at: row.updated_at,
-    };
-    return withCache(jsonResponse({ product }, 200, request), 'public, max-age=60, s-maxage=300');
+    return withCache(jsonResponse({ product: shapeProduct(row) }, 200, request), 'public, max-age=60, s-maxage=300');
   }
 
   async function apiGetProductImage(request) {
@@ -2833,16 +2691,7 @@
     const idx = Math.max(0, Number(url.searchParams.get('i') || '0') || 0);
     if (!Number.isFinite(id) || id <= 0) return new Response('Bad Request', { status: 400 });
 
-    let row;
-    try {
-      row = await dbGet('select image_data from products where id = ?', id);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('image_data')) {
-        return new Response('DB migration required', { status: 500 });
-      }
-      throw e;
-    }
+    const row = await dbGet('select image_data from products where id = ?', id);
     if (!row || !row.image_data) return new Response('Not Found', { status: 404 });
 
     let picked = null;
@@ -2896,15 +2745,9 @@
     const printfulVariantId = body.printful_sync_variant_id != null
       ? String(body.printful_sync_variant_id).trim() || null
       : null;
-    const printfulVariantMap = body.printful_variant_map != null
-      ? (typeof body.printful_variant_map === 'object' ? JSON.stringify(body.printful_variant_map) : String(body.printful_variant_map).trim() || null)
-      : null;
-    const printfulDesignImages = body.printful_design_images != null
-      ? (typeof body.printful_design_images === 'object' ? JSON.stringify(body.printful_design_images) : String(body.printful_design_images).trim() || null)
-      : null;
-    const printfulDesignLayers = body.printful_design_layers != null
-      ? (typeof body.printful_design_layers === 'object' ? JSON.stringify(body.printful_design_layers) : String(body.printful_design_layers).trim() || null)
-      : null;
+    const printfulVariantMap = jsonFieldValue(body.printful_variant_map);
+    const printfulDesignImages = jsonFieldValue(body.printful_design_images);
+    const printfulDesignLayers = jsonFieldValue(body.printful_design_layers);
     if (imageUrlsArr == null && body.image_urls != null) return jsonResponse({ error: 'Invalid image_urls (max 5)' }, 400, request);
     if (imageData) {
       if (imageData.length > 2_000_000) return jsonResponse({ error: 'image too large' }, 413, request);
@@ -2927,115 +2770,25 @@
       if (!t) return jsonResponse({ error: 'Target not found' }, 404, request);
     }
 
+    let lastRowId;
     try {
-      await dbRun(
-        'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id, printful_variant_map, printful_design_images, printful_design_layers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        brandId,
-        title,
-        slug,
-        category,
-        color,
-        sizes,
-        description,
-        priceCents,
-        currency,
-        imageUrl,
-        imageUrlsJson,
-        imageData,
-        isPublished,
-        targetId,
-        printfulVariantId,
-        printfulVariantMap,
-        printfulDesignImages,
-        printfulDesignLayers
-      );
+      ({ lastRowId } = await dbRun(
+        `insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency,
+                               image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id,
+                               printful_variant_map, printful_design_images, printful_design_layers)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        brandId, title, slug, category, color, sizes, description, priceCents, currency,
+        imageUrl, imageUrlsJson, imageData, isPublished, targetId, printfulVariantId,
+        printfulVariantMap, printfulDesignImages, printfulDesignLayers
+      ));
     } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
-        return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
-      }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_layers')) {
-        // design-layers migration not yet run — insert without printful_design_layers
-        await dbRun(
-          'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id, printful_variant_map, printful_design_images) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId, printfulVariantId, printfulVariantMap, printfulDesignImages
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
-        // design-images migration not yet run — insert without printful_design_images/printful_design_layers
-        await dbRun(
-          'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id, printful_variant_map) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId, printfulVariantId, printfulVariantMap
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        // variant map migration not yet run — insert without printful_variant_map/printful_design_images
-        await dbRun(
-          'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id, printful_sync_variant_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId, printfulVariantId
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_id')) {
-        // Printful migration not yet applied — insert without printful columns.
-        await dbRun(
-          'insert into products (brand_id, title, slug, category, color, sizes, description, price_cents, currency, image_url, image_urls, image_data, is_published, ar_target_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          brandId, title, slug, category, color, sizes, description, priceCents, currency, imageUrl, imageUrlsJson, imageData, isPublished, targetId
-        );
-      } else {
-        throw e;
-      }
+      if (isSlugConflict(e)) return jsonResponse({ error: 'slug already exists' }, 409, request);
+      throw e;
     }
 
-    let row;
-    try {
-      row = await dbGet(
-        `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_design_images, p.printful_design_layers,
-                p.created_at, p.updated_at, b.name as brand
-        from products p
-        left join brands b on b.id = p.brand_id
-        where p.rowid = last_insert_rowid()`
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_layers')) {
-        row = await dbGet(
-          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                  p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_design_images,
-                  p.created_at, p.updated_at, b.name as brand
-          from products p
-          left join brands b on b.id = p.brand_id
-          where p.rowid = last_insert_rowid()`
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
-        row = await dbGet(
-          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                  p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map,
-                  p.created_at, p.updated_at, b.name as brand
-          from products p
-          left join brands b on b.id = p.brand_id
-          where p.rowid = last_insert_rowid()`
-        );
-      } else {
-        throw e;
-      }
-    }
-
-    if (row) {
-      const parsedImageUrls = parseImageUrlsFromRow(row.image_urls);
-      const firstUrl = firstImageUrl(row.image_url, parsedImageUrls || row.image_urls);
-      if (!firstUrl && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}&i=0`;
-      else row.image_url = firstUrl || null;
-      row.image_urls = parsedImageUrls;
-      row.printful_variant_map = row.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_variant_map) : null;
-      row.printful_design_images = row.printful_design_images ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_design_images) : null;
-      row.printful_design_layers = row.printful_design_layers ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_design_layers) : null;
-      if (row.has_image_data != null) delete row.has_image_data;
-    }
-
-    // Printful linking is a separate step now (POST /api/admin/printful/products/:id/link),
+    // Printful linking is a separate step (POST /api/admin/printful/products/:id/link),
     // done after the product exists — no push-on-save here (v2 has no "sync product" to push).
-    return jsonResponse({ ok: true, item: row || null }, 201, request);
+    return jsonResponse({ ok: true, item: await loadProduct(lastRowId) }, 201, request);
   }
 
   async function apiUpdateProduct(request, id) {
@@ -3124,27 +2877,18 @@
     }
 
     if (body.printful_variant_map !== undefined) {
-      const v = body.printful_variant_map != null
-        ? (typeof body.printful_variant_map === 'object' ? JSON.stringify(body.printful_variant_map) : String(body.printful_variant_map).trim() || null)
-        : null;
       fields.push('printful_variant_map = ?');
-      params.push(v);
+      params.push(jsonFieldValue(body.printful_variant_map));
     }
 
     if (body.printful_design_images !== undefined) {
-      const v = body.printful_design_images != null
-        ? (typeof body.printful_design_images === 'object' ? JSON.stringify(body.printful_design_images) : String(body.printful_design_images).trim() || null)
-        : null;
       fields.push('printful_design_images = ?');
-      params.push(v);
+      params.push(jsonFieldValue(body.printful_design_images));
     }
 
     if (body.printful_design_layers !== undefined) {
-      const v = body.printful_design_layers != null
-        ? (typeof body.printful_design_layers === 'object' ? JSON.stringify(body.printful_design_layers) : String(body.printful_design_layers).trim() || null)
-        : null;
       fields.push('printful_design_layers = ?');
-      params.push(v);
+      params.push(jsonFieldValue(body.printful_design_layers));
     }
 
     if (!fields.length) return jsonResponse({ ok: true }, 200, request);
@@ -3153,112 +2897,10 @@
     try {
       await dbRun(`update products set ${fields.join(', ')} where id = ?`, ...params, id);
     } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('unique') && msg.toLowerCase().includes('slug')) {
-        return jsonResponse({ error: 'slug already exists' }, 409, request);
-      }
-      if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls'))) {
-        return jsonResponse({ error: 'DB migration required: run sql/product_attributes_migration.sql, sql/product_images_migration.sql, and sql/product_image_urls_migration.sql against D1' }, 500, request);
-      }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_layers')) {
-        // design-layers column not yet added — retry update without it.
-        const dlIdx = fields.indexOf('printful_design_layers = ?');
-        if (dlIdx !== -1) {
-          const rf = [...fields]; rf.splice(dlIdx, 1);
-          const rp = [...params]; rp.splice(dlIdx, 1);
-          await dbRun(`update products set ${rf.join(', ')} where id = ?`, ...rp, id);
-        }
-        // fall through to re-fetch and return — design layers not saved until migration is run
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
-        // design-images column not yet added — retry update without it (and design_layers, same migration gap).
-        const rf = [...fields]; const rp = [...params];
-        [ 'printful_design_images = ?', 'printful_design_layers = ?' ].forEach(function(col) {
-          const idx = rf.indexOf(col);
-          if (idx !== -1) { rf.splice(idx, 1); rp.splice(idx, 1); }
-        });
-        await dbRun(`update products set ${rf.join(', ')} where id = ?`, ...rp, id);
-        // fall through to re-fetch and return — design images not saved until migration is run
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        // printful_variant_map column not yet added — retry update without it (and design_images/design_layers, same migration gap).
-        const rf = [...fields]; const rp = [...params];
-        [ 'printful_variant_map = ?', 'printful_design_images = ?', 'printful_design_layers = ?' ].forEach(function(col) {
-          const idx = rf.indexOf(col);
-          if (idx !== -1) { rf.splice(idx, 1); rp.splice(idx, 1); }
-        });
-        await dbRun(`update products set ${rf.join(', ')} where id = ?`, ...rp, id);
-        // fall through to re-fetch and return — variant map not saved until migration is run
-      } else {
-        throw e;
-      }
+      if (isSlugConflict(e)) return jsonResponse({ error: 'slug already exists' }, 409, request);
+      throw e;
     }
-
-    let row;
-    try {
-      row = await dbGet(
-        `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_design_images, p.printful_design_layers, p.created_at, p.updated_at, b.name as brand
-        from products p
-        left join brands b on b.id = p.brand_id
-        where p.id = ?`,
-        id
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_layers')) {
-        row = await dbGet(
-          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                  p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_design_images, p.created_at, p.updated_at, b.name as brand
-          from products p
-          left join brands b on b.id = p.brand_id
-          where p.id = ?`,
-          id
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
-        row = await dbGet(
-          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                  p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.printful_variant_map, p.created_at, p.updated_at, b.name as brand
-          from products p
-          left join brands b on b.id = p.brand_id
-          where p.id = ?`,
-          id
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        row = await dbGet(
-          `select p.id, p.title, p.slug, p.category, p.color, p.sizes, p.description, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
-                  p.is_published, p.ar_target_id, p.printful_sync_variant_id, p.created_at, p.updated_at, b.name as brand
-          from products p
-          left join brands b on b.id = p.brand_id
-          where p.id = ?`,
-          id
-        );
-      } else if (msg.toLowerCase().includes('no such column') && (msg.includes('category') || msg.includes('color') || msg.includes('sizes') || msg.includes('image_data') || msg.includes('image_urls') || msg.includes('printful_sync_variant_id'))) {
-        row = await dbGet(
-          `select p.id, p.title, p.slug, p.description, p.price_cents, p.currency, p.image_url,
-                  p.is_published, p.ar_target_id, p.created_at, p.updated_at, b.name as brand
-          from products p
-          left join brands b on b.id = p.brand_id
-          where p.id = ?`,
-          id
-        );
-      } else {
-        throw e;
-      }
-    }
-    if (row) {
-      const parsedImageUrls = parseImageUrlsFromRow(row.image_urls);
-      const firstUrl = firstImageUrl(row.image_url, parsedImageUrls || row.image_urls);
-      if (!firstUrl && (row.has_image_data || 0)) row.image_url = `/api/product-image?id=${encodeURIComponent(row.id)}&i=0`;
-      else row.image_url = firstUrl || row.image_url || null;
-      row.image_urls = parsedImageUrls;
-      row.printful_design_images = row.printful_design_images ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_design_images) : null;
-      row.printful_design_layers = row.printful_design_layers ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(row.printful_design_layers) : null;
-      if (row.has_image_data != null) delete row.has_image_data;
-    }
-    return jsonResponse({ ok: true, item: row || null }, 200, request);
+    return jsonResponse({ ok: true, item: await loadProduct(id) }, 200, request);
   }
 
   async function apiDeleteProduct(request, id) {
@@ -3269,7 +2911,25 @@
     const existing = await dbGet('select id from products where id = ?', id);
     if (!existing) return jsonResponse({ error: 'Not found' }, 404, request);
 
-    await dbRun('delete from products where id = ?', id);
+    // A product with pieces in customer wardrobes can't be deleted — unpublishing removes it
+    // from the shop without touching owned pieces. The DB enforces this too
+    // (garment_units.product_id ON DELETE RESTRICT, sql/garment_units_restrict_migration.sql);
+    // this check just gives the admin a readable reason. On a DB still on the old CASCADE
+    // schema, this check is the only thing stopping a wardrobe wipe.
+    const hasPiecesResponse = (count) => jsonResponse({
+      error: `This product has ${count} piece(s) in customer wardrobes and can't be deleted. Unpublish it instead.`,
+      code: 'has_pieces',
+    }, 409, request);
+    const units = await dbGet('select count(*) as c from garment_units where product_id = ?', id);
+    if (units && Number(units.c) > 0) return hasPiecesResponse(units.c);
+
+    try {
+      await dbRun('delete from products where id = ?', id);
+    } catch (e) {
+      // A piece was minted between the check above and this delete; RESTRICT refused it.
+      if (String(e || '').toLowerCase().includes('foreign key constraint')) return hasPiecesResponse('some');
+      throw e;
+    }
     return jsonResponse({ ok: true }, 200, request);
   }
 
@@ -3299,36 +2959,16 @@
     const ref = refOverride || (url.searchParams.get('product') || url.searchParams.get('product_id') || url.searchParams.get('product_slug') || '').trim();
     if (!ref) return jsonResponse({ error: 'product required' }, 400, request);
 
-    let product;
-    try {
-      product = await resolvePublishedProductByRef(ref);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('product_reviews')) {
-        return jsonResponse({ error: 'DB migration required: create product_reviews table' }, 500, request);
-      }
-      throw e;
-    }
+    const product = await resolvePublishedProductByRef(ref);
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
 
-    let items = [];
-    let statsRow = null;
-    try {
-      items = await dbAll(
-        'select id, rating, author, comment, created_at from product_reviews where product_id = ? order by created_at desc limit 50',
-        product.id
-      );
-      statsRow = await dbGet(
-        'select avg(rating) as average, count(*) as count from product_reviews where product_id = ?',
-        product.id
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('product_reviews')) {
-        return jsonResponse({ error: 'DB migration required: create product_reviews table' }, 500, request);
-      }
-      throw e;
-    }
+    // Latest reviews and the rating stats in one round trip.
+    const [itemsRes, statsRes] = await DB.batch([
+      DB.prepare('select id, rating, author, comment, created_at from product_reviews where product_id = ? order by created_at desc limit 50').bind(product.id),
+      DB.prepare('select avg(rating) as average, count(*) as count from product_reviews where product_id = ?').bind(product.id),
+    ]);
+    const items = itemsRes.results || [];
+    const statsRow = (statsRes.results || [])[0] || null;
 
     const avg = statsRow && statsRow.average != null ? Number(statsRow.average) : 0;
     const count = statsRow && statsRow.count != null ? Number(statsRow.count) : 0;
@@ -3337,7 +2977,7 @@
         {
           product,
           stats: { average: Number.isFinite(avg) ? avg : 0, count: Number.isFinite(count) ? count : 0 },
-          items: (items || []).map(r => ({
+          items: items.map(r => ({
             id: r.id,
             rating: Number(r.rating) || 0,
             author: r.author || null,
@@ -3373,37 +3013,13 @@
     const author = authorRaw || null;
     const comment = commentRaw || null;
 
-    let product;
-    try {
-      product = await resolvePublishedProductByRef(ref);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('product_reviews')) {
-        return jsonResponse({ error: 'DB migration required: create product_reviews table' }, 500, request);
-      }
-      throw e;
-    }
+    const product = await resolvePublishedProductByRef(ref);
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
 
-    try {
-      await dbRun(
-        'insert into product_reviews (product_id, product_slug, rating, author, comment) values (?, ?, ?, ?, ?)',
-        product.id,
-        product.slug,
-        rating,
-        author,
-        comment
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('product_reviews')) {
-        return jsonResponse({ error: 'DB migration required: create product_reviews table' }, 500, request);
-      }
-      throw e;
-    }
-
     const row = await dbGet(
-      'select id, rating, author, comment, created_at from product_reviews where rowid = last_insert_rowid()'
+      `insert into product_reviews (product_id, product_slug, rating, author, comment) values (?, ?, ?, ?, ?)
+       returning id, rating, author, comment, created_at`,
+      product.id, product.slug, rating, author, comment
     );
     return jsonResponse(
       {
@@ -3441,7 +3057,7 @@
     const params = [];
 
     if (role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
+      const brandIds = sessionBrandIds(sess);
       if (!brandIds.length) return jsonResponse({ items: [] }, 200, request);
       where.push(`t.brand_id in (${brandIds.map(() => '?').join(',')})`);
       params.push(...brandIds);
@@ -3512,7 +3128,7 @@
       return jsonResponse({ error: 'Forbidden' }, 403, request);
     }
 
-    await dbRun(
+    const { lastRowId } = await dbRun(
       'insert into targets (user_id, brand_id, name, product, mind_url, video_url, image_url, is_active) values (?, ?, ?, ?, ?, ?, ?, 0)',
       sess.user.id, brandId, name, product, mindUrl, videoUrl, imageUrl
     );
@@ -3522,7 +3138,8 @@
               t.is_active, t.created_at, b.name as brand
       from targets t
       left join brands b on b.id = t.brand_id
-      where t.rowid = last_insert_rowid()`
+      where t.id = ?`,
+      lastRowId
     );
 
     const item = row && {
@@ -3551,8 +3168,7 @@
     if (!t) return jsonResponse({ error: 'Not found' }, 404, request);
 
     if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+      if (!sessionOwnsBrand(sess, t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
     }
 
     let maxActive = 3;
@@ -3591,8 +3207,7 @@
     const t = await dbGet('select id, brand_id from targets where id = ?', id);
     if (!t) return jsonResponse({ error: 'Not found' }, 404, request);
     if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+      if (!sessionOwnsBrand(sess, t.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
     }
     await dbRun('update targets set is_active = 0 where id = ?', id);
     return jsonResponse({ ok: true }, 200, request);
@@ -3606,8 +3221,7 @@
     const row = await dbGet('select id, brand_id, mind_url, video_url, image_url from targets where id = ?', id);
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
     if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(row.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+      if (!sessionOwnsBrand(sess, row.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
     }
 
     await dbRun('delete from targets where id = ?', id);
@@ -3639,48 +3253,14 @@
     const target = await dbGet('select id, brand_id, video_url from targets where id = ?', id);
     if (!target) return jsonResponse({ error: 'Not found' }, 404, request);
     if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(target.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+      if (!sessionOwnsBrand(sess, target.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
     }
 
-    const ip = getClientIP(request);
-    if (!rateLimitCheck('target-video-upload:' + ip, RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
-      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
-    }
-    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
-      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
-    }
+    const upload = await storeVideoUpload(request, 'target-video-upload', (filename) => `videos/${id}/${Date.now()}-${filename}`);
+    if (upload.error) return upload.error;
+    const { videoUrl } = upload;
 
-    const form = await request.formData();
-    const file = form.get('file');
-    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
-    if (file.size && file.size > UPLOAD_MAX_SIZE) {
-      return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
-    }
-    const contentType = (file.type || '').toLowerCase();
-    if (!contentType.startsWith('video/')) {
-      return jsonResponse({ error: 'Only video files are allowed' }, 415, request);
-    }
-
-    const rawName = (file.name || `${Date.now()}`).toString();
-    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
-    const key = `videos/${id}/${Date.now()}-${filename}`;
-
-    await ASSETS_BUCKET.put(key, file.stream(), {
-      httpMetadata: { contentType: file.type || 'video/mp4' }
-    });
-    const videoUrl = buildPublicAssetUrl(request, key);
-
-    try {
-      await dbRun(
-        `update targets set video_url = ?, version = version + 1, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
-        videoUrl, id
-      );
-    } catch (e) {
-      if (!String(e || '').toLowerCase().includes('no such column')) throw e;
-      // sql/targets_version_migration.sql not yet run — still update the video itself.
-      await dbRun('update targets set video_url = ? where id = ?', videoUrl, id);
-    }
+    await setTargetVideo(id, videoUrl);
 
     if (target.video_url && target.video_url !== videoUrl) {
       try { await ASSETS_BUCKET.delete(keyFromPublicUrl(target.video_url)); } catch {}
@@ -3716,7 +3296,7 @@
     const params = [];
 
     if (role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
+      const brandIds = sessionBrandIds(sess);
       if (!brandIds.length) return jsonResponse({ items: [] }, 200, request);
       where.push(`d.brand_id in (${brandIds.map(() => '?').join(',')})`);
       params.push(...brandIds);
@@ -3754,13 +3334,14 @@
     const imageUrl = (body.image_url || '').trim();
     if (!imageUrl) return jsonResponse({ error: 'image_url required' }, 400, request);
 
-    await dbRun(
+    const { lastRowId } = await dbRun(
       'insert into brand_designs (brand_id, user_id, name, note, image_url) values (?, ?, ?, ?, ?)',
       brandId, sess.user.id, name, note, imageUrl
     );
 
     const row = await dbGet(
-      'select id, name, note, image_url, created_at from brand_designs where rowid = last_insert_rowid()'
+      'select id, name, note, image_url, created_at from brand_designs where id = ?',
+      lastRowId
     );
     return jsonResponse({ ok: true, item: row }, 201, request);
   }
@@ -3774,8 +3355,7 @@
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
 
     if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(row.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+      if (!sessionOwnsBrand(sess, row.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
     } else if (sess.user.role !== 'admin') {
       return jsonResponse({ error: 'Forbidden' }, 403, request);
     }
@@ -3801,12 +3381,18 @@
     // strings into targets.
     if (product) {
       try {
+        // Product and its linked target in one read (was two sequential queries).
         let psql = `
-          select p.id, p.ar_target_id, p.slug, p.title, p.price_cents, p.currency, b.name as brand
+          select p.slug, p.title, p.price_cents, p.currency,
+                 t.id, t.name, t.mind_url, t.video_url, t.image_url, t.is_active, t.version,
+                 t.created_at, t.updated_at, tb.name as brand
           from products p
           left join brands b on b.id = p.brand_id
+          join targets t on t.id = p.ar_target_id
+          left join brands tb on tb.id = t.brand_id
           where lower(p.slug) = lower(?)
             and p.is_published = 1
+            and t.is_active = 1
         `;
         const pparams = [product];
         if (brand) {
@@ -3815,40 +3401,28 @@
         }
         psql += ' limit 1';
 
-        const prow = await dbGet(psql, ...pparams);
-        const targetId = prow?.ar_target_id != null ? Number(prow.ar_target_id) : null;
-        if (targetId != null && Number.isFinite(targetId)) {
-          const t = await dbGet(`
-            select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
-                  t.is_active, t.version, t.created_at, t.updated_at, b.name as brand
-            from targets t
-            left join brands b on b.id = t.brand_id
-            where t.id = ?
-            limit 1
-          `, targetId);
-
-          if (t && t.is_active) {
-            return withCache(
-              jsonResponse({
-                id: t.id,
-                name: t.name,
-                product: prow.slug,
-                product_title: prow.title || null,
-                price_cents: prow.price_cents != null ? prow.price_cents : null,
-                currency: prow.currency || null,
-                brand: t.brand || null,
-                mindurl: t.mind_url,
-                videourl: t.video_url,
-                imageurl: t.image_url,
-                is_active: !!t.is_active,
-                version: t.version || 1,
-                updated_at: t.updated_at || t.created_at,
-                created_at: t.created_at,
-                source: 'product_link'
-              }, 200, request),
-              'public, max-age=30, s-maxage=60'
-            );
-          }
+        const t = await dbGet(psql, ...pparams);
+        if (t) {
+          return withCache(
+            jsonResponse({
+              id: t.id,
+              name: t.name,
+              product: t.slug,
+              product_title: t.title || null,
+              price_cents: t.price_cents != null ? t.price_cents : null,
+              currency: t.currency || null,
+              brand: t.brand || null,
+              mindurl: t.mind_url,
+              videourl: t.video_url,
+              imageurl: t.image_url,
+              is_active: !!t.is_active,
+              version: t.version || 1,
+              updated_at: t.updated_at || t.created_at,
+              created_at: t.created_at,
+              source: 'product_link'
+            }, 200, request),
+            'public, max-age=30, s-maxage=60'
+          );
         }
       } catch (e) {
         // If products table isn't present yet (or any other issue), fall back to legacy.
@@ -3926,48 +3500,38 @@
     if (itemIndex >= items.length) return jsonResponse({ error: 'Not found' }, 404, request);
 
     const slug = String((items[itemIndex] && items[itemIndex].slug) || '').trim();
-    const product = slug ? await dbGet('select ar_target_id, brand_id, title, price_cents, currency from products where lower(slug) = lower(?)', slug) : null;
-    const targetId = product && product.ar_target_id != null ? Number(product.ar_target_id) : null;
-    if (targetId == null || !Number.isFinite(targetId)) {
-      return jsonResponse({ error: 'No AR content for this item' }, 404, request);
-    }
+    if (!slug) return jsonResponse({ error: 'No AR content for this item' }, 404, request);
 
-    const t = await dbGet(
-      'select id, name, mind_url, video_url, image_url, is_active, version, created_at, updated_at from targets where id = ?',
-      targetId
-    );
-    if (!t) return jsonResponse({ error: 'No AR content for this item' }, 404, request);
-
+    // Product, its target and this item's personal video in one read (was three queries).
     // Personal per-order videos only apply to house (non-brand) products — a brand product's
     // marker always plays the one shared video the brand uploaded, same as every other buyer.
-    let personalVideoUrl = null;
-    if (product.brand_id == null) {
-      try {
-        const v = await dbGet(
-          'select video_url from order_ar_videos where order_id = ? and item_index = ?',
-          orderId, itemIndex
-        );
-        if (v) personalVideoUrl = v.video_url;
-      } catch (e) {
-        if (!String(e || '').toLowerCase().includes('no such table')) throw e;
-      }
-    }
+    const row = await dbGet(
+      `select p.title, p.price_cents, p.currency,
+              t.id, t.name, t.mind_url, t.video_url, t.image_url, t.is_active, t.version, t.created_at, t.updated_at,
+              (select v.video_url from order_ar_videos v
+                where v.order_id = ? and v.item_index = ? and p.brand_id is null) as personal_video_url
+       from products p
+       join targets t on t.id = p.ar_target_id
+       where lower(p.slug) = lower(?)`,
+      orderId, itemIndex, slug
+    );
+    if (!row) return jsonResponse({ error: 'No AR content for this item' }, 404, request);
 
     return withCache(
       jsonResponse({
-        id: t.id,
-        name: t.name,
+        id: row.id,
+        name: row.name,
         product: slug,
-        product_title: product.title || null,
-        price_cents: product.price_cents != null ? product.price_cents : null,
-        currency: product.currency || null,
+        product_title: row.title || null,
+        price_cents: row.price_cents != null ? row.price_cents : null,
+        currency: row.currency || null,
         brand: null,
-        mindurl: t.mind_url,
-        videourl: personalVideoUrl || t.video_url,
-        imageurl: t.image_url,
-        is_active: !!t.is_active,
-        version: t.version || 1,
-        updated_at: t.updated_at || t.created_at,
+        mindurl: row.mind_url,
+        videourl: row.personal_video_url || row.video_url,
+        imageurl: row.image_url,
+        is_active: !!row.is_active,
+        version: row.version || 1,
+        updated_at: row.updated_at || row.created_at,
         created_at: null,
         source: 'order_personal'
       }, 200, request),
@@ -3979,6 +3543,43 @@
 
   function ownsGarmentUnit(sess, unit) {
     return !!(sess && sess.user && unit.owner_user_id != null && String(sess.user.id) === String(unit.owner_user_id));
+  }
+
+  // Mints `count` garment_units for a product in one D1 round trip: multi-row inserts
+  // (chunked under D1's 100-bound-parameter limit), sent as a single batch. A claim_code that
+  // collides with an existing one is skipped by ON CONFLICT and re-rolled in another pass
+  // (31^8 codes, so a second pass is essentially never needed). `owner` = { userId, nickname }
+  // mints them already claimed (paid orders); without it they're unclaimed (collar-tag stock).
+  // Returns [{ id, claim_code }] for the units actually created.
+  async function mintGarmentUnits(productId, count, owner = null) {
+    const cols = owner
+      ? '(id, claim_code, product_id, owner_user_id, claimed_at, nickname)'
+      : '(id, claim_code, product_id)';
+    const rowSql = owner
+      ? "(?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)"
+      : '(?, ?, ?)';
+    const perRow = owner ? 5 : 3;
+    const rowsPerStmt = Math.floor(100 / perRow);
+
+    const minted = [];
+    for (let pass = 0; pass < 3 && minted.length < count; pass++) {
+      const units = [];
+      for (let i = minted.length; i < count; i++) units.push({ id: randomId('unit_'), claim_code: randomClaimCode() });
+      const stmts = [];
+      for (let i = 0; i < units.length; i += rowsPerStmt) {
+        const chunk = units.slice(i, i + rowsPerStmt);
+        const params = chunk.flatMap(u => owner
+          ? [u.id, u.claim_code, productId, owner.userId, owner.nickname]
+          : [u.id, u.claim_code, productId]);
+        stmts.push(DB.prepare(
+          `insert into garment_units ${cols} values ${chunk.map(() => rowSql).join(', ')}
+           on conflict(claim_code) do nothing returning id, claim_code`
+        ).bind(...params));
+      }
+      const results = await DB.batch(stmts);
+      for (const r of results) for (const row of (r.results || [])) minted.push({ id: row.id, claim_code: row.claim_code });
+    }
+    return minted;
   }
 
   // POST /api/admin/products/:id/pieces/generate — mints N unclaimed garment units for a
@@ -3994,8 +3595,7 @@
     const product = await dbGet('select id, brand_id from products where id = ?', productId);
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
     if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+      if (!sessionOwnsBrand(sess, product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
     }
 
     const body = await readJson(request);
@@ -4003,26 +3603,8 @@
     if (!Number.isFinite(count) || count < 1) count = 1;
     count = Math.min(count, 200);
 
-    try {
-      const codes = [];
-      for (let i = 0; i < count; i++) {
-        let code;
-        let attempts = 0;
-        do {
-          code = randomClaimCode();
-          attempts++;
-        } while (attempts < 5 && await dbGet('select 1 from garment_units where claim_code = ?', code));
-        const id = randomId('unit_');
-        await dbRun('insert into garment_units (id, claim_code, product_id) values (?, ?, ?)', id, code, productId);
-        codes.push({ id, claim_code: code });
-      }
-      return jsonResponse({ ok: true, items: codes }, 200, request);
-    } catch (e) {
-      if (String(e || '').toLowerCase().includes('no such table')) {
-        return jsonResponse({ error: 'DB migration required: run sql/wardrobe_migration.sql' }, 500, request);
-      }
-      throw e;
-    }
+    const codes = await mintGarmentUnits(productId, count);
+    return jsonResponse({ ok: true, items: codes }, 200, request);
   }
 
   // POST /api/pieces/claim — body {claim_code, nickname?}. Redeeming the code printed on the
@@ -4042,15 +3624,7 @@
       return jsonResponse({ error: 'Too many attempts. Please try again later.' }, 429, request);
     }
 
-    let unit;
-    try {
-      unit = await dbGet('select id, claim_code, product_id, owner_user_id from garment_units where claim_code = ?', code);
-    } catch (e) {
-      if (String(e || '').toLowerCase().includes('no such table')) {
-        return jsonResponse({ error: 'DB migration required: run sql/wardrobe_migration.sql' }, 500, request);
-      }
-      throw e;
-    }
+    const unit = await dbGet('select id, claim_code, product_id, owner_user_id from garment_units where claim_code = ?', code);
     if (!unit) return jsonResponse({ error: "That code doesn't match a registered piece. Double-check it and try again." }, 404, request);
 
     // A piece sits in exactly one wardrobe. Re-claiming your own is a no-op; claiming one
@@ -4094,25 +3668,15 @@
     const code = String(new URL(request.url).searchParams.get('code') || '').trim().toUpperCase();
     if (!code) return jsonResponse({ error: 'code required' }, 400, request);
 
-    let unit;
-    try {
-      unit = await dbGet(
-        `select u.id, u.claim_code, u.owner_user_id, u.claimed_at, u.created_at,
-                p.title as product_title, p.slug as product_slug, p.image_url as product_image
-         from garment_units u join products p on p.id = u.product_id where u.claim_code = ?`,
-        code
-      );
-    } catch (e) {
-      if (String(e || '').toLowerCase().includes('no such table')) return jsonResponse({ error: 'Not found' }, 404, request);
-      throw e;
-    }
+    const unit = await dbGet(
+      `select u.id, u.claim_code, u.owner_user_id, u.claimed_at, u.created_at,
+              p.title as product_title, p.slug as product_slug, p.image_url as product_image,
+              (select max(version) from garment_layers where unit_id = u.id) as version
+       from garment_units u join products p on p.id = u.product_id where u.claim_code = ?`,
+      code
+    );
     if (!unit) return jsonResponse({ error: "That code doesn't match a registered piece." }, 404, request);
-
-    let version = 0;
-    try {
-      const l = await dbGet('select max(version) as v from garment_layers where unit_id = ?', unit.id);
-      version = (l && l.v) || 0;
-    } catch (e) {}
+    const version = unit.version || 0;
 
     const status = unit.owner_user_id == null ? 'available'
       : (String(unit.owner_user_id) === String(sess.user.id) ? 'yours' : 'owned');
@@ -4133,32 +3697,16 @@
     const sess = await getSessionUser(request);
     if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
 
-    let units;
-    try {
-      units = await dbAll(
-        `select u.id, u.claim_code, u.nickname, u.claimed_at, u.scan_count, u.last_scanned_at,
-                p.id as product_id, p.title as product_title, p.slug as product_slug, p.image_url as product_image
-         from garment_units u
-         join products p on p.id = u.product_id
-         where u.owner_user_id = ?
-         order by u.claimed_at desc`,
-        sess.user.id
-      );
-    } catch (e) {
-      if (String(e || '').toLowerCase().includes('no such table')) return jsonResponse({ items: [] }, 200, request);
-      throw e;
-    }
-
-    let versionByUnit = {};
-    if (units.length) {
-      const ids = units.map(u => u.id);
-      const placeholders = ids.map(() => '?').join(',');
-      const layers = await dbAll(
-        `select unit_id, max(version) as version from garment_layers where unit_id in (${placeholders}) group by unit_id`,
-        ...ids
-      );
-      for (const l of layers) versionByUnit[l.unit_id] = l.version;
-    }
+    const units = await dbAll(
+      `select u.id, u.claim_code, u.nickname, u.claimed_at, u.scan_count, u.last_scanned_at,
+              p.id as product_id, p.title as product_title, p.slug as product_slug, p.image_url as product_image,
+              (select max(version) from garment_layers where unit_id = u.id) as version
+       from garment_units u
+       join products p on p.id = u.product_id
+       where u.owner_user_id = ?
+       order by u.claimed_at desc`,
+      sess.user.id
+    );
 
     const items = units.map(u => ({
       id: u.id,
@@ -4168,8 +3716,8 @@
       scan_count: u.scan_count,
       last_scanned_at: u.last_scanned_at,
       product: { id: u.product_id, title: u.product_title, slug: u.product_slug, image_url: u.product_image },
-      version: versionByUnit[u.id] || 0,
-      is_published: !!versionByUnit[u.id],
+      version: u.version || 0,
+      is_published: !!u.version,
     }));
 
     return jsonResponse({ items }, 200, request);
@@ -4187,13 +3735,7 @@
     );
     if (!unit || !ownsGarmentUnit(sess, unit)) return jsonResponse({ error: 'Not found' }, 404, request);
 
-    let layers;
-    try {
-      layers = await dbAll('select id, video_url, version, label, created_at from garment_layers where unit_id = ? order by version desc', id);
-    } catch (e) {
-      if (!String(e || '').toLowerCase().includes('label')) throw e;
-      layers = await dbAll('select id, video_url, version, created_at from garment_layers where unit_id = ? order by version desc', id);
-    }
+    const layers = await dbAll('select id, video_url, version, label, created_at from garment_layers where unit_id = ? order by version desc', id);
     const origin = new URL(request.url).origin;
 
     return jsonResponse({
@@ -4237,51 +3779,15 @@
     const unit = await dbGet('select id, owner_user_id from garment_units where id = ?', id);
     if (!unit || !ownsGarmentUnit(sess, unit)) return jsonResponse({ error: 'Not found' }, 404, request);
 
-    const ip = getClientIP(request);
-    if (!rateLimitCheck('piece-layer-upload:' + ip, RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
-      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
-    }
-    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
-      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
-    }
+    const prev = await dbGet('select max(version) as v from garment_layers where unit_id = ?', id);
+    const nextVersion = ((prev && prev.v) || 0) + 1;
 
-    const form = await request.formData();
-    const file = form.get('file');
-    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
-    if (file.size && file.size > UPLOAD_MAX_SIZE) return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
-    const contentType = (file.type || '').toLowerCase();
-    if (!contentType.startsWith('video/')) return jsonResponse({ error: 'Only video files are allowed' }, 415, request);
-
-    let nextVersion = 1;
-    try {
-      const prev = await dbGet('select max(version) as v from garment_layers where unit_id = ?', id);
-      nextVersion = (prev && prev.v ? prev.v : 0) + 1;
-    } catch (e) {
-      if (!String(e || '').toLowerCase().includes('no such table')) throw e;
-    }
-
-    const rawName = (file.name || `${Date.now()}`).toString();
-    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
-    const key = `piece-layers/${id}/${nextVersion}-${Date.now()}-${filename}`;
-
-    await ASSETS_BUCKET.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'video/mp4' } });
-    const videoUrl = buildPublicAssetUrl(request, key);
+    const upload = await storeVideoUpload(request, 'piece-layer-upload', (filename) => `piece-layers/${id}/${nextVersion}-${Date.now()}-${filename}`);
+    if (upload.error) return upload.error;
+    const { videoUrl, form } = upload;
 
     const label = String(form.get('label') || '').trim().slice(0, 80) || null;
-    try {
-      try {
-        await dbRun('insert into garment_layers (unit_id, video_url, version, label) values (?, ?, ?, ?)', id, videoUrl, nextVersion, label);
-      } catch (e) {
-        // label column not migrated yet — store the layer without its name
-        if (!String(e || '').toLowerCase().includes('label')) throw e;
-        await dbRun('insert into garment_layers (unit_id, video_url, version) values (?, ?, ?)', id, videoUrl, nextVersion);
-      }
-    } catch (e) {
-      if (String(e || '').toLowerCase().includes('no such table')) {
-        return jsonResponse({ error: 'DB migration required: run sql/wardrobe_migration.sql' }, 500, request);
-      }
-      throw e;
-    }
+    await dbRun('insert into garment_layers (unit_id, video_url, version, label) values (?, ?, ?, ?)', id, videoUrl, nextVersion, label);
 
     return jsonResponse({ ok: true, video_url: videoUrl, version: nextVersion, label }, 200, request);
   }
@@ -4292,52 +3798,52 @@
   // falling back to the target's own default video if the owner hasn't published one yet.
   // Public, no session required — same reasoning as apiViewerOrder above: a printed QR on
   // someone's actual shirt has to work for anyone scanning it.
-  async function apiViewerPiece(request) {
+  async function apiViewerPiece(request, ctx) {
     const url = new URL(request.url);
     const code = (url.searchParams.get('code') || '').trim().toUpperCase();
     if (!code) return jsonResponse({ error: 'code required' }, 400, request);
 
-    let unit;
-    try {
-      unit = await dbGet('select id, product_id from garment_units where claim_code = ?', code);
-    } catch (e) {
-      if (String(e || '').toLowerCase().includes('no such table')) return jsonResponse({ error: 'Not found' }, 404, request);
-      throw e;
-    }
-    if (!unit) return jsonResponse({ error: 'Not found' }, 404, request);
+    // One read for everything a scan needs: the unit, its product, the product's target and
+    // the unit's newest layer (was four sequential queries — this runs on every scan).
+    const row = await dbGet(
+      `select u.id as unit_id, p.slug, p.title, p.price_cents, p.currency,
+              t.id as target_id, t.name, t.mind_url, t.video_url, t.image_url, t.is_active,
+              l.video_url as layer_video_url, l.version as layer_version, l.created_at as layer_created_at
+       from garment_units u
+       join products p on p.id = u.product_id
+       left join targets t on t.id = p.ar_target_id
+       left join garment_layers l
+         on l.id = (select id from garment_layers where unit_id = u.id order by version desc limit 1)
+       where u.claim_code = ?`,
+      code
+    );
+    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (row.target_id == null) return jsonResponse({ error: 'No AR content for this piece' }, 404, request);
 
-    const product = await dbGet('select ar_target_id, slug, title, price_cents, currency from products where id = ?', unit.product_id);
-    const targetId = product && product.ar_target_id != null ? Number(product.ar_target_id) : null;
-    if (targetId == null || !Number.isFinite(targetId)) return jsonResponse({ error: 'No AR content for this piece' }, 404, request);
-
-    const t = await dbGet('select id, name, mind_url, video_url, image_url, is_active from targets where id = ?', targetId);
-    if (!t) return jsonResponse({ error: 'No AR content for this piece' }, 404, request);
-
-    const layer = await dbGet('select video_url, version, created_at from garment_layers where unit_id = ? order by version desc limit 1', unit.id);
-
-    // Scan counting is best-effort — never fail actual AR playback over it.
-    try {
-      await dbRun(
-        `update garment_units set scan_count = scan_count + 1, last_scanned_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
-        unit.id
-      );
-    } catch (e) {}
+    // Scan counting is best-effort and off the response path — never delay or fail actual
+    // AR playback over it.
+    const countScan = dbRun(
+      `update garment_units set scan_count = scan_count + 1, last_scanned_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+      row.unit_id
+    ).catch(() => {});
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(countScan);
+    else await countScan;
 
     return withCache(
       jsonResponse({
-        id: t.id,
-        name: t.name,
-        product: product.slug || null,
-        product_title: product.title || null,
-        price_cents: product.price_cents != null ? product.price_cents : null,
-        currency: product.currency || null,
+        id: row.target_id,
+        name: row.name,
+        product: row.slug || null,
+        product_title: row.title || null,
+        price_cents: row.price_cents != null ? row.price_cents : null,
+        currency: row.currency || null,
         brand: null,
-        mindurl: t.mind_url,
-        videourl: (layer && layer.video_url) || t.video_url,
-        imageurl: t.image_url,
-        is_active: !!t.is_active,
-        version: layer ? layer.version : 1,
-        updated_at: layer ? layer.created_at : null,
+        mindurl: row.mind_url,
+        videourl: row.layer_video_url || row.video_url,
+        imageurl: row.image_url,
+        is_active: !!row.is_active,
+        version: row.layer_version || 1,
+        updated_at: row.layer_created_at || null,
         created_at: null,
         source: 'piece',
       }, 200, request),
@@ -4467,6 +3973,41 @@
   const UPLOAD_ALLOWED_TYPES = ['image/', 'video/', 'application/octet-stream', 'model/'];
   const UPLOAD_ALLOWED_PATHS = ['videos', 'images', 'minds', 'products', 'homepage', 'banners', 'designs'];
 
+  // Shared body of every video upload endpoint (target, product, order item, wardrobe
+  // piece): per-IP rate limit, validate the multipart `file` as a video under
+  // UPLOAD_MAX_SIZE, store it in R2 under keyFor(sanitizedFilename), and return its public
+  // URL. Returns { error: Response } or { form, videoUrl } (form, for any extra fields).
+  // Points a target at a new video and bumps its version/updated_at, so the viewer footer
+  // ("V3 · updated 12 Aug") and product pages linked to it pick up the change.
+  function setTargetVideo(targetId, videoUrl) {
+    return dbRun(
+      `update targets set video_url = ?, version = version + 1, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+      videoUrl, targetId
+    );
+  }
+
+  async function storeVideoUpload(request, rateLimitKey, keyFor) {
+    if (!rateLimitCheck(rateLimitKey + ':' + getClientIP(request), RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
+      return { error: jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request) };
+    }
+    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
+      return { error: jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request) };
+    }
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file) return { error: jsonResponse({ error: 'file required' }, 400, request) };
+    if (file.size && file.size > UPLOAD_MAX_SIZE) {
+      return { error: jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request) };
+    }
+    if (!String(file.type || '').toLowerCase().startsWith('video/')) {
+      return { error: jsonResponse({ error: 'Only video files are allowed' }, 415, request) };
+    }
+    const filename = String(file.name || Date.now()).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+    const key = keyFor(filename);
+    await ASSETS_BUCKET.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'video/mp4' } });
+    return { form, videoUrl: buildPublicAssetUrl(request, key) };
+  }
+
   async function handleUpload(request) {
     try {
       // Auth: require admin or brand session
@@ -4532,29 +4073,13 @@
     const sess = await getSessionUser(request);
     const user = sess && sess.user ? sess.user : null;
 
-    let row;
-    try {
-      row = await dbGet(
-        `select id, user_id, email, first_name, last_name, address, city, country, state, zip,
-                currency, total_cents, items_json, status, created_at,
-                printful_order_id, printful_status, tracking_number, tracking_url, carrier, shipped_at
-         from orders where id = ?`,
-        rawId
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column')) {
-        // Fall back to columns that always exist
-        try {
-          row = await dbGet(
-            `select id, user_id, email, first_name, last_name, address, country, state, zip,
-                    currency, total_cents, items_json, status, created_at
-             from orders where id = ?`,
-            rawId
-          );
-        } catch { throw e; }
-      } else { throw e; }
-    }
+    const row = await dbGet(
+      `select id, user_id, email, first_name, last_name, address, city, country, state, zip,
+              currency, total_cents, items_json, status, created_at,
+              printful_order_id, printful_status, tracking_number, tracking_url, carrier, shipped_at
+       from orders where id = ?`,
+      rawId
+    );
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
 
@@ -4600,26 +4125,12 @@
     const rawEmail = String(email || '').trim().toLowerCase();
     if (!rawId || !rawEmail) return jsonResponse({ error: 'order id and email required' }, 400, request);
 
-    // The Printful migration (sql/printful_migration.sql) adds tracking columns to orders.
-    // If it hasn't been run yet, fall back to the base columns so this endpoint still works
-    // instead of throwing "no such column" and crashing the whole request.
-    const FULL_SQL = `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at,
+    const row = await dbGet(
+      `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at,
               printful_status, tracking_number, tracking_url, carrier, shipped_at
-       from orders where id = ?`;
-    const BASE_SQL = `select id, email, first_name, last_name, currency, total_cents, items_json, status, payment_status, created_at
-       from orders where id = ?`;
-
-    let row;
-    try {
-      row = await dbGet(FULL_SQL, rawId);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column')) {
-        row = await dbGet(BASE_SQL, rawId);
-      } else {
-        throw e;
-      }
-    }
+       from orders where id = ?`,
+      rawId
+    );
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
     if (String(row.email || '').trim().toLowerCase() !== rawEmail) {
@@ -4692,22 +4203,17 @@
     const stConfig = Stripe.getStripeConfig(stripeEnv());
     if (!stConfig.secretKey) return jsonResponse({ error: 'STRIPE_SECRET_KEY not configured' }, 500, request);
 
+    // Shipping was folded into total_cents at checkout; charge the same amount again so the
+    // new session's amount_total still matches the order (the webhook rejects a mismatch).
+    const currency = row.currency || 'USD';
+    const itemsCents = items.reduce((sum, it) => sum + (Number(it.price_cents) || 0) * (Number(it.qty) || 0), 0);
+    const shippingCents = Math.max(0, (Number(row.total_cents) || 0) - itemsCents);
+
     let session;
     try {
-      session = await Stripe.createCheckoutSession(stripeEnv(), {
-        mode: 'payment',
-        customer_email: row.email,
-        success_url: `${siteUrl}/ecommerce/order-confirmation.html?order_id=${encodeURIComponent(rawId)}&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/ecommerce/checkout.html?cancelled=1`,
-        'metadata[order_id]': rawId,
-        line_items: items.map(it => ({
-          quantity: it.qty,
-          price_data: {
-            currency: (it.currency || row.currency || 'USD').toLowerCase(),
-            unit_amount: it.price_cents,
-            product_data: { name: it.name, images: it.image_url ? [it.image_url] : undefined },
-          },
-        })),
+      session = await createOrderCheckoutSession({
+        orderId: rawId, email: row.email, items, currency,
+        shipping: { cents: shippingCents, name: 'Shipping' }, siteUrl,
       });
     } catch (e) {
       return jsonResponse({ error: `Payment session could not be created: ${String(e && e.message ? e.message : e)}` }, 502, request);
@@ -4796,65 +4302,25 @@
       return jsonResponse({ error: "This item's AR video is provided by the brand and can't be personalized." }, 400, request);
     }
 
-    const ip = getClientIP(request);
-    if (!rateLimitCheck('order-ar-upload:' + ip, RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
-      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
-    }
+    // Previous personal video for this item, cleaned up from R2 once the new one is stored.
+    const existing = await dbGet(
+      'select video_url from order_ar_videos where order_id = ? and item_index = ?',
+      rawId, itemIndex
+    );
+    const previousVideoUrl = existing ? existing.video_url : null;
 
-    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
-      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
-    }
+    const upload = await storeVideoUpload(request, 'order-ar-upload', (filename) => `order-videos/${rawId}/${itemIndex}-${Date.now()}-${filename}`);
+    if (upload.error) return upload.error;
+    const { videoUrl } = upload;
 
-    const form = await request.formData();
-    const file = form.get('file');
-    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
-    if (file.size && file.size > UPLOAD_MAX_SIZE) {
-      return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
-    }
-    const contentType = (file.type || '').toLowerCase();
-    if (!contentType.startsWith('video/')) {
-      return jsonResponse({ error: 'Only video files are allowed' }, 415, request);
-    }
-
-    // Look up any previous personal video for this item so it can be cleaned up from R2
-    // after the new one is safely stored — tolerate the table not existing yet (this is
-    // the very first upload for anyone, migration not yet run) by treating that as "none".
-    let previousVideoUrl = null;
-    try {
-      const existing = await dbGet(
-        'select video_url from order_ar_videos where order_id = ? and item_index = ?',
-        rawId, itemIndex
-      );
-      if (existing) previousVideoUrl = existing.video_url;
-    } catch (e) {
-      if (!String(e || '').toLowerCase().includes('no such table')) throw e;
-    }
-
-    const rawName = (file.name || `${Date.now()}`).toString();
-    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
-    const key = `order-videos/${rawId}/${itemIndex}-${Date.now()}-${filename}`;
-
-    await ASSETS_BUCKET.put(key, file.stream(), {
-      httpMetadata: { contentType: file.type || 'video/mp4' }
-    });
-    const videoUrl = buildPublicAssetUrl(request, key);
-
-    try {
-      await dbRun(
-        `insert into order_ar_videos (order_id, item_index, video_url, updated_at)
-         values (?, ?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ','now')))
-         on conflict(order_id, item_index) do update set
-           video_url = excluded.video_url,
-           updated_at = excluded.updated_at`,
-        rawId, itemIndex, videoUrl
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such table') && msg.includes('order_ar_videos')) {
-        return jsonResponse({ error: 'DB migration required: run sql/order_ar_videos_migration.sql' }, 500, request);
-      }
-      throw e;
-    }
+    await dbRun(
+      `insert into order_ar_videos (order_id, item_index, video_url, updated_at)
+       values (?, ?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ','now')))
+       on conflict(order_id, item_index) do update set
+         video_url = excluded.video_url,
+         updated_at = excluded.updated_at`,
+      rawId, itemIndex, videoUrl
+    );
 
     if (previousVideoUrl && previousVideoUrl !== videoUrl) {
       try { await ASSETS_BUCKET.delete(keyFromPublicUrl(previousVideoUrl)); } catch {}
@@ -4881,8 +4347,7 @@
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
 
     if (sess.user.role === 'brand') {
-      const brandIds = (sess.user.brands || []).map(b => b.id);
-      if (!brandIds.includes(product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+      if (!sessionOwnsBrand(sess, product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
     }
     if (product.ar_target_id == null) {
       return jsonResponse({ error: "Admin hasn't set up AR for this product yet" }, 400, request);
@@ -4891,45 +4356,11 @@
     const target = await dbGet('select id, video_url from targets where id = ?', product.ar_target_id);
     if (!target) return jsonResponse({ error: "Admin hasn't set up AR for this product yet" }, 400, request);
 
-    const ip = getClientIP(request);
-    if (!rateLimitCheck('product-video-upload:' + ip, RATE_LIMIT_MAX_ORDER_AR_UPLOAD)) {
-      return jsonResponse({ error: 'Too many uploads. Please try again later.' }, 429, request);
-    }
+    const upload = await storeVideoUpload(request, 'product-video-upload', (filename) => `product-videos/${productId}/${Date.now()}-${filename}`);
+    if (upload.error) return upload.error;
+    const { videoUrl } = upload;
 
-    if (!ASSETS_BUCKET || typeof ASSETS_BUCKET.put !== 'function') {
-      return jsonResponse({ error: 'R2 binding missing: ASSETS_BUCKET' }, 500, request);
-    }
-
-    const form = await request.formData();
-    const file = form.get('file');
-    if (!file) return jsonResponse({ error: 'file required' }, 400, request);
-    if (file.size && file.size > UPLOAD_MAX_SIZE) {
-      return jsonResponse({ error: 'File too large (max 50 MB)' }, 413, request);
-    }
-    const contentType = (file.type || '').toLowerCase();
-    if (!contentType.startsWith('video/')) {
-      return jsonResponse({ error: 'Only video files are allowed' }, 415, request);
-    }
-
-    const rawName = (file.name || `${Date.now()}`).toString();
-    const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
-    const key = `product-videos/${productId}/${Date.now()}-${filename}`;
-
-    await ASSETS_BUCKET.put(key, file.stream(), {
-      httpMetadata: { contentType: file.type || 'video/mp4' }
-    });
-    const videoUrl = buildPublicAssetUrl(request, key);
-
-    try {
-      await dbRun(
-        `update targets set video_url = ?, version = version + 1, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
-        videoUrl, target.id
-      );
-    } catch (e) {
-      if (!String(e || '').toLowerCase().includes('no such column')) throw e;
-      // sql/targets_version_migration.sql not yet run — still update the video itself.
-      await dbRun('update targets set video_url = ? where id = ?', videoUrl, target.id);
-    }
+    await setTargetVideo(target.id, videoUrl);
 
     if (target.video_url && target.video_url !== videoUrl) {
       try { await ASSETS_BUCKET.delete(keyFromPublicUrl(target.video_url)); } catch {}
@@ -4953,32 +4384,16 @@
     // Match by account email OR by user_id — checkout records user_id for anyone logged
     // in at the time of purchase, even if they typed a different email into the checkout
     // form than the one on their account. Matching email alone missed those orders.
-    // The Printful migration (sql/printful_migration.sql) adds tracking columns to orders.
-    // If it hasn't been run yet, fall back to the base columns so this endpoint still works
-    // instead of throwing "no such column" and crashing the whole request.
-    const FULL_SQL = `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
+    const rows = await dbAll(
+      `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
               total_cents, currency, items_json, created_at
        from orders where user_id = ? or lower(trim(email)) = ?
        order by created_at desc
-       limit 100`;
-    const BASE_SQL = `select id, status, payment_status, total_cents, currency, items_json, created_at
-       from orders where user_id = ? or lower(trim(email)) = ?
-       order by created_at desc
-       limit 100`;
+       limit 100`,
+      userId, email
+    );
 
-    let rows;
-    try {
-      rows = await dbAll(FULL_SQL, userId, email);
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column')) {
-        rows = await dbAll(BASE_SQL, userId, email);
-      } else {
-        throw e;
-      }
-    }
-
-    const parsedRows = (rows || []).map((r) => {
+    const parsedRows = rows.map((r) => {
       let orderItems = [];
       try { orderItems = JSON.parse(r.items_json) || []; } catch {}
       return { row: r, orderItems };
@@ -5002,18 +4417,12 @@
         }
       }
     }
-    let videoByOrderItem = {};
+    const videoByOrderItem = {};
     if (parsedRows.length) {
-      try {
-        const orderIds = parsedRows.map(({ row }) => row.id);
-        const placeholders = orderIds.map(() => '?').join(',');
-        const vrows = await dbAll(`select order_id, item_index, video_url from order_ar_videos where order_id in (${placeholders})`, ...orderIds);
-        for (const v of vrows || []) videoByOrderItem[`${v.order_id}|${v.item_index}`] = v.video_url;
-      } catch (e) {
-        if (!String(e || '').toLowerCase().includes('no such table')) throw e;
-        // Migration not run yet — degrade to "no personal videos" rather than fail the
-        // whole order list, since this endpoint is far too broadly used to hard-fail here.
-      }
+      const orderIds = parsedRows.map(({ row }) => row.id);
+      const placeholders = orderIds.map(() => '?').join(',');
+      const vrows = await dbAll(`select order_id, item_index, video_url from order_ar_videos where order_id in (${placeholders})`, ...orderIds);
+      for (const v of vrows) videoByOrderItem[`${v.order_id}|${v.item_index}`] = v.video_url;
     }
 
     const items = parsedRows.map(({ row: r, orderItems }) => {
@@ -5054,12 +4463,17 @@
     const storeId = typeof PRINTFUL_STORE_ID === 'string' ? PRINTFUL_STORE_ID : '';
     if (!apiKey) return jsonResponse({ error: 'PRINTFUL_API_KEY not configured' }, 500, request);
 
+    const secret = typeof PRINTFUL_WEBHOOK_SECRET === 'string' ? PRINTFUL_WEBHOOK_SECRET.trim() : '';
+    if (!secret) {
+      return jsonResponse({ error: 'PRINTFUL_WEBHOOK_SECRET not configured — set it before registering, the webhook rejects unauthenticated calls' }, 500, request);
+    }
+
     const body = await readJson(request);
     // Accept the public site URL from the request body, or fall back to the request origin
     const siteUrl = (body && body.site_url)
       ? String(body.site_url).replace(/\/$/, '')
       : new URL(request.url).origin;
-    const webhookUrl = `${siteUrl}/api/admin/printful/webhook`;
+    const webhookUrl = `${siteUrl}/api/admin/printful/webhook?token=${encodeURIComponent(secret)}`;
 
     try {
       const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
@@ -5075,8 +4489,9 @@
           { type: 'product_deleted', url: webhookUrl },
         ],
       };
-      const data = await callPrintful('POST', `/webhooks${qs}`, pfBody);
-      return jsonResponse({ ok: true, webhook_url: webhookUrl, printful: data }, 200, request);
+      await callPrintful('POST', `/webhooks${qs}`, pfBody);
+      // Don't echo the token-bearing URL back to the browser.
+      return jsonResponse({ ok: true, webhook_url: `${siteUrl}/api/admin/printful/webhook` }, 200, request);
     } catch (e) {
       return jsonResponse({ error: String(e) }, 500, request);
     }
@@ -5100,7 +4515,8 @@
     function normalizeWebhookRows(rows) {
       const list = Array.isArray(rows) ? rows : (rows ? [rows] : []);
       return list.map((w) => {
-        const webhookUrl = String((w && (w.url || w.callback_url || w.default_url)) || '').trim().replace(/\/$/, '');
+        // Registered URLs carry ?token=<secret> — compare (and report) without it.
+        const webhookUrl = String((w && (w.url || w.callback_url || w.default_url)) || '').trim().split('?')[0].replace(/\/$/, '');
         const active = !(w && (w.is_deleted || w.deleted || w.disabled));
         const events = Array.isArray(w && w.events)
           ? w.events.map((evt) => (typeof evt === 'string' ? evt : (evt && evt.type) || evt)).filter(Boolean)
@@ -5168,64 +4584,17 @@
     const { error } = await requireAdminSession(request);
     if (error) return error;
 
-    let rows;
-    try {
-      rows = await dbAll(
-        `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
-                p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_variant_cost_map,
-                p.printful_sync_product_id, p.printful_sync_variant_map,
-                p.updated_at, p.created_at, b.name as brand
-         from products p
-         left join brands b on b.id = p.brand_id
-         where p.printful_variant_map is not null or p.printful_sync_variant_id is not null or p.printful_sync_variant_map is not null
-         order by p.updated_at desc, p.created_at desc`
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
-      }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_map')) {
-        // sync-variant-map migration not yet run — retry without it (products linked via
-        // the Printful Sync Products import just won't show up in this list yet).
-        rows = await dbAll(
-          `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_variant_cost_map,
-                  p.printful_sync_product_id,
-                  p.updated_at, p.created_at, b.name as brand
-           from products p
-           left join brands b on b.id = p.brand_id
-           where p.printful_variant_map is not null or p.printful_sync_variant_id is not null
-           order by p.updated_at desc, p.created_at desc`
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_cost_map')) {
-        // Cost tracking migration not yet applied (older than sync-variant-map, so that's
-        // assumed missing too) — retry without either.
-        rows = await dbAll(
-          `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map,
-                  p.updated_at, p.created_at, b.name as brand
-           from products p
-           left join brands b on b.id = p.brand_id
-           where p.printful_variant_map is not null or p.printful_sync_variant_id is not null
-           order by p.updated_at desc, p.created_at desc`
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_catalog_product_id')) {
-        rows = await dbAll(
-          `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
-                  p.printful_sync_variant_id, p.printful_variant_map,
-                  p.updated_at, p.created_at, b.name as brand
-           from products p
-           left join brands b on b.id = p.brand_id
-           where p.printful_variant_map is not null or p.printful_sync_variant_id is not null
-           order by p.updated_at desc, p.created_at desc`
-        );
-      } else {
-        throw e;
-      }
-    }
-
-    const items = (rows || []).map((r) => ({
+    const rows = await dbAll(
+      `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
+              p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_variant_cost_map,
+              p.printful_sync_product_id, p.printful_sync_variant_map,
+              p.updated_at, p.created_at, b.name as brand
+       from products p
+       left join brands b on b.id = p.brand_id
+       where p.printful_variant_map is not null or p.printful_sync_variant_id is not null or p.printful_sync_variant_map is not null
+       order by p.updated_at desc, p.created_at desc`
+    );
+    const items = rows.map((r) => ({
       id: r.id,
       title: r.title,
       slug: r.slug,
@@ -5235,10 +4604,10 @@
       image_urls: parseImageUrlsFromRow(r.image_urls),
       printful_catalog_product_id: r.printful_catalog_product_id || null,
       printful_sync_variant_id: r.printful_sync_variant_id || null,
-      printful_variant_map: r.printful_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_map) : null,
-      printful_variant_cost_map: r.printful_variant_cost_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_variant_cost_map) : null,
+      printful_variant_map: safeJsonParse(r.printful_variant_map),
+      printful_variant_cost_map: safeJsonParse(r.printful_variant_cost_map),
       printful_sync_product_id: r.printful_sync_product_id || null,
-      printful_sync_variant_map: r.printful_sync_variant_map ? (function(v){try{return JSON.parse(v);}catch(e){return null;}})(r.printful_sync_variant_map) : null,
+      printful_sync_variant_map: safeJsonParse(r.printful_sync_variant_map),
       brand: r.brand || null,
       updated_at: r.updated_at || null,
       created_at: r.created_at || null,
@@ -5405,35 +4774,12 @@
     const costMapJson = Object.keys(costMap).length ? JSON.stringify(costMap) : null;
     const firstVariant = resolved.length ? Number(resolved[0].variant_id) : null;
 
-    try {
-      await dbRun(
-        `update products set printful_catalog_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
-                printful_variant_cost_map = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-         where id = ?`,
-        catalogProductId, firstVariant, variantMapJson, costMapJson, productId
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_catalog_product_id')) {
-        return jsonResponse({ error: 'DB migration required: run sql/stripe_migration.sql' }, 500, request);
-      }
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_cost_map')) {
-        // Cost tracking migration not yet applied — retry without it.
-        await dbRun(
-          `update products set printful_catalog_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
-                  updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-           where id = ?`,
-          catalogProductId, firstVariant, variantMapJson, productId
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        await dbRun(
-          `update products set printful_sync_variant_id = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
-          firstVariant, productId
-        );
-      } else {
-        throw e;
-      }
-    }
+    await dbRun(
+      `update products set printful_catalog_product_id = ?, printful_sync_variant_id = ?, printful_variant_map = ?,
+              printful_variant_cost_map = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+       where id = ?`,
+      catalogProductId, firstVariant, variantMapJson, costMapJson, productId
+    );
 
     return jsonResponse({ ok: true, printful_variant_map: variantMap, printful_variant_cost_map: costMap, missing }, 200, request);
   }
@@ -5620,18 +4966,10 @@
     if (priceUpdate) { setClauses.push('price_cents = ?'); params.push(priceUpdate); }
     params.push(productId);
 
-    try {
-      await dbRun(
-        `update products set ${setClauses.join(', ')}, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
-        ...params
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_sync_variant_map')) {
-        return jsonResponse({ error: 'DB migration required: run sql/printful_sync_variant_map_migration.sql' }, 500, request);
-      }
-      throw e;
-    }
+    await dbRun(
+      `update products set ${setClauses.join(', ')}, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+      ...params
+    );
 
     return jsonResponse({ ok: true, printful_sync_variant_map: variantMap, missing, image_urls: mergedImages }, 200, request);
   }
@@ -5647,23 +4985,10 @@
     if (error) return error;
     if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
 
-    let product;
-    try {
-      product = await dbGet(
-        'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map, printful_design_images from products where id = ?',
-        productId
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_design_images')) {
-        product = await dbGet(
-          'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map from products where id = ?',
-          productId
-        );
-      } else {
-        throw e;
-      }
-    }
+    const product = await dbGet(
+      'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map, printful_design_images from products where id = ?',
+      productId
+    );
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
     if (!product.printful_catalog_product_id) {
       return jsonResponse({ error: 'Link this product to a Printful catalog garment first' }, 400, request);
@@ -5823,7 +5148,7 @@
          where printful_order_id = ?`,
         status || 'unknown',
         ship.tracking_number || null,
-        ship.tracking_url    || null,
+        safeHttpUrl(ship.tracking_url),
         ship.carrier         || null,
         String(printfulOrderId)
       );
@@ -5839,35 +5164,16 @@
     const byId = isDigits(raw);
     const whereClause = byId ? 'p.id = ?' : 'p.slug = ?';
     const param = byId ? Number(raw) : raw;
-    let row;
-    try {
-      row = await dbGet(
-        `select p.id, p.slug, p.title, p.color, p.sizes, p.price_cents, p.currency,
-                p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.is_published
-         from products p where ${whereClause}`,
-        param
-      );
-    } catch (e) {
-      const msg = String(e || '');
-      if (msg.toLowerCase().includes('no such column') && msg.includes('printful_variant_map')) {
-        row = await dbGet(
-          `select p.id, p.slug, p.title, p.color, p.sizes, p.price_cents, p.currency,
-                  p.printful_sync_product_id, p.printful_sync_variant_id, p.is_published
-           from products p where ${whereClause}`,
-          param
-        );
-      } else if (msg.toLowerCase().includes('no such column') && msg.includes('printful')) {
-        return jsonResponse({ error: 'DB migration required: run sql/printful_migration.sql' }, 500, request);
-      } else {
-        throw e;
-      }
-    }
+    const row = await dbGet(
+      `select p.id, p.slug, p.title, p.color, p.sizes, p.price_cents, p.currency,
+              p.printful_sync_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.is_published
+       from products p where ${whereClause}`,
+      param
+    );
     if (!row || !row.is_published) return jsonResponse({ error: 'Not found' }, 404, request);
     const sizes = (row.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
     const color = row.color || '';
-    const variantMap = row.printful_variant_map
-      ? (function (v) { try { return JSON.parse(v); } catch (e) { return null; } })(row.printful_variant_map)
-      : null;
+    const variantMap = safeJsonParse(row.printful_variant_map);
     const variants = sizes.map(size => {
       const mapped = variantMap && variantMap[size] != null ? String(variantMap[size]).trim() : '';
       return {

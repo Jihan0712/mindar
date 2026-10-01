@@ -480,3 +480,39 @@ File: `cloudflare/worker/index.js` — update `POST /api/orders` handler.
 - [ ] Trigger a test webhook from Printful (Dashboard → Webhooks → Send test) and verify D1 order updates
 - [ ] Verify `order-tracking.html` shows correct status and tracking link after webhook fires
 - [ ] (Optional) Verify shipping rates appear in checkout after address entry
+
+---
+
+## Flow review follow-ups (2026-10-01)
+
+From the end-to-end review of product creation → checkout → AR. Items 1–4 of that review (unauthenticated Printful webhook + `javascript:` tracking links, double Printful submission on duplicate Stripe events, product delete wiping wardrobes, shipping never charged) are fixed. These remain:
+
+### Security / data
+
+- [ ] **Unverified email takes over guest orders and pieces.** `apiRegister` has no email verification, but `provisionGarmentUnitsForOrder`, `apiListMyOrders` and `apiGetOrder` all trust an email match. Someone who registers a guest buyer's email gets their pieces (and AR control) plus name and address. Add email verification and only email-match against verified accounts.
+- [ ] **Claim code is both the ownership secret and the public QR.** `apiGetPiece` builds `viewer_url` as `index.html?piece=<claim_code>`, the same code `/api/pieces/claim` accepts. Unclaimed pieces (guest order, no account) can be claimed by anyone who scans the shirt. Add a separate public viewer id on `garment_units`; keep the claim code on the collar tag only.
+- [ ] **Brand-supplied text runs as HTML on the AR viewer.** `index.html` puts `activeTarget.name` / `product_title` into `innerHTML` (`footerMeta`). Escape it. Also block `image/svg+xml` in `handleUpload` (or serve uploads with `Content-Disposition: attachment` / a CSP), since R2 files are served from the shop origin.
+- [ ] **Brand accounts can read any order's PII.** `apiGetOrder` lets `brand` see every order like `admin`. Restrict brands to orders containing their own products (or to admin only).
+
+### Orders / fulfillment
+
+- [ ] **No way to resubmit a paid order that failed to reach Printful.** `finalizeOrderPrintfulSubmission` sets `printful_status='error'`; the only admin action (`apiPrintfulOrderSync`) needs an existing Printful order id. Add an admin "resubmit to Printful" action for paid orders without a confirmed Printful order.
+- [ ] **Sync Product (v1) orders never receive webhook updates.** `apiPrintfulWebhook` matches only `printful_order_id`; v1 ids are stored in `printful_order_id_v1`. Match both columns.
+- [ ] **Resume payment can double-charge.** `apiResumeOrderPayment` creates a new Stripe session without expiring the old one; paying both charges twice and the second is ignored, not refunded. Expire the previous `stripe_session_id` (`POST /v1/checkout/sessions/:id/expire`) first.
+- [ ] Mixed carts (Sync Product + catalog items) become two Printful orders, so Printful bills shipping twice while checkout quotes it once. Decide whether to quote per group.
+
+### AR targets
+
+- [ ] **"See what it plays" breaks until the target is activated.** `product.html` shows the live-layer link whenever `ar_target_id` is set, but `apiViewerActive` requires `targets.is_active`. Either auto-activate on link or let the product-link path ignore `is_active` (as `apiViewerOrder`/`apiViewerPiece` already do).
+- [ ] **Activation cap checked before sibling deactivation.** `apiActivateTarget` counts active targets before switching off the brand's other target for the same product, so swapping a product's marker at the cap is refused. Exclude same-product siblings from the count.
+
+### Data safety
+
+- [ ] **Deleting a brand login deletes its AR markers.** `targets.user_id` is `ON DELETE CASCADE`, so `apiAdminDeleteUser` on a brand account removes every target it uploaded; `products.ar_target_id` then goes null and every sold piece of those products stops playing AR. Reassign targets to the brand (or set user_id null) instead of cascading.
+
+### Smaller defects
+
+- [x] Create endpoints re-read the new row with `last_insert_rowid()` in a separate D1 query (`apiCreateProduct`, `apiCreateTarget`, `apiCreateBrandDesign`); a concurrent write can return the wrong row. Use `RETURNING` or `meta.last_row_id`.
+- [x] Duplicate slug on `apiCreateProduct` isn't caught (500 instead of 409).
+- [x] Global error handler returns full stack traces to clients (`fetch` handler, `detail`). Log them, return a generic message.
+- [ ] Personal AR video upload (`apiUploadOrderArVideo`) works on unpaid orders; require `payment_status='paid'`.

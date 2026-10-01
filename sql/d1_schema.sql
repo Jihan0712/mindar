@@ -155,7 +155,8 @@ CREATE TABLE IF NOT EXISTS garment_units (
   scan_count      INTEGER NOT NULL DEFAULT 0,
   last_scanned_at TEXT NULL,
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  -- RESTRICT: a product with pieces in customer wardrobes can't be deleted (unpublish it).
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL,
   FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
@@ -168,6 +169,7 @@ CREATE TABLE IF NOT EXISTS garment_layers (
   unit_id    TEXT NOT NULL,
   video_url  TEXT NOT NULL,
   version    INTEGER NOT NULL,
+  label      TEXT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   FOREIGN KEY (unit_id) REFERENCES garment_units(id) ON DELETE CASCADE
 );

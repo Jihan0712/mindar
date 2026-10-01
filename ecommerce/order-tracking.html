@@ -131,7 +131,7 @@
         ['Order placed', o.created_at ? when(o.created_at) : ''],
         ['Sent to Printful', ''],
         ['In production', ''],
-        ['Shipped', o.tracking_url ? '<a href="' + esc(o.tracking_url) + '" target="_blank" rel="noopener">' + (o.tracking_number ? esc(o.tracking_number) : 'Track the parcel') + ' &rarr;</a>' : (o.tracking_number ? esc(o.tracking_number) : '')],
+        ['Shipped', /^https?:\/\//i.test(o.tracking_url || '') ? '<a href="' + esc(o.tracking_url) + '" target="_blank" rel="noopener">' + (o.tracking_number ? esc(o.tracking_number) : 'Track the parcel') + ' &rarr;</a>' : (o.tracking_number ? esc(o.tracking_number) : '')],
         ['Delivered', '']
       ];
       var html = rows.map(function (r, i) {

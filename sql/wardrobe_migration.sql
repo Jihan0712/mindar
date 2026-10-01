@@ -19,7 +19,10 @@ create table if not exists garment_units (
   scan_count      integer not null default 0,
   last_scanned_at text null,
   created_at      text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  foreign key (product_id) references products(id) on delete cascade,
+  -- restrict: a product with pieces in customer wardrobes can't be deleted (unpublish it).
+  -- Existing databases created with cascade: run sql/garment_units_restrict_migration.sql
+  -- in the D1 Console.
+  foreign key (product_id) references products(id) on delete restrict,
   foreign key (order_id) references orders(id) on delete set null,
   foreign key (owner_user_id) references users(id) on delete set null
 );
@@ -34,6 +37,7 @@ create table if not exists garment_layers (
   unit_id    text not null,
   video_url  text not null,
   version    integer not null,
+  label      text null,
   created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   foreign key (unit_id) references garment_units(id) on delete cascade
 );
