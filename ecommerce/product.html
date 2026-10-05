@@ -139,8 +139,8 @@
         <p id="pdInfo" style="margin:0">Printed and fulfilled through Printful. Each T-shirt is made to order &mdash; we do not hold stock in a warehouse.</p>
       </div>
       <div class="tabpanel" role="tabpanel" id="panel-ship" aria-labelledby="tab-ship" hidden>
-        <p>Every order is made to order, then shipped. Once it leaves the printer you get a tracking number by email.</p>
-        <p style="margin:0" class="tnum">Philippines $8 (8&ndash;12 days) &middot; EU $5 &middot; UK $6 &middot; US $6 &middot; elsewhere $12. See <a class="t-link t-link--teal" href="returns.html">returns and shipping</a>.</p>
+        <p>Every T-shirt is printed to order, then shipped. The shipping cost and delivery estimate for your address are shown at checkout, before you pay. Once it ships, follow it on the <a class="t-link t-link--teal" href="order-tracking.html">Track your order</a> page.</p>
+        <p style="margin:0">We ship to 13 countries &mdash; see <a class="t-link t-link--teal" href="returns.html">shipping and returns</a>.</p>
       </div>
       <div class="tabpanel" role="tabpanel" id="panel-rev" aria-labelledby="tab-rev" hidden>
         <div id="reviewsList"><p class="t-meta">No reviews yet.</p></div>
@@ -187,15 +187,14 @@
         <button type="button" class="x-square" aria-label="Close size guide" data-close-sg><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 1l14 14M15 1L1 15" stroke="currentColor" stroke-width="1.5"/></svg></button>
       </div>
       <div class="sg-body">
-        <div class="unit" role="group" aria-label="Units"><button type="button" data-unit="cm" aria-pressed="true">CM</button><button type="button" data-unit="in" aria-pressed="false">INCHES</button></div>
-        <div style="overflow-x:auto"><table class="sg"><thead><tr><th>Size</th><th>Chest</th><th>Length</th><th>Shoulder</th><th>Sleeve</th></tr></thead><tbody id="sgRows"></tbody></table></div>
+        <div class="unit" id="sgUnit" role="group" aria-label="Units"><button type="button" data-unit="cm" aria-pressed="true">CM</button><button type="button" data-unit="in" aria-pressed="false">INCHES</button></div>
+        <div id="sgTable" style="overflow-x:auto"><table class="sg"><thead><tr><th>Size</th><th>Chest</th><th>Length</th><th>Shoulder</th><th>Sleeve</th></tr></thead><tbody id="sgRows"></tbody></table></div>
         <p class="t-meta" id="sgNote" style="margin-top:20px">Measured flat, in centimetres, across the T-shirt &mdash; not the body.</p>
         <div class="sg-notes">
           <div><p class="t-label t-label--teal" style="margin:0">Chest</p><p>Across the front, one inch below the armhole, then double it.</p></div>
           <div><p class="t-label t-label--teal" style="margin:0">Length</p><p>From the highest point of the shoulder straight down to the hem.</p></div>
-          <div><p class="t-label t-label--teal" style="margin:0">Fit</p><p>Boxy through the body with a dropped shoulder. Between sizes, take the smaller one.</p></div>
         </div>
-        <div class="sg-foot"><span>Model is 183 cm and wears M.</span><a class="t-link t-link--teal" href="contact.html?topic=sizing" style="font-weight:500">Still unsure? Ask us &mdash; we will measure the actual T-shirt.</a></div>
+        <div class="sg-foot"><a class="t-link t-link--teal" href="contact.html?topic=sizing" style="font-weight:500">Still unsure? Ask us &mdash; we will measure the actual T-shirt.</a></div>
       </div>
     </div>
   </div>
@@ -245,9 +244,15 @@
     document.getElementById('qtyMinus').addEventListener('click', function () { setQty(qty - 1); });
     document.getElementById('qtyPlus').addEventListener('click', function () { setQty(qty + 1); });
 
-    /* ---------- size guide ---------- */
-    var SG = [['S', 104, 68, 52, 21], ['M', 110, 71, 55, 22], ['L', 116, 74, 58, 23], ['XL', 122, 77, 61, 24]];
+    /* ---------- size guide ----------
+       Measurements must be the real product's (approved facts only, copywrite/copywrite.md).
+       None are recorded yet, so the guide shows how to measure and offers to measure one. */
+    var SG = [];
     function renderSG(unit) {
+      var listed = SG.length > 0;
+      document.getElementById('sgTable').hidden = !listed;
+      document.getElementById('sgUnit').hidden = !listed;
+      if (!listed) { document.getElementById('sgNote').textContent = 'Measurements for this T-shirt aren’t listed yet. Measure one you own using the guide below, or ask us.'; return; }
       document.getElementById('sgRows').innerHTML = SG.map(function (r) {
         return '<tr>' + r.map(function (v, i) { return '<td>' + (i && unit === 'in' ? (v / 2.54).toFixed(1) : v) + '</td>'; }).join('') + '</tr>';
       }).join('');

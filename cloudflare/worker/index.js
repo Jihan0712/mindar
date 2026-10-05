@@ -1032,6 +1032,9 @@
     // Shipping rates (Printful proxy)
     if (request.method === 'POST' && pathname === '/api/shipping/rates')       return apiShippingRates(request);
 
+    // Footer email signup (shop)
+    if (request.method === 'POST' && pathname === '/api/newsletter')           return apiNewsletterSignup(request);
+
     // Homepage content (shop)
     if (request.method === 'GET'  && pathname === '/api/homepage')             return apiGetHomepage(request);
     if (request.method === 'POST' && pathname === '/api/homepage')             return apiUpdateHomepage(request);
@@ -1092,6 +1095,24 @@
 
   function defaultHomepageContent() {
     return normalizeHomepagePayload({ hero: {}, film: {}, steps: [] });
+  }
+
+  // POST /api/newsletter — body {email}. The footer's "Stay in the loop." signup: stores the
+  // address once (signing up again is a no-op success). Nothing is sent from here yet.
+  async function apiNewsletterSignup(request) {
+    if (!rateLimitCheck('newsletter:' + getClientIP(request), RATE_LIMIT_MAX_ORDER)) {
+      return jsonResponse({ error: 'Too many attempts. Please try again later.' }, 429, request);
+    }
+    const body = await readJson(request);
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!isValidEmail(email)) return jsonResponse({ error: 'Enter a valid email address.' }, 400, request);
+    try {
+      await dbRun('insert into newsletter_signups (email, source) values (?, ?) on conflict(email) do nothing', email, 'footer');
+    } catch (e) {
+      console.error('[newsletter] signup failed:', String(e && e.message ? e.message : e));
+      return jsonResponse({ error: 'Signup failed' }, 500, request);
+    }
+    return jsonResponse({ ok: true }, 200, request);
   }
 
   async function apiGetHomepage(request) {

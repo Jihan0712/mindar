@@ -191,3 +191,11 @@ CREATE TABLE IF NOT EXISTS brand_designs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_brand_designs_brand ON brand_designs(brand_id, created_at);
+
+-- ---------- Footer email signup (see sql/newsletter_signups_migration.sql) ----------
+CREATE TABLE IF NOT EXISTS newsletter_signups (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  email       TEXT NOT NULL UNIQUE,
+  source      TEXT,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);

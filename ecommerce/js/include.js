@@ -158,15 +158,27 @@
      Wired after the footer is injected, or the form submits natively and puts the email in the URL. */
   function wireNewsletter() {
     const form = document.getElementById('newsletterForm');
-    if (form) form.addEventListener('submit', function (e) {
+    if (!form) return;
+    form.addEventListener('submit', async function (e) {
       e.preventDefault();
       const status = document.getElementById('newsletterStatus');
       const email = document.getElementById('newsletterEmail');
-      const ok = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
-      if (!status) return;
-      status.classList.toggle('is-error', !ok);
-      status.textContent = ok ? "You're on the list." : 'That email address doesn’t look right.';
-      if (ok) email.value = '';
+      const btn = form.querySelector('button[type="submit"]');
+      if (!status || !email) return;
+      const say = function (msg, isError) { status.classList.toggle('is-error', !!isError); status.textContent = msg; };
+      const value = email.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { say('That email address doesn’t look right.', true); return; }
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/newsletter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: value }) });
+        if (!res.ok) throw new Error('signup ' + res.status);
+        say("You're on the list.", false);
+        email.value = '';
+      } catch (err) {
+        say("We couldn't sign you up. Please try again.", true);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     });
   }
 
