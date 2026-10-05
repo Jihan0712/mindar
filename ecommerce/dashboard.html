@@ -60,6 +60,12 @@
     .inrl-subcard-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-500); font-weight:500; margin-bottom:.6rem; }
     .inrl-section-title { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-500); font-weight:500; border-bottom:1px solid var(--line-200); padding-bottom:.4rem; margin-bottom:1.25rem; margin-top:2.25rem; }
     .inrl-section-title.first { margin-top:0; }
+    .home-locked { background:var(--surface-50); border:1px solid var(--line-200); border-left:3px solid var(--accent-500); border-radius:var(--radius-md); padding:.85rem 1.1rem; font-size:.78rem; line-height:1.55; color:var(--ink-700); margin-bottom:1.75rem; }
+    .home-locked strong { color:var(--ink-900); font-weight:500; }
+    .home-hint { font-size:.76rem; line-height:1.55; color:var(--ink-500); margin:-.5rem 0 1rem; max-width:760px; }
+    .home-media-preview { margin-top:8px; height:110px; border:1px solid var(--line-200); border-radius:6px; background:var(--dark-800); overflow:hidden; display:flex; align-items:center; justify-content:center; }
+    .home-media-preview img, .home-media-preview video { width:100%; height:100%; object-fit:cover; display:block; }
+    .home-media-preview.is-empty { background:var(--surface-50); border-style:dashed; color:var(--ink-500); font-size:.68rem; }
     .order-stat { background:var(--surface-0); border:1px solid var(--line-200); border-radius:var(--radius-md); padding:1rem 1.25rem; }
     .order-stat-value { font-family:var(--font-display); font-size:1.75rem; font-weight:500; color:var(--ink-900); line-height:1; }
     .order-stat-value.warn { color:var(--warn-500); }
@@ -668,10 +674,10 @@
 
   <!-- ===== HOMEPAGE PANE ===== -->
   <div class="tab-pane fade" id="pane-homepage" role="tabpanel">
-    <div class="console-head"><h1>Homepage</h1><p>What the storefront home says right now.</p></div>
+    <div class="console-head"><h1>Homepage</h1><p>The films and images on the storefront home. Its words are fixed.</p></div>
     <div class="inrl-card">
       <div class="inrl-card-header d-flex justify-content-between align-items-center">
-        <span>Homepage Editor</span>
+        <span>Homepage Media</span>
         <div class="d-flex gap-2">
           <button id="homeLoadBtn" class="btn btn-sm btn-inrl-outline" type="button" style="font-size:.62rem;padding:.22rem .65rem">Load</button>
           <button id="homeSaveBtn" class="btn btn-sm btn-inrl" type="button" style="font-size:.62rem;padding:.22rem .65rem">Save</button>
@@ -679,86 +685,24 @@
       </div>
       <div class="p-4">
 
-        <div class="inrl-section-title first">Billboard</div>
-        <div class="row g-3">
-          <div class="col-12 col-lg-6">
-            <label class="form-label" for="homeBillboardTitle">Title</label>
-            <input id="homeBillboardTitle" class="form-control" type="text" placeholder="e.g. New Collections" />
-          </div>
-          <div class="col-12 col-lg-6">
-            <label class="form-label">Video or image</label>
-            <div class="input-group">
-              <input id="homeBillboardImage" class="form-control" type="text" placeholder="URL or upload &#8594;" />
-              <label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">
-                Upload
-                <input type="file" accept="image/*,video/mp4,video/webm" data-home-upload="billboard-image" style="display:none">
-              </label>
-            </div>
-            <img id="homeBillboardImagePreview" src="" alt="" style="display:none;margin-top:8px;max-height:80px;border:1px solid var(--line-200);object-fit:cover">
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="homeBillboardDesc">Description</label>
-            <textarea id="homeBillboardDesc" class="form-control" rows="2" placeholder="Short homepage intro&#8230;"></textarea>
-          </div>
+        <div class="home-locked">
+          <strong>Home copy is locked.</strong> The hero, manifesto, three steps, &ldquo;Choose your T-shirt.&rdquo; and footer use approved brand copy (<code>copywrite/copywrite.md</code>) and live in <code>ecommerce/index.html</code>. The T-shirts under &ldquo;Choose your T-shirt.&rdquo; come from Products. This editor only sets the media below &mdash; an empty slot shows the page&rsquo;s placeholder.
         </div>
 
-        <div class="inrl-section-title d-flex justify-content-between align-items-center">
-          <span>Hero Slides</span>
-          <button id="homeAddSlideBtn" class="btn btn-sm btn-inrl-outline" type="button" style="font-size:.62rem;padding:.2rem .6rem">+ Add Slide</button>
-        </div>
-        <div id="homeSlides" class="vstack gap-3"></div>
+        <div class="inrl-section-title first">Hero film &middot; area 1</div>
+        <p class="home-hint">About 16 seconds, behind the headline. Plays muted on a loop, so it has to read without sound. Phones play the portrait cut if there is one, otherwise they show a still; visitors who ask for reduced motion always get the still.</p>
+        <div class="row g-3" id="homeHero"></div>
 
-        <div class="inrl-section-title">Who We Are</div>
-        <div class="row g-3">
-          <div class="col-12 col-lg-4">
-            <label class="form-label">Label</label>
-            <input id="homeWhoLabel" class="form-control" type="text" placeholder="Who We Are" />
-          </div>
-          <div class="col-12 col-lg-8">
-            <label class="form-label">Headline</label>
-            <input id="homeWhoHeadline" class="form-control" type="text" placeholder="Fashion meets digital identity" />
-          </div>
-          <div class="col-12">
-            <label class="form-label">Body Text</label>
-            <textarea id="homeWhoBody" class="form-control" rows="3" placeholder="Brand description&#8230;"></textarea>
-          </div>
-        </div>
-        <div class="row g-3 mt-1">
-          <div class="col-12">
-            <label class="form-label">Stats <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">(up to 4)</span></label>
-            <div id="homeWhoStats" class="vstack gap-2"></div>
-          </div>
-        </div>
+        <div class="inrl-section-title">Full film &middot; area 3</div>
+        <p class="home-hint">The separate ~25-second film, in its own full-screen area. It stays on the still until the visitor presses play (labelled &ldquo;Watch InRL in action&rdquo;). Use the full film here, not the hero cut.</p>
+        <div class="row g-3" id="homeFilm"></div>
 
-        <div class="inrl-section-title">What We Offer (Features)</div>
-        <div class="row g-3">
-          <div class="col-12 col-lg-4">
-            <label class="form-label">Section Label</label>
-            <input id="homeFeaturesLabel" class="form-control" type="text" placeholder="The Experience" />
-          </div>
-          <div class="col-12 col-lg-8">
-            <label class="form-label">Section Headline</label>
-            <input id="homeFeaturesHeadline" class="form-control" type="text" placeholder="What makes us different" />
-          </div>
-        </div>
-        <div id="homeFeatureCards" class="row g-3 mt-1"></div>
+        <div class="inrl-section-title">Three steps &middot; area 4</div>
+        <p class="home-hint">One image per step card. Show the real T-shirt, print and phone view for each step.</p>
+        <div class="row g-3" id="homeSteps"></div>
 
-        <div class="inrl-section-title d-flex justify-content-between align-items-center">
-          <span>Testimonials</span>
-          <button id="homeAddTestimonialBtn" class="btn btn-sm btn-inrl-outline" type="button" style="font-size:.62rem;padding:.2rem .6rem">+ Add</button>
-        </div>
-        <div id="homeTestimonials" class="vstack gap-3"></div>
-
-        <div class="inrl-section-title">Newsletter</div>
-        <div class="row g-3">
-          <div class="col-12">
-            <label class="form-label">Headline <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">wrap *text* in asterisks for yellow highlight</span></label>
-            <input id="homeNewsletterHeadline" class="form-control" type="text" placeholder="Stay in the *loop*" />
-          </div>
-        </div>
-        <div class="form-text mt-3" style="color:#3a3a3a">
-          Public homepage reads from <code>/api/homepage</code>. Only admins can update.
-          Home copy is locked brand copy (<code>copywrite/copywrite.md</code>) and lives in <code>ecommerce/index.html</code>; this editor only supplies the hero media and the step images.
+        <div class="form-text mt-4" style="color:#3a3a3a">
+          Public homepage reads from <code>/api/homepage</code>. Only admins can update. Uploads (up to 50 MB) are stored under <code>banners/</code>; one you replace or clear is deleted from storage when you save.
         </div>
 
       </div>
@@ -1369,198 +1313,78 @@
   }
 
   // ---- Homepage editor helpers ----
+  // Home copy is locked in ecommerce/index.html; this editor only sets its media.
 
-  function slideCardHtml(idx, s) {
-    const image = escapeHtml(s.image || '');
-    const title = escapeHtml(s.title || '');
-    const text = escapeHtml(s.text || '');
-    const href = escapeHtml(s.href || '');
-    const linkLabel = escapeHtml(s.linkLabel || '');
-    return '<div class="inrl-subcard" data-slide-index="' + idx + '">' +
-      '<div class="d-flex justify-content-between align-items-center mb-3">' +
-        '<div class="inrl-subcard-label">Slide ' + (idx + 1) + '</div>' +
-        '<button class="btn btn-sm btn-danger-inrl" style="font-size:.6rem;padding:.2rem .55rem" type="button" data-action="remove-slide">Remove</button>' +
+  const HOME_FILM_SLOTS = [
+    { key: 'video', label: 'Landscape video', kind: 'video', help: 'Desktop. MP4.' },
+    { key: 'videoPortrait', label: 'Portrait video', kind: 'video', help: 'Phones. Optional.' },
+    { key: 'poster', label: 'Landscape still', kind: 'image', help: 'Shown before the video plays, and as the fallback.' },
+    { key: 'posterPortrait', label: 'Portrait still', kind: 'image', help: 'Phones. Optional — falls back to the landscape still.' },
+  ];
+  const HOME_STEP_TITLES = ['01 · Buy your T-shirt.', '02 · Choose your video.', '03 · Let people see it.'];
+
+  function emptyHomeMedia() { return { video: '', videoPortrait: '', poster: '', posterPortrait: '' }; }
+  function emptyHomeContent() { return { hero: emptyHomeMedia(), film: emptyHomeMedia(), steps: [{ image: '' }, { image: '' }, { image: '' }] }; }
+
+  function homePreviewHtml(url) {
+    if (!url) return '<div class="home-media-preview is-empty">Empty — the page shows its placeholder</div>';
+    const u = escapeHtml(url);
+    return '<div class="home-media-preview">' + (/\.(mp4|webm|mov)(\?|#|$)/i.test(url)
+      ? '<video src="' + u + '" muted playsinline preload="metadata" controls></video>'
+      : '<img src="' + u + '" alt="">') + '</div>';
+  }
+
+  function homeSlotHtml(path, label, kind, help, value, cols) {
+    const accept = kind === 'video' ? 'video/mp4,video/webm' : 'image/*';
+    return '<div class="col-12 ' + (cols || 'col-lg-6') + '" data-home-slot="' + path + '" data-home-kind="' + kind + '">' +
+      '<label class="form-label">' + escapeHtml(label) + '</label>' +
+      '<div class="input-group">' +
+        '<input class="form-control" type="text" data-home-field value="' + escapeHtml(value || '') + '" placeholder="Upload, or paste a URL" />' +
+        '<label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">Upload<input type="file" accept="' + accept + '" data-home-upload style="display:none"></label>' +
+        '<button class="btn btn-inrl-outline" type="button" data-home-clear style="font-size:.62rem">Clear</button>' +
       '</div>' +
-      '<div class="row g-3">' +
-        '<div class="col-12">' +
-          '<label class="form-label">Image</label>' +
-          '<div class="input-group">' +
-            '<input class="form-control" type="text" data-field="image" value="' + image + '" placeholder="images/banner-image-1.jpg or https://\u2026" />' +
-            '<label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">Upload<input type="file" accept="image/*,video/mp4,video/webm" data-home-upload="slide-image" style="display:none"></label>' +
-          '</div>' +
-          '<img data-field="image-preview" src="' + image + '" alt="" style="' + (image ? '' : 'display:none;') + 'margin-top:6px;max-height:70px;border:1px solid var(--line-200);object-fit:cover">' +
-        '</div>' +
-        '<div class="col-12 col-lg-6"><label class="form-label">Title</label><input class="form-control" type="text" data-field="title" value="' + title + '" /></div>' +
-        '<div class="col-12 col-lg-6"><label class="form-label">Link URL</label><input class="form-control" type="text" data-field="href" value="' + href + '" placeholder="index.html" /></div>' +
-        '<div class="col-12"><label class="form-label">Text</label><textarea class="form-control" rows="2" data-field="text">' + text + '</textarea></div>' +
-        '<div class="col-12 col-lg-6"><label class="form-label">Link Label</label><input class="form-control" type="text" data-field="linkLabel" value="' + linkLabel + '" placeholder="Discover Now" /></div>' +
-      '</div>' +
+      '<div class="form-text">' + escapeHtml(help) + '</div>' +
+      homePreviewHtml(value) +
     '</div>';
   }
 
-  // home is declared inside main() — renderHomeEditor and readHomeFromEditor reference it via closure
+  function setHomeSlot(slot, url) {
+    const input = slot.querySelector('[data-home-field]');
+    if (input) input.value = url;
+    const prev = slot.querySelector('.home-media-preview');
+    if (prev) prev.outerHTML = homePreviewHtml(url);
+  }
+
+  // home is set inside main() — renderHomeEditor and readHomeFromEditor reference it via closure
   let home = null;
 
   function renderHomeEditor() {
     if (!home) return;
-    const titleEl = document.getElementById('homeBillboardTitle');
-    const descEl = document.getElementById('homeBillboardDesc');
-    if (titleEl) titleEl.value = home.billboard.title || '';
-    if (descEl) descEl.value = home.billboard.description || '';
-    const imgEl2 = document.getElementById('homeBillboardImage');
-    const prevEl2 = document.getElementById('homeBillboardImagePreview');
-    if (imgEl2) imgEl2.value = (home.billboard && home.billboard.image) || '';
-    if (prevEl2) { const bimg = (home.billboard && home.billboard.image) || ''; prevEl2.src = bimg; prevEl2.style.display = bimg ? '' : 'none'; }
-
-    const slidesEl = document.getElementById('homeSlides');
-    if (!slidesEl) return;
-    slidesEl.innerHTML = '';
-    if (!home.slides.length) {
-      slidesEl.innerHTML = '<div style="font-size:.72rem;color:var(--ink-500);padding:.5rem 0">No slides yet. Click + Add Slide.</div>';
-    } else {
-      slidesEl.innerHTML = home.slides.map(function(s, i) { return slideCardHtml(i, s); }).join('');
-    }
-
-    const wwa = home.whoWeAre || {};
-    const whoLabelEl = document.getElementById('homeWhoLabel');
-    const whoHeadEl = document.getElementById('homeWhoHeadline');
-    const whoBodyEl = document.getElementById('homeWhoBody');
-    if (whoLabelEl) whoLabelEl.value = wwa.label || '';
-    if (whoHeadEl) whoHeadEl.value = wwa.headline || '';
-    if (whoBodyEl) whoBodyEl.value = wwa.body || '';
-    const statsEl = document.getElementById('homeWhoStats');
-    if (statsEl) {
-      const stats = Array.isArray(wwa.stats) ? wwa.stats : [];
-      statsEl.innerHTML = stats.map(function(st, i) {
-        return '<div class="d-flex align-items-center gap-2" data-stat-index="' + i + '">' +
-          '<input class="form-control form-control-sm" type="text" data-stat-field="value" value="' + escapeHtml(st.value || '') + '" placeholder="50+" style="max-width:80px" />' +
-          '<input class="form-control form-control-sm" type="text" data-stat-field="label" value="' + escapeHtml(st.label || '') + '" placeholder="Products" />' +
-          '<button class="btn btn-sm btn-danger-inrl" type="button" data-stat-action="remove" style="font-size:.6rem;padding:.2rem .5rem;white-space:nowrap">Remove</button>' +
-          '</div>';
-      }).join('') + (stats.length < 4 ? '<button id="homeAddStatBtn" class="btn btn-sm btn-inrl-outline mt-1" type="button" style="font-size:.62rem;padding:.22rem .65rem">+ Add Stat</button>' : '');
-    }
-
-    const feat = home.features || {};
-    const flabelEl = document.getElementById('homeFeaturesLabel');
-    const fheadEl = document.getElementById('homeFeaturesHeadline');
-    if (flabelEl) flabelEl.value = feat.label || '';
-    if (fheadEl) fheadEl.value = feat.headline || '';
-    const featCards = document.getElementById('homeFeatureCards');
-    if (featCards) {
-      const items = Array.isArray(feat.items) ? feat.items : [];
-      featCards.innerHTML = items.slice(0, 3).map(function(item, i) {
-        const fimage = escapeHtml(item.image || '');
-        return '<div class="col-12 col-lg-4" data-feature-index="' + i + '">' +
-          '<div class="inrl-subcard">' +
-            '<div class="inrl-subcard-label">Feature ' + (i + 1) + '</div>' +
-            '<div class="mb-2">' +
-              '<label class="form-label">Image</label>' +
-              '<div class="input-group">' +
-                '<input class="form-control" type="text" data-feat-field="image" value="' + fimage + '" placeholder="images/feature-1.jpg or https://…" />' +
-                '<label class="btn btn-inrl-outline" style="font-size:.62rem;cursor:pointer;border-left:none">Upload<input type="file" accept="image/*" data-home-upload="feature-image" style="display:none"></label>' +
-              '</div>' +
-              '<img data-feat-field="image-preview" src="' + fimage + '" alt="" style="' + (fimage ? '' : 'display:none;') + 'margin-top:6px;max-height:70px;border:1px solid var(--line-200);object-fit:cover">' +
-            '</div>' +
-            '<div class="mb-2"><label class="form-label">Title</label><input class="form-control" type="text" data-feat-field="title" value="' + escapeHtml(item.title || '') + '" /></div>' +
-            '<div><label class="form-label">Body</label><textarea class="form-control" rows="3" data-feat-field="body">' + escapeHtml(item.body || '') + '</textarea></div>' +
-          '</div>' +
-        '</div>';
+    [['hero', 'homeHero'], ['film', 'homeFilm']].forEach(function(pair) {
+      const wrap = document.getElementById(pair[1]);
+      if (!wrap) return;
+      const m = home[pair[0]] || emptyHomeMedia();
+      wrap.innerHTML = HOME_FILM_SLOTS.map(function(s) { return homeSlotHtml(pair[0] + '.' + s.key, s.label, s.kind, s.help, m[s.key]); }).join('');
+    });
+    const stepsEl = document.getElementById('homeSteps');
+    if (stepsEl) {
+      stepsEl.innerHTML = HOME_STEP_TITLES.map(function(title, i) {
+        const st = (home.steps && home.steps[i]) || {};
+        return homeSlotHtml('steps.' + i, title, 'image', 'Image for this step card.', st.image, 'col-lg-4');
       }).join('');
     }
-
-    const testEl = document.getElementById('homeTestimonials');
-    if (testEl) {
-      const tItems = Array.isArray(home.testimonials) ? home.testimonials : [];
-      testEl.innerHTML = tItems.length ? tItems.map(function(t, i) {
-        return '<div class="inrl-subcard" data-testimonial-index="' + i + '">' +
-          '<div class="d-flex justify-content-between align-items-center mb-3">' +
-            '<div class="inrl-subcard-label">Testimonial ' + (i + 1) + '</div>' +
-            '<button class="btn btn-sm btn-danger-inrl" style="font-size:.6rem;padding:.2rem .55rem" type="button" data-test-action="remove">Remove</button>' +
-          '</div>' +
-          '<div class="mb-2"><label class="form-label">Quote</label><textarea class="form-control" rows="2" data-test-field="quote">' + escapeHtml(t.quote || '') + '</textarea></div>' +
-          '<div><label class="form-label">Author</label><input class="form-control" type="text" data-test-field="author" value="' + escapeHtml(t.author || '') + '" /></div>' +
-        '</div>';
-      }).join('') : '<div style="font-size:.72rem;color:var(--ink-500);padding:.5rem 0">No testimonials yet. Click + Add.</div>';
-    }
-
-    const nlEl = document.getElementById('homeNewsletterHeadline');
-    if (nlEl) nlEl.value = (home.newsletter && home.newsletter.headline) || '';
-
-    const addStatBtn = document.getElementById('homeAddStatBtn');
-    if (addStatBtn) addStatBtn.addEventListener('click', function() {
-      if (!home.whoWeAre) home.whoWeAre = {};
-      if (!Array.isArray(home.whoWeAre.stats)) home.whoWeAre.stats = [];
-      if (home.whoWeAre.stats.length < 4) { home.whoWeAre.stats.push({ value: '', label: '' }); renderHomeEditor(); }
-    });
   }
 
   function readHomeFromEditor() {
     if (!home) return;
-    const titleEl = document.getElementById('homeBillboardTitle');
-    const descEl = document.getElementById('homeBillboardDesc');
-    const imgEl = document.getElementById('homeBillboardImage');
-    home.billboard.title = titleEl ? titleEl.value.trim() : '';
-    home.billboard.description = descEl ? descEl.value.trim() : '';
-    home.billboard.image = imgEl ? imgEl.value.trim() : '';
-
-    const slidesEl = document.getElementById('homeSlides');
-    const cards = slidesEl ? Array.from(slidesEl.querySelectorAll('[data-slide-index]')) : [];
-    home.slides = cards.map(function(card) {
-      return {
-        image: (card.querySelector('[data-field="image"]') && card.querySelector('[data-field="image"]').value || '').trim(),
-        title: (card.querySelector('[data-field="title"]') && card.querySelector('[data-field="title"]').value || '').trim(),
-        text: (card.querySelector('[data-field="text"]') && card.querySelector('[data-field="text"]').value || '').trim(),
-        href: (card.querySelector('[data-field="href"]') && card.querySelector('[data-field="href"]').value || '').trim(),
-        linkLabel: (card.querySelector('[data-field="linkLabel"]') && card.querySelector('[data-field="linkLabel"]').value || '').trim(),
-      };
+    const next = emptyHomeContent();
+    document.querySelectorAll('#pane-homepage [data-home-slot]').forEach(function(slot) {
+      const parts = slot.getAttribute('data-home-slot').split('.');
+      const v = ((slot.querySelector('[data-home-field]') || {}).value || '').trim();
+      if (parts[0] === 'steps') next.steps[Number(parts[1])].image = v;
+      else next[parts[0]][parts[1]] = v;
     });
-
-    if (!home.whoWeAre) home.whoWeAre = {};
-    const whoLabelEl = document.getElementById('homeWhoLabel');
-    const whoHeadEl = document.getElementById('homeWhoHeadline');
-    const whoBodyEl = document.getElementById('homeWhoBody');
-    if (whoLabelEl) home.whoWeAre.label = whoLabelEl.value.trim();
-    if (whoHeadEl) home.whoWeAre.headline = whoHeadEl.value.trim();
-    if (whoBodyEl) home.whoWeAre.body = whoBodyEl.value.trim();
-    const statsEl = document.getElementById('homeWhoStats');
-    if (statsEl) {
-      home.whoWeAre.stats = Array.from(statsEl.querySelectorAll('[data-stat-index]')).map(function(row) {
-        return {
-          value: ((row.querySelector('[data-stat-field="value"]') || {}).value || '').trim(),
-          label: ((row.querySelector('[data-stat-field="label"]') || {}).value || '').trim()
-        };
-      });
-    }
-
-    if (!home.features) home.features = {};
-    const flabelEl = document.getElementById('homeFeaturesLabel');
-    const fheadEl = document.getElementById('homeFeaturesHeadline');
-    if (flabelEl) home.features.label = flabelEl.value.trim();
-    if (fheadEl) home.features.headline = fheadEl.value.trim();
-    const featCards = document.getElementById('homeFeatureCards');
-    if (featCards) {
-      home.features.items = Array.from(featCards.querySelectorAll('[data-feature-index]')).map(function(div) {
-        return {
-          image: ((div.querySelector('[data-feat-field="image"]') || {}).value || '').trim(),
-          title: ((div.querySelector('[data-feat-field="title"]') || {}).value || '').trim(),
-          body: ((div.querySelector('[data-feat-field="body"]') || {}).value || '').trim()
-        };
-      });
-    }
-
-    const testEl = document.getElementById('homeTestimonials');
-    if (testEl) {
-      home.testimonials = Array.from(testEl.querySelectorAll('[data-testimonial-index]')).map(function(div) {
-        return {
-          quote: ((div.querySelector('[data-test-field="quote"]') || {}).value || '').trim(),
-          author: ((div.querySelector('[data-test-field="author"]') || {}).value || '').trim()
-        };
-      });
-    }
-
-    const nlEl = document.getElementById('homeNewsletterHeadline');
-    if (!home.newsletter) home.newsletter = {};
-    if (nlEl) home.newsletter.headline = nlEl.value.trim();
+    home = next;
   }
 
   // ---- Main init ----
@@ -1797,156 +1621,70 @@
 
     // ---- Homepage editor (admin only) ----
     if (isAdmin) {
-      home = {
-        billboard: { title: '', description: '', image: '' },
-        slides: [],
-        whoWeAre: {
-          label: 'Who We Are',
-          headline: 'Fashion meets digital identity',
-          body: 'INRL is a neo-brutalist fashion label building at the intersection of physical garments and digital identity. We design bold, uncompromising pieces and pair them with augmented reality experiences that let you wear your story in both worlds.',
-          stats: [
-            { value: '50+', label: 'Products' },
-            { value: 'AR', label: 'Enabled' },
-            { value: '24/7', label: 'Digital Access' }
-          ]
-        },
-        features: {
-          label: 'The Experience',
-          headline: 'What makes us different',
-          items: [
-            { title: 'Bold Fashion', body: 'Uncompromising designs with brutalist aesthetics. Every piece is a statement that refuses to blend in.' },
-            { title: 'AR Experiences', body: 'Scan your garments to unlock augmented reality layers. Your clothes become a portal to digital content.' },
-            { title: 'Digital Identity', body: 'Own your digital presence. Each product comes with verifiable digital identity that bridges physical and virtual.' }
-          ]
-        },
-        testimonials: [
-          { quote: 'More than expected - crazy soft, flexible, and best fitted.', author: 'Casual Way' },
-          { quote: 'Best fitted white denim shirt, more than expected crazy soft.', author: 'Uptop' },
-          { quote: 'Absolutely love the brutalist aesthetic. Unique and bold.', author: 'Denim Craze' }
-        ],
-        newsletter: { headline: 'Stay in the *loop*' }
-      };
+      home = emptyHomeContent();
+      renderHomeEditor();
 
       async function loadHomepage() {
         clearStatus();
         const res = await apiFetch('/homepage');
-        const content = res && res.content ? res.content : null;
-        home.billboard = (content && content.billboard) ? content.billboard : { title: '', description: '', image: '' };
-        home.slides = Array.isArray(content && content.slides) ? content.slides : [];
-        home.whoWeAre = (content && content.whoWeAre) ? content.whoWeAre : home.whoWeAre;
-        home.features = (content && content.features) ? content.features : home.features;
-        if (home.features && Array.isArray(home.features.cards) && !Array.isArray(home.features.items)) {
-          home.features.items = home.features.cards;
-          delete home.features.cards;
-        }
-        if (!Array.isArray(home.features.items)) home.features.items = [];
-        if (home.whoWeAre && typeof home.whoWeAre.stats === 'string') home.whoWeAre.stats = [];
-        if (!Array.isArray(home.whoWeAre.stats)) home.whoWeAre.stats = [];
-        home.testimonials = Array.isArray(content && content.testimonials) ? content.testimonials : home.testimonials;
-        home.newsletter = (content && content.newsletter) ? content.newsletter : home.newsletter;
+        const content = res && res.content ? res.content : {};
+        home = {
+          hero: Object.assign(emptyHomeMedia(), content.hero || {}),
+          film: Object.assign(emptyHomeMedia(), content.film || {}),
+          steps: [0, 1, 2].map(function(i) { return { image: (Array.isArray(content.steps) && content.steps[i] && content.steps[i].image) || '' }; }),
+        };
         renderHomeEditor();
-        showStatus('Homepage loaded.', 'success');
+        showStatus('Homepage media loaded.', 'success');
       }
 
       async function saveHomepage() {
         clearStatus();
         readHomeFromEditor();
         await apiFetch('/homepage', { method: 'POST', body: home });
-        showStatus('Homepage saved.', 'success');
+        showStatus('Homepage media saved.', 'success');
       }
 
-      document.getElementById('homeAddSlideBtn').addEventListener('click', function() {
-        home.slides.push({ image: '', title: '', text: '', href: 'index.html', linkLabel: 'Discover Now' });
-        renderHomeEditor();
+      document.getElementById('homeLoadBtn').addEventListener('click', async function() {
+        try { await loadHomepage(); } catch (e) { showStatus('Homepage failed to load: ' + (e.message || e), 'error'); }
       });
-
-      document.getElementById('homeAddTestimonialBtn').addEventListener('click', function() {
-        if (!Array.isArray(home.testimonials)) home.testimonials = [];
-        home.testimonials.push({ quote: '', author: '' });
-        renderHomeEditor();
-      });
-
-      document.getElementById('homeLoadBtn').addEventListener('click', loadHomepage);
       document.getElementById('homeSaveBtn').addEventListener('click', async function() {
         try { await saveHomepage(); } catch (e) { showStatus(e.message || String(e), 'error'); }
       });
 
-      document.querySelector('#pane-homepage').addEventListener('change', async function(ev) {
+      const homePane = document.querySelector('#pane-homepage');
+      homePane.addEventListener('change', async function(ev) {
         const input = ev.target;
-        if (input.type !== 'file' || !input.dataset.homeUpload) return;
+        const slot = input.closest('[data-home-slot]');
+        if (!slot) return;
+        if (input.hasAttribute('data-home-field')) { setHomeSlot(slot, input.value.trim()); return; }
+        if (input.type !== 'file' || !input.hasAttribute('data-home-upload')) return;
         const file = input.files && input.files[0];
         if (!file) return;
-        const uploadType = input.dataset.homeUpload;
+        const kind = slot.getAttribute('data-home-kind');
+        if (!String(file.type || '').startsWith(kind + '/')) {
+          showStatus('That slot takes ' + (kind === 'video' ? 'a video (MP4).' : 'an image.'), 'error');
+          input.value = '';
+          return;
+        }
         const label = input.closest('label');
-        const origText = label ? label.childNodes[0].textContent.trim() : '';
-        if (label) label.childNodes[0].textContent = ' Uploading\u2026';
+        if (label) label.childNodes[0].textContent = 'Uploading…';
         try {
           const url = await uploadProductImage(file, 'banners');
-          if (uploadType === 'billboard-image') {
-            const urlInput = document.getElementById('homeBillboardImage');
-            const prev = document.getElementById('homeBillboardImagePreview');
-            if (urlInput) urlInput.value = url;
-            if (prev) { prev.src = url; prev.style.display = ''; }
-          } else if (uploadType === 'slide-image') {
-            const card = input.closest('[data-slide-index]');
-            if (card) {
-              const urlInput = card.querySelector('[data-field="image"]');
-              const prev = card.querySelector('[data-field="image-preview"]');
-              if (urlInput) urlInput.value = url;
-              if (prev) { prev.src = url; prev.style.display = ''; }
-            }
-          } else if (uploadType === 'feature-image') {
-            const card = input.closest('[data-feature-index]');
-            if (card) {
-              const urlInput = card.querySelector('[data-feat-field="image"]');
-              const prev = card.querySelector('[data-feat-field="image-preview"]');
-              if (urlInput) urlInput.value = url;
-              if (prev) { prev.src = url; prev.style.display = ''; }
-            }
-          }
-          showStatus('Image uploaded.', 'success');
+          setHomeSlot(slot, url);
+          showStatus((kind === 'video' ? 'Video' : 'Image') + ' uploaded. Save to put it on the homepage.', 'success');
         } catch (e) {
           showStatus('Upload failed: ' + (e.message || e), 'error');
         } finally {
-          if (label) label.childNodes[0].textContent = ' Upload';
+          if (label) label.childNodes[0].textContent = 'Upload';
           input.value = '';
         }
       });
 
-      document.querySelector('#pane-homepage').addEventListener('click', function(ev) {
-        const removeSlideBtn = ev.target.closest('button[data-action="remove-slide"]');
-        if (removeSlideBtn) {
-          const card = removeSlideBtn.closest('[data-slide-index]');
-          if (card) {
-            const idx = parseInt(card.getAttribute('data-slide-index'), 10);
-            if (Number.isFinite(idx)) { home.slides.splice(idx, 1); renderHomeEditor(); }
-          }
-          return;
-        }
-      });
-
-      document.getElementById('homeWhoStats').addEventListener('click', function(ev) {
-        const btn = ev.target.closest('button[data-stat-action="remove"]');
+      homePane.addEventListener('click', function(ev) {
+        const btn = ev.target.closest('[data-home-clear]');
         if (!btn) return;
-        const row = btn.closest('[data-stat-index]');
-        if (!row) return;
-        const idx = parseInt(row.getAttribute('data-stat-index'), 10);
-        if (Number.isFinite(idx) && Array.isArray(home.whoWeAre && home.whoWeAre.stats)) {
-          home.whoWeAre.stats.splice(idx, 1);
-          renderHomeEditor();
-        }
-      });
-
-      document.getElementById('homeTestimonials').addEventListener('click', function(ev) {
-        const btn = ev.target.closest('button[data-test-action="remove"]');
-        if (!btn) return;
-        const card = btn.closest('[data-testimonial-index]');
-        if (!card) return;
-        const idx = parseInt(card.getAttribute('data-testimonial-index'), 10);
-        if (Number.isFinite(idx) && Array.isArray(home.testimonials)) {
-          home.testimonials.splice(idx, 1);
-          renderHomeEditor();
-        }
+        const slot = btn.closest('[data-home-slot]');
+        if (slot) setHomeSlot(slot, '');
       });
 
       let homepageLoaded = false;

@@ -1057,104 +1057,41 @@
     return v.length > maxLen ? v.slice(0, maxLen) : v;
   }
 
+  // The storefront home's copy is locked brand copy in ecommerce/index.html — this content
+  // only carries its media: the hero film, the full film and the three step images. Each
+  // film has a landscape (desktop) and an optional portrait (phone) cut plus matching stills.
+  const isVideoUrl = (u) => /\.(mp4|webm|mov)(\?|#|$)/i.test(String(u || ''));
+
+  function normalizeHomeMedia(m) {
+    const o = m && typeof m === 'object' ? m : {};
+    return {
+      video: clampStr(o.video, 800),
+      videoPortrait: clampStr(o.videoPortrait, 800),
+      poster: clampStr(o.poster, 800),
+      posterPortrait: clampStr(o.posterPortrait, 800),
+    };
+  }
+
   function normalizeHomepagePayload(body) {
-    const billboardIn = body && typeof body.billboard === 'object' && body.billboard ? body.billboard : {};
-    const title = clampStr(billboardIn.title, 120);
-    const description = clampStr(billboardIn.description, 600);
-    const billboardImage = clampStr(billboardIn.image, 800);
+    const b = body && typeof body === 'object' ? body : {};
 
-    const slidesIn = Array.isArray(body && body.slides) ? body.slides : [];
-    const slides = slidesIn.slice(0, 12).map(s => {
-      const image = clampStr(s && s.image, 800);
-      const stitle = clampStr(s && s.title, 120);
-      const text = clampStr(s && s.text, 400);
-      const href = clampStr(s && s.href, 800);
-      const linkLabel = clampStr(s && s.linkLabel, 60);
-      return { image, title: stitle, text, href, linkLabel };
-    }).filter(s => s.image || s.title || s.text || s.href || s.linkLabel);
-
-    // Who We Are section
-    const whoIn = body && typeof body.whoWeAre === 'object' && body.whoWeAre ? body.whoWeAre : {};
-    // stats: accept array [{value,label}] or legacy string
-    let statsIn = whoIn.stats;
-    if (typeof statsIn === 'string') {
-      // legacy: ignore or keep as empty
-      statsIn = [];
+    // Rows saved by the old editor (billboard / slides / features) migrate on read: the first
+    // slide's (or the billboard's) media becomes the hero, feature images become step images.
+    let heroIn = b.hero;
+    if (!heroIn || typeof heroIn !== 'object') {
+      const s0 = Array.isArray(b.slides) && b.slides[0] ? b.slides[0] : null;
+      const legacy = (s0 && s0.image) || (b.billboard && b.billboard.image) || '';
+      heroIn = isVideoUrl(legacy) ? { video: legacy } : { poster: legacy };
     }
-    const whoWeAre = {
-      label: clampStr(whoIn.label, 60),
-      headline: clampStr(whoIn.headline, 200),
-      body: clampStr(whoIn.body, 1200),
-      stats: Array.isArray(statsIn) ? statsIn.slice(0, 4).map(s => ({
-        value: clampStr(s && s.value, 40),
-        label: clampStr(s && s.label, 80),
-      })) : [],
-    };
+    const legacyFeatures = b.features && typeof b.features === 'object' ? (b.features.items || b.features.cards) : null;
+    const stepsIn = Array.isArray(b.steps) ? b.steps : (Array.isArray(legacyFeatures) ? legacyFeatures : []);
+    const steps = [0, 1, 2].map(i => ({ image: clampStr(stepsIn[i] && stepsIn[i].image, 800) }));
 
-    // Features section — accept both 'items' and 'cards' key names
-    const featIn = body && typeof body.features === 'object' && body.features ? body.features : {};
-    const featItemsIn = Array.isArray(featIn.items) ? featIn.items : (Array.isArray(featIn.cards) ? featIn.cards : []);
-    const features = {
-      label: clampStr(featIn.label, 60),
-      headline: clampStr(featIn.headline, 200),
-      items: featItemsIn.slice(0, 6).map(c => ({
-        image: clampStr(c && c.image, 800),
-        title: clampStr(c && c.title, 120),
-        body: clampStr(c && c.body, 400),
-      })),
-    };
-
-    // Testimonials section
-    const testimonialsIn = Array.isArray(body && body.testimonials) ? body.testimonials : [];
-    const testimonials = testimonialsIn.slice(0, 20).map(t => ({
-      quote: clampStr(t && t.quote, 600),
-      author: clampStr(t && t.author, 120),
-      role: clampStr(t && t.role, 120),
-    })).filter(t => t.quote || t.author);
-
-    // Newsletter section
-    const newsIn = body && typeof body.newsletter === 'object' && body.newsletter ? body.newsletter : {};
-    const newsletter = {
-      headline: clampStr(newsIn.headline, 200),
-    };
-
-    return { billboard: { title, description, image: billboardImage }, slides, whoWeAre, features, testimonials, newsletter };
+    return { hero: normalizeHomeMedia(heroIn), film: normalizeHomeMedia(b.film), steps };
   }
 
   function defaultHomepageContent() {
-    return normalizeHomepagePayload({
-      billboard: {
-        title: 'Life is in beta',
-        description: 'A T-shirt. A video you choose.',
-        image: ''
-      },
-      slides: [
-        {
-          image: 'images/post-large-image1.jpg',
-          title: 'Life is in beta',
-          text: 'A T-shirt. A video you choose.',
-          href: 'shop.html',
-          linkLabel: 'Buy now'
-        }
-      ],
-      whoWeAre: {
-        label: 'Why we made InRL',
-        headline: 'CULTURE MOVES. WHAT WE WEAR SHOULD TOO.',
-        body: "There’s more than one side to each of us. What we love, make and care about changes as we do. We share so much of it online. What if it could start conversations in real life?\n\nSo we made InRL: clothing that brings your digital content into the real world. Choose what you share, change it when you want, and let people discover sides of you they might not see otherwise.",
-        stats: [],
-      },
-      features: {
-        label: 'How it works',
-        headline: 'How it works.',
-        items: [
-          { image: '', title: 'Buy your T-shirt.', body: 'Choose a T-shirt and check out. It appears in your account once payment goes through.' },
-          { image: '', title: 'Choose your video.', body: 'Add your video from your account. Change it whenever you have something else to share.' },
-          { image: '', title: 'Let people see it.', body: "Someone scans the QR code, opens the link and points their phone's camera at the print. Your video plays over it. No app needed." },
-        ],
-      },
-      testimonials: [],
-      newsletter: { headline: '' }
-    });
+    return normalizeHomepagePayload({ hero: {}, film: {}, steps: [] });
   }
 
   async function apiGetHomepage(request) {
@@ -1178,13 +1115,14 @@
     );
   }
 
-  // Extract all image URLs from a homepage content object
+  // Every uploaded media URL a (normalized) homepage content object references
   function homepageImageUrls(content) {
     const urls = new Set();
-    if (content && content.billboard && content.billboard.image) urls.add(content.billboard.image);
-    if (content && Array.isArray(content.slides)) {
-      for (const s of content.slides) { if (s && s.image) urls.add(s.image); }
+    const add = (u) => { if (u) urls.add(u); };
+    for (const m of [content && content.hero, content && content.film]) {
+      if (m) { add(m.video); add(m.videoPortrait); add(m.poster); add(m.posterPortrait); }
     }
+    for (const st of (content && Array.isArray(content.steps) ? content.steps : [])) add(st && st.image);
     return urls;
   }
 
@@ -1208,7 +1146,7 @@
     let oldImageUrls = new Set();
     try {
       const oldRow = await dbGet('select json from site_content where key = ?', 'homepage');
-      if (oldRow && oldRow.json) oldImageUrls = homepageImageUrls(JSON.parse(oldRow.json));
+      if (oldRow && oldRow.json) oldImageUrls = homepageImageUrls(normalizeHomepagePayload(JSON.parse(oldRow.json)));
     } catch { /* ignore — if unreadable just save */ }
 
     const newImageUrls = homepageImageUrls(normalized);

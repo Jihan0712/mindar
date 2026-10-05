@@ -147,17 +147,16 @@
   <script>
     (function () {
       var esc = INRL.esc;
-      var isVideo = function (u) { return /\.(mp4|webm|mov)(\?|#|$)/i.test(String(u || '')); };
       var small = function () { return window.matchMedia('(max-width: 767.98px)').matches; };
       var still = function () { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; };
 
-      /* ---------- Hero media: video on desktop, poster below 768 / reduced motion ---------- */
-      function setHeroMedia(slide) {
+      /* ---------- Hero film: muted loop; phones get the portrait cut or a still; reduced motion gets the still ---------- */
+      function setHeroMedia(hero) {
         var wrap = document.getElementById('heroMedia');
-        if (!wrap || !slide) return;
-        var video = slide.video || (isVideo(slide.image) ? slide.image : '');
-        var poster = slide.poster || (isVideo(slide.image) ? '' : slide.image) || '';
-        if (video && !small() && !still()) {
+        if (!wrap || !hero) return;
+        var video = small() ? (hero.videoPortrait || '') : (hero.video || '');
+        var poster = (small() && hero.posterPortrait) || hero.poster || '';
+        if (video && !still()) {
           wrap.innerHTML = '<video autoplay muted loop playsinline preload="auto"' + (poster ? ' poster="' + esc(poster) + '"' : '') + '><source src="' + esc(video) + '" type="video/mp4"></video>';
         } else if (poster) {
           wrap.innerHTML = '<img src="' + esc(poster) + '" alt="" onerror="this.remove()">';
@@ -194,21 +193,12 @@
         } catch (e) { console.warn('Homepage CMS load failed:', e && e.message); }
         if (!content) return;
 
-        var slides = Array.isArray(content.slides) ? content.slides : [];
-        var bb = content.billboard || {};
-        var hero = slides[0] || (bb.image ? { image: bb.image } : null);
-        if (hero) setHeroMedia(hero);
-
-        var film = content.film || (content.campaign && content.campaign.image ? { poster: content.campaign.image } : null);
-        setFilm(film);
-
-        var feat = content.features;
-        if (feat) {
-          (Array.isArray(feat.items) ? feat.items : []).slice(0, 3).forEach(function (item, i) {
-            var img = document.getElementById('home-feature-' + i + '-img');
-            if (img && item.image) img.innerHTML = '<img src="' + esc(item.image) + '" alt="" loading="lazy">';
-          });
-        }
+        setHeroMedia(content.hero);
+        setFilm(content.film);
+        (Array.isArray(content.steps) ? content.steps : []).slice(0, 3).forEach(function (step, i) {
+          var img = document.getElementById('home-feature-' + i + '-img');
+          if (img && step && step.image) img.innerHTML = '<img src="' + esc(step.image) + '" alt="" loading="lazy">';
+        });
       }
       initHomepageCms();
 
