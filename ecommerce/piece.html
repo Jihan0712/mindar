@@ -339,7 +339,7 @@
         if (xhr.status >= 200 && xhr.status < 300) {
           steps(2);
           document.getElementById('pubState').textContent = 'Live';
-          document.getElementById('pubKeep').textContent = 'Done. Anyone who scans your T-shirt now sees V' + d.version + '.';
+          document.getElementById('pubKeep').textContent = 'Done. People who point their phone’s camera at the print now see V' + d.version + '.';
           setTimeout(function () { location.href = 'piece.html?id=' + encodeURIComponent(id) + '&added=1'; }, 1200);
         } else {
           show('replace');

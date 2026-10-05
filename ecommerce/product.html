@@ -291,7 +291,7 @@
       document.getElementById('pdKicker').textContent = [p.type || p.fit || '', p.category || ''].filter(Boolean).join(' · ');
       document.getElementById('pdTitle').textContent = plain + (p.color ? ' — ' + p.color : '');
       document.getElementById('sgTitle').textContent = plain;
-      var price = sold ? 'Sold out · Restock soon' : INRL.moneyFromCents(p.price_cents, p.currency);
+      var price = sold ? 'Sold out' : INRL.moneyFromCents(p.price_cents, p.currency);
       document.getElementById('pdPrice').textContent = price;
       document.getElementById('stickyPrice').textContent = price;
       var desc = String(p.description || '').trim();

@@ -36,7 +36,7 @@
   /* Video tag. The catalogue knows whether a T-shirt's print is set up to show
      a video (ar_target_id); the owner adds their own after checkout. */
   function layerTag(p) {
-    if (isSoldOut(p)) return '<span class="pcard__tag is-muted">Restock soon</span>';
+    if (isSoldOut(p)) return '';
     if (p && p.ar_target_id) return '<span class="pcard__tag">Add your video</span>';
     return '';
   }
