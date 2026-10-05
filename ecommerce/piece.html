@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Your piece | INRL</title>
+  <title>Your T-shirt | InRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
@@ -9,33 +9,20 @@
   <link rel="stylesheet" href="css/global.css">
   <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
   <style>
     .two{display:grid;gap:16px}
     @media (min-width:1024px){.two{grid-template-columns:minmax(0,620px) minmax(0,1fr);gap:16px;align-items:start}}
+    .app-head .sdot{margin-right:8px}
     .player{background:var(--dark-800);aspect-ratio:620/460;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;color:var(--paper-500);position:relative;overflow:hidden}
     .player video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
     .player .t-label{color:var(--paper-300)}
-    .player__bar{background:var(--surface-0);padding:12px 16px;display:flex;justify-content:space-between;font-size:13px;color:var(--ink-500)}
-    .player__bar a{color:var(--accent-700);font-weight:500;text-decoration:none}
+    .player__bar{background:var(--surface-0);padding:12px 16px;font-size:13px;color:var(--ink-500)}
     @media (max-width:1023.98px){.player{aspect-ratio:4/3;margin-inline:calc(-1 * var(--margin))}.player__bar{display:none}}
-    .hist{background:var(--surface-0)}
-    .hist__head{background:var(--surface-50);padding:12px 18px;border-bottom:1px solid var(--line-100)}
-    .hist__row{display:grid;grid-template-columns:38px 1fr auto;gap:8px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line-100);font-size:14px;color:var(--ink-900)}
-    .hist__row:last-child{border-bottom:0}
-    .hist__row .v{font-size:11px;color:var(--ink-500)}
-    .hist__row.is-live .v{color:var(--accent-700)}
-    .hist__row .d{font-size:13px;color:var(--ink-500)}
-    .hist__row.is-live .d{color:var(--accent-700)}
-    .seeit{display:flex;gap:20px;align-items:center}
-    .seeit canvas{width:88px!important;height:88px!important;flex-shrink:0}
-    .seeit p{font-size:13px;margin:0 0 4px}
-    .seeit a{color:var(--accent-700);font-size:13px;font-weight:500;word-break:break-all}
     .rename{display:none;gap:8px;margin-top:8px}
     .rename.is-on{display:flex}
-    .icon-btn{background:none;border:0;color:var(--ink-500);padding:4px;cursor:pointer;vertical-align:middle}
+    .icon-btn{background:none;border:0;color:var(--ink-500);padding:0 4px;cursor:pointer;vertical-align:baseline}
     .icon-btn:hover{color:var(--ink-900)}
-    /* replace */
+    /* choose a video */
     .drop{border:2px dashed var(--accent-500);background:var(--surface-0);min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;cursor:pointer;transition:background var(--t-state)}
     @media (min-width:1024px){.drop{min-height:520px}}
     .drop:hover,.drop.is-drag{background:#f2fafb}
@@ -46,10 +33,10 @@
     .drop--bad:hover{background:#fbe5e5}
     .drop--bad h3{font:500 22px/1.2 var(--font-display);color:var(--ink-900);text-transform:none;margin:16px 0 8px}
     .still{background:var(--surface-0);padding:18px 18px}
-    .still__row{display:flex;gap:14px;align-items:center;margin:12px 0}
+    .still__row{display:flex;gap:14px;align-items:center;margin-top:12px}
     .still__row .ph{width:48px;height:60px;font-size:9px;background:var(--surface-3);flex-shrink:0}
-    .radio-row{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface-0);border:2px solid var(--accent-700);font-size:14px}
     .checks{background:var(--surface-0)}
+    .checks__head{background:var(--surface-50);padding:12px 18px;border-bottom:1px solid var(--line-100)}
     .checks__row{display:grid;grid-template-columns:14px 80px 1fr auto;gap:10px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line-100);font-size:14px;color:var(--ink-900)}
     .checks__row:last-child{border-bottom:0}
     .checks__row .k{color:var(--ink-500);font-size:13px}
@@ -59,6 +46,7 @@
     .checks__row.is-bad i{background:var(--danger-500)}
     .checks__row.is-wait i{background:var(--surface-4)}
     .checks__row.is-wait{color:var(--ink-500)}
+    /* processing */
     .prog{background:var(--surface-0);min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px}
     @media (min-width:1024px){.prog{min-height:520px}}
     .prog h3{font:500 24px/1.2 var(--font-display);color:var(--ink-900);text-transform:none;margin:10px 0 20px}
@@ -67,7 +55,6 @@
     .note{background:var(--surface-0);padding:18px}
     .note p{margin:0;font-size:13px}
     .note strong{display:block;font-weight:500;color:var(--ink-900);margin-bottom:6px;font-size:14px}
-    .welcome{background:#e7f5f8;color:var(--accent-700);padding:14px 18px;margin-bottom:20px;font-size:14px}
   </style>
 </head>
 <body class="site app">
@@ -76,53 +63,39 @@
   <div class="shell">
     <aside class="rail" id="app-rail" data-active="wardrobe"></aside>
     <main id="main" class="app__main">
-      <p id="loadState" class="t-meta">Loading the piece&hellip;</p>
+      <p id="loadState" class="t-meta">Loading your T-shirt&hellip;</p>
 
-      <!-- THE LAYER -->
+      <!-- W-02 · Your current video  /  W-13 · Video added -->
       <section id="vLayer" hidden>
         <div class="app-head">
           <div>
-            <a class="back" href="wardrobe.html">&larr; Back to the wardrobe</a>
-            <h1><span id="pName"></span> <button class="icon-btn" type="button" id="renameBtn" aria-label="Rename this piece"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8-4 1z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button></h1>
+            <a class="back" href="wardrobe.html">&larr; Back to your T-shirts</a>
+            <h1 id="lTitle">Your current video</h1>
+            <p><span id="pName"></span> <button class="icon-btn" type="button" id="renameBtn" aria-label="Rename this T-shirt"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8-4 1z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button></p>
             <form class="rename" id="renameForm"><label for="renameInput" class="visually-hidden">Name</label><input class="input" id="renameInput" maxlength="120" style="min-height:40px;max-width:320px"><button class="b b--dark b--sm" type="submit">Save</button><button class="b b--ghost b--sm" type="button" id="renameCancel">Cancel</button></form>
             <p id="pMeta" class="tnum"></p>
           </div>
-          <button class="b b--ghost d-none d-lg-inline-flex" type="button" data-go-replace style="background:var(--surface-0)">Replace the layer</button>
-        </div>
-        <div class="welcome" id="welcome" hidden>It&rsquo;s in your wardrobe. Give it something to play &mdash; until you publish a layer, a scan plays the drop&rsquo;s default film.</div>
-
-        <div class="tiles">
-          <div class="tile"><span class="t-label">Scans</span><span class="v" id="sScans">0</span></div>
-          <div class="tile"><span class="t-label">Versions</span><span class="v" id="sVersions">0</span></div>
-          <div class="tile"><span class="t-label">Last scanned</span><span class="v" id="sLast" style="font-size:18px">&mdash;</span></div>
-          <div class="tile"><span class="t-label">Registered</span><span class="v teal" id="sSince" style="font-size:18px">&mdash;</span></div>
+          <button class="b b--ghost b--sm d-none d-lg-inline-flex" type="button" data-go-replace style="background:var(--surface-0)">Change video</button>
         </div>
 
         <div class="two">
           <div>
-            <div class="player" id="player"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M26 21l18 11-18 11z" fill="#fff"/></svg><span class="t-label">What plays when someone scans the print</span></div>
-            <div class="player__bar"><span id="fileMeta">No layer yet</span><a id="dl" href="#" download hidden>Download</a></div>
-          </div>
-          <div style="display:grid;gap:16px">
-            <button class="b b--ghost b--block d-lg-none" type="button" data-go-replace style="background:var(--surface-0)">Replace the layer</button>
-            <div class="hist"><div class="hist__head t-label">This piece has carried</div><div id="hist"></div></div>
-            <div class="panel" style="padding:18px 18px">
-              <p class="t-label" style="margin-bottom:14px">See it as they will</p>
-              <div class="seeit"><canvas id="qr" width="88" height="88" aria-hidden="true"></canvas><div><p>Point a phone at this to open the layer exactly as someone scanning the shirt would.</p><a id="viewerLink" href="#" target="_blank" rel="noopener"></a></div></div>
-            </div>
+            <div class="player" id="player"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M26 21l18 11-18 11z" fill="#fff"/></svg><span class="t-label">Your current video</span></div>
+            <div class="player__bar"><span id="fileMeta">&mdash;</span></div>
+            <button class="b b--ghost b--block d-lg-none" type="button" data-go-replace style="background:var(--surface-0);margin-top:16px">Change video</button>
           </div>
         </div>
       </section>
 
-      <!-- REPLACE THE LAYER (+ rejected) -->
+      <!-- W-03 · Choose a video  /  W-12 · Add your video (first)  /  W-10 · Upload rejected -->
       <section id="vReplace" hidden>
         <div class="app-head">
           <div>
-            <a class="back" href="#" data-go-layer>&larr; Back to the piece</a>
-            <h1>Replace the layer</h1>
+            <a class="back" href="#" id="rBack" data-go-layer>&larr; Back to your T-shirt</a>
+            <h1 id="rTitle">Choose a video</h1>
             <p id="rMeta"></p>
           </div>
-          <button class="b b--dark d-none d-lg-inline-flex" type="button" id="publishTop" disabled>Publish</button>
+          <button class="b b--dark d-none d-lg-inline-flex" type="button" id="publishTop" disabled>Add your video</button>
         </div>
         <div class="two">
           <div>
@@ -131,7 +104,7 @@
               <svg width="30" height="34" viewBox="0 0 30 34" aria-hidden="true"><path d="M15 34V6M3 16L15 3l12 13z" fill="var(--accent-500)" stroke="var(--accent-500)" stroke-width="2"/></svg>
               <strong id="dropTitle">Drop a file here</strong>
               <p id="dropSub">or choose one from your device</p>
-              <p class="t-small">Video only &middot; MP4, H.264 &middot; up to 10 MB &middot; vertical reads best on a shirt</p>
+              <p class="t-small">Video only &middot; MP4, H.264 &middot; up to 10 MB &middot; vertical works best on a T-shirt</p>
             </label>
             <div class="drop drop--bad" id="bad" hidden role="alert">
               <svg width="54" height="54" viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="25" fill="none" stroke="var(--danger-500)" stroke-width="2"/><path d="M19 19l16 16M35 19L19 35" stroke="var(--danger-500)" stroke-width="2"/></svg>
@@ -142,45 +115,35 @@
           </div>
           <div style="display:grid;gap:16px" id="replaceSide">
             <div class="still" id="stillLive">
-              <span class="sdot">Still live until you publish</span>
+              <span class="sdot">Current video</span>
               <div class="still__row"><div class="ph" id="stillV">V1</div><div><div style="color:var(--ink-900)" id="stillName"></div><div class="t-small" id="stillMeta"></div></div></div>
-              <p style="font-size:13px;margin:0">Publishing replaces this. Anyone who scans the shirt from then on sees the new file &mdash; including people who already own one.</p>
             </div>
-            <div class="field" style="margin:8px 0 0">
-              <label for="label" class="t-label" style="font-weight:500">Name this version</label>
-              <input class="input" id="label" maxlength="80" placeholder="e.g. Rooftop, 4am" aria-describedby="labelHelp">
-              <span class="field-help" id="labelHelp">Only you see this. It is how you find the version again.</span>
-            </div>
-            <div>
-              <p class="t-label" style="margin-bottom:8px">When it goes live</p>
-              <div class="radio-row"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--accent-700)" stroke-width="1.5"/><circle cx="8" cy="8" r="3.5" fill="var(--accent-700)"/></svg>Straight away, as soon as it finishes uploading</div>
-            </div>
-            <button class="b b--dark b--block d-lg-none" type="button" id="publishM" disabled>Publish</button>
+            <button class="b b--dark b--block d-lg-none" type="button" id="publishM" disabled>Add your video</button>
             <p class="auth__status" id="rStatus" role="status" aria-live="polite"></p>
           </div>
           <div style="display:grid;gap:16px" id="rejectSide" hidden>
-            <div class="checks"><div class="hist__head t-label">What a layer has to be</div><div id="checks"></div></div>
+            <div class="checks"><div class="checks__head t-label">What a video has to be</div><div id="checks"></div></div>
             <div class="note"><strong id="untouchedTitle">Nothing was replaced</strong><p id="untouchedBody"></p></div>
             <button class="b b--dark b--block" type="button" id="chooseAnother">Choose another file</button>
-            <button class="b b--ghost b--block" type="button" data-go-layer>Cancel</button>
+            <button class="b b--ghost b--block" type="button" id="cancelReject">Cancel</button>
           </div>
         </div>
       </section>
 
-      <!-- PUBLISHING -->
+      <!-- W-07 · Video processing -->
       <section id="vPublish" hidden>
-        <div class="app-head"><div><h1>Publishing</h1><p id="pubMeta"></p></div></div>
+        <div class="app-head"><div><h1>Processing</h1><p id="pubMeta"></p></div></div>
         <div class="two">
           <div class="prog">
             <span class="t-label t-label--teal" id="pubState">Uploading</span>
             <h3 id="pubName"></h3>
-            <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pubBar"><i></i></div>
+            <div class="bar" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pubBar"><i></i></div>
             <p class="tnum" style="margin:14px 0 18px;color:var(--ink-900);font-size:14px" id="pubPct"></p>
-            <p class="t-small" style="max-width:380px;margin:0" id="pubKeep">Keep this tab open. If you close it the upload stops and the shirt keeps playing what it plays now.</p>
+            <p class="t-small" style="max-width:380px;margin:0" id="pubKeep">Keep this tab open. If you close it the upload stops and your T-shirt keeps its current video.</p>
           </div>
           <div style="display:grid;gap:16px">
             <div class="checks" id="steps"></div>
-            <div class="note"><strong id="pubStillTitle">The current layer is still what plays</strong><p>The shirt keeps showing the old layer until this finishes. Nobody sees a broken frame in between.</p></div>
+            <div class="note"><strong id="pubStillTitle">Current video during processing</strong><p>People keep seeing your current video until this finishes. Nobody sees a broken frame in between.</p></div>
             <button class="b b--ghost b--block" type="button" id="cancelUpload" style="background:var(--surface-0)">Cancel the upload</button>
           </div>
         </div>
@@ -202,6 +165,7 @@
     var qs = new URLSearchParams(location.search);
     var id = qs.get('id');
     var P = null, chosen = null, xhr = null;
+    var justAdded = qs.get('added') === '1';
     var MAX = 10 * 1024 * 1024, MAX_SECONDS = 30;
     var views = { layer: document.getElementById('vLayer'), replace: document.getElementById('vReplace'), publish: document.getElementById('vPublish') };
 
@@ -210,7 +174,8 @@
     function plain(t) { return String(t || '').replace(/^No\.\s*\d+\s+/, ''); }
     function name() { return P.nickname || 'Untitled'; }
     function current() { return P.current_layer || null; }
-    function layerName(l) { return l.label || (l.version === 1 ? 'First layer' : 'Version ' + l.version); }
+    function layerName(l) { return l.label || (l.version === 1 ? 'First video' : 'Version ' + l.version); }
+    function subline() { return [name(), plain(P.product && P.product.title)].filter(Boolean).join(' · '); }
     function show(v) {
       Object.keys(views).forEach(function (k) { views[k].hidden = k !== v; });
       window.scrollTo(0, 0);
@@ -220,43 +185,36 @@
 
     function render() {
       document.getElementById('loadState').hidden = true;
-      document.title = name() + ' | INRL';
-      document.getElementById('pName').textContent = name();
+      document.title = name() + ' | InRL';
       var cur = current();
-      document.getElementById('pMeta').textContent = [P.claim_code, plain(P.product && P.product.title), cur ? 'V' + cur.version : 'Not published', cur ? 'published ' + fmtDate(cur.created_at) : ''].filter(Boolean).join(' · ');
-      document.getElementById('sScans').textContent = (P.scan_count || 0).toLocaleString();
-      document.getElementById('sVersions').textContent = (P.layers || []).length;
-      document.getElementById('sLast').textContent = P.last_scanned_at ? fmtDate(P.last_scanned_at) : 'Not yet';
-      document.getElementById('sSince').textContent = fmtDate(P.claimed_at) || '—';
 
+      // W-02 · Your current video (W-13 · Video added straight after publishing)
+      document.getElementById('lTitle').textContent = justAdded ? 'Video added' : 'Your current video';
+      document.getElementById('pName').textContent = subline();
+      document.getElementById('pMeta').innerHTML = (cur ? '<span class="sdot">Live</span>' : '<span class="sdot sdot--draft">No video</span>')
+        + esc([P.claim_code, cur ? 'V' + cur.version : '', cur ? fmtDate(cur.created_at) : ''].filter(Boolean).join(' · '));
       var player = document.getElementById('player');
       if (cur && cur.video_url) {
-        player.innerHTML = '<video controls playsinline preload="metadata" src="' + esc(cur.video_url) + '"></video>';
+        player.innerHTML = '<video controls playsinline preload="metadata" aria-label="Your current video" src="' + esc(cur.video_url) + '"></video>';
         var v = player.querySelector('video');
         v.addEventListener('loadedmetadata', function () {
           var s = Math.round(v.duration || 0);
           document.getElementById('fileMeta').textContent = '0:' + String(s).padStart(2, '0') + ' · ' + (cur.video_url.split('.').pop() || 'mp4').toUpperCase().slice(0, 4);
         });
-        var dl = document.getElementById('dl'); dl.hidden = false; dl.href = cur.video_url;
       }
 
-      var layers = P.layers || [];
-      document.getElementById('hist').innerHTML = layers.length ? layers.map(function (l, i) {
-        return '<div class="hist__row' + (i === 0 ? ' is-live' : '') + '"><span class="v">V' + l.version + '</span><span>' + esc(layerName(l)) + '</span><span class="d tnum">' + (i === 0 ? 'Live now' : esc(fmtDate(l.created_at))) + '</span></div>';
-      }).join('') : '<div class="hist__row"><span class="v">&mdash;</span><span>Nothing yet. A scan plays the drop&rsquo;s default film.</span><span></span></div>';
-
-      var link = document.getElementById('viewerLink');
-      link.href = P.viewer_url; link.textContent = P.viewer_url.replace(/^https?:\/\//, '');
-      if (window.QRCode) QRCode.toCanvas(document.getElementById('qr'), P.viewer_url, { width: 88, margin: 0, color: { dark: '#384143', light: '#ffffff' } }, function () {});
-
-      // replace view header + "still live" card
-      document.getElementById('rMeta').textContent = name().toUpperCase() + ' · ' + P.claim_code + (cur ? ' · replacing V' + cur.version : ' · first layer');
+      // W-03 · Choose a video (replacing) / W-12 · Add your video (first video)
+      document.getElementById('rTitle').textContent = cur ? 'Choose a video' : 'Add your video';
+      document.getElementById('rMeta').textContent = subline();
+      var back = document.getElementById('rBack');
+      if (cur) { back.setAttribute('href', '#'); back.setAttribute('data-go-layer', ''); back.innerHTML = '&larr; Back to your T-shirt'; }
+      else { back.setAttribute('href', 'wardrobe.html'); back.removeAttribute('data-go-layer'); back.innerHTML = '&larr; Back to your T-shirts'; }
       var still = document.getElementById('stillLive');
       still.hidden = !cur;
       if (cur) {
         document.getElementById('stillV').textContent = 'V' + cur.version;
         document.getElementById('stillName').textContent = layerName(cur);
-        document.getElementById('stillMeta').textContent = 'Published ' + fmtDate(cur.created_at) + ' · ' + (P.scan_count || 0).toLocaleString() + ' scans';
+        document.getElementById('stillMeta').textContent = 'Current video · ' + fmtDate(cur.created_at);
       }
     }
 
@@ -298,20 +256,20 @@
       var isMp4 = /mp4/i.test(file.type) || ext === 'MP4' || ext === 'M4V';
       var checks = [
         { k: 'Format', want: 'MP4, H.264', bad: !isMp4 || !meta.ok, got: !isMp4 ? (ext || file.type || 'Unknown') : (!meta.ok ? 'Can’t be played' : '—') },
-        { k: 'Size', want: 'Up to 10 MB', bad: file.size > MAX, got: file.size > MAX ? mb(file.size) : mb(file.size) },
-        { k: 'Shape', want: 'Vertical reads best', bad: false, got: meta.ok && meta.w && meta.w > meta.h ? 'Landscape' : '—' },
+        { k: 'Size', want: 'Up to 10 MB', bad: file.size > MAX, got: mb(file.size) },
+        { k: 'Shape', want: 'Vertical works best', bad: false, got: meta.ok && meta.w && meta.w > meta.h ? 'Landscape' : '—' },
         { k: 'Length', want: 'Under 30 seconds', bad: meta.ok && meta.duration > MAX_SECONDS, got: meta.ok && meta.duration ? '0:' + String(Math.round(meta.duration)).padStart(2, '0') : '—' },
       ];
       var bad = checks.filter(function (c) { return c.bad; });
       if (bad.length) return reject(file, ext, checks, bad);
       chosen = file;
       document.getElementById('dropTitle').textContent = file.name;
-      document.getElementById('dropSub').textContent = mb(file.size) + (meta.duration ? ' · 0:' + String(Math.round(meta.duration)).padStart(2, '0') : '') + ' · ready to publish';
-      if (!document.getElementById('label').value) document.getElementById('label').value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 80);
+      document.getElementById('dropSub').textContent = mb(file.size) + (meta.duration ? ' · 0:' + String(Math.round(meta.duration)).padStart(2, '0') : '') + ' · ready to add';
       ['publishTop', 'publishM'].forEach(function (x) { document.getElementById(x).disabled = false; });
       AuthForms.status('', '', document.getElementById('rStatus'));
     }
 
+    // W-10 · Upload rejected
     function reject(file, ext, checks, bad) {
       document.getElementById('drop').hidden = true;
       document.getElementById('bad').hidden = false;
@@ -329,8 +287,8 @@
       var cur = current();
       document.getElementById('untouchedTitle').textContent = cur ? 'V' + cur.version + ' is untouched' : 'Nothing was replaced';
       document.getElementById('untouchedBody').textContent = cur
-        ? 'Nothing was replaced. The shirt is still playing “' + layerName(cur) + '” and will keep doing so until a file passes these checks.'
-        : 'Nothing was uploaded. The shirt keeps playing the drop’s default film until a file passes these checks.';
+        ? 'Nothing was replaced. Your T-shirt still shows “' + layerName(cur) + '” until a file passes these checks.'
+        : 'Nothing was uploaded. Your T-shirt keeps its default film until a file passes these checks.';
     }
     function resetReplace() {
       chosen = null; fileIn.value = '';
@@ -343,25 +301,28 @@
       render();
     }
     document.getElementById('chooseAnother').addEventListener('click', function () { resetReplace(); fileIn.click(); });
+    document.getElementById('cancelReject').addEventListener('click', function () {
+      resetReplace();
+      if (current()) show('layer'); else location.href = 'wardrobe.html';
+    });
 
-    /* ---------- publish with progress ---------- */
+    /* ---------- W-07 · processing ---------- */
     function steps(state) {
-      var cur = current();
       var rows = [['Uploaded', state >= 1], ['Checked for size and format', true], ['Published to ' + P.claim_code, state >= 2]];
       document.getElementById('steps').innerHTML = rows.map(function (r, i) {
         var done = r[1], working = !done && (i === 0 || (i === 2 && state === 1));
         return '<div class="checks__row' + (done || working ? '' : ' is-wait') + '" style="grid-template-columns:14px 1fr auto"><i></i><span' + (working ? ' style="font-weight:500"' : '') + '>' + esc(r[0]) + '</span><span class="r">' + (done ? 'Done' : working ? 'Working' : '—') + '</span></div>';
       }).join('');
-      document.getElementById('pubStillTitle').textContent = cur ? 'V' + cur.version + ' is still what plays' : 'The default film is still what plays';
     }
     function publish() {
       if (!chosen) { AuthForms.status('Choose a file first.', 'error', document.getElementById('rStatus')); return; }
       var cur = current();
       show('publish');
-      document.getElementById('pubMeta').textContent = name().toUpperCase() + ' · ' + P.claim_code + (cur ? ' · replacing V' + cur.version : '');
+      document.getElementById('pubMeta').textContent = subline() + (cur ? ' · replacing V' + cur.version : '');
       document.getElementById('pubName').textContent = chosen.name;
+      document.getElementById('pubStillTitle').textContent = cur ? 'Current video during processing' : 'Default film during processing';
       steps(0);
-      var fd = new FormData(); fd.append('file', chosen); fd.append('label', document.getElementById('label').value.trim());
+      var fd = new FormData(); fd.append('file', chosen); fd.append('label', chosen.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 80));
       xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/pieces/' + encodeURIComponent(id) + '/layer');
       xhr.withCredentials = true;
@@ -370,7 +331,7 @@
         var pct = Math.round(e.loaded / e.total * 100);
         document.querySelector('#pubBar i').style.width = pct + '%';
         document.getElementById('pubBar').setAttribute('aria-valuenow', pct);
-        document.getElementById('pubPct').textContent = pct + '%  ·  ' + mb(e.loaded) + ' of ' + mb(e.total);
+        document.getElementById('pubPct').textContent = pct + '% · ' + mb(e.loaded) + ' of ' + mb(e.total);
         if (pct === 100) { document.getElementById('pubState').textContent = 'Publishing'; steps(1); }
       };
       xhr.onload = function () {
@@ -378,8 +339,8 @@
         if (xhr.status >= 200 && xhr.status < 300) {
           steps(2);
           document.getElementById('pubState').textContent = 'Live';
-          document.getElementById('pubKeep').textContent = 'Done. Anyone who scans the shirt now sees V' + d.version + '.';
-          setTimeout(function () { location.href = 'piece.html?id=' + encodeURIComponent(id); }, 1200);
+          document.getElementById('pubKeep').textContent = 'Done. Anyone who scans your T-shirt now sees V' + d.version + '.';
+          setTimeout(function () { location.href = 'piece.html?id=' + encodeURIComponent(id) + '&added=1'; }, 1200);
         } else {
           show('replace');
           AuthForms.status('The upload failed: ' + (d.error || 'server error ' + xhr.status) + '. Nothing was replaced.', 'error', document.getElementById('rStatus'));
@@ -395,22 +356,22 @@
     window.addEventListener('beforeunload', function (e) { if (xhr && xhr.readyState > 0 && xhr.readyState < 4) { e.preventDefault(); e.returnValue = ''; } });
 
     document.addEventListener('click', function (e) {
-      if (e.target.closest('[data-go-replace]')) { resetReplace(); show('replace'); }
+      if (e.target.closest('[data-go-replace]')) { justAdded = false; resetReplace(); show('replace'); }
       else if (e.target.closest('[data-go-layer]')) { e.preventDefault(); resetReplace(); show('layer'); }
     });
 
     AppRail.ready.then(async function () {
       var ls = document.getElementById('loadState');
-      if (!id) { ls.textContent = 'No piece was chosen. Go back to the wardrobe and pick one.'; return; }
+      if (!id) { ls.textContent = 'No T-shirt was chosen. Go back to Your T-shirts and pick one.'; return; }
       try {
         var res = await fetch('/api/pieces/' + encodeURIComponent(id), { credentials: 'include' });
         if (res.status === 401) { location.href = 'login.html?next=' + encodeURIComponent('piece.html?id=' + id); return; }
-        if (res.status === 404) { ls.innerHTML = 'That piece isn’t in your wardrobe. <a class="t-link--teal" href="wardrobe.html">Back to the wardrobe</a>'; return; }
+        if (res.status === 404) { ls.innerHTML = 'That T-shirt isn’t in your account. <a class="t-link--teal" href="wardrobe.html">Back to Your T-shirts</a>'; return; }
         if (!res.ok) throw new Error('server error ' + res.status);
         P = await res.json();
         render();
-        if (qs.get('new') === '1') document.getElementById('welcome').hidden = false;
-        if (qs.get('replace') === '1' || (qs.get('new') === '1' && !current())) show('replace'); else show('layer');
+        // No video yet → straight to W-12 · Add your video.
+        if (qs.get('replace') === '1' || !current()) show('replace'); else show('layer');
       } catch (e) {
         ls.textContent = 'Something broke on our side: ' + e.message + '.';
       }

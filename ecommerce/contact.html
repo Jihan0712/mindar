@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Contact | INRL</title>
+  <title>Contact | InRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Talk to a person at INRL. We answer within one working day.">
@@ -53,13 +53,13 @@
       <div class="sent-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></div>
       <p class="t-label t-label--teal" id="sentKicker">Message sent</p>
       <h1 class="t-task" style="margin:12px 0 20px" id="sentTitle">A person will read it.</h1>
-      <p class="t-lead" style="max-width:620px;font-size:16px" id="sentBody">Usually within a day, and always by someone who can actually change something.</p>
-      <div class="b-row b-row--stack" style="margin:28px 0 64px"><a class="b" href="shop.html">Back to the drop</a><a class="b b--ghost" href="order-tracking.html">Track an order</a></div>
+      <p class="t-lead" style="max-width:620px;font-size:16px" id="sentBody">Someone who can actually change something will read it and reply by email.</p>
+      <div class="b-row b-row--stack" style="margin:28px 0 64px"><a class="b" href="shop.html">Back to the shop</a><a class="b b--ghost" href="order-tracking.html">Track an order</a></div>
       <p class="t-label" style="margin-bottom:16px">Faster than waiting</p>
       <div class="fcards">
         <a href="order-tracking.html"><strong>Where is my order?</strong><p>Track it with the number from your confirmation email.</p></a>
-        <a href="returns.html"><strong>How do I return something?</strong><p>Thirty days, unworn, tags on. The Returns page has the steps.</p></a>
-        <a href="mailto:contact@inrl.co?subject=The%20print%20will%20not%20scan"><strong>The print will not scan</strong><p>Send a photo &mdash; a faulty marker is replaced, and you post nothing back.</p></a>
+        <a href="returns.html"><strong>How do I return something?</strong><p>Thirty days, unworn, tags on. The Shipping and Returns page has the steps.</p></a>
+        <a href="mailto:contact@inrl.co?subject=My%20video%20will%20not%20show"><strong>My video won&rsquo;t show</strong><p>Send a photo of the print &mdash; a faulty print is replaced, and you post nothing back.</p></a>
       </div>
     </section>
   </main>
@@ -85,9 +85,9 @@
       if (emailApp) {
         document.getElementById('sentKicker').textContent = 'Nearly there';
         document.getElementById('sentTitle').textContent = 'Press send in your email app.';
-        document.getElementById('sentBody').textContent = 'Your message is written out in a new email to contact@inrl.co. Once you send it, a person reads it — usually within a day.';
+        document.getElementById('sentBody').textContent = 'Your message is written out in a new email to contact@inrl.co. Once you send it, a person reads it.';
       } else if (email) {
-        document.getElementById('sentBody').textContent = 'Usually within a day, and always by someone who can actually change something. We will reply to ' + email + '.';
+        document.getElementById('sentBody').textContent = 'Someone who can actually change something will read it. We will reply to ' + email + '.';
       }
       window.scrollTo(0, 0);
     }

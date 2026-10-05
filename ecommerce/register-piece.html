@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Register a piece | INRL</title>
+  <title>Add a T-shirt | InRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
@@ -58,8 +58,8 @@
   <div class="shell">
     <aside class="rail" id="app-rail" data-active="register"></aside>
     <main id="main" class="app__main">
-      <a class="back d-lg-none" href="wardrobe.html">&larr; Back to the wardrobe</a>
-      <div class="app-head"><div><h1>Register a piece</h1><p id="sub">Add a garment you already own. Registering is what lets you change what it plays.</p></div></div>
+      <a class="back d-lg-none" href="wardrobe.html">&larr; Back to Your T-shirts</a>
+      <div class="app-head"><div><h1>Add a T-shirt</h1><p id="sub">Add a T-shirt you already own that isn&rsquo;t in Your T-shirts yet. Once it is, you can choose and change its video.</p></div></div>
 
       <!-- DEFAULT -->
       <section id="vDefault">
@@ -79,7 +79,7 @@
               <input class="input code-in" id="codeInput" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="INRL-047-8H2K" aria-describedby="codeHelp" required>
               <span class="field-help" id="codeHelp">Printed under the size. Case does not matter.</span>
             </div>
-            <button class="b b--dark b--block" type="submit" id="findBtn">Find this piece</button>
+            <button class="b b--dark b--block" type="submit" id="findBtn">Find this T-shirt</button>
             <button class="b b--ghost b--block d-lg-none" type="button" data-open-scan style="margin-top:12px">Scan the tag instead</button>
             <p class="auth__status" id="status" role="status" aria-live="polite"></p>
           </form>
@@ -87,21 +87,21 @@
         <div id="matchWrap" hidden style="margin-top:28px">
           <p class="t-label" style="margin-bottom:12px">What happens when it matches</p>
           <div class="match" id="match"></div>
-          <p class="t-body" style="font-size:14px;margin-top:14px">Claiming links the garment to your account. You can then publish a layer to it, and replace that layer whenever you like. If you sell the shirt, the new owner claims it the same way and it leaves your wardrobe.</p>
+          <p class="t-body" style="font-size:14px;margin-top:14px">Adding it links the T-shirt to your account. You can then choose a video for it, and change that video whenever you like. If you sell the T-shirt, the new owner adds it the same way and it leaves your account.</p>
         </div>
       </section>
 
       <!-- NO MATCH -->
       <section id="vNone" hidden>
         <div class="alert-red" role="alert">
-          <span class="sdot">No piece with that code</span>
+          <span class="sdot">No T-shirt with that code</span>
           <form id="retryForm" novalidate><label for="retryInput" class="visually-hidden">Code</label><input class="input code-in" id="retryInput" autocomplete="off" spellcheck="false"></form>
           <p style="margin:0">Nothing in the catalogue carries that code. Codes are twelve characters and case does not matter, so the usual cause is a mistyped character.</p>
         </div>
         <div class="tips3">
           <div class="tile"><span class="t-label t-label--teal">Check these first</span><p>0 and O look alike on a woven label, and so do 1 and I. Try the other one.</p></div>
           <div class="tile"><span class="t-label t-label--teal">Still nothing?</span><p>Photograph the tag and send it to <a class="t-link--teal" href="mailto:contact@inrl.co?subject=Tag%20code%20not%20found">contact@inrl.co</a>. We can look it up from the picture.</p></div>
-          <div class="tile"><span class="t-label t-label--teal">No tag at all?</span><p>Pieces made before Aug 2026 have the code printed under the size instead.</p></div>
+          <div class="tile"><span class="t-label t-label--teal">No tag at all?</span><p>T-shirts made before Aug 2026 have the code printed under the size instead.</p></div>
         </div>
         <div class="b-row"><button class="b b--dark" type="button" id="tryAnother">Try another code</button><button class="b b--ghost" type="button" data-open-scan>Scan the tag instead</button></div>
       </section>
@@ -109,12 +109,12 @@
       <!-- OWNED BY SOMEONE ELSE -->
       <section id="vOwned" hidden>
         <div class="alert-amber" role="alert">
-          <span class="sdot sdot--draft">Registered to another account</span>
+          <span class="sdot sdot--draft">In another account</span>
           <div class="owned" id="ownedPiece"></div>
-          <p style="margin:0">A piece can only sit in one wardrobe. If you bought this second hand, the previous owner has to release it &mdash; or you can ask us to move it, and we will check the receipt first.</p>
+          <p style="margin:0">A T-shirt can only be in one account. If you bought this second hand, the previous owner has to release it &mdash; or you can ask us to move it, and we will check the receipt first.</p>
         </div>
         <div class="b-row" style="margin:24px 0"><a class="b b--dark" id="askMove" href="mailto:contact@inrl.co">Ask us to move it</a><button class="b b--ghost" type="button" data-try-another>Try another code</button></div>
-        <div class="panel" style="padding:20px 20px"><p style="font-weight:500;color:var(--ink-900);margin:0 0 4px">Why we check</p><p style="margin:0;font-size:14px">The layer is the owner&rsquo;s to change. If anyone could claim any code, they could replace what plays on a shirt they have never held.</p></div>
+        <div class="panel" style="padding:20px 20px"><p style="font-weight:500;color:var(--ink-900);margin:0 0 4px">Why we check</p><p style="margin:0;font-size:14px">The video is the owner&rsquo;s to change. If anyone could add any code, they could change the video on a T-shirt they have never held.</p></div>
       </section>
     </main>
   </div>
@@ -122,7 +122,7 @@
   <!-- PHONE CAMERA -->
   <div class="scan" id="scan" role="dialog" aria-modal="true" aria-label="Scan the tag" hidden>
     <video id="scanVideo" playsinline muted></video>
-    <div class="scan__top"><span class="t-label">Register a piece</span><button class="mmenu__close" type="button" aria-label="Close camera" data-close-scan><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 1l16 16M17 1L1 17" stroke="currentColor" stroke-width="1.6"/></svg></button></div>
+    <div class="scan__top"><span class="t-label">Add a T-shirt</span><button class="mmenu__close" type="button" aria-label="Close camera" data-close-scan><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 1l16 16M17 1L1 17" stroke="currentColor" stroke-width="1.6"/></svg></button></div>
     <div class="scan__frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <div class="scan__msg"><p class="t-label" id="scanLabel">Hold it over the tag</p><p id="scanMsg">The woven label inside the collar &mdash; not the printed graphic on the back.</p></div>
     <div class="scan__foot">
@@ -174,37 +174,37 @@
         var d = await res.json();
         if (d.status === 'yours') { location.href = 'piece.html?id=' + encodeURIComponent(d.id); return; }
         if (d.status === 'owned') {
-          document.getElementById('ownedPiece').innerHTML = thumb(d.product) + '<div><h3>' + esc(plain(d.product.title)) + '</h3><div class="t-small">' + esc(d.claim_code) + (d.claimed_at ? ' &middot; claimed ' + esc(fmtDate(d.claimed_at)) : '') + (d.version ? ' &middot; currently on V' + d.version : '') + '</div></div>';
-          document.getElementById('askMove').href = 'mailto:contact@inrl.co?subject=' + encodeURIComponent('Move piece ' + d.claim_code + ' to my wardrobe') + '&body=' + encodeURIComponent('Hi — I own the piece with tag code ' + d.claim_code + ' and would like it moved to my account. I have attached the receipt.');
-          show('o', 'Someone already owns this piece');
+          document.getElementById('ownedPiece').innerHTML = thumb(d.product) + '<div><h3>' + esc(plain(d.product.title)) + '</h3><div class="t-small">' + esc(d.claim_code) + (d.claimed_at ? ' &middot; added ' + esc(fmtDate(d.claimed_at)) : '') + (d.version ? ' &middot; currently on video V' + d.version : '') + '</div></div>';
+          document.getElementById('askMove').href = 'mailto:contact@inrl.co?subject=' + encodeURIComponent('Move T-shirt ' + d.claim_code + ' to my account') + '&body=' + encodeURIComponent('Hi — I own the T-shirt with tag code ' + d.claim_code + ' and would like it moved to my account. I have attached the receipt.');
+          show('o', 'Someone already owns this T-shirt');
           return;
         }
         show('d');
         var wrap = document.getElementById('matchWrap');
         wrap.hidden = false;
         document.getElementById('match').innerHTML = thumb(d.product)
-          + '<div><span class="sdot">Not registered to anyone</span><h3>' + esc(plain(d.product.title)) + '</h3><div class="t-small">' + esc(d.claim_code) + (d.made_at ? ' &middot; made ' + esc(fmtDate(d.made_at)) : '') + '</div></div>'
-          + '<button class="b" type="button" id="claimBtn" style="--b-bg:var(--accent-700);--b-bd:var(--accent-700)">Claim this piece</button>';
+          + '<div><span class="sdot">Not in anyone’s account</span><h3>' + esc(plain(d.product.title)) + '</h3><div class="t-small">' + esc(d.claim_code) + (d.made_at ? ' &middot; made ' + esc(fmtDate(d.made_at)) : '') + '</div></div>'
+          + '<button class="b" type="button" id="claimBtn" style="--b-bg:var(--accent-700);--b-bd:var(--accent-700)">Add this T-shirt</button>';
         document.getElementById('claimBtn').addEventListener('click', function () { claim(d.claim_code, this); });
         wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } catch (e) {
         AuthForms.status(e.message, 'error');
       } finally {
-        btn.disabled = false; btn.textContent = 'Find this piece';
+        btn.disabled = false; btn.textContent = 'Find this T-shirt';
       }
     }
 
     async function claim(code, btn) {
-      btn.disabled = true; btn.textContent = 'Claiming…';
+      btn.disabled = true; btn.textContent = 'Adding…';
       try {
         var res = await fetch('/api/pieces/claim', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claim_code: code }) });
         var d = await res.json().catch(function () { return {}; });
         if (res.status === 409) { lookup(code); return; }
-        if (!res.ok) throw new Error(d.error || 'Could not claim the piece.');
+        if (!res.ok) throw new Error(d.error || 'Could not add the T-shirt.');
         location.href = 'piece.html?id=' + encodeURIComponent(d.id) + '&new=1';
       } catch (e) {
         AuthForms.status(e.message, 'error');
-        btn.disabled = false; btn.textContent = 'Claim this piece';
+        btn.disabled = false; btn.textContent = 'Add this T-shirt';
       }
     }
 

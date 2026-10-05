@@ -1125,31 +1125,31 @@
     return normalizeHomepagePayload({
       billboard: {
         title: 'Life is in beta',
-        description: 'One shirt. The layer it carries keeps changing — scan the print and it plays.',
+        description: 'A T-shirt. A video you choose.',
         image: ''
       },
       slides: [
         {
           image: 'images/post-large-image1.jpg',
           title: 'Life is in beta',
-          text: 'One shirt. The layer it carries keeps changing — scan the print and it plays.',
+          text: 'A T-shirt. A video you choose.',
           href: 'shop.html',
-          linkLabel: 'Shop the drop'
+          linkLabel: 'Buy now'
         }
       ],
       whoWeAre: {
-        label: 'What we make, and why it keeps moving.',
-        headline: 'We print it once. What it carries keeps changing.',
-        body: "A garment is finished the moment it leaves the factory. The print is a marker; scanning it plays whatever is attached to that piece right now — and the owner decides what that is.",
+        label: 'Why we made InRL',
+        headline: 'CULTURE MOVES. WHAT WE WEAR SHOULD TOO.',
+        body: "There’s more than one side to each of us. What we love, make and care about changes as we do. We share so much of it online. What if it could start conversations in real life?\n\nSo we made InRL: clothing that brings your digital content into the real world. Choose what you share, change it when you want, and let people discover sides of you they might not see otherwise.",
         stats: [],
       },
       features: {
-        label: 'The Experience',
-        headline: 'How we can actually do this.',
+        label: 'How it works',
+        headline: 'How it works.',
         items: [
-          { image: '', title: 'The print is the marker', body: "There's no QR patch stitched into the hem. The artwork on the garment is the thing the camera reads." },
-          { image: '', title: 'Nothing to install', body: 'It opens in the browser the way any link does. No app, no account, no store page in between.' },
-          { image: '', title: 'Tied to the garment', body: 'The layer is registered against the piece, not the order. It survives being lent, resold or handed down.' },
+          { image: '', title: 'Buy your T-shirt.', body: 'Choose a T-shirt and check out. It appears in your account once payment goes through.' },
+          { image: '', title: 'Choose your video.', body: 'Add your video from your account. Change it whenever you have something else to share.' },
+          { image: '', title: 'Let people see it.', body: "Someone scans the QR code, opens the link and points their phone's camera at the print. Your video plays over it. No app needed." },
         ],
       },
       testimonials: [],
@@ -1262,8 +1262,8 @@
     return normalizeThemePayload({
       colors: { primary: '#12a2b8', accent: '#4fc3d5', dark: '#0b0f10', light: '#ffffff' },
       logoUrl: 'images/logo.svg',
-      siteName: 'INRL',
-      tagline: 'Garments that keep changing after you own them.',
+      siteName: 'InRL',
+      tagline: 'Culture moves. What we wear should too.',
     });
   }
 

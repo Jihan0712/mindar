@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>My wardrobe | INRL</title>
+  <title>Your T-shirts | InRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
@@ -10,6 +10,12 @@
   <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <style>
+    /* Phone sub-nav (M-12 · M-27 · M-38) — the desktop rail covers this ≥1024 */
+    .app-tabs{display:flex;gap:8px;margin:-8px 0 24px;overflow-x:auto;scrollbar-width:none}
+    .app-tabs::-webkit-scrollbar{display:none}
+    .app-tabs a{flex-shrink:0;padding:7px 14px;border-radius:999px;background:var(--surface-3);color:var(--ink-700);font-size:13px;line-height:1;text-decoration:none}
+    .app-tabs a[aria-current="page"]{background:var(--teal-200);color:var(--ink-900)}
+
     .wgrid{display:grid;gap:16px}
     @media (min-width:1024px){.wgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}}
     .wcard{background:var(--surface-0);display:flex;flex-direction:column;color:inherit;text-decoration:none;min-width:0}
@@ -18,30 +24,23 @@
     .wcard h3{font:400 16px/1.3 var(--font-body);color:var(--ink-900);margin:8px 0 4px;text-transform:none;letter-spacing:0;overflow-wrap:anywhere}
     .wcard .meta{font-size:13px;color:var(--ink-500);line-height:1.6}
     .wcard .meta+.meta{color:var(--ink-700)}
-    .wcard__foot{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line-100);margin-top:10px;padding-top:10px;font-size:13px}
-    .wcard__foot a{color:var(--accent-700);font-weight:500;text-decoration:none}
-    .wcard__foot a:hover{text-decoration:underline}
-    .wcard--add{border:1px dashed var(--line-200);background:transparent;align-items:center;justify-content:center;text-align:center;padding:32px 16px;min-height:160px}
-    .wcard--add:hover{background:var(--surface-50)}
-    .wcard--add strong{display:block;font-weight:500;color:var(--ink-900);margin-top:10px}
-    .wcard--add span{font-size:13px;color:var(--ink-700)}
+    .wcard__foot{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line-100);margin-top:auto;padding-top:10px;font-size:13px;color:var(--ink-500)}
+    .wcard__body > :nth-last-child(2){margin-bottom:10px}
+    .wcard__act{color:var(--accent-700);font-weight:500;margin-left:auto}
+    .wcard:hover .wcard__act{text-decoration:underline}
     @media (max-width:1023.98px){
-      .wcard:not(.wcard--add){display:grid;grid-template-columns:72px 1fr;gap:14px;padding:14px;border:1px solid var(--line-100)}
-      .wcard:not(.wcard--add) .ph{aspect-ratio:auto;height:90px;font-size:9px}
+      .wcard{display:grid;grid-template-columns:56px 1fr;gap:14px;padding:12px;border:1px solid var(--line-100)}
+      .wcard .ph{aspect-ratio:auto;height:64px;font-size:9px}
       .wcard__body{padding:0}
-      .wcard__foot{border:0;margin:0;padding:0}
-      .wcard .scans{display:none}
-      .wcard__foot{position:relative;top:-22px;justify-content:flex-end;height:0}
-      .wcard--add .plus{display:none}
-      .wcard--add{margin-top:40px}
+      .wcard h3{margin:4px 0 2px}
+      .wcard__body > :nth-last-child(2){margin-bottom:0}
+      .wcard__foot{border:0;padding-top:4px;font-size:12px}
     }
+
     .empty-card{background:var(--surface-0);border:1px dashed var(--line-200);text-align:center;padding:48px 24px}
-    @media (min-width:1024px){.empty-card{padding:48px 120px}}
+    @media (min-width:1024px){.empty-card{padding:56px 120px}}
     .empty-card h2{font:500 24px/1.1 var(--font-display);text-transform:uppercase;color:var(--ink-900);margin:16px 0 12px}
     .empty-card p{max-width:520px;margin:0 auto 20px;font-size:14px}
-    .tips{display:grid;gap:12px;margin-top:16px}
-    @media (min-width:1024px){.tips{grid-template-columns:repeat(3,1fr);gap:16px}}
-    .tips .tile p{font-size:13px;margin:0}
   </style>
 </head>
 <body class="site app">
@@ -50,35 +49,28 @@
   <div class="shell">
     <aside class="rail" id="app-rail" data-active="wardrobe"></aside>
     <main id="main" class="app__main">
+      <nav class="app-tabs d-lg-none" aria-label="Account">
+        <a href="wardrobe.html" aria-current="page">Your T-shirts</a>
+        <a href="account.html">Settings</a>
+        <a href="order-tracking.html">Orders</a>
+      </nav>
+
       <div class="app-head">
         <div>
-          <h1>My wardrobe</h1>
-          <p id="summary" class="tnum">Loading your pieces&hellip;</p>
+          <h1>Your T-shirts</h1>
+          <p id="summary">Loading your T-shirts&hellip;</p>
         </div>
-        <a class="b b--dark d-none d-lg-inline-flex" href="register-piece.html" id="headAdd" hidden>Register a piece</a>
-      </div>
-      <a class="b b--dark b--block d-lg-none" href="register-piece.html" id="headAddM" style="margin:-8px 0 20px" hidden>Register a piece</a>
-
-      <div class="tiles" id="tiles" hidden>
-        <div class="tile"><span class="t-label">Pieces</span><span class="v" id="statPieces">0</span></div>
-        <div class="tile"><span class="t-label">Live layers</span><span class="v teal" id="statLive">0</span></div>
-        <div class="tile"><span class="t-label">Not published</span><span class="v amber" id="statDraft">0</span></div>
-        <div class="tile"><span class="t-label">Total scans</span><span class="v" id="statScans">0</span></div>
       </div>
 
       <div class="wgrid" id="grid" aria-live="polite"></div>
 
+      <!-- W-06 · No purchases  /  W-11 · Purchased T-shirt missing (proposed) -->
       <div id="empty" hidden>
         <div class="empty-card">
           <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path d="M13 2v22M2 13h22" stroke="var(--ink-900)" stroke-width="1.5"/></svg>
-          <h2>Nothing here yet</h2>
-          <p>Buy something and it lands here on its own the moment payment clears &mdash; no code to enter. This is only for a piece that didn&rsquo;t arrive that way: bought second hand, handed down, or checked out as a guest under a different email.</p>
-          <a class="b b--dark" href="register-piece.html">Register a piece</a>
-        </div>
-        <div class="tips">
-          <div class="tile"><span class="t-label">Bought second hand?</span><p>Register it with the code inside the collar. It leaves the previous owner&rsquo;s wardrobe automatically once they release it.</p></div>
-          <div class="tile"><span class="t-label">Checked out as a guest?</span><p>If the order email doesn&rsquo;t match this account, register the piece with the code inside the collar to bring it in.</p></div>
-          <div class="tile"><span class="t-label">No tag?</span><p>Pieces made before Aug 2026 have the code printed under the size instead.</p></div>
+          <h2 id="emptyTitle">No T-shirts yet</h2>
+          <p id="emptyBody">Your purchased T-shirts will appear here.</p>
+          <a class="b b--dark" id="emptyCta" href="shop.html">Shop T-shirts</a>
         </div>
       </div>
 
@@ -100,46 +92,60 @@
   <script>
   (function () {
     var esc = INRL.esc;
-    function fmtDate(iso) { if (!iso) return ''; try { return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso)); } catch (e) { return iso; } }
     function plainTitle(t) { return String(t || '').replace(/^No\.\s*\d+\s+/, ''); }
 
+    /* W-01 card: status, name, code · product, then Manage / Add your video. */
     function card(p) {
       var href = 'piece.html?id=' + encodeURIComponent(p.id);
       var live = !!p.is_published;
       var name = p.nickname || 'Untitled';
       var img = p.product && p.product.image_url ? '<img src="' + esc(INRL.imageUrl(p.product.image_url)) + '" alt="" loading="lazy" onerror="this.remove()">' : '';
+      var meta = [p.claim_code, plainTitle(p.product && p.product.title)].filter(Boolean).join(' · ');
       return '<a class="wcard" href="' + href + '">'
-        + '<div class="ph">' + img + '<span>Garment &middot; back</span></div>'
+        + '<div class="ph">' + img + '<span>T-shirt &middot; image pending</span></div>'
         + '<div class="wcard__body">'
-        +   '<span class="sdot' + (live ? '' : ' sdot--draft') + '">' + (live ? 'Live' : 'Not published') + '</span>'
+        +   '<span class="sdot' + (live ? '' : ' sdot--draft') + '">' + (live ? 'Live' : 'No video') + '</span>'
         +   '<h3>' + esc(name) + '</h3>'
-        +   '<div class="meta">' + esc(p.claim_code || '') + ' &middot; ' + esc(plainTitle(p.product && p.product.title)) + '</div>'
-        +   '<div class="meta">' + (live ? 'V' + p.version + (p.claimed_at ? ' &middot; since ' + esc(fmtDate(p.claimed_at)) : '') : 'No layer yet') + '</div>'
-        +   '<div class="wcard__foot"><span class="scans tnum">' + (live ? (p.scan_count || 0).toLocaleString() + ' scans' : '&mdash;') + '</span><span style="color:var(--accent-700);font-weight:500">' + (live ? 'Manage' : 'Publish') + '</span></div>'
+        +   '<div class="meta">' + esc(meta) + '</div>'
+        +   (live ? '' : '<div class="meta d-none d-lg-block">No video added</div>')
+        +   '<div class="wcard__foot">'
+        +     (live ? '' : '<span><span class="d-none d-lg-inline">&mdash;</span><span class="d-lg-none">No video added</span></span>')
+        +     '<span class="wcard__act">' + (live ? 'Manage' : 'Add your video') + '</span>'
+        +   '</div>'
         + '</div></a>';
+    }
+
+    function showEmpty(missing) {
+      document.getElementById('summary').textContent = 'No T-shirts yet';
+      document.getElementById('empty').hidden = false;
+      if (!missing) return;
+      document.getElementById('emptyTitle').textContent = 'T-shirt missing?';
+      document.getElementById('emptyBody').textContent = 'Bought a T-shirt but can’t see it? Check you’re using the account for your order, or contact us.';
+      var cta = document.getElementById('emptyCta');
+      cta.textContent = 'Contact us';
+      cta.href = 'contact.html';
+    }
+
+    /* A paid order on this account with no T-shirt to show is a purchase that failed to
+       appear (W-11), not an empty account (W-06). */
+    async function hasPaidOrder() {
+      try {
+        var res = await fetch('/api/orders/mine', { credentials: 'include' });
+        if (!res.ok) return false;
+        var orders = ((await res.json()) || {}).items || [];
+        return orders.some(function (o) { return o.payment_status === 'paid'; });
+      } catch (e) { return false; }
     }
 
     AppRail.ready.then(async function () {
       try {
         var res = await fetch('/api/pieces', { credentials: 'include' });
         if (res.status === 401) { location.href = 'login.html?next=wardrobe.html'; return; }
-        if (!res.ok) throw new Error('The wardrobe could not be loaded (' + res.status + ').');
+        if (!res.ok) throw new Error('Your T-shirts could not be loaded (' + res.status + ').');
         var items = ((await res.json()) || {}).items || [];
-        var live = items.filter(function (i) { return i.is_published; }).length;
-        var scans = items.reduce(function (a, i) { return a + (i.scan_count || 0); }, 0);
-        document.getElementById('summary').textContent = items.length
-          ? items.length + ' piece' + (items.length === 1 ? '' : 's') + ' · ' + live + ' carrying a live layer · ' + scans.toLocaleString() + ' scans'
-          : 'No pieces registered yet';
-        if (!items.length) { document.getElementById('empty').hidden = false; return; }
-        document.getElementById('headAdd').hidden = false;
-        document.getElementById('headAddM').hidden = false;
-        document.getElementById('tiles').hidden = false;
-        document.getElementById('statPieces').textContent = items.length;
-        document.getElementById('statLive').textContent = live;
-        document.getElementById('statDraft').textContent = items.length - live;
-        document.getElementById('statScans').textContent = scans.toLocaleString();
-        document.getElementById('grid').innerHTML = items.map(card).join('')
-          + '<a class="wcard wcard--add" href="register-piece.html"><svg class="plus" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path d="M13 2v22M2 13h22" stroke="var(--ink-700)" stroke-width="1.5"/></svg><strong>Register a piece</strong><span>Scan the tag inside the collar.</span></a>';
+        if (!items.length) { showEmpty(await hasPaidOrder()); return; }
+        document.getElementById('summary').hidden = true;
+        document.getElementById('grid').innerHTML = items.map(card).join('');
       } catch (e) {
         document.getElementById('summary').textContent = '';
         document.getElementById('error').hidden = false;

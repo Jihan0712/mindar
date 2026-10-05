@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Search | INRL</title>
+  <title>Search | InRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
@@ -26,8 +26,8 @@
   <main id="main" class="page-top" style="padding-bottom:96px">
     <div class="wrap wrap--focus">
       <form class="bigsearch" role="search" id="searchForm">
-        <label for="q" class="visually-hidden">Search pieces</label>
-        <input type="search" id="q" name="q" placeholder="Search pieces" autocomplete="off" autofocus>
+        <label for="q" class="visually-hidden">Search T-shirts</label>
+        <input type="search" id="q" name="q" placeholder="Search T-shirts" autocomplete="off" autofocus>
         <button type="button" id="clearBtn">Clear</button>
       </form>
 
@@ -40,11 +40,11 @@
 
       <div id="none" class="none" hidden>
         <h1 class="t-task" id="noneTitle"></h1>
-        <p class="t-lead" style="max-width:560px;margin:24px 0 28px">We make a small number of pieces at a time. There is nothing like that in this drop &mdash; here is everything currently made.</p>
-        <div class="b-row"><a class="b" href="shop.html">See the drop</a><a class="b b--ghost" href="contact.html?topic=request">Tell us what to make</a></div>
+        <p class="t-lead" style="max-width:560px;margin:24px 0 28px">We make a small number of T-shirts at a time. There is nothing like that right now &mdash; here is every T-shirt we have.</p>
+        <div class="b-row"><a class="b" href="shop.html">See all T-shirts</a><a class="b b--ghost" href="contact.html?topic=request">Tell us what to make</a></div>
       </div>
 
-      <p class="t-label" id="dropLabel" hidden style="margin:0 0 16px">In the drop now</p>
+      <p class="t-label" id="dropLabel" hidden style="margin:0 0 16px">All T-shirts</p>
       <div class="pgrid" id="results" aria-live="polite"></div>
     </div>
   </main>
@@ -75,7 +75,7 @@
       var u = new URL(location.href);
       if (query) u.searchParams.set('q', q.value.trim()); else u.searchParams.delete('q');
       history.replaceState(null, '', u);
-      document.title = (query ? '“' + q.value.trim() + '” — ' : '') + 'Search | INRL';
+      document.title = (query ? '“' + q.value.trim() + '” — ' : '') + 'Search | InRL';
       if (!ALL) return;
       var none = document.getElementById('none'), head = document.getElementById('resultsHead'), label = document.getElementById('dropLabel');
       if (!query) {
@@ -95,7 +95,7 @@
       else if (sort.value === 'price_desc') list.sort(function (a, b) { return b.price_cents - a.price_cents; });
       else list.sort(function (a, b) { return (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0); });
       none.hidden = true; label.hidden = true; head.hidden = false;
-      document.getElementById('resultsCount').textContent = list.length + ' piece' + (list.length === 1 ? '' : 's');
+      document.getElementById('resultsCount').textContent = list.length + ' T-shirt' + (list.length === 1 ? '' : 's');
       grid.innerHTML = list.map(INRL.productCardRow).join('');
     }
     var t;

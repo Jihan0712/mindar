@@ -47,7 +47,7 @@
     }
     if (theme.siteName) {
       document.querySelectorAll('[data-site-name]').forEach(el => { el.textContent = theme.siteName; });
-      document.title = document.title.replace(/INRL/g, theme.siteName);
+      document.title = document.title.replace(/InRL|INRL/g, theme.siteName);
     }
     if (theme.tagline) {
       document.querySelectorAll('[data-site-tagline]').forEach(el => { el.textContent = theme.tagline; });

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Saved for later | INRL</title>
+  <title>Saved for later | InRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
@@ -46,10 +46,10 @@
       <div class="empty">
         <p class="t-label">Saved</p>
         <h1 class="t-task">Nothing saved yet.</h1>
-        <p class="t-lead">Saving a piece keeps it here while you decide. It does not hold stock &mdash; a drop can close with something still on your list.</p>
-        <a class="b" href="shop.html">See the drop</a>
+        <p class="t-lead">Saving a T-shirt keeps it here while you decide. It does not hold stock &mdash; a T-shirt can sell out while it is on your list.</p>
+        <a class="b" href="shop.html">Shop T-shirts</a>
       </div>
-      <p class="t-label" style="margin:0 0 16px">In the drop now</p>
+      <p class="t-label" style="margin:0 0 16px">Choose your T-shirt</p>
       <div class="pgrid" id="dropNow"></div>
     </div>
   </main>
@@ -79,7 +79,7 @@
         return;
       }
       var n = items.length;
-      document.getElementById('count').textContent = (n < WORDS.length ? WORDS[n] : n) + ' piece' + (n === 1 ? '' : 's') + ' held. Nothing is reserved — a drop can sell out while it sits here.';
+      document.getElementById('count').textContent = (n < WORDS.length ? WORDS[n] : n) + ' T-shirt' + (n === 1 ? '' : 's') + ' held. Nothing is reserved — a T-shirt can sell out while it sits here.';
       document.getElementById('grid').innerHTML = items.map(function (it) {
         var p = productFor(it) || { title: it.title || it.name, slug: it.slug, price_cents: Math.round((it.price || 0) * 100), image_url: it.image, ar_target_id: it.ar ? 1 : null };
         var sold = INRL.isSoldOut(p);
@@ -87,7 +87,7 @@
         var img = INRL.imageUrl(p.image_url || it.image);
         return '<div class="wl-item' + (sold ? ' pcard is-soldout' : ' pcard') + '">'
           + '<a class="ph pcard__img" href="' + esc(href) + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '<span>Primary image</span></a>'
-          + '<div><a href="' + esc(href) + '" style="color:inherit;text-decoration:none"><p class="pcard__title">' + esc(p.title || it.name || 'Piece') + '</p></a>'
+          + '<div><a href="' + esc(href) + '" style="color:inherit;text-decoration:none"><p class="pcard__title">' + esc(p.title || it.name || 'T-shirt') + '</p></a>'
           + '<div class="pcard__price tnum">' + (sold ? 'Sold out' : '<span class="from">From</span>' + INRL.moneyFromCents(p.price_cents, p.currency)) + '</div>' + INRL.layerTag(p) + '</div>'
           + '<div class="wl-actions">' + (sold ? '<span class="wl-sold">Sold out</span>' : '<button type="button" class="wl-add" data-add="' + esc(it.id) + '">Add to bag</button>')
           + '<button type="button" class="wl-rm" data-rm="' + esc(it.id) + '">Remove</button></div>'
@@ -97,7 +97,7 @@
 
     document.addEventListener('click', function (e) {
       var rm = e.target.closest('[data-rm]');
-      if (rm) { Wishlist.remove(rm.getAttribute('data-rm')); render(); toast('Removed from your saved pieces'); return; }
+      if (rm) { Wishlist.remove(rm.getAttribute('data-rm')); render(); toast('Removed from your saved T-shirts'); return; }
       var add = e.target.closest('[data-add]');
       if (!add) return;
       var it = Wishlist.list().find(function (x) { return x.id === add.getAttribute('data-add'); });
@@ -108,7 +108,7 @@
       var size = sizes[0] || null;
       var map = p ? INRL.parseVariantMap(p) : {};
       var variant = (size && map[size]) || (p && p.printful_sync_variant_id) || null;
-      Cart.add({ id: 'sku-' + (it.slug || it.id) + (size ? '-' + size : ''), slug: it.slug || (p && p.slug) || '', size: size, name: (p && p.title || it.name || 'Piece').replace(/^No\.\s*\d+\s+/, ''), price: p ? Number(p.price_cents || 0) / 100 : Number(it.price || 0), image: it.image || '', qty: 1, ar: !!(p ? p.ar_target_id : it.ar), variantId: variant, printful_sync_variant_id: variant });
+      Cart.add({ id: 'sku-' + (it.slug || it.id) + (size ? '-' + size : ''), slug: it.slug || (p && p.slug) || '', size: size, name: (p && p.title || it.name || 'T-shirt').replace(/^No\.\s*\d+\s+/, ''), price: p ? Number(p.price_cents || 0) / 100 : Number(it.price || 0), image: it.image || '', qty: 1, ar: !!(p ? p.ar_target_id : it.ar), variantId: variant, printful_sync_variant_id: variant });
       CartUI.render();
       toast('Added to your bag');
     });

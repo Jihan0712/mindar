@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Settings | INRL</title>
+  <title>Settings | InRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
@@ -54,7 +54,7 @@
 
       <section class="danger" aria-labelledby="closeTitle">
         <h2 id="closeTitle">Close this account</h2>
-        <p>Your garments keep working. Layers you published stay on pieces you sold or gave away &mdash; closing the account only removes your ability to change them.</p>
+        <p>Your T-shirts keep working. The videos you chose stay on T-shirts you sold or gave away &mdash; closing the account only removes your ability to change them.</p>
         <a class="b b--danger" id="closeBtn" href="mailto:contact@inrl.co?subject=Close%20my%20account">Ask us to close it</a>
       </section>
     </main>
@@ -81,7 +81,7 @@
     AppRail.ready.then(function (user) {
       document.getElementById('email').textContent = user.email || '';
       document.getElementById('role').textContent = user.role === 'admin' ? 'Admin' : user.role === 'brand' ? 'Brand' : 'Owner';
-      document.getElementById('closeBtn').href = 'mailto:contact@inrl.co?subject=' + encodeURIComponent('Close my account') + '&body=' + encodeURIComponent('Please close the INRL account for ' + (user.email || '') + '.');
+      document.getElementById('closeBtn').href = 'mailto:contact@inrl.co?subject=' + encodeURIComponent('Close my account') + '&body=' + encodeURIComponent('Please close the InRL account for ' + (user.email || '') + '.');
     });
 
     var form = document.getElementById('pwForm'), tog = document.getElementById('pwToggle');

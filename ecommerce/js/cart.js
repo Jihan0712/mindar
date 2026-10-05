@@ -42,7 +42,7 @@
 
   /* Split "Boxy Tee (M)" into name + size for display; newer items carry size separately. */
   function lineParts(i) {
-    let name = String(i.name || 'Piece');
+    let name = String(i.name || 'T-shirt');
     let size = i.size || '';
     const m = name.match(/^(.*)\s\(([^)]+)\)$/);
     if (m) { name = m[1]; if (!size) size = m[2]; }
@@ -54,7 +54,7 @@
     const id = escHtml(i.id);
     const img = i.image ? '<img src="' + escHtml(i.image) + '" alt="" loading="lazy" onerror="this.remove()">' : '';
     const meta = [p.size ? 'Size ' + escHtml(p.size) : '', 'Qty ' + i.qty].filter(Boolean).join('<span class="dot">&middot;</span>');
-    const tag = i.ar ? '<span class="pcard__tag">AR layer' + (i.arVersion ? ' &middot; V' + escHtml(i.arVersion) : '') + '</span>' : '';
+    const tag = i.ar ? '<span class="pcard__tag">Add your video after checkout</span>' : '';
     return '<div class="line" data-line="' + id + '">'
       + '<div class="ph line__img">' + img + '</div>'
       + '<div style="min-width:0">'

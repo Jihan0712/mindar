@@ -134,7 +134,7 @@
       '<div style="padding-top:8px"><p class="t-label" style="margin-bottom:12px">Your bag</p>'
       + '<p class="t-title" style="font-size:28px;text-transform:uppercase;font-family:var(--font-display);color:var(--ink-900);margin:0 0 14px">Nothing in it yet.</p>'
       + '<p class="t-meta">Nothing here is reserved until it is paid for.</p>'
-      + '<a class="b" href="shop.html" style="margin-top:12px">See the drop</a></div>');
+      + '<a class="b" href="shop.html" style="margin-top:12px">Shop T-shirts</a></div>');
 
     /* Mobile menu */
     const mm = document.getElementById('mmenu');
@@ -147,7 +147,16 @@
       if (e.matches && openLayer && openLayer.layer === mm) closeOverlay();
     });
 
-    /* Newsletter — one line of success or error text under the field, no modal */
+    /* T-shirt count in the mobile menu */
+    const countEl = document.querySelector('[data-tshirt-count]');
+    if (countEl && window.INRL) INRL.fetchProducts().then(items => {
+      if (items.length) countEl.textContent = items.length + ' T-shirt' + (items.length === 1 ? '' : 's');
+    }).catch(() => {});
+  }
+
+  /* Newsletter (footer partial) — one line of success or error text under the field, no modal.
+     Wired after the footer is injected, or the form submits natively and puts the email in the URL. */
+  function wireNewsletter() {
     const form = document.getElementById('newsletterForm');
     if (form) form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -156,15 +165,9 @@
       const ok = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
       if (!status) return;
       status.classList.toggle('is-error', !ok);
-      status.textContent = ok ? "You're on the list. We'll only write when something changes." : 'That email address doesn’t look right.';
+      status.textContent = ok ? "You're on the list." : 'That email address doesn’t look right.';
       if (ok) email.value = '';
     });
-
-    /* Piece count in the mobile menu */
-    const countEl = document.querySelector('[data-piece-count]');
-    if (countEl && window.INRL) INRL.fetchProducts().then(items => {
-      if (items.length) countEl.textContent = items.length + ' piece' + (items.length === 1 ? '' : 's');
-    }).catch(() => {});
   }
 
   async function wireAuth() {
@@ -217,6 +220,7 @@
     if (window.CartUI && typeof CartUI.render === 'function') CartUI.render();
 
     await injectPartial('site-footer', 'partials/footer.html');
+    wireNewsletter();
 
     if (typeof window.applyTheme === 'function') window.applyTheme();
 

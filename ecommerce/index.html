@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>INRL — Garments that keep changing after you own them</title>
+  <title>InRL — A T-shirt. A video you choose.</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="INRL sells a garment made once, carrying a digital layer that can be replaced any number of times afterwards.">
+  <meta name="description" content="InRL makes T-shirts that carry a video you choose. People see it over the print through their phone's camera, and you can change it whenever you want.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
   <link rel="stylesheet" href="css/global.css">
   <link rel="stylesheet" href="css/site.css">
@@ -26,16 +26,17 @@
     .sfoot{position:relative;z-index:1}
 
     .pitch h2{font-size:40px;line-height:.96}
-    @media (min-width:1024px){.pitch h2{font-size:112px;line-height:.92}}
+    /* Locked two-line statement: scale with the viewport so each line stays on one line. */
+    @media (min-width:1024px){.pitch h2{font-size:min(6vw,112px);line-height:.92}}
     .pitch__cols{display:grid;gap:24px;margin-top:48px;padding-top:40px;border-top:1px solid var(--line-100)}
     @media (min-width:1024px){.pitch__cols{grid-template-columns:440px 1fr;margin-top:88px;gap:0}}
     .pitch__cols p{font-size:16px;line-height:1.7;color:var(--ink-700)}
 
-    .campaign{position:relative;min-height:420px;display:flex;align-items:flex-end;background:linear-gradient(115deg,#9b938a 0%,#6b6864 40%,#2d2f31 75%,#1b1d20 100%);color:var(--paper-100);overflow:hidden}
-    .campaign img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-    .campaign__cap{position:relative;padding-block:56px;max-width:560px;font-size:15px;line-height:1.6}
-    .campaign__cap .t-rule{background:var(--paper-100)}
-    @media (min-width:1024px){.campaign{min-height:720px}}
+    /* FULL FILM — its own full-screen area, no headline or body. */
+    .film{position:relative;min-height:100vh;min-height:100svh;background:linear-gradient(115deg,#9b938a 0%,#6b6864 40%,#2d2f31 75%,#1b1d20 100%);overflow:hidden}
+    .film img,.film video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .film__play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:88px;height:88px;border-radius:999px;border:1px solid var(--paper-100);background:rgba(11,15,16,.35);color:var(--paper-100);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+    .film__play:hover,.film__play:focus-visible{background:rgba(11,15,16,.6)}
 
     .feats{display:grid;gap:40px;margin-top:48px}
     @media (min-width:768px){.feats{grid-template-columns:repeat(3,1fr);gap:24px}}
@@ -43,25 +44,11 @@
     .feat .num{font-size:12px;color:var(--accent-500);letter-spacing:.04em;display:block;margin-bottom:8px}
     .feat h3{font:500 20px/1.3 var(--font-body);color:var(--paper-100);text-transform:none;letter-spacing:0;margin:0 0 12px}
     .feat p{font-size:15px;line-height:1.7;color:var(--paper-300);margin:0}
-    @media (max-width:767.98px){.feat .ph{aspect-ratio:16/10}}
+    .feats-cta{margin-top:48px}
+    @media (max-width:767.98px){.feat .ph{aspect-ratio:16/10}.feats-cta .b{width:100%}}
 
     .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:28px}
     .row-head h2{font:500 20px/1.2 var(--font-body);color:var(--ink-900);margin:0;text-transform:none;letter-spacing:0}
-
-    .worn-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:40px}
-    .arrows{display:flex;gap:12px}
-    .arrow{width:40px;height:40px;border-radius:999px;border:1px solid var(--surface-4);background:var(--surface-0);color:var(--ink-900);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-    .arrow:hover{border-color:var(--ink-900)}
-    .arrow[disabled]{opacity:.35;cursor:default}
-    .track{display:flex;gap:24px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-left:var(--margin);padding-right:var(--margin);scroll-padding-left:var(--margin)}
-    @media (min-width:1440px){.track{padding-left:calc((100vw - var(--content-max)) / 2);scroll-padding-left:calc((100vw - var(--content-max)) / 2)}}
-    .track::-webkit-scrollbar{display:none}
-    .tcard{flex:0 0 256px;height:340px;scroll-snap-align:start}
-    .tcard--quote{background:var(--surface-50);border:1px solid var(--line-100);padding:28px 26px;display:flex;flex-direction:column;justify-content:space-between}
-    .tcard--quote blockquote{margin:0;font-size:16px;line-height:1.5;color:var(--ink-900)}
-    .tcard--quote .who{font-size:15px;color:var(--ink-900)}
-    .tcard--quote .piece{font-size:12px;color:var(--ink-500)}
-    @media (max-width:767.98px){.tcard{flex-basis:84%;height:auto;min-height:340px}}
     @media (prefers-reduced-motion:reduce){.hero-media video{display:none}}
   </style>
 </head>
@@ -73,101 +60,84 @@
   <div class="hero-media" id="heroMedia" aria-hidden="true"></div>
 
   <main id="main">
+    <!-- 1. HERO -->
     <section class="hero" data-hero>
       <div class="wrap hero__inner">
         <div>
-          <h1 class="t-hero" id="heroTitle">Life is<br>in beta</h1>
+          <h1 class="t-hero">Life is<br>in beta</h1>
           <div class="b-row">
-            <a class="b b--light b--lg" id="heroCta" href="shop.html">Shop the drop</a>
-            <a class="b b--ghost-light b--lg" href="about.html">How it works</a>
+            <a class="b b--light b--lg" href="shop.html">Buy now</a>
+            <a class="b b--ghost-light b--lg" href="#how-it-works">See how it works</a>
           </div>
         </div>
         <div class="hero__lead">
           <span class="t-rule"></span>
-          <p id="heroText">One shirt. The layer it carries keeps changing &mdash; scan the print and it plays. What it plays is not fixed.</p>
+          <p>A T-shirt. A video you choose.</p>
         </div>
       </div>
     </section>
 
     <div class="after">
-      <!-- WE PRINT IT ONCE -->
+      <!-- 2. MANIFESTO (locked copy) -->
       <section class="section pitch">
         <div class="wrap">
-          <h2 class="t-section" id="home-who-headline">We print it once.<br>What it carries<br>keeps changing.</h2>
+          <h2 class="t-section">CULTURE MOVES.<br>WHAT WE WEAR SHOULD TOO.</h2>
           <div class="pitch__cols">
-            <p class="t-meta" id="home-who-label" style="margin:0">What we make, and why it keeps moving.</p>
-            <div id="home-who-body">
-              <p>A garment is finished the moment it leaves the factory. Everything about it &mdash; the print, the message, the moment it belonged to &mdash; is fixed at that point and stays fixed for as long as the shirt survives. Culture does not work that way. It moves weekly.</p>
-              <p>We build the two halves separately. The garment is made once, properly, from heavyweight cotton that is meant to outlast the season. The layer it carries is made continuously, and can be replaced without anyone touching the shirt.</p>
-              <p>What that means in practice is that a piece bought in the first drop is not a piece from the first drop any more. It is whatever we have put behind it since. The object stayed still. The thing it points at did not.</p>
+            <p class="t-meta" style="margin:0">Why we made InRL</p>
+            <div>
+              <p>There&rsquo;s more than one side to each of us. What we love, make and care about changes as we do. We share so much of it online. What if it could start conversations in real life?</p>
+              <p>So we made InRL: clothing that brings your digital content into the real world. Choose what you share, change it when you want, and let people discover sides of you they might not see otherwise.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- CAMPAIGN IMAGE -->
-      <section class="campaign" id="campaign">
-        <div class="wrap">
-          <div class="campaign__cap">
-            <span class="t-rule"></span>
-            <p id="campaignCaption" style="margin:0">Drop 04 was shot in one afternoon in a car park in Vienna. The layer behind it has been replaced twice since.</p>
-          </div>
-        </div>
-      </section>
+      <!-- 3. FULL FILM — media comes from the homepage CMS (film.video / film.poster) -->
+      <section class="film" id="film" aria-label="Watch InRL in action"></section>
 
-      <!-- HOW WE CAN ACTUALLY DO THIS -->
-      <section class="section section--dark">
+      <!-- 4. THREE STEPS -->
+      <section class="section section--dark" id="how-it-works">
         <div class="wrap">
-          <h2 class="t-section t-on-dark" id="home-features-headline">How we can<br>actually do this.</h2>
+          <h2 class="t-section t-on-dark">How it<br>works.</h2>
           <div class="feats">
             <article class="feat">
               <div class="ph ph--dark" id="home-feature-0-img">Image placeholder</div>
               <span class="num">01</span>
-              <h3 id="home-feature-0-title">The print is the marker</h3>
-              <p id="home-feature-0-body">There is no QR patch stitched into the hem and no code printed on a label. The artwork on the garment is the thing the camera reads, which means nothing had to be added to the design to make it work.</p>
+              <h3>Buy your T-shirt.</h3>
+              <p>Choose a T-shirt and check out. It appears in your account once payment goes through.</p>
             </article>
             <article class="feat">
               <div class="ph ph--dark" id="home-feature-1-img">Image placeholder</div>
               <span class="num">02</span>
-              <h3 id="home-feature-1-title">Nothing to install</h3>
-              <p id="home-feature-1-body">It opens in the browser the way any link does. No app, no account, no store page between someone pointing a camera and seeing what is there.</p>
+              <h3>Choose your video.</h3>
+              <p>Add your video from your account. Change it whenever you have something else to share.</p>
             </article>
             <article class="feat">
               <div class="ph ph--dark" id="home-feature-2-img">Image placeholder</div>
               <span class="num">03</span>
-              <h3 id="home-feature-2-title">Tied to the garment</h3>
-              <p id="home-feature-2-body">The layer is registered against the piece, not against the order. It survives being lent, resold or handed down, and it keeps working for whoever is wearing it.</p>
+              <h3>Let people see it.</h3>
+              <p>Someone scans the QR code, opens the link and points their phone&rsquo;s camera at the print. Your video plays over it. No app needed.</p>
             </article>
           </div>
+          <div class="feats-cta"><a class="b b--light b--lg" href="shop.html">Buy now</a></div>
         </div>
       </section>
 
-      <!-- NEW ARRIVALS -->
-      <section class="section" style="padding-bottom:0">
+      <!-- 5. BUYING -->
+      <section class="section">
         <div class="wrap">
           <div class="row-head">
-            <h2>New arrivals</h2>
+            <h2>Choose your T-shirt.</h2>
             <a class="t-link" href="shop.html">Shop all</a>
           </div>
           <div class="pgrid" id="newArrivals"></div>
           <p class="t-meta" id="newArrivalsStatus" hidden></p>
         </div>
       </section>
-
-      <!-- WORN, AND WORN AGAIN -->
-      <section class="section">
-        <div class="wrap worn-head">
-          <h2 class="t-section" style="font-size:clamp(40px,4.4vw,52px)">Worn, and<br class="d-md-none"> worn again</h2>
-          <div class="arrows d-none d-md-flex">
-            <button class="arrow" type="button" aria-label="Previous" data-track="-1"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 2L4 7l5 5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
-            <button class="arrow" type="button" aria-label="Next" data-track="1"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
-          </div>
-        </div>
-        <div class="track" id="wornTrack" tabindex="0" aria-label="Customer reviews"></div>
-      </section>
     </div>
   </main>
 
+  <!-- 6. FOOTER -->
   <div id="site-footer"></div>
 
   <script src="js/cart.js"></script>
@@ -177,60 +147,45 @@
   <script>
     (function () {
       var esc = INRL.esc;
-      var DEFAULT_TESTIMONIALS = [
-        { quote: 'Bought it for the print. Three months later it was playing something else.', author: 'Elle L.', piece: 'No. 051  Boxy Crew' },
-        { quote: 'The fit is right the first time, which almost never happens online.', author: 'Savannah M.', piece: 'No. 060  Boxy Hood' },
-        { quote: 'My brother scanned it at dinner and it was a different film from the one I showed him last week.', author: 'Nico T.', piece: 'No. 047  Boxy Tee' }
-      ];
+      var isVideo = function (u) { return /\.(mp4|webm|mov)(\?|#|$)/i.test(String(u || '')); };
+      var small = function () { return window.matchMedia('(max-width: 767.98px)').matches; };
+      var still = function () { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; };
 
       /* ---------- Hero media: video on desktop, poster below 768 / reduced motion ---------- */
       function setHeroMedia(slide) {
         var wrap = document.getElementById('heroMedia');
         if (!wrap || !slide) return;
-        var isVideo = function (u) { return /\.(mp4|webm|mov)(\?|#|$)/i.test(String(u || '')); };
         var video = slide.video || (isVideo(slide.image) ? slide.image : '');
         var poster = slide.poster || (isVideo(slide.image) ? '' : slide.image) || '';
-        var small = window.matchMedia('(max-width: 767.98px)').matches;
-        var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (video && !small && !still) {
+        if (video && !small() && !still()) {
           wrap.innerHTML = '<video autoplay muted loop playsinline preload="auto"' + (poster ? ' poster="' + esc(poster) + '"' : '') + '><source src="' + esc(video) + '" type="video/mp4"></video>';
         } else if (poster) {
           wrap.innerHTML = '<img src="' + esc(poster) + '" alt="" onerror="this.remove()">';
         }
       }
 
-      function paragraphs(text) {
-        return String(text || '').split(/\n\s*\n/).map(function (p) { return p.trim(); }).filter(Boolean)
-          .map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('');
-      }
-
-      function renderTestimonials(list) {
-        var track = document.getElementById('wornTrack');
-        if (!track) return;
-        track.innerHTML = list.map(function (t) {
-          var photo = t.image ? '<div class="tcard ph"><img src="' + esc(t.image) + '" alt="' + esc(t.author || 'Customer') + ' wearing the piece" loading="lazy"></div>' : '';
-          return photo + '<figure class="tcard tcard--quote" style="margin:0"><blockquote>&ldquo;' + esc(t.quote || '') + '&rdquo;</blockquote>'
-            + '<figcaption><div class="who">' + esc(t.author || '') + '</div>' + (t.piece ? '<div class="piece">' + esc(t.piece) + '</div>' : '') + '</figcaption></figure>';
-        }).join('');
-        updateArrows();
-      }
-      function updateArrows() {
-        var track = document.getElementById('wornTrack');
-        var prev = document.querySelector('[data-track="-1"]'), next = document.querySelector('[data-track="1"]');
-        if (!track || !prev || !next) return;
-        prev.disabled = track.scrollLeft < 4;
-        next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
-      }
-      document.querySelectorAll('[data-track]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          var track = document.getElementById('wornTrack');
-          track.scrollBy({ left: Number(b.getAttribute('data-track')) * 280, behavior: 'smooth' });
+      /* ---------- Full film: still until played; portrait cut on phones when supplied ---------- */
+      function setFilm(film) {
+        var el = document.getElementById('film');
+        if (!el || !film) return;
+        var video = (small() && film.videoPortrait) || film.video || '';
+        var poster = (small() && film.posterPortrait) || film.poster || '';
+        if (poster) el.innerHTML = '<img src="' + esc(poster) + '" alt="" onerror="this.remove()">';
+        if (!video) return;
+        el.insertAdjacentHTML('beforeend', '<button class="film__play" type="button" aria-label="Watch InRL in action">'
+          + '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5-12-7.5Z" fill="currentColor"/></svg></button>');
+        el.querySelector('.film__play').addEventListener('click', function () {
+          el.innerHTML = '<video controls playsinline autoplay aria-label="Watch InRL in action"' + (poster ? ' poster="' + esc(poster) + '"' : '') + '>'
+            + '<source src="' + esc(video) + '" type="video/mp4"></video>';
+          var v = el.querySelector('video');
+          if (v) v.focus();
         });
-      });
-      document.getElementById('wornTrack').addEventListener('scroll', updateArrows, { passive: true });
-      renderTestimonials(DEFAULT_TESTIMONIALS);
+      }
 
-      /* ---------- Homepage CMS (dashboard → Homepage editor) ---------- */
+      /* ---------- Homepage CMS (dashboard → Homepage editor) ----------
+         Supplies media only: the hero film/poster, the full film and the step
+         visuals. All Home copy and CTAs are locked brand copy (copywrite/copywrite.md)
+         and live in this file, so stored CMS text never overrides them. */
       async function initHomepageCms() {
         var content = null;
         try {
@@ -241,51 +196,27 @@
 
         var slides = Array.isArray(content.slides) ? content.slides : [];
         var bb = content.billboard || {};
-        var hero = slides[0] || (bb.title || bb.image ? { title: bb.title, text: bb.description, image: bb.image } : null);
-        if (hero) {
-          if (hero.title) document.getElementById('heroTitle').textContent = hero.title;
-          if (hero.text) document.getElementById('heroText').textContent = hero.text;
-          var cta = document.getElementById('heroCta');
-          if (hero.linkLabel) cta.textContent = hero.linkLabel;
-          if (hero.href && hero.href !== '#') cta.setAttribute('href', hero.href);
-          setHeroMedia(hero);
-        }
+        var hero = slides[0] || (bb.image ? { image: bb.image } : null);
+        if (hero) setHeroMedia(hero);
 
-        var wwa = content.whoWeAre;
-        if (wwa) {
-          if (wwa.headline) document.getElementById('home-who-headline').textContent = wwa.headline;
-          if (wwa.label) document.getElementById('home-who-label').textContent = wwa.label;
-          if (wwa.body) document.getElementById('home-who-body').innerHTML = paragraphs(wwa.body);
-        }
-
-        var camp = content.campaign;
-        if (camp) {
-          if (camp.caption) document.getElementById('campaignCaption').textContent = camp.caption;
-          if (camp.image) document.getElementById('campaign').insertAdjacentHTML('afterbegin', '<img src="' + esc(camp.image) + '" alt="" onerror="this.remove()">');
-        }
+        var film = content.film || (content.campaign && content.campaign.image ? { poster: content.campaign.image } : null);
+        setFilm(film);
 
         var feat = content.features;
         if (feat) {
-          if (feat.headline) document.getElementById('home-features-headline').textContent = feat.headline;
           (Array.isArray(feat.items) ? feat.items : []).slice(0, 3).forEach(function (item, i) {
-            var t = document.getElementById('home-feature-' + i + '-title');
-            var b = document.getElementById('home-feature-' + i + '-body');
             var img = document.getElementById('home-feature-' + i + '-img');
-            if (t && item.title) t.textContent = item.title;
-            if (b && item.body) b.textContent = item.body;
             if (img && item.image) img.innerHTML = '<img src="' + esc(item.image) + '" alt="" loading="lazy">';
           });
         }
-
-        if (Array.isArray(content.testimonials) && content.testimonials.length) renderTestimonials(content.testimonials);
       }
       initHomepageCms();
 
-      /* ---------- New arrivals ---------- */
+      /* ---------- Choose your T-shirt ---------- */
       var grid = document.getElementById('newArrivals');
       grid.innerHTML = INRL.skeletonCards(4);
       INRL.fetchProducts().then(function (items) {
-        if (!items.length) { grid.innerHTML = ''; var s = document.getElementById('newArrivalsStatus'); s.hidden = false; s.textContent = 'The next drop is being made. Nothing is on sale right now.'; return; }
+        if (!items.length) { grid.innerHTML = ''; var s = document.getElementById('newArrivalsStatus'); s.hidden = false; s.textContent = 'No T-shirts are on sale right now.'; return; }
         grid.innerHTML = items.slice(0, 4).map(INRL.productCard).join('');
       }).catch(function () {
         grid.innerHTML = '';

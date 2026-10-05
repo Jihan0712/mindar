@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <title>INRL — The layer</title>
+    <title>InRL — See the video</title>
 
     <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -186,9 +186,9 @@
         let notRecognisedTimer = null;
         let foundPulseTimer = null;
 
-        // ---- footer / "see this piece" ----
+        // ---- footer / "see this T-shirt" ----
         if (activeTarget) {
-          const label = activeTarget.product_title || activeTarget.name || 'INRL';
+          const label = activeTarget.product_title || activeTarget.name || 'InRL';
           const meta = `${label} &middot; V${activeTarget.version || 1}${activeTarget.updated_at ? ' &middot; UPDATED ' + fmtDate(activeTarget.updated_at) : ''}`;
           document.getElementById('footerMeta').innerHTML = meta;
           const seeLink = document.getElementById('seePieceLink');
@@ -561,7 +561,7 @@
         const el = document.getElementById('ar-desktop');
         el.classList.add('is-active');
 
-        const label = activeTarget && (activeTarget.product_title || activeTarget.name) || 'INRL';
+        const label = activeTarget && (activeTarget.product_title || activeTarget.name) || 'InRL';
         el.querySelector('.meta').innerHTML = `${label}${activeTarget && activeTarget.version ? ' &middot; V' + activeTarget.version : ''}`;
 
         const video = el.querySelector('#desktopVideo');
@@ -620,19 +620,19 @@
       <!-- M1: before the camera -->
       <div class="ar-state" id="state-gate">
         <div class="ar-panel">
-          <img src="ecommerce/images/logo-light.svg" alt="INRL" style="height:30px;width:auto;align-self:flex-start;margin-bottom:28px">
-          <h1>There is more<br>on this shirt.</h1>
-          <p>Point your camera at the print. Whatever is behind it right now will play.</p>
-          <button class="btn-open" id="openCameraBtn">Open the camera</button>
-          <div class="fine-print">The camera runs on your device. Nothing is uploaded, and nothing is recorded.</div>
-          <a href="#" class="link-muted js-play-as-page">No camera? Open it as a page instead</a>
+          <img src="ecommerce/images/logo-light.svg" alt="InRL" style="height:30px;width:auto;align-self:flex-start;margin-bottom:28px">
+          <h1>There is more<br>on this T-shirt.</h1>
+          <p>Open camera, then point your camera at the print to see the video its owner chose.</p>
+          <button class="btn-open" id="openCameraBtn">Open camera</button>
+          <div class="fine-print">Your browser will ask to use the camera. No app needed.</div>
+          <a href="#" class="link-muted js-play-as-page">No camera? Watch the video as a page instead</a>
         </div>
       </div>
 
       <!-- M2: scanning -->
       <div class="ar-state" id="state-scanning">
         <div class="ar-scan-caption">
-          <div class="pill">Scan the print to start</div>
+          <div class="pill">Point your camera at the print</div>
           <div class="hint">Hold steady &middot; good light helps</div>
           <a href="#" class="link-muted" id="whereIsPrintLink">Where is the print?</a>
         </div>
@@ -640,20 +640,20 @@
 
       <!-- M3: found (brief pulse, reuses the viewfinder + a "loading" caption) -->
       <div class="ar-state" id="state-found">
-        <div class="ar-scan-caption"><div class="hint">Loading the layer</div></div>
+        <div class="ar-scan-caption"><div class="hint">Loading the video</div></div>
       </div>
 
       <!-- M4: playing -->
       <div class="ar-state" id="state-playing">
         <div class="ar-playing-caption">
-          <a href="#" id="seePieceLink" style="display:none" class="see-piece">See this piece &rarr;</a>
+          <a href="#" id="seePieceLink" style="display:none" class="see-piece">See this T-shirt &rarr;</a>
         </div>
       </div>
 
       <!-- M5: not recognised -->
       <div class="ar-state" id="state-notrecognised">
         <div class="ar-tips-card">
-          <h3>Still looking</h3>
+          <h3>The print isn&rsquo;t found yet</h3>
           <p>Three things usually fix it:</p>
           <ul><li>Get closer, until the print fills the frame</li><li>Move somewhere brighter</li><li>Flatten the fabric — folds break the read</li></ul>
         </div>
@@ -662,23 +662,23 @@
       <!-- M6: camera blocked -->
       <div class="ar-state" id="state-blocked">
         <div class="ar-panel">
-          <h1>No camera,<br>no problem.</h1>
-          <p>A scan is an entrance, not a gate. Everything behind this print is on a page you can open right now.</p>
-          <a href="#" class="btn-open" id="blockedOpenPageBtn">Open the page</a>
-          <a href="#" class="link-muted" id="retryCameraLink" style="margin-top:0">Or allow the camera in your browser settings</a>
+          <h1>The camera<br>is blocked.</h1>
+          <p>To see the video over the print, allow the camera for this site in your browser settings. Or watch the video as a page instead.</p>
+          <a href="#" class="btn-open" id="blockedOpenPageBtn">Watch as a page</a>
+          <a href="#" class="link-muted" id="retryCameraLink" style="margin-top:0">Allowed it? Try the camera again</a>
         </div>
       </div>
 
       <!-- no target configured at all -->
       <div class="ar-state" id="state-notarget">
         <div class="ar-panel">
-          <h1>Nothing to<br>scan here yet.</h1>
-          <p>This link isn't tied to a piece or a drop. Head back to the shop to find something real.</p>
+          <h1>No video<br>here yet.</h1>
+          <p>This link isn't connected to a T-shirt's video. Head back to the shop to find one.</p>
           <a href="ecommerce/shop.html" class="btn-open">Back to shop</a>
         </div>
       </div>
 
-      <div class="ar-footer" id="ar-footer"><span class="dot"></span><span id="footerMeta">INRL</span></div>
+      <div class="ar-footer" id="ar-footer"><span class="dot"></span><span id="footerMeta">InRL</span></div>
 
       <!-- "play as a page" — no-camera video-only fallback, shared by M1's link and M6 -->
       <div id="pageVideoWrap" style="display:none;position:fixed;inset:0;background:#000;align-items:center;justify-content:center;z-index:10020">
@@ -706,7 +706,7 @@
     <!-- AR-D1: desktop fallback -->
     <div class="ar-desktop" id="ar-desktop">
       <div class="ar-desktop-topbar">
-        <img src="ecommerce/images/logo-light.svg" alt="INRL">
+        <img src="ecommerce/images/logo-light.svg" alt="InRL">
         <div class="meta"></div>
       </div>
       <div class="ar-desktop-body">
@@ -715,23 +715,23 @@
           <button class="play-btn" aria-label="Play">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg>
           </button>
-          <div class="caption">The layer, playing as a page</div>
+          <div class="caption">The video, playing as a page</div>
         </div>
         <div class="ar-desktop-info">
           <div class="eyebrow">No camera here</div>
           <h1>You are on<br>a laptop.</h1>
-          <p>On a phone this plays on the shirt itself, anchored to the print. Here it is just a video — same layer, none of the trick.</p>
+          <p>On a phone you see this video over the print through the camera. Here it is just the video — same video, none of the trick.</p>
           <div class="ar-qr-card">
             <canvas id="desktopQr" width="92" height="92"></canvas>
             <div>
               <strong>Open it on your phone</strong>
-              <span>Point a camera at this, then hold the phone up to the shirt.</span>
+              <span>Scan this with your phone, open the link and point the camera at the print.</span>
             </div>
           </div>
           <div class="ar-product-card" id="desktopProductCard" style="display:none">
             <div class="ph"></div>
             <div><strong class="title"></strong><span class="price"></span></div>
-            <a href="#">See this piece</a>
+            <a href="#">See this T-shirt</a>
           </div>
         </div>
       </div>

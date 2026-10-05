@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Not here | INRL</title>
+  <title>Not here | InRL</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
@@ -20,10 +20,10 @@
       <div class="empty" style="padding-bottom:56px">
         <p class="t-label" id="eCode">404</p>
         <h1 class="t-task" id="eTitle">This page is<br>not here.</h1>
-        <p class="t-lead" id="eBody">Either the link is wrong, or the piece it pointed at is no longer made. If you scanned a print and landed here, the marker is not registered to a layer yet &mdash; the owner has not published one.</p>
-        <div class="b-row b-row--stack" id="eActions"><a class="b" href="shop.html">See the drop</a><a class="b b--ghost" href="/">Open the camera</a></div>
+        <p class="t-lead" id="eBody">Either the link is wrong, or the T-shirt it pointed at is no longer made. If you scanned a T-shirt&rsquo;s QR code and landed here, it doesn&rsquo;t have a video yet.</p>
+        <div class="b-row b-row--stack" id="eActions"><a class="b" href="shop.html">Shop T-shirts</a><a class="b b--ghost" href="/">Open camera</a></div>
       </div>
-      <p class="t-label" style="margin:0 0 16px">In the drop now</p>
+      <p class="t-label" style="margin:0 0 16px">Choose your T-shirt</p>
       <div class="pgrid" id="dropNow"></div>
     </section>
   </main>
@@ -37,11 +37,11 @@
   <script>
     (function () {
       if (new URLSearchParams(location.search).get('e') === '500') {
-        document.title = 'Something broke | INRL';
+        document.title = 'Something broke | InRL';
         document.getElementById('eCode').textContent = 'Error';
         document.getElementById('eTitle').innerHTML = 'Something broke<br>on our side.';
         document.getElementById('eBody').textContent = 'Nothing you did caused it, and nothing was charged. Try again in a moment — if it keeps happening, write to contact@inrl.co.';
-        document.getElementById('eActions').innerHTML = '<button class="b" type="button" onclick="history.length > 1 ? history.back() : location.reload()">Try again</button><a class="b b--ghost" href="shop.html">See the drop</a>';
+        document.getElementById('eActions').innerHTML = '<button class="b" type="button" onclick="history.length > 1 ? history.back() : location.reload()">Try again</button><a class="b b--ghost" href="shop.html">Shop T-shirts</a>';
       }
       var g = document.getElementById('dropNow');
       g.innerHTML = INRL.skeletonCards(4);
