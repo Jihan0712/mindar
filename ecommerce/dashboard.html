@@ -613,7 +613,7 @@
                 <div>
                   <label class="form-label" for="slugInput">Slug</label>
                   <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
-                  <div class="form-text">AR viewer: <code>/index.html?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
+                  <div class="form-text">AR viewer: <code>/viewer?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
                 </div>
 
                 <div class="pd-span-2">
@@ -854,6 +854,7 @@
               <th>Status</th>
               <th>Printful</th>
               <th>Location</th>
+              <th class="text-end">Shirts</th>
             </tr>
           </thead>
           <tbody id="ordersTbody"></tbody>
@@ -981,6 +982,79 @@
       <div class="modal-footer" style="border-top:1px solid var(--line-200);">
         <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Cancel</button>
         <button type="button" id="printfulModalSaveBtn" class="btn btn-inrl">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="printfulQrModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
+      <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
+        <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Shirt QR placement</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="qrProductId" />
+        <p class="form-text mt-0" id="qrProductTitle"></p>
+        <p class="form-text">Every shirt of this product is printed with its own QR, linking to that shirt's video. Positions are in inches from the top-left corner of the print area.</p>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="qrPlacement">Placement</label>
+            <select id="qrPlacement" class="form-select"></select>
+            <div class="form-text" id="qrAreaHint"></div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="qrSize">Size (in)</label>
+            <input id="qrSize" class="form-control" type="number" step="0.05" min="1" max="6" value="1.5" />
+            <div class="form-text">At least 1 inch so phones read it from arm's length.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="qrTop">From the top (in)</label>
+            <input id="qrTop" class="form-control" type="number" step="0.05" min="0" value="12" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="qrLeft">From the left (in)</label>
+            <div class="d-flex gap-2">
+              <input id="qrLeft" class="form-control" type="number" step="0.05" min="0" value="5.25" />
+              <button type="button" id="qrCentreBtn" class="btn btn-inrl-outline" style="white-space:nowrap">Centre horizontally</button>
+            </div>
+          </div>
+        </div>
+        <p id="qrModalStatus" class="mt-3 mb-2" role="status" aria-live="polite"></p>
+        <div id="qrPreview" class="d-flex flex-wrap gap-2"></div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid var(--line-200);justify-content:space-between">
+        <button type="button" id="qrPreviewBtn" class="btn btn-inrl-outline">Preview</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" id="qrSaveBtn" class="btn btn-inrl">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="orderShirtsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
+      <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
+        <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Shirts in this order</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="form-text mt-0" id="orderShirtsMeta"></p>
+        <p id="orderShirtsStatus" role="status" aria-live="polite"></p>
+        <div class="table-responsive">
+          <table class="table mb-0 inrl-table" style="border-collapse:collapse">
+            <thead><tr><th>QR</th><th>Shirt</th><th>Owner</th><th>Video</th><th>Scans</th></tr></thead>
+            <tbody id="orderShirtsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid var(--line-200);justify-content:space-between">
+        <button type="button" id="orderResubmitBtn" class="btn btn-inrl" hidden>Resubmit to Printful</button>
+        <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
@@ -1267,7 +1341,7 @@
       tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4" style="color:var(--ink-500)">No products found.</td></tr>';
     } else {
       tbody.innerHTML = slice.map(function(p) {
-      const viewerLink = p.viewer_url || '/index.html';
+      const viewerLink = p.viewer_url || '/viewer';
       const storeLink = 'product.html?slug=' + encodeURIComponent((p.slug || '').toString()) + (!p.slug && p.id ? '&id=' + encodeURIComponent(String(p.id)) : '');
       const hasTarget = p.ar_target_id != null;
       const isPfLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
@@ -1839,7 +1913,7 @@
         var tbody = document.getElementById('ordersTbody');
         if (!tbody) return;
         if (!slice.length) {
-          tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4" style="color:var(--ink-500)">No orders found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4" style="color:var(--ink-500)">No orders found.</td></tr>';
         } else {
           tbody.innerHTML = slice.map(function(o) {
             var date = o.created_at ? o.created_at.slice(0, 10) : '\u2014';
@@ -1855,6 +1929,8 @@
               '<td>' + statusBadge(o.status) + '</td>' +
               '<td>' + printfulBadge(o.printful_order_id, o.printful_status) + '</td>' +
               '<td style="font-size:.7rem;color:var(--ink-500)">' + escapeHtml(loc) + '</td>' +
+              '<td class="text-end"><button type="button" class="btn btn-sm btn-inrl-outline" data-order-shirts="' + escapeHtml(String(o.id || '')) + '" style="font-size:.58rem;padding:.18rem .55rem">' +
+                (o.payment_status === 'paid' && o.printful_status === 'error' ? 'Shirts · resubmit' : 'Shirts') + '</button></td>' +
             '</tr>';
           }).join('');
         }
@@ -1881,6 +1957,69 @@
           showStatus('Orders failed to load: ' + (e.message || String(e)), 'error');
         }
       }
+
+      // ---- Shirts in an order (each with its own code + QR) and Printful resubmit ----
+      var shirtsModalEl = document.getElementById('orderShirtsModal');
+      var shirtsModalInstance = shirtsModalEl ? new bootstrap.Modal(shirtsModalEl) : null;
+      var shirtsOrderId = null;
+      function shirtsStatus(msg, isError) {
+        var st = document.getElementById('orderShirtsStatus');
+        st.textContent = msg || '';
+        st.style.color = isError ? '#b23b3b' : 'var(--ink-500)';
+      }
+      async function openOrderShirts(orderId) {
+        shirtsOrderId = orderId;
+        var tbody = document.getElementById('orderShirtsTbody');
+        tbody.innerHTML = '';
+        document.getElementById('orderShirtsMeta').textContent = orderId;
+        document.getElementById('orderResubmitBtn').hidden = true;
+        shirtsStatus('Loading…');
+        if (shirtsModalInstance) shirtsModalInstance.show();
+        try {
+          var res = await apiFetch('/admin/orders/' + encodeURIComponent(orderId) + '/pieces');
+          var o = res.order || {};
+          document.getElementById('orderShirtsMeta').textContent = orderId + ' · payment ' + (o.payment_status || '—') +
+            ' · Printful ' + (o.printful_status || '—') + (o.printful_order_id ? ' (#' + o.printful_order_id + ')' : '');
+          document.getElementById('orderResubmitBtn').hidden = !(o.payment_status === 'paid' && (!o.printful_order_id || o.printful_status === 'error'));
+          var items = res.items || [];
+          tbody.innerHTML = items.length ? items.map(function(u) {
+            var qr = u.qr_url
+              ? '<a href="' + escapeHtml(u.qr_url) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u.qr_url) + '" alt="QR ' + escapeHtml(u.claim_code) + '" width="56" height="56" style="background:#fff"></a>'
+              : '<span style="color:var(--ink-500);font-size:.7rem">' + (u.product.has_ar ? 'not generated' : 'no AR') + '</span>';
+            return '<tr>' +
+              '<td>' + qr + '</td>' +
+              '<td><div style="font-weight:700">' + escapeHtml(u.nickname || u.product.title || '') + '</div>' +
+                '<div style="font-size:.66rem;color:var(--ink-500)"><code>' + escapeHtml(u.claim_code) + '</code> · line ' + (u.item_index + 1) + ', shirt ' + (u.unit_index + 1) + '</div>' +
+                '<a href="' + escapeHtml(u.link) + '" target="_blank" rel="noopener" style="font-size:.66rem">' + escapeHtml(u.link) + '</a></td>' +
+              '<td style="font-size:.72rem">' + escapeHtml(u.owner_email || '— unowned') + '</td>' +
+              '<td style="font-size:.72rem">' + (u.version ? 'Own video · v' + u.version : 'Default') + '</td>' +
+              '<td style="font-size:.72rem">' + escapeHtml(String(u.scan_count || 0)) + '</td>' +
+            '</tr>';
+          }).join('') : '<tr><td colspan="5" class="text-center p-4" style="color:var(--ink-500)">No shirts minted for this order (it has not been paid).</td></tr>';
+          shirtsStatus('');
+        } catch (e) {
+          shirtsStatus('Shirts failed to load: ' + (e.message || String(e)), true);
+        }
+      }
+      var ordersTbodyEl = document.getElementById('ordersTbody');
+      if (ordersTbodyEl) ordersTbodyEl.addEventListener('click', function(ev) {
+        var btn = ev.target.closest('button[data-order-shirts]');
+        if (btn) openOrderShirts(btn.getAttribute('data-order-shirts'));
+      });
+      var orderResubmitBtn = document.getElementById('orderResubmitBtn');
+      if (orderResubmitBtn) orderResubmitBtn.addEventListener('click', async function() {
+        if (!shirtsOrderId || !confirm('Send this order to Printful again? It reuses the same shirts and QR codes.')) return;
+        orderResubmitBtn.disabled = true;
+        shirtsStatus('Sending to Printful…');
+        try {
+          var r = await apiFetch('/admin/orders/' + encodeURIComponent(shirtsOrderId) + '/resubmit', { method: 'POST', body: {} });
+          await loadAndRenderOrders();
+          await openOrderShirts(shirtsOrderId);
+          shirtsStatus('Printful confirmed order #' + r.printful_order_id + '.');
+        } catch (e) {
+          shirtsStatus('Resubmit failed: ' + (e.message || String(e)), true);
+        } finally { orderResubmitBtn.disabled = false; }
+      });
 
       var ordersRefreshBtn = document.getElementById('ordersRefreshBtn');
       if (ordersRefreshBtn) ordersRefreshBtn.addEventListener('click', loadAndRenderOrders);
@@ -2184,6 +2323,116 @@
       var printfulModalEl = document.getElementById('printfulProductModal');
       var printfulModalInstance = printfulModalEl ? new bootstrap.Modal(printfulModalEl) : null;
 
+      // ---- Shirt QR placement (products.printful_qr) ----
+      var qrModalEl = document.getElementById('printfulQrModal');
+      var qrModalInstance = qrModalEl ? new bootstrap.Modal(qrModalEl) : null;
+      var qrPlacements = [];
+      function qrEl(id) { return document.getElementById(id); }
+      function qrSetStatus(msg, isError) {
+        var st = qrEl('qrModalStatus');
+        st.textContent = msg || '';
+        st.style.color = isError ? '#b23b3b' : 'var(--ink-500)';
+      }
+      function qrCurrentArea() {
+        var pl = qrPlacements.find(function(x) { return x.placement === qrEl('qrPlacement').value; });
+        if (!pl || !pl.print_area_width || !pl.print_area_height) return null;
+        return { w: Number(pl.print_area_width), h: Number(pl.print_area_height) };
+      }
+      function qrShowArea() {
+        var a = qrCurrentArea();
+        qrEl('qrAreaHint').textContent = a ? ('Print area ' + a.w + ' × ' + a.h + ' in') : 'Print area size unknown for this placement';
+      }
+      function qrSettings() {
+        var a = qrCurrentArea();
+        if (!a) throw new Error('Pick a placement with a known print area.');
+        var size = Number(qrEl('qrSize').value), top = Number(qrEl('qrTop').value), left = Number(qrEl('qrLeft').value);
+        if (!(size >= 1 && size <= 6)) throw new Error('Size must be between 1 and 6 inches.');
+        if (!(top >= 0) || !(left >= 0)) throw new Error('Top and left must be 0 or more.');
+        if (left + size > a.w + 0.01 || top + size > a.h + 0.01) throw new Error('The QR must sit inside the ' + a.w + ' × ' + a.h + ' in print area.');
+        return { placement: qrEl('qrPlacement').value, size_in: size, top_in: top, left_in: left, area_width_in: a.w, area_height_in: a.h };
+      }
+      async function openQrModal(productId) {
+        var p = printfulProducts.find(function(x) { return String(x.id) === String(productId); });
+        if (!p) return;
+        qrEl('qrProductId').value = String(p.id);
+        qrEl('qrProductTitle').textContent = (p.title || '') + ' — /' + (p.slug || '');
+        qrEl('qrPreview').innerHTML = '';
+        var saved = p.printful_qr || null;
+        qrEl('qrSize').value = saved ? saved.size_in : 1.5;
+        qrEl('qrTop').value = saved ? saved.top_in : 12;
+        qrEl('qrLeft').value = saved ? saved.left_in : 5.25;
+        var sel = qrEl('qrPlacement');
+        sel.innerHTML = '';
+        qrPlacements = [];
+        if (qrModalInstance) qrModalInstance.show();
+        if (!p.printful_catalog_product_id) {
+          qrSetStatus('Link this product to Printful first (re-import it from Printful so its garment is known).', true);
+          return;
+        }
+        qrSetStatus('Loading placements…');
+        try {
+          var res = await apiFetch('/admin/printful/catalog/' + encodeURIComponent(p.printful_catalog_product_id) + '/placements');
+          qrPlacements = (res && res.placements) || [];
+          sel.innerHTML = qrPlacements.map(function(pl) {
+            return '<option value="' + escapeHtml(pl.placement) + '">' + escapeHtml(pl.display_name || pl.placement) + '</option>';
+          }).join('');
+          var art = p.printful_design_images ? Object.keys(p.printful_design_images) : [];
+          sel.value = saved ? saved.placement : (qrPlacements.some(function(x) { return x.placement === 'back'; }) ? 'back' : (art[0] || (qrPlacements[0] && qrPlacements[0].placement) || ''));
+          qrShowArea();
+          qrSetStatus(saved ? 'Saved settings loaded.' : 'Not saved yet — checkout refuses this product until it is.');
+        } catch (e) {
+          qrSetStatus('Placements failed to load: ' + (e.message || String(e)), true);
+        }
+      }
+      if (qrModalEl) {
+        qrEl('qrPlacement').addEventListener('change', qrShowArea);
+        qrEl('qrCentreBtn').addEventListener('click', function() {
+          var a = qrCurrentArea();
+          if (!a) return;
+          qrEl('qrLeft').value = Math.max(0, (a.w - Number(qrEl('qrSize').value || 0)) / 2).toFixed(2);
+        });
+        qrEl('qrSaveBtn').addEventListener('click', async function() {
+          var btn = this;
+          try {
+            var settings = qrSettings();
+            btn.disabled = true;
+            await apiFetch('/products/' + encodeURIComponent(qrEl('qrProductId').value), { method: 'POST', body: { printful_qr: settings } });
+            qrSetStatus('Saved. New orders print the QR here.');
+            await loadPrintfulProducts();
+          } catch (e) {
+            qrSetStatus(e.message || String(e), true);
+          } finally { btn.disabled = false; }
+        });
+        qrEl('qrPreviewBtn').addEventListener('click', async function() {
+          var btn = this;
+          try {
+            var settings = qrSettings();
+            btn.disabled = true;
+            qrEl('qrPreview').innerHTML = '';
+            qrSetStatus('Asking Printful for a mockup with a sample QR (SAMP-LE00)…');
+            var task = await apiFetch('/admin/printful/products/' + encodeURIComponent(qrEl('qrProductId').value) + '/mockup', { method: 'POST', body: { qr: settings } });
+            for (var i = 0; i < 30; i++) {
+              await new Promise(function(r) { setTimeout(r, 2000); });
+              var t = await apiFetch('/admin/printful/mockup-tasks/' + encodeURIComponent(task.task_id));
+              if (t.image_urls && t.image_urls.length) {
+                qrEl('qrPreview').innerHTML = t.image_urls.map(function(u) {
+                  return '<img src="' + escapeHtml(u) + '" alt="Mockup" style="max-width:240px;border:1px solid var(--line-200)">';
+                }).join('');
+                qrSetStatus('This is what will be printed (with each shirt\'s own QR).');
+                return;
+              }
+              var status = String(t.status || '').toLowerCase();
+              if (status && status.indexOf('pend') === -1 && status.indexOf('process') === -1) {
+                throw new Error('Mockup ' + t.status + ((t.failure_reasons || []).length ? ': ' + JSON.stringify(t.failure_reasons) : ''));
+              }
+            }
+            throw new Error('Printful took too long — try Preview again.');
+          } catch (e) {
+            qrSetStatus(e.message || String(e), true);
+          } finally { btn.disabled = false; }
+        });
+      }
+
       function printfulStatusChip(text, color, bg) {
         return '<span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:.28em .55em;' +
           'background:' + bg + ';color:' + color + ';border:1px solid ' + color + '">' +
@@ -2238,6 +2487,13 @@
             ? printfulStatusChip('linked', '#1c5d68', 'rgba(18,162,184,.1)')
             : printfulStatusChip('unlinked', '#c17a2e', 'rgba(193,122,46,.1)');
           var actionHtml = '<button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit Design/Price</button>';
+          // AR products print a QR on every shirt; checkout refuses them until it is placed.
+          if (p.ar_target_id) {
+            actionHtml = '<button class="btn btn-sm btn-inrl-outline me-1" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="qr" data-id="' + p.id + '">QR placement</button>' + actionHtml;
+            stateChip += ' ' + (p.printful_qr
+              ? printfulStatusChip('QR ' + p.printful_qr.placement, '#1c5d68', 'rgba(18,162,184,.1)')
+              : printfulStatusChip('QR missing', '#b23b3b', 'rgba(178,59,59,.08)'));
+          }
           var marginHtml = renderMarginHtml(computeMarginSummary(p.price_cents, p.printful_variant_cost_map), p.currency) || '<span style="color:var(--ink-500)">\u2014</span>';
           return '<tr>' +
             '<td><div style="font-weight:700">' + escapeHtml(p.title || '') + '</div><div style="font-size:.66rem;color:var(--ink-500)">/' + escapeHtml(p.slug || '') + '</div></td>' +
@@ -2555,6 +2811,8 @@
       var printfulProductsTbody = document.getElementById('printfulProductsTbody');
       if (printfulProductsTbody) {
         printfulProductsTbody.addEventListener('click', function(ev) {
+          var qrBtn = ev.target.closest('button[data-pf-product-action="qr"]');
+          if (qrBtn) { openQrModal(qrBtn.getAttribute('data-id')); return; }
           var btn = ev.target.closest('button[data-pf-product-action="edit"]');
           if (!btn) return;
           openPrintfulProductModal(btn.getAttribute('data-id'));

@@ -490,13 +490,13 @@ From the end-to-end review of product creation → checkout → AR. Items 1–4 
 ### Security / data
 
 - [ ] **Unverified email takes over guest orders and pieces.** `apiRegister` has no email verification, but `provisionGarmentUnitsForOrder`, `apiListMyOrders` and `apiGetOrder` all trust an email match. Someone who registers a guest buyer's email gets their pieces (and AR control) plus name and address. Add email verification and only email-match against verified accounts.
-- [ ] **Claim code is both the ownership secret and the public QR.** `apiGetPiece` builds `viewer_url` as `index.html?piece=<claim_code>`, the same code `/api/pieces/claim` accepts. Unclaimed pieces (guest order, no account) can be claimed by anyone who scans the shirt. Add a separate public viewer id on `garment_units`; keep the claim code on the collar tag only.
+- [x] **Claim code is both the ownership secret and the public QR.** _(Done 2026-10-06: claiming removed; every shirt is owned from payment and its code is only a public `/p/<code>` link.)_ `apiGetPiece` builds `viewer_url` as `index.html?piece=<claim_code>`, the same code `/api/pieces/claim` accepts. Unclaimed pieces (guest order, no account) can be claimed by anyone who scans the shirt. Add a separate public viewer id on `garment_units`; keep the claim code on the collar tag only.
 - [ ] **Brand-supplied text runs as HTML on the AR viewer.** `index.html` puts `activeTarget.name` / `product_title` into `innerHTML` (`footerMeta`). Escape it. Also block `image/svg+xml` in `handleUpload` (or serve uploads with `Content-Disposition: attachment` / a CSP), since R2 files are served from the shop origin.
 - [ ] **Brand accounts can read any order's PII.** `apiGetOrder` lets `brand` see every order like `admin`. Restrict brands to orders containing their own products (or to admin only).
 
 ### Orders / fulfillment
 
-- [ ] **No way to resubmit a paid order that failed to reach Printful.** `finalizeOrderPrintfulSubmission` sets `printful_status='error'`; the only admin action (`apiPrintfulOrderSync`) needs an existing Printful order id. Add an admin "resubmit to Printful" action for paid orders without a confirmed Printful order.
+- [x] **No way to resubmit a paid order that failed to reach Printful.** _(Done 2026-10-06: Orders → Shirts → Resubmit to Printful, `POST /api/admin/orders/:id/resubmit`.)_ `finalizeOrderPrintfulSubmission` sets `printful_status='error'`; the only admin action (`apiPrintfulOrderSync`) needs an existing Printful order id. Add an admin "resubmit to Printful" action for paid orders without a confirmed Printful order.
 - [ ] **Sync Product (v1) orders never receive webhook updates.** `apiPrintfulWebhook` matches only `printful_order_id`; v1 ids are stored in `printful_order_id_v1`. Match both columns.
 - [ ] **Resume payment can double-charge.** `apiResumeOrderPayment` creates a new Stripe session without expiring the old one; paying both charges twice and the second is ignored, not refunded. Expire the previous `stripe_session_id` (`POST /v1/checkout/sessions/:id/expire`) first.
 - [ ] Mixed carts (Sync Product + catalog items) become two Printful orders, so Printful bills shipping twice while checkout quotes it once. Decide whether to quote per group.
@@ -515,4 +515,16 @@ From the end-to-end review of product creation → checkout → AR. Items 1–4 
 - [x] Create endpoints re-read the new row with `last_insert_rowid()` in a separate D1 query (`apiCreateProduct`, `apiCreateTarget`, `apiCreateBrandDesign`); a concurrent write can return the wrong row. Use `RETURNING` or `meta.last_row_id`.
 - [x] Duplicate slug on `apiCreateProduct` isn't caught (500 instead of 409).
 - [x] Global error handler returns full stack traces to clients (`fetch` handler, `detail`). Log them, return a generic message.
-- [ ] Personal AR video upload (`apiUploadOrderArVideo`) works on unpaid orders; require `payment_status='paid'`.
+- [x] Personal AR video upload (`apiUploadOrderArVideo`) works on unpaid orders; require `payment_status='paid'`. _(Done 2026-10-06: endpoint removed; order links play the shirt's own video.)_
+
+## Future development
+
+### Contact form sends from the server
+
+`ecommerce/contact.html` already posts `{name, email, order, message}` to `POST /api/contact` and, while that route answers 404/501, opens the visitor's own email app with the message written out to contact@inrl.co (they still have to press Send).
+
+- [ ] Worker `POST /api/contact`: rate-limited (reuse `RATE_LIMIT_MAX_AUTH`), validate name/email/message (cap message at ~5000 chars), send through `sendMail` (Resend, already used by forgot-password) to a new `CONTACT_TO` variable (default contact@inrl.co) with `reply_to` = the visitor's email so Reply answers them. Return 200 on send, 502 on a Resend failure, 501 while email isn't configured (keeps the mailto fallback).
+- [ ] Add `reply_to` support back to `sendMail` (payload field `reply_to`).
+- [ ] Spam: add Cloudflare Turnstile to the form (and verify the token in the Worker) before going live — an open endpoint that emails us will be found by bots.
+- [ ] Optional: also store each message in D1 (`contact_messages`) with an admin list in the dashboard, so nothing is lost if an email bounces.
+- [ ] Set `CONTACT_TO` on `mindar-worker` and send a test message.

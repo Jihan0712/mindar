@@ -289,7 +289,7 @@
     // it has to be polled via getMockupTask. Returns the FULL raw response unwrapped —
     // callers should try several envelope shapes rather than assume one, since Printful's
     // v2-beta docs haven't matched the actual response shape here on the first two guesses.
-    async function createMockupTaskRaw(env, { catalogProductId, catalogVariantIds, mockupStyleIds, placement, technique, imageUrl, format }) {
+    async function createMockupTaskRaw(env, { catalogProductId, catalogVariantIds, mockupStyleIds, placement, technique, imageUrl, layers, format }) {
       const payload = {
         format: format || 'jpg',
         products: [{
@@ -300,7 +300,7 @@
           placements: [{
             placement: placement || 'front',
             technique: technique || 'dtg',
-            layers: [{ type: 'file', url: imageUrl }],
+            layers: layers && layers.length ? layers : [{ type: 'file', url: imageUrl }],
           }],
         }],
       };
@@ -422,6 +422,287 @@
     return { getStripeConfig, createCheckoutSession, verifyWebhookSignature };
   })();
 
+  // ---------- QR code (per-shirt QR printed with each order) ----------
+  //
+  // The Worker ships as one file with no bundler, so the encoder lives inline. Byte mode,
+  // error correction level Q (survives ~25% damage — it is printed on fabric), versions
+  // 1-10 (a /p/<code> link is ~35 bytes, version 3). Layout, masking and penalty scoring
+  // follow ISO/IEC 18004 and match the `qrcode` npm library module-for-module.
+  const QR = (() => {
+    // Level Q block structure per version: [ec codewords per block, [blocks, data codewords]...]
+    const Q_BLOCKS = [null,
+      [13, [1, 13]], [22, [1, 22]], [18, [2, 17]], [26, [2, 24]], [18, [2, 15], [2, 16]],
+      [24, [4, 19]], [18, [2, 14], [4, 15]], [22, [4, 18], [2, 19]], [20, [4, 16], [4, 17]], [24, [6, 19], [2, 20]],
+    ];
+    const ALIGN = [null, [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50]];
+    const REMAINDER_BITS = [0, 0, 7, 7, 7, 7, 7, 0, 0, 0, 0];
+    const EC_LEVEL_Q = 3; // format-info bits for level Q (L=1, M=0, Q=3, H=2)
+
+    const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+    { let x = 1; for (let i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; } for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255]; }
+    const gfMul = (a, b) => (a && b) ? EXP[LOG[a] + LOG[b]] : 0;
+
+    function rsGenerator(degree) {
+      let poly = new Uint8Array([1]);
+      for (let i = 0; i < degree; i++) {
+        const next = new Uint8Array(poly.length + 1);
+        for (let j = 0; j < poly.length; j++) { next[j] ^= poly[j]; next[j + 1] ^= gfMul(poly[j], EXP[i]); }
+        poly = next;
+      }
+      return poly;
+    }
+    function rsRemainder(data, degree) {
+      const gen = rsGenerator(degree);
+      const buf = new Uint8Array(data.length + degree); buf.set(data);
+      for (let i = 0; i < data.length; i++) {
+        const coef = buf[i];
+        if (coef) for (let j = 0; j < gen.length; j++) buf[i + j] ^= gfMul(gen[j], coef);
+      }
+      return buf.slice(data.length);
+    }
+
+    function dataCapacity(version) {
+      const [, ...groups] = Q_BLOCKS[version];
+      return groups.reduce((n, [blocks, dc]) => n + blocks * dc, 0);
+    }
+
+    function encodeCodewords(bytes, version) {
+      const capacity = dataCapacity(version);
+      const bits = [];
+      const push = (value, len) => { for (let i = len - 1; i >= 0; i--) bits.push((value >>> i) & 1); };
+      push(0b0100, 4);
+      push(bytes.length, version < 10 ? 8 : 16);
+      for (const b of bytes) push(b, 8);
+      const maxBits = capacity * 8;
+      for (let i = 0; i < 4 && bits.length < maxBits; i++) bits.push(0);
+      while (bits.length % 8) bits.push(0);
+      const data = new Uint8Array(capacity);
+      let n = 0;
+      for (; n < bits.length / 8; n++) { let v = 0; for (let k = 0; k < 8; k++) v = (v << 1) | bits[n * 8 + k]; data[n] = v; }
+      for (let pad = 0; n < capacity; n++, pad++) data[n] = pad % 2 ? 0x11 : 0xec;
+
+      const [ecLen, ...groups] = Q_BLOCKS[version];
+      const dataBlocks = [], ecBlocks = [];
+      let offset = 0;
+      for (const [blocks, dc] of groups) for (let b = 0; b < blocks; b++) {
+        const block = data.slice(offset, offset + dc); offset += dc;
+        dataBlocks.push(block); ecBlocks.push(rsRemainder(block, ecLen));
+      }
+      const out = [];
+      const maxData = Math.max(...dataBlocks.map(b => b.length));
+      for (let i = 0; i < maxData; i++) for (const b of dataBlocks) if (i < b.length) out.push(b[i]);
+      for (let i = 0; i < ecLen; i++) for (const b of ecBlocks) out.push(b[i]);
+      return new Uint8Array(out);
+    }
+
+    function bchFormat(mask) {
+      const data = (EC_LEVEL_Q << 3) | mask;
+      let d = data << 10;
+      while (Math.clz32(d) - Math.clz32(0x537) <= 0) d ^= 0x537 << (Math.clz32(0x537) - Math.clz32(d));
+      return ((data << 10) | d) ^ 0x5412;
+    }
+    function bchVersion(version) {
+      let d = version << 12;
+      while (Math.clz32(d) - Math.clz32(0x1f25) <= 0) d ^= 0x1f25 << (Math.clz32(0x1f25) - Math.clz32(d));
+      return (version << 12) | d;
+    }
+
+    const MASKS = [
+      (i, j) => (i + j) % 2 === 0,
+      (i) => i % 2 === 0,
+      (i, j) => j % 3 === 0,
+      (i, j) => (i + j) % 3 === 0,
+      (i, j) => (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0,
+      (i, j) => (i * j) % 2 + (i * j) % 3 === 0,
+      (i, j) => ((i * j) % 2 + (i * j) % 3) % 2 === 0,
+      (i, j) => ((i * j) % 3 + (i + j) % 2) % 2 === 0,
+    ];
+
+    function buildBase(version) {
+      const size = version * 4 + 17;
+      const m = new Uint8Array(size * size), reserved = new Uint8Array(size * size);
+      const set = (r, c, v) => { m[r * size + c] = v ? 1 : 0; reserved[r * size + c] = 1; };
+
+      for (const [fr, fc] of [[0, 0], [size - 7, 0], [0, size - 7]]) {
+        for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
+          const rr = fr + r, cc = fc + c;
+          if (rr < 0 || rr >= size || cc < 0 || cc >= size) continue;
+          const dark = (r >= 0 && r <= 6 && (c === 0 || c === 6)) || (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                       (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+          set(rr, cc, dark);
+        }
+      }
+      for (let i = 8; i < size - 8; i++) { set(i, 6, i % 2 === 0); set(6, i, i % 2 === 0); }
+      const pos = ALIGN[version];
+      for (let a = 0; a < pos.length; a++) for (let b = 0; b < pos.length; b++) {
+        if ((a === 0 && b === 0) || (a === 0 && b === pos.length - 1) || (a === pos.length - 1 && b === 0)) continue;
+        const row = pos[a], col = pos[b];
+        for (let r = -2; r <= 2; r++) for (let c = -2; c <= 2; c++) {
+          set(row + r, col + c, r === -2 || r === 2 || c === -2 || c === 2 || (r === 0 && c === 0));
+        }
+      }
+      // Reserve format areas (filled per mask) and write version info.
+      for (let i = 0; i < 9; i++) { reserved[8 * size + i] = 1; reserved[i * size + 8] = 1; }
+      for (let i = 0; i < 8; i++) { reserved[8 * size + (size - 1 - i)] = 1; reserved[(size - 1 - i) * size + 8] = 1; }
+      if (version >= 7) {
+        const bits = bchVersion(version);
+        for (let i = 0; i < 18; i++) {
+          const row = Math.floor(i / 3), col = i % 3 + size - 11, dark = ((bits >> i) & 1) === 1;
+          set(row, col, dark); set(col, row, dark);
+        }
+      }
+      return { size, m, reserved };
+    }
+
+    function placeData(base, codewords, version) {
+      const { size, m, reserved } = base;
+      const totalBits = codewords.length * 8 + REMAINDER_BITS[version];
+      let bitIndex = 0, inc = -1, row = size - 1;
+      for (let col = size - 1; col > 0; col -= 2) {
+        if (col === 6) col--;
+        for (;;) {
+          for (let c = 0; c < 2; c++) {
+            const idx = row * size + col - c;
+            if (reserved[idx]) continue;
+            let dark = 0;
+            if (bitIndex < codewords.length * 8) dark = (codewords[bitIndex >> 3] >>> (7 - (bitIndex & 7))) & 1;
+            m[idx] = dark; bitIndex++;
+          }
+          row += inc;
+          if (row < 0 || row >= size) { row -= inc; inc = -inc; break; }
+        }
+      }
+      return totalBits;
+    }
+
+    function writeFormat(size, m, mask) {
+      const bits = bchFormat(mask);
+      for (let i = 0; i < 15; i++) {
+        const dark = ((bits >> i) & 1) === 1 ? 1 : 0;
+        if (i < 6) m[i * size + 8] = dark;
+        else if (i < 8) m[(i + 1) * size + 8] = dark;
+        else m[(size - 15 + i) * size + 8] = dark;
+        if (i < 8) m[8 * size + (size - i - 1)] = dark;
+        else if (i < 9) m[8 * size + (15 - i)] = dark;
+        else m[8 * size + (14 - i)] = dark;
+      }
+      m[(size - 8) * size + 8] = 1;
+    }
+
+    function applyMask(size, m, reserved, mask) {
+      const fn = MASKS[mask];
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+        const idx = r * size + c;
+        if (!reserved[idx] && fn(r, c)) m[idx] ^= 1;
+      }
+    }
+
+    function penalty(size, m) {
+      let score = 0;
+      for (let r = 0; r < size; r++) {
+        let runRow = 0, runCol = 0, lastRow = -1, lastCol = -1;
+        for (let c = 0; c < size; c++) {
+          const a = m[r * size + c], b = m[c * size + r];
+          if (a === lastRow) runRow++; else { if (runRow >= 5) score += 3 + (runRow - 5); lastRow = a; runRow = 1; }
+          if (b === lastCol) runCol++; else { if (runCol >= 5) score += 3 + (runCol - 5); lastCol = b; runCol = 1; }
+        }
+        if (runRow >= 5) score += 3 + (runRow - 5);
+        if (runCol >= 5) score += 3 + (runCol - 5);
+      }
+      for (let r = 0; r < size - 1; r++) for (let c = 0; c < size - 1; c++) {
+        const s = m[r * size + c] + m[r * size + c + 1] + m[(r + 1) * size + c] + m[(r + 1) * size + c + 1];
+        if (s === 4 || s === 0) score += 3;
+      }
+      for (let r = 0; r < size; r++) {
+        let bitsRow = 0, bitsCol = 0;
+        for (let c = 0; c < size; c++) {
+          bitsRow = ((bitsRow << 1) & 0x7ff) | m[r * size + c];
+          if (c >= 10 && (bitsRow === 0x5d0 || bitsRow === 0x05d)) score += 40;
+          bitsCol = ((bitsCol << 1) & 0x7ff) | m[c * size + r];
+          if (c >= 10 && (bitsCol === 0x5d0 || bitsCol === 0x05d)) score += 40;
+        }
+      }
+      let dark = 0; for (let i = 0; i < m.length; i++) dark += m[i];
+      score += Math.abs(Math.ceil((dark * 100 / m.length) / 5) - 10) * 10;
+      return score;
+    }
+
+    // qrMatrix(text[, { version, mask }]) -> { size, version, mask, modules } (1 = dark).
+    function qrMatrix(text, opts = {}) {
+      const bytes = new TextEncoder().encode(String(text));
+      let version = opts.version || 0;
+      if (!version) {
+        for (let v = 1; v <= 10; v++) if (4 + (v < 10 ? 8 : 16) + bytes.length * 8 <= dataCapacity(v) * 8) { version = v; break; }
+        if (!version) throw new Error('QR: text too long for version 10');
+      }
+      const codewords = encodeCodewords(bytes, version);
+      const base = buildBase(version);
+      placeData(base, codewords, version);
+      const { size, m, reserved } = base;
+
+      let mask = opts.mask;
+      if (mask == null) {
+        let best = Infinity;
+        for (let p = 0; p < 8; p++) {
+          applyMask(size, m, reserved, p); writeFormat(size, m, p);
+          const s = penalty(size, m);
+          if (s < best) { best = s; mask = p; }
+          applyMask(size, m, reserved, p);
+        }
+      }
+      applyMask(size, m, reserved, mask); writeFormat(size, m, mask);
+      return { size, version, mask, modules: m };
+    }
+
+    const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+    function crc32(bytes) { let c = 0xffffffff; for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+
+    async function deflate(bytes) {
+      const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    function pngChunk(type, data) {
+      const out = new Uint8Array(12 + data.length);
+      const dv = new DataView(out.buffer);
+      dv.setUint32(0, data.length);
+      for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+      out.set(data, 8);
+      dv.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
+      return out;
+    }
+
+    // qrPng(text, sizeIn) -> { png, pixels, sizeIn }: 8-bit greyscale PNG at 300 DPI, 4-module
+    // quiet zone, every module the same whole number of pixels. sizeIn is recomputed from the
+    // final pixel width so what Printful prints matches the image exactly.
+    async function qrPng(text, sizeIn) {
+      const { size, modules } = qrMatrix(text);
+      const total = size + 8;
+      const scale = Math.max(1, Math.floor(Math.round(Number(sizeIn) * 300) / total));
+      const px = total * scale;
+      const raw = new Uint8Array(px * (px + 1));
+      for (let y = 0; y < px; y++) {
+        const rowStart = y * (px + 1);
+        raw[rowStart] = 0;
+        const my = Math.floor(y / scale) - 4;
+        for (let x = 0; x < px; x++) {
+          const mx = Math.floor(x / scale) - 4;
+          const dark = my >= 0 && my < size && mx >= 0 && mx < size && modules[my * size + mx];
+          raw[rowStart + 1 + x] = dark ? 0 : 255;
+        }
+      }
+      const ihdr = new Uint8Array(13);
+      const dv = new DataView(ihdr.buffer);
+      dv.setUint32(0, px); dv.setUint32(4, px); ihdr[8] = 8; ihdr[9] = 0; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+      const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', ihdr), pngChunk('IDAT', await deflate(raw)), pngChunk('IEND', new Uint8Array(0))];
+      const png = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+      let o = 0; for (const p of parts) { png.set(p, o); o += p.length; }
+      return { png, pixels: px, sizeIn: px / 300 };
+    }
+
+    return { qrMatrix, qrPng };
+  })();
+
   // ES Module format: expose fetch and inject env bindings into globals per request
   export default {
     async fetch(request, env, ctx) {
@@ -461,6 +742,12 @@
     // Stripe
     globalThis.STRIPE_SECRET_KEY             = env.STRIPE_SECRET_KEY;
     globalThis.STRIPE_WEBHOOK_SECRET         = env.STRIPE_WEBHOOK_SECRET;
+    // Email (Resend) — optional; without it forgot-password answers 501 and the page
+    // tells the customer to write in instead.
+    globalThis.RESEND_API_KEY                = env.RESEND_API_KEY;
+    globalThis.MAIL_FROM                     = env.MAIL_FROM;
+    // Public storefront origin printed into each shirt's QR (e.g. https://shop.inrl.co).
+    globalThis.PUBLIC_SITE_URL               = env.PUBLIC_SITE_URL;
   }
 
   /** Build env object for Stripe module (reads per-request globals). */
@@ -848,6 +1135,8 @@
     if (request.method === 'POST' && pathname === '/api/auth/logout')          return apiLogout(request);
     if (request.method === 'GET'  && pathname === '/api/auth/me')              return apiMe(request);
     if (request.method === 'POST' && pathname === '/api/auth/change-password') return apiChangePassword(request);
+    if (request.method === 'POST' && pathname === '/api/auth/forgot-password') return apiForgotPassword(request);
+    if (request.method === 'POST' && pathname === '/api/auth/reset-password')  return apiResetPassword(request);
 
     // Orders (shop)
     if (request.method === 'POST' && pathname === '/api/checkout/session')     return apiCreateCheckoutSession(request);
@@ -871,21 +1160,13 @@
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiCancelOrder(request, id);
     }
-    if (request.method === 'POST' && /^\/api\/orders\/([^/]+)\/items\/(\d+)\/ar-video$/.test(pathname)) {
-      const parts = pathname.split('/');
-      const id = decodeURIComponent(parts[3]);
-      const itemIndex = parseInt(parts[5], 10);
-      return apiUploadOrderArVideo(request, id, itemIndex);
-    }
     if (request.method === 'GET'  && /^\/api\/orders\/[^/]+$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetOrder(request, id);
     }
 
     // Wardrobe (garment units — customer-claimed physical pieces, see sql/wardrobe_migration.sql)
-    if (request.method === 'POST'  && pathname === '/api/pieces/claim')            return apiClaimPiece(request);
     if (request.method === 'GET'   && pathname === '/api/pieces')                  return apiListMyPieces(request);
-    if (request.method === 'GET'   && pathname === '/api/pieces/lookup')           return apiLookupPiece(request);
     if (request.method === 'POST'  && /^\/api\/pieces\/([^/]+)\/layer$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiUploadPieceLayer(request, id);
@@ -898,13 +1179,6 @@
       const id = decodeURIComponent(pathname.split('/')[3]);
       return apiGetPiece(request, id);
     }
-    // Mints unclaimed codes for a product — the physical printing of those codes onto collar
-    // tags happens outside this system. Privileged (admin, or the brand that owns the product).
-    if (request.method === 'POST'  && /^\/api\/admin\/products\/(\d+)\/pieces\/generate$/.test(pathname)) {
-      const productId = parseInt(pathname.split('/')[4], 10);
-      return apiGenerateGarmentUnits(request, productId);
-    }
-
     // Admin
     if (request.method === 'POST' && pathname === '/api/admin/brand-users')    return apiAdminCreateBrandUser(request);
     if (request.method === 'GET'  && pathname === '/api/admin/users')          return apiAdminListUsers(request);
@@ -921,6 +1195,12 @@
       return apiAdminDeleteUser(request, id);
     }
     if (request.method === 'GET'  && pathname === '/api/admin/orders')         return apiAdminListOrders(request);
+    if (request.method === 'GET'  && /^\/api\/admin\/orders\/[^/]+\/pieces$/.test(pathname)) {
+      return apiAdminOrderPieces(request, decodeURIComponent(pathname.split('/')[4]));
+    }
+    if (request.method === 'POST' && /^\/api\/admin\/orders\/[^/]+\/resubmit$/.test(pathname)) {
+      return apiAdminResubmitOrder(request, decodeURIComponent(pathname.split('/')[4]));
+    }
     // Printful admin
     if (request.method === 'GET'  && pathname === '/api/admin/printful/webhooks')          return apiPrintfulWebhookHealth(request);
     if (request.method === 'GET'  && pathname === '/api/admin/printful/products')          return apiPrintfulListLinkedProducts(request);
@@ -1539,6 +1819,95 @@
     return res;
   }
 
+  // ---------- Email (Resend) ----------
+
+  function mailConfigured() {
+    return !!(String(globalThis.RESEND_API_KEY || '').trim() && String(globalThis.MAIL_FROM || '').trim());
+  }
+
+  async function sendMail({ to, subject, text }) {
+    const payload = { from: String(globalThis.MAIL_FROM).trim(), to: [to], subject, text };
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${String(globalThis.RESEND_API_KEY).trim()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Resend ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`);
+  }
+
+  async function sha256Hex(value) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value)));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  const PASSWORD_RESET_TTL_MINUTES = 60;
+
+  // POST /api/auth/forgot-password — body {email}. Answers the same whether or not the
+  // account exists. The link is built from this request's own origin, never from the body,
+  // so the email can't be made to point anywhere else. Only a SHA-256 of the token is stored.
+  async function apiForgotPassword(request) {
+    if (!mailConfigured()) return jsonResponse({ error: 'Email is not configured' }, 501, request);
+    if (!rateLimitCheck('forgot:' + getClientIP(request), RATE_LIMIT_MAX_AUTH)) {
+      return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
+    }
+    const body = await readJson(request);
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!isValidEmail(email)) return jsonResponse({ error: 'Valid email required' }, 400, request);
+
+    const user = await dbGet('select id from users where email = ?', email);
+    if (user) {
+      const token = randomId('rst_') + randomId();
+      await dbRun('delete from password_resets where user_id = ?', user.id);
+      await dbRun(
+        `insert into password_resets (token_hash, user_id, expires_at)
+         values (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','+${PASSWORD_RESET_TTL_MINUTES} minutes'))`,
+        await sha256Hex(token), user.id
+      );
+      const link = `${new URL(request.url).origin}/ecommerce/reset-password.html?token=${encodeURIComponent(token)}`;
+      try {
+        await sendMail({
+          to: email,
+          subject: 'Reset your InRL password',
+          text: `Someone asked to reset the password for this account.\n\nPick a new one here (the link works once, for ${PASSWORD_RESET_TTL_MINUTES} minutes):\n${link}\n\nIf it wasn't you, ignore this email. Nothing changes.`,
+        });
+      } catch (e) {
+        console.error('[forgot-password] send failed', String(e));
+        return jsonResponse({ error: 'Could not send the email' }, 502, request);
+      }
+    }
+    return jsonResponse({ ok: true }, 200, request);
+  }
+
+  // POST /api/auth/reset-password — body {token, password}. One-time: the token is deleted
+  // on use, every existing session is signed out, and the caller is signed in.
+  async function apiResetPassword(request) {
+    if (!rateLimitCheck('reset:' + getClientIP(request), RATE_LIMIT_MAX_AUTH)) {
+      return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
+    }
+    const body = await readJson(request);
+    const token = String(body.token || '').trim();
+    const password = String(body.password || '');
+    if (!token) return jsonResponse({ error: 'token required' }, 400, request);
+    if (password.length < 8) return jsonResponse({ error: 'Password must be at least 8 characters' }, 400, request);
+
+    const tokenHash = await sha256Hex(token);
+    const row = await dbGet(
+      `select user_id, expires_at > strftime('%Y-%m-%dT%H:%M:%fZ','now') as fresh from password_resets where token_hash = ?`,
+      tokenHash
+    );
+    if (!row) return jsonResponse({ error: 'This link is not valid' }, 404, request);
+    await dbRun('delete from password_resets where token_hash = ?', tokenHash);
+    if (!row.fresh) return jsonResponse({ error: 'This link has expired' }, 410, request);
+
+    const salt = randomId('salt_');
+    await dbRun('update users set password_hash = ? where id = ?', await hashPassword(password, salt), row.user_id);
+    await dbRun('delete from sessions where user_id = ?', row.user_id);
+    const sessionToken = await createSession(row.user_id);
+    const res = jsonResponse({ ok: true }, 200, request);
+    res.headers.append('Set-Cookie', buildSessionCookie(sessionToken, request));
+    return res;
+  }
+
   // ---------- Orders APIs ----------
 
   // ISO country-code map for values the checkout form sends as display names.
@@ -1586,8 +1955,8 @@
     if (!qty) throw new Error(`Invalid quantity for ${slug}`);
 
     const row = await dbGet(
-      `select id, slug, title, price_cents, currency, image_url, is_published,
-              printful_variant_map, printful_sync_variant_id, printful_design_images, printful_sync_variant_map
+      `select id, slug, title, price_cents, currency, image_url, is_published, ar_target_id, printful_qr,
+              printful_variant_map, printful_sync_variant_id, printful_design_images
        from products where slug = ?`,
       slug
     );
@@ -1601,17 +1970,6 @@
     const fallback = row.printful_sync_variant_id != null ? Number(row.printful_sync_variant_id) : NaN;
     const catalogVariantId = Number.isFinite(mapped) && mapped > 0 ? mapped
       : (Number.isFinite(fallback) && fallback > 0 ? fallback : null);
-
-    // Products imported from Printful's own site (Sync Products, v1-only — see the
-    // Printful module) resolve a sync_variant_id instead of a catalog_variant_id. A
-    // product is linked via exactly one of the two models, never both, but resolve this
-    // independently of catalog_variant_id above so submitPrintfulOrder can tell them apart.
-    let syncVariantMap = null;
-    if (row.printful_sync_variant_map) {
-      try { syncVariantMap = JSON.parse(row.printful_sync_variant_map); } catch {}
-    }
-    const mappedSync = size && syncVariantMap && syncVariantMap[size] != null ? Number(syncVariantMap[size]) : NaN;
-    const syncVariantId = Number.isFinite(mappedSync) && mappedSync > 0 ? mappedSync : null;
 
     const imageUrl = row.image_url ? normalizePublicUrl(String(row.image_url), request) : '';
 
@@ -1641,7 +1999,9 @@
       image_url: imageUrl || null,
       design_images: normalizedDesignImages,
       catalog_variant_id: catalogVariantId,
-      sync_variant_id: syncVariantId,
+      product_id: row.id,
+      has_ar: row.ar_target_id != null,
+      qr: parsePrintfulQr(row.printful_qr),
     };
   }
 
@@ -1657,35 +2017,98 @@
     };
   }
 
-  // v2 catalog-direct submission — orders must reference a catalog_variant_id with
-  // source:"catalog" and an explicit print file placement, and a created order stays an
-  // unbilled draft until it is separately confirmed. Used for products linked via
-  // "Link to Printful Catalog" (with or without a positioned design from the product
-  // designer) — `catalogItems` must already be resolved (resolveOrderItemFromD1 output),
-  // pre-filtered to items with a catalog_variant_id.
-  async function submitPrintfulOrderV2(orderId, catalogItems, customer, countryCode) {
-    const items = catalogItems.map(it => {
-      // Prefer the per-placement design map (Create Product > Images step) — one
-      // placement entry per design the admin actually set up — over the single
-      // front-only placement built from the plain storefront photo, which stays as the
-      // fallback for products that were linked to Printful but never given a design.
-      const placements = it.design_images
-        ? Object.entries(it.design_images).map(([placement, url]) => ({
-            placement,
-            technique: 'dtg',
-            layers: [{ type: 'file', url }],
-          }))
-        : [{ placement: 'front', technique: 'dtg', layers: [{ type: 'file', url: it.image_url }] }];
-      return {
-        quantity: it.qty,
-        catalog_variant_id: Number(it.catalog_variant_id),
-        source: 'catalog',
-        placements,
-      };
+  // products.printful_qr — where each shirt's QR goes, in inches inside the placement's
+  // print area: {placement, size_in, top_in, left_in, area_width_in, area_height_in}.
+  function parsePrintfulQr(raw) {
+    let q = raw;
+    if (typeof q === 'string') { try { q = JSON.parse(q); } catch { return null; } }
+    if (!q || typeof q !== 'object') return null;
+    const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : NaN; };
+    const out = {
+      placement: String(q.placement || '').trim().toLowerCase(),
+      size_in: num(q.size_in), top_in: num(q.top_in), left_in: num(q.left_in),
+      area_width_in: num(q.area_width_in), area_height_in: num(q.area_height_in),
+    };
+    if (!/^[a-z0-9_]{1,40}$/.test(out.placement)) return null;
+    if (!(out.size_in >= 1 && out.size_in <= 6)) return null;
+    if (!(out.top_in >= 0) || !(out.left_in >= 0)) return null;
+    if (!(out.area_width_in > 0) || !(out.area_height_in > 0)) return null;
+    if (out.left_in + out.size_in > out.area_width_in + 0.01 || out.top_in + out.size_in > out.area_height_in + 0.01) return null;
+    return out;
+  }
+
+  // Art per placement for a resolved item: the product designer's per-placement files,
+  // else the storefront photo on the front.
+  function itemArt(it) {
+    if (it.design_images && Object.keys(it.design_images).length) return { ...it.design_images };
+    return it.image_url ? { front: it.image_url } : {};
+  }
+
+  // Placements for one Printful item. With a QR, its layer is added to the QR placement
+  // (or that placement is created holding only the QR when it has no art).
+  function printfulPlacements(art, qrLayer) {
+    const placements = Object.entries(art).map(([placement, url]) => ({
+      placement, technique: 'dtg', layers: [{ type: 'file', url }],
+    }));
+    if (qrLayer) {
+      const target = placements.find(pl => pl.placement === qrLayer.placement);
+      if (target) target.layers.push(qrLayer.layer);
+      else placements.push({ placement: qrLayer.placement, technique: 'dtg', layers: [qrLayer.layer] });
+    }
+    return placements;
+  }
+
+  function qrPrintLayer(qr, qrUrl, sizeIn) {
+    return {
+      placement: qr.placement,
+      layer: {
+        type: 'file', url: qrUrl,
+        position: {
+          area_width: qr.area_width_in, area_height: qr.area_height_in,
+          width: sizeIn, height: sizeIn, top: qr.top_in, left: qr.left_in,
+        },
+      },
+    };
+  }
+
+  // Builds the v2 catalog order for a paid order. AR lines become one item per shirt
+  // (quantity 1, external_id = unit id) so each carries its own QR; other lines stay one
+  // item with their quantity. `units` are the order's garment_units rows (with qr_url and
+  // qr_size_in already set for AR shirts). Throws if any AR shirt is missing its QR.
+  function buildPrintfulOrderItems(orderId, resolvedItems, units) {
+    const items = [];
+    resolvedItems.forEach((it, idx) => {
+      const art = itemArt(it);
+      if (!it.catalog_variant_id || !Object.keys(art).length) {
+        throw new Error(`Line ${idx + 1} (${it.slug}) has no Printful variant or art`);
+      }
+      if (it.has_ar) {
+        if (!it.qr) throw new Error(`Line ${idx + 1} (${it.slug}) has an AR target but no QR settings`);
+        const lineUnits = units.filter(u => u.item_index === idx).sort((a, b) => a.unit_index - b.unit_index);
+        if (lineUnits.length !== Number(it.qty)) throw new Error(`Line ${idx + 1} (${it.slug}) has ${lineUnits.length} of ${it.qty} shirts minted`);
+        for (const u of lineUnits) {
+          if (!u.qr_url || !u.qr_size_in) throw new Error(`Shirt ${u.claim_code} has no QR image`);
+          items.push({
+            source: 'catalog', external_id: u.id, catalog_variant_id: Number(it.catalog_variant_id), quantity: 1,
+            placements: printfulPlacements(art, qrPrintLayer(it.qr, u.qr_url, u.qr_size_in)),
+          });
+        }
+      } else {
+        items.push({
+          source: 'catalog', external_id: `${orderId}-${idx}`, catalog_variant_id: Number(it.catalog_variant_id),
+          quantity: Number(it.qty), placements: printfulPlacements(art, null),
+        });
+      }
     });
+    return items;
+  }
 
-    const payload = { external_id: orderId, recipient: printfulRecipient(customer, countryCode), items };
+  // Creates the Printful order, then confirms it — a draft is never produced or billed.
+  async function submitPrintfulOrder(orderId, items, customer) {
+    const key = typeof PRINTFUL_API_KEY === 'string' ? PRINTFUL_API_KEY.trim() : '';
+    if (!key) throw new Error('PRINTFUL_API_KEY is not configured — order was not sent to Printful');
 
+    const payload = { external_id: orderId, recipient: printfulRecipient(customer, toCountryCode(customer.country)), items };
     // v2 wraps the payload under "data"; keep a "result" fallback for API drift/older shapes.
     const pfBody = (resp) => (resp && (resp.data ?? resp.result)) || null;
 
@@ -1694,85 +2117,13 @@
     const draftId = createdBody && createdBody.id;
     if (!draftId) return { result: createdBody, confirmed: false };
 
-    // Draft orders are never produced, shipped, or billed until confirmed.
     try {
       const confirmed = await callPrintful('POST', `/orders/${draftId}/confirm`, {});
       return { result: pfBody(confirmed) || createdBody, confirmed: true };
     } catch (confirmErr) {
-      console.error('[printful v2] Order', orderId, '— draft', draftId, 'created but confirm failed:', String(confirmErr));
+      console.error('[printful] Order', orderId, '— draft', draftId, 'created but confirm failed:', String(confirmErr));
       return { result: createdBody, confirmed: false };
     }
-  }
-
-  // v1 Sync Products submission — for products imported from Printful's own site (see
-  // apiPrintfulLinkSyncProduct). The print file is already attached to the sync variant
-  // on Printful's side, so an item here is just {sync_variant_id, quantity} — no
-  // placements/design file needed at all, unlike the v2 path above. Same create-then-
-  // confirm draft flow as v2 (confirmed via a real docs check this session, not assumed).
-  async function submitPrintfulOrderV1(orderId, syncItems, customer, countryCode) {
-    const items = syncItems.map(it => ({
-      quantity: it.qty,
-      sync_variant_id: Number(it.sync_variant_id),
-    }));
-
-    const payload = { external_id: orderId, recipient: printfulRecipient(customer, countryCode), items };
-    const pfBody = (resp) => (resp && (resp.result ?? resp.data)) || null;
-
-    const created = await callPrintfulV1('POST', '/orders', payload);
-    const createdBody = pfBody(created);
-    const draftId = createdBody && createdBody.id;
-    if (!draftId) return { result: createdBody, confirmed: false };
-
-    try {
-      const confirmed = await callPrintfulV1('POST', `/orders/${draftId}/confirm`, {});
-      return { result: pfBody(confirmed) || createdBody, confirmed: true };
-    } catch (confirmErr) {
-      console.error('[printful v1] Order', orderId, '— draft', draftId, 'created but confirm failed:', String(confirmErr));
-      return { result: createdBody, confirmed: false };
-    }
-  }
-
-  // Splits resolved items by which Printful API model they were linked through (a product
-  // is linked via exactly one of the two — see resolveOrderItemFromD1) and submits each
-  // group as its own Printful order, independently, since v1 and v2 are entirely separate
-  // API calls that can't be merged into one payload. A cart mixing both kinds of linked
-  // products can therefore result in up to two real Printful orders for one store order —
-  // both are attempted even if one fails, so a v1 hiccup doesn't also block an otherwise-
-  // fine v2 half (and vice versa). `resolvedItems` must already be resolved
-  // (resolveOrderItemFromD1 output) — no client-trusted values are read here.
-  async function submitPrintfulOrder(orderId, resolvedItems, customer) {
-    const key = typeof PRINTFUL_API_KEY === 'string' ? PRINTFUL_API_KEY.trim() : '';
-    if (!key) {
-      throw new Error('PRINTFUL_API_KEY is not configured — order was not sent to Printful');
-    }
-
-    const syncItems = resolvedItems.filter(it => it.sync_variant_id);
-    const catalogItems = resolvedItems.filter(it => !it.sync_variant_id && it.catalog_variant_id && (it.image_url || it.design_images));
-
-    if (!syncItems.length && !catalogItems.length) {
-      throw new Error('No order items resolved to a Printful catalog variant + design file, or a linked Printful Sync Product');
-    }
-
-    const countryCode = toCountryCode(customer.country);
-    const out = { v1: null, v2: null };
-
-    if (syncItems.length) {
-      try {
-        out.v1 = await submitPrintfulOrderV1(orderId, syncItems, customer, countryCode);
-      } catch (e) {
-        console.error('[printful v1] Order', orderId, 'sync-item submission failed:', String(e));
-        out.v1 = { result: null, confirmed: false, error: String(e && e.message ? e.message : e) };
-      }
-    }
-    if (catalogItems.length) {
-      try {
-        out.v2 = await submitPrintfulOrderV2(orderId, catalogItems, customer, countryCode);
-      } catch (e) {
-        console.error('[printful v2] Order', orderId, 'catalog-item submission failed:', String(e));
-        out.v2 = { result: null, confirmed: false, error: String(e && e.message ? e.message : e) };
-      }
-    }
-    return out;
   }
 
   // Quotes what Printful will bill the store for shipping these resolved items to this
@@ -1785,13 +2136,7 @@
   async function quoteShippingCents(resolvedItems, customer, currency) {
     const items = [];
     for (const it of resolvedItems) {
-      let variantId = null;
-      if (it.sync_variant_id) {
-        const v = await callPrintfulV1('GET', `/store/variants/${Number(it.sync_variant_id)}`);
-        variantId = v && v.result && v.result.variant_id ? Number(v.result.variant_id) : null;
-      } else if (it.catalog_variant_id) {
-        variantId = Number(it.catalog_variant_id);
-      }
+      const variantId = it.catalog_variant_id ? Number(it.catalog_variant_id) : null;
       if (!variantId) throw new Error(`Could not resolve a Printful variant for ${it.slug}`);
       items.push({ variant_id: variantId, quantity: it.qty });
     }
@@ -1962,11 +2307,48 @@
     return jsonResponse({ ok: true, order_id: orderId, total_cents: totalCents, currency }, 201, request);
   }
 
-  // Called only after a Stripe payment is confirmed (from the Stripe webhook). Submits the
-  // order's already-resolved items to Printful and records the result. A successful
-  // submission both creates AND confirms the Printful order — confirmation is what actually
-  // starts production/shipping and bills the store's Printful payment method.
-  async function finalizeOrderPrintfulSubmission(orderId) {
+  // The public link a shirt's QR encodes. PUBLIC_SITE_URL keeps it on the storefront
+  // domain whatever host the webhook arrived on.
+  function publicSiteBase(request) {
+    const configured = String(globalThis.PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+    if (configured) return /^https?:\/\//i.test(configured) ? configured : 'https://' + configured;
+    return request ? new URL(request.url).origin : '';
+  }
+  function pieceLink(base, code) { return `${base}/p/${encodeURIComponent(code)}`; }
+
+  // Generates and stores the QR PNG for every AR shirt of the order that has none yet.
+  // The printed size (from the PNG's whole-pixel width at 300 DPI) is kept on the R2
+  // object so Printful gets exactly the size of the image.
+  async function ensureOrderQrs(orderId, request) {
+    const units = await dbAll(
+      `select u.id, u.claim_code, u.qr_url, p.printful_qr, p.ar_target_id
+       from garment_units u join products p on p.id = u.product_id
+       where u.order_id = ? and p.ar_target_id is not null and u.qr_url is null`,
+      orderId
+    );
+    const base = publicSiteBase(request);
+    for (const u of units) {
+      const qr = parsePrintfulQr(u.printful_qr);
+      const { png, sizeIn } = await QR.qrPng(pieceLink(base, u.claim_code), qr ? qr.size_in : 1.5);
+      const key = `qr/${u.claim_code}.png`;
+      await ASSETS_BUCKET.put(key, png, {
+        httpMetadata: { contentType: 'image/png' },
+        customMetadata: { size_in: String(sizeIn) },
+      });
+      await dbRun('update garment_units set qr_url = ? where id = ?', buildPublicAssetUrl(request, key), u.id);
+    }
+  }
+
+  async function qrSizeForUrl(qrUrl) {
+    const head = await ASSETS_BUCKET.head(keyFromPublicUrl(qrUrl)).catch(() => null);
+    const n = head && head.customMetadata ? Number(head.customMetadata.size_in) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  // Sends a paid order to Printful from its existing units — never mints, so running it
+  // twice (webhook retry, admin resubmit) can't print extra shirts. Any failure leaves
+  // payment_status 'paid' and printful_status 'error' for the admin's resubmit.
+  async function finalizeOrderPrintfulSubmission(orderId, request) {
     const row = await dbGet(
       `select id, email, first_name, last_name, address, city, country, state, zip, currency, items_json
        from orders where id = ?`,
@@ -1977,40 +2359,37 @@
     let items = [];
     try { items = JSON.parse(row.items_json) || []; } catch {}
 
-    let printfulOrderId = null;
-    let printfulOrderIdV1 = null;
     try {
-      const pfResult = await submitPrintfulOrder(orderId, items, {
+      // Re-resolve against current D1 data so a fixed product (variant, art, QR settings)
+      // is picked up on resubmit; prices stay as charged in items_json.
+      const resolved = [];
+      for (const it of items) {
+        const r = await resolveOrderItemFromD1({ slug: it.slug, size: it.size, qty: it.qty }, request);
+        resolved.push(r);
+      }
+      await ensureOrderQrs(orderId, request);
+      const units = await dbAll(
+        'select id, claim_code, item_index, unit_index, qr_url from garment_units where order_id = ?', orderId
+      );
+      for (const u of units) u.qr_size_in = u.qr_url ? await qrSizeForUrl(u.qr_url) : null;
+
+      const pfItems = buildPrintfulOrderItems(orderId, resolved, units);
+      const pf = await submitPrintfulOrder(orderId, pfItems, {
         firstName: row.first_name, lastName: row.last_name, email: row.email,
         address: row.address, city: row.city, country: row.country, state: row.state, zip: row.zip,
       });
-
-      const v2 = pfResult && pfResult.v2;
-      const v1 = pfResult && pfResult.v1;
-      printfulOrderId = v2 && v2.result && v2.result.id ? String(v2.result.id) : null;
-      printfulOrderIdV1 = v1 && v1.result && v1.result.id ? String(v1.result.id) : null;
-
-      // 'pending' only once every half that was actually attempted (a mixed cart submits
-      // both; a single-model cart only ever attempts one) confirmed successfully — any
-      // failed/unconfirmed half surfaces as 'error' so it lands in the admin's Requires
-      // Attention queue instead of looking silently fine.
-      const v2Ok = !v2 || (v2.confirmed && printfulOrderId);
-      const v1Ok = !v1 || (v1.confirmed && printfulOrderIdV1);
-      const overallStatus = (v2Ok && v1Ok && (printfulOrderId || printfulOrderIdV1)) ? 'pending' : 'error';
-
-      if (printfulOrderId || printfulOrderIdV1) {
-        await dbRun(
-          `update orders set printful_order_id = ?, printful_order_id_v1 = ?, printful_status = ?, status = ? where id = ?`,
-          printfulOrderId, printfulOrderIdV1, overallStatus, 'pending_fulfillment', orderId
-        );
-      } else {
-        await dbRun(`update orders set printful_status = ? where id = ?`, 'error', orderId).catch(() => {});
-      }
+      const printfulOrderId = pf && pf.result && pf.result.id ? String(pf.result.id) : null;
+      const ok = !!(pf && pf.confirmed && printfulOrderId);
+      await dbRun(
+        `update orders set printful_order_id = ?, printful_status = ?, status = ? where id = ?`,
+        printfulOrderId, ok ? 'pending' : 'error', ok ? 'pending_fulfillment' : 'paid', orderId
+      );
+      return { ok, printful_order_id: printfulOrderId };
     } catch (pfErr) {
-      console.error('[printful] Failed to submit paid order', orderId, String(pfErr));
+      console.error('[printful] Failed to submit paid order', orderId, String(pfErr && pfErr.message ? pfErr.message : pfErr));
       await dbRun(`update orders set printful_status = ? where id = ?`, 'error', orderId).catch(() => {});
+      return { ok: false, error: String(pfErr && pfErr.message ? pfErr.message : pfErr) };
     }
-    return { printful_order_id: printfulOrderId, printful_order_id_v1: printfulOrderIdV1 };
   }
 
   // POST /api/checkout/session — the real customer checkout entry point. Resolves every
@@ -2026,6 +2405,10 @@
 
     const stConfig = Stripe.getStripeConfig(stripeEnv());
     if (!stConfig.secretKey) return jsonResponse({ error: 'STRIPE_SECRET_KEY not configured' }, 500, request);
+
+    // Every shirt is owned from the moment it is paid for, so checkout needs an account.
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Sign in to check out.' }, 401, request);
 
     const body = await readJson(request);
 
@@ -2045,17 +2428,11 @@
       return jsonResponse({ error: String(e && e.message ? e.message : e) }, 400, request);
     }
 
-    // Refuse to charge for anything that could never actually ship — every line must
-    // either (a) resolve to a Printful Sync Product variant (imported from printful.com,
-    // print file already attached on Printful's side — nothing else needed), or (b)
-    // resolve to a real Printful catalog variant AND have a design file (either the
-    // per-placement design map or, failing that, the plain storefront photo) — before
-    // Stripe is ever involved. Without this check, a linked-but-imageless product could be
-    // paid for and then silently dropped from the Printful order at submission time
-    // (submitPrintfulOrder filters on the same conditions) — the customer would be
-    // charged for an item that never gets made.
+    // Refuse to charge for anything that could never actually ship: every line needs a
+    // Printful catalog variant for its size and art, and an AR line also needs its QR
+    // settings (submitPrintfulOrder would otherwise fail after the customer paid).
     const unfulfillable = resolvedItems
-      .filter(it => !it.sync_variant_id && (!it.catalog_variant_id || !(it.image_url || it.design_images)))
+      .filter(it => !it.catalog_variant_id || !Object.keys(itemArt(it)).length || (it.has_ar && !it.qr))
       .map(it => it.slug);
     if (unfulfillable.length) {
       return jsonResponse({ error: `Not available for purchase yet: ${unfulfillable.join(', ')}` }, 400, request);
@@ -2079,13 +2456,12 @@
     const totalCents = itemsCents + shipping.cents;
     const siteUrl = String(body.site_url || new URL(request.url).origin).replace(/\/$/, '');
 
-    const sess = await getSessionUser(request);
     const orderId = randomId('ord_');
     const now = new Date().toISOString();
 
     try {
       await insertOrderRow({
-        id: orderId, user_id: sess?.user?.id || null, email: customer.email,
+        id: orderId, user_id: sess.user.id, email: customer.email,
         first_name: customer.firstName, last_name: customer.lastName, address: customer.address,
         city: customer.city, country: customer.country, state: customer.state, zip: customer.zip,
         currency, total_cents: totalCents, items_json: JSON.stringify(resolvedItems),
@@ -2118,47 +2494,40 @@
     return jsonResponse({ ok: true, order_id: orderId, checkout_url: session.url }, 201, request);
   }
 
-  // Mints one garment_units row per unit purchased in a paid order, owned immediately by
-  // whoever bought it — "a QR code created at the time of purchase, tied to the account."
-  // Replaces registration-by-tag-scan as the path a first-time buyer takes: the piece is
-  // already in their wardrobe the moment payment clears, nothing to claim. Ownership is
-  // matched by the order's own email against an existing account (covers both "was signed
-  // in at checkout" and "guest checkout, but the email already has an account"); a guest
-  // order with no matching account leaves the unit unclaimed for now — the existing
-  // /api/pieces/claim code-entry flow remains the right mechanism there, and it is also
-  // still how a piece gets handed off on a second-hand sale (the new owner has to prove
-  // they hold the actual garment), so that flow is kept, not removed.
-  async function provisionGarmentUnitsForOrder(orderId) {
-    const row = await dbGet('select id, user_id, email, items_json from orders where id = ?', orderId);
+  // Mints one garment_units row per shirt in a paid order, owned by the buyer from the
+  // start. Each shirt has a slot (order_id, item_index, unit_index) with a unique index, so
+  // this is idempotent: re-running inserts only missing slots. A claim-code collision
+  // (31^8 codes) leaves its slot empty for the next pass with a fresh code.
+  async function mintOrderUnits(orderId) {
+    const row = await dbGet('select id, user_id, items_json from orders where id = ?', orderId);
     if (!row) return;
-
     let items = [];
     try { items = JSON.parse(row.items_json) || []; } catch {}
-    if (!items.length) return;
 
-    let ownerId = row.user_id || null;
-    if (!ownerId && row.email) {
-      try {
-        const u = await dbGet('select id from users where email = ?', String(row.email).trim().toLowerCase());
-        if (u) ownerId = u.id;
-      } catch (e) {}
-    }
-
-    for (const it of items) {
-      const slug = String((it && it.slug) || '').trim();
+    const slots = [];
+    for (let idx = 0; idx < items.length; idx++) {
+      const it = items[idx] || {};
+      const slug = String(it.slug || '').trim();
       if (!slug) continue;
-      const qty = Math.max(1, Math.min(99, parseInt(it && it.qty, 10) || 1));
-      const nickname = String((it && it.name) || '').trim().slice(0, 120) || null;
-
-      try {
-        const product = await dbGet('select id from products where lower(slug) = lower(?)', slug);
-        if (!product) continue;
-        await mintGarmentUnits(product.id, qty, ownerId ? { userId: ownerId, nickname } : null);
-      } catch (e) {
-        // Never let this block payment confirmation / Printful submission.
-        console.error('[wardrobe] Failed to provision garment units for order', orderId, String(e));
-      }
+      const product = await dbGet('select id, title from products where lower(slug) = lower(?)', slug);
+      if (!product) continue;
+      const qty = Math.max(1, Math.min(99, parseInt(it.qty, 10) || 1));
+      const nickname = String(it.name || product.title || '').trim().slice(0, 120) || null;
+      for (let u = 0; u < qty; u++) slots.push({ productId: product.id, itemIndex: idx, unitIndex: u, nickname });
     }
+
+    for (let pass = 0; pass < 3; pass++) {
+      const have = new Set((await dbAll('select item_index, unit_index from garment_units where order_id = ?', orderId))
+        .map(r => `${r.item_index}:${r.unit_index}`));
+      const missing = slots.filter(sl => !have.has(`${sl.itemIndex}:${sl.unitIndex}`));
+      if (!missing.length) return;
+      await DB.batch(missing.map(sl => DB.prepare(
+        `insert into garment_units (id, claim_code, product_id, order_id, item_index, unit_index, owner_user_id, claimed_at, nickname)
+         values (?, ?, ?, ?, ?, ?, ?, ${row.user_id ? "strftime('%Y-%m-%dT%H:%M:%fZ','now')" : 'null'}, ?)
+         on conflict do nothing`
+      ).bind(randomId('unit_'), randomClaimCode(), sl.productId, orderId, sl.itemIndex, sl.unitIndex, row.user_id || null, sl.nickname)));
+    }
+    console.error('[wardrobe] Order', orderId, 'still has unminted shirts after 3 passes');
   }
 
   // POST /api/webhooks/stripe — no session auth (server-to-server), authenticated instead
@@ -2197,8 +2566,10 @@
                 'paid', 'paid', session.payment_intent || null, new Date().toISOString(), orderId
               );
               if (changes === 1) {
-                await finalizeOrderPrintfulSubmission(orderId);
-                await provisionGarmentUnitsForOrder(orderId);
+                // Shirts (and their QR codes) first — the Printful order prints them.
+                try { await mintOrderUnits(orderId); }
+                catch (e) { console.error('[wardrobe] Minting failed for order', orderId, String(e)); }
+                await finalizeOrderPrintfulSubmission(orderId, request);
               }
             }
           }
@@ -2274,7 +2645,7 @@
 
     const rows = await dbAll(
       `select id, user_id, email, first_name, last_name, address, city, country, state, zip,
-              currency, total_cents, status, printful_order_id, printful_status, created_at
+              currency, total_cents, status, payment_status, printful_order_id, printful_status, created_at
        from orders
        order by created_at desc
        limit ? offset ?`,
@@ -2282,6 +2653,55 @@
     );
 
     return jsonResponse({ items: rows, limit, offset }, 200, request);
+  }
+
+  // GET /api/admin/orders/:id/pieces — every shirt of one order: its code, QR, public link,
+  // owner and what it plays now.
+  async function apiAdminOrderPieces(request, orderId) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+    const order = await dbGet('select id, payment_status, printful_status, printful_order_id from orders where id = ?', orderId);
+    if (!order) return jsonResponse({ error: 'Not found' }, 404, request);
+    const rows = await dbAll(
+      `select u.id, u.claim_code, u.item_index, u.unit_index, u.qr_url, u.nickname, u.scan_count, u.last_scanned_at,
+              p.title as product_title, p.slug as product_slug, p.ar_target_id, us.email as owner_email,
+              (select max(version) from garment_layers where unit_id = u.id) as version
+       from garment_units u
+       join products p on p.id = u.product_id
+       left join users us on us.id = u.owner_user_id
+       where u.order_id = ?
+       order by u.item_index, u.unit_index`,
+      orderId
+    );
+    const base = publicSiteBase(request);
+    const items = rows.map(r => ({
+      id: r.id, claim_code: r.claim_code, item_index: r.item_index, unit_index: r.unit_index,
+      product: { title: r.product_title, slug: r.product_slug, has_ar: r.ar_target_id != null },
+      owner_email: r.owner_email || null, nickname: r.nickname || null,
+      qr_url: r.qr_url || null, link: pieceLink(base, r.claim_code),
+      version: r.version || 0, scan_count: r.scan_count || 0, last_scanned_at: r.last_scanned_at || null,
+    }));
+    return jsonResponse({
+      order: { id: order.id, payment_status: order.payment_status, printful_status: order.printful_status, printful_order_id: order.printful_order_id },
+      items,
+    }, 200, request);
+  }
+
+  // POST /api/admin/orders/:id/resubmit — re-sends a paid order whose Printful submission
+  // failed. Rebuilds from the order's existing shirts (generating any missing QR); never
+  // mints. Refused once Printful holds a confirmed order for it.
+  async function apiAdminResubmitOrder(request, orderId) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+    const order = await dbGet('select id, payment_status, printful_status, printful_order_id from orders where id = ?', orderId);
+    if (!order) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (order.payment_status !== 'paid') return jsonResponse({ error: 'Only paid orders can be sent to Printful' }, 400, request);
+    if (order.printful_order_id && order.printful_status !== 'error') {
+      return jsonResponse({ error: 'Printful already has a confirmed order for this' }, 409, request);
+    }
+    const result = await finalizeOrderPrintfulSubmission(orderId, request);
+    if (!result || !result.ok) return jsonResponse({ error: (result && result.error) || 'Printful did not confirm the order' }, 502, request);
+    return jsonResponse({ ok: true, printful_order_id: result.printful_order_id }, 200, request);
   }
 
   // POST /api/webhooks/printful and /api/admin/printful/webhook — receive Printful event notifications.
@@ -2426,7 +2846,7 @@
              (select count(*) from targets t where t.user_id = u.id) as target_count,
              (select count(*) from products p
                 where p.brand_id in (select brand_id from brand_users where user_id = u.id)) as product_count,
-             (select count(*) from orders o where o.user_id = u.id) as order_count,
+             (select count(*) from orders o where o.user_id = u.id or (o.user_id is null and lower(trim(o.email)) = lower(u.email))) as order_count,
              (select count(*) from brand_designs d
                 where d.brand_id in (select brand_id from brand_users where user_id = u.id)) as pending_design_count
       from users u
@@ -2548,6 +2968,7 @@
            case when p.image_data is not null and length(p.image_data) > 0 then 1 else 0 end as has_image_data,
            p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id,
            p.printful_variant_map, p.printful_design_images, p.printful_design_layers,
+           p.printful_catalog_product_id, p.printful_qr,
            p.created_at, p.updated_at, b.name as brand
     from products p
     left join brands b on b.id = p.brand_id`;
@@ -2578,8 +2999,10 @@
       printful_variant_map: safeJsonParse(r.printful_variant_map),
       printful_design_images: safeJsonParse(r.printful_design_images),
       printful_design_layers: safeJsonParse(r.printful_design_layers),
+      printful_catalog_product_id: r.printful_catalog_product_id || null,
+      printful_qr: parsePrintfulQr(r.printful_qr),
       brand: r.brand || null,
-      viewer_url: `/index.html${qs.toString() ? `?${qs}` : ''}`,
+      viewer_url: `/viewer${qs.toString() ? `?${qs}` : ''}`,
       created_at: r.created_at,
       updated_at: r.updated_at,
     };
@@ -2745,6 +3168,8 @@
       throw e;
     }
 
+    await syncTargetBrandFromProduct(lastRowId);
+
     // Printful linking is a separate step (POST /api/admin/printful/products/:id/link),
     // done after the product exists — no push-on-save here (v2 has no "sync product" to push).
     return jsonResponse({ ok: true, item: await loadProduct(lastRowId) }, 201, request);
@@ -2850,6 +3275,15 @@
       params.push(jsonFieldValue(body.printful_design_layers));
     }
 
+    if (body.printful_qr !== undefined) {
+      const qr = body.printful_qr == null ? null : parsePrintfulQr(body.printful_qr);
+      if (body.printful_qr != null && !qr) {
+        return jsonResponse({ error: 'QR settings need a placement, a size from 1 to 6 inches, and a position inside the print area' }, 400, request);
+      }
+      fields.push('printful_qr = ?');
+      params.push(qr ? JSON.stringify(qr) : null);
+    }
+
     if (!fields.length) return jsonResponse({ ok: true }, 200, request);
     fields.push("updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
 
@@ -2859,7 +3293,19 @@
       if (isSlugConflict(e)) return jsonResponse({ error: 'slug already exists' }, 409, request);
       throw e;
     }
+    await syncTargetBrandFromProduct(id);
     return jsonResponse({ ok: true, item: await loadProduct(id) }, 200, request);
+  }
+
+  // A target the admin uploads has no brand; once it's linked to a brand's product, give it
+  // that brand so brand-scoped viewer links (?brand=) and the brand's own target list find it.
+  // Never overwrites a brand the target already has.
+  async function syncTargetBrandFromProduct(productId) {
+    await dbRun(
+      `update targets set brand_id = (select brand_id from products where id = ?)
+       where id = (select ar_target_id from products where id = ?) and brand_id is null`,
+      productId, productId
+    ).catch(e => console.error('[targets] brand sync failed', String(e)));
   }
 
   async function apiDeleteProduct(request, id) {
@@ -2998,6 +3444,8 @@
     const sess = await getSessionUser(request);
     if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
     const role = sess.user.role;
+    // Targets are console data (admin + brand dashboards). Customers never manage them.
+    if (role !== 'admin' && role !== 'brand') return jsonResponse({ error: 'Forbidden' }, 403, request);
     const url = new URL(request.url);
     const brandName = (url.searchParams.get('brand') || '').trim();
     const product   = (url.searchParams.get('product') || '').trim();
@@ -3039,8 +3487,9 @@
     const items = rows.map(r => ({
       id: r.id,
       user_id: r.user_id,
-      uploader_email: r.uploader_email || null,
-      uploader_role: r.uploader_role || null,
+      // Who uploaded a target is admin-only — a brand shouldn't see staff accounts.
+      uploader_email: role === 'admin' ? (r.uploader_email || null) : null,
+      uploader_role: role === 'admin' ? (r.uploader_role || null) : null,
       name: r.name,
       product: r.product,
       mindurl: r.mind_url,
@@ -3070,6 +3519,11 @@
 
     let brandId = null;
     if (sess.user.role === 'admin') {
+      // No brand given: inherit it from the product this target is for, if that product exists.
+      if (!brandName && product) {
+        const pb = await dbGet('select b.name from products p join brands b on b.id = p.brand_id where lower(p.slug) = lower(?)', product);
+        if (pb) brandName = pb.name;
+      }
       if (brandName) {
         let b = await dbGet('select id from brands where name = ?', brandName);
         if (!b) {
@@ -3467,12 +3921,18 @@
     const row = await dbGet(
       `select p.title, p.price_cents, p.currency,
               t.id, t.name, t.mind_url, t.video_url, t.image_url, t.is_active, t.version, t.created_at, t.updated_at,
-              (select v.video_url from order_ar_videos v
-                where v.order_id = ? and v.item_index = ? and p.brand_id is null) as personal_video_url
+              coalesce(
+                (select l.video_url from garment_layers l
+                   join garment_units u on u.id = l.unit_id
+                  where u.order_id = ? and u.item_index = ? and u.unit_index = 0
+                  order by l.version desc limit 1),
+                (select v.video_url from order_ar_videos v
+                  where v.order_id = ? and v.item_index = ? and p.brand_id is null)
+              ) as personal_video_url
        from products p
        join targets t on t.id = p.ar_target_id
        where lower(p.slug) = lower(?)`,
-      orderId, itemIndex, slug
+      orderId, itemIndex, orderId, itemIndex, slug
     );
     if (!row) return jsonResponse({ error: 'No AR content for this item' }, 404, request);
 
@@ -3502,152 +3962,6 @@
 
   function ownsGarmentUnit(sess, unit) {
     return !!(sess && sess.user && unit.owner_user_id != null && String(sess.user.id) === String(unit.owner_user_id));
-  }
-
-  // Mints `count` garment_units for a product in one D1 round trip: multi-row inserts
-  // (chunked under D1's 100-bound-parameter limit), sent as a single batch. A claim_code that
-  // collides with an existing one is skipped by ON CONFLICT and re-rolled in another pass
-  // (31^8 codes, so a second pass is essentially never needed). `owner` = { userId, nickname }
-  // mints them already claimed (paid orders); without it they're unclaimed (collar-tag stock).
-  // Returns [{ id, claim_code }] for the units actually created.
-  async function mintGarmentUnits(productId, count, owner = null) {
-    const cols = owner
-      ? '(id, claim_code, product_id, owner_user_id, claimed_at, nickname)'
-      : '(id, claim_code, product_id)';
-    const rowSql = owner
-      ? "(?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)"
-      : '(?, ?, ?)';
-    const perRow = owner ? 5 : 3;
-    const rowsPerStmt = Math.floor(100 / perRow);
-
-    const minted = [];
-    for (let pass = 0; pass < 3 && minted.length < count; pass++) {
-      const units = [];
-      for (let i = minted.length; i < count; i++) units.push({ id: randomId('unit_'), claim_code: randomClaimCode() });
-      const stmts = [];
-      for (let i = 0; i < units.length; i += rowsPerStmt) {
-        const chunk = units.slice(i, i + rowsPerStmt);
-        const params = chunk.flatMap(u => owner
-          ? [u.id, u.claim_code, productId, owner.userId, owner.nickname]
-          : [u.id, u.claim_code, productId]);
-        stmts.push(DB.prepare(
-          `insert into garment_units ${cols} values ${chunk.map(() => rowSql).join(', ')}
-           on conflict(claim_code) do nothing returning id, claim_code`
-        ).bind(...params));
-      }
-      const results = await DB.batch(stmts);
-      for (const r of results) for (const row of (r.results || [])) minted.push({ id: row.id, claim_code: row.claim_code });
-    }
-    return minted;
-  }
-
-  // POST /api/admin/products/:id/pieces/generate — mints N unclaimed garment units for a
-  // product. Printing those claim codes onto the tags sewn inside each collar happens
-  // outside this system — this just reserves the codes in D1 so a customer can redeem one
-  // later. Privileged (admin, or the brand that owns the product).
-  async function apiGenerateGarmentUnits(request, productId) {
-    if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
-    const auth = await requirePrivilegedSession(request);
-    if (auth.error) return auth.error;
-    const sess = auth.sess;
-
-    const product = await dbGet('select id, brand_id from products where id = ?', productId);
-    if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
-    if (sess.user.role === 'brand') {
-      if (!sessionOwnsBrand(sess, product.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
-    }
-
-    const body = await readJson(request);
-    let count = parseInt(body.count, 10);
-    if (!Number.isFinite(count) || count < 1) count = 1;
-    count = Math.min(count, 200);
-
-    const codes = await mintGarmentUnits(productId, count);
-    return jsonResponse({ ok: true, items: codes }, 200, request);
-  }
-
-  // POST /api/pieces/claim — body {claim_code, nickname?}. Redeeming the code printed on the
-  // tag inside the collar transfers ownership to whoever is logged in right now — the same
-  // trust model as a physical key: holding the tag is proof enough. That's what lets a piece
-  // keep working across being lent, resold, or handed down, with no seller hand-off step.
-  async function apiClaimPiece(request) {
-    const sess = await getSessionUser(request);
-    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
-
-    const body = await readJson(request);
-    const code = String(body.claim_code || '').trim().toUpperCase();
-    if (!code) return jsonResponse({ error: 'Enter the code from the tag inside the collar.' }, 400, request);
-
-    const ip = getClientIP(request);
-    if (!rateLimitCheck('claim-piece:' + ip, RATE_LIMIT_MAX_ORDER)) {
-      return jsonResponse({ error: 'Too many attempts. Please try again later.' }, 429, request);
-    }
-
-    const unit = await dbGet('select id, claim_code, product_id, owner_user_id from garment_units where claim_code = ?', code);
-    if (!unit) return jsonResponse({ error: "That code doesn't match a registered piece. Double-check it and try again." }, 404, request);
-
-    // A piece sits in exactly one wardrobe. Re-claiming your own is a no-op; claiming one
-    // that belongs to another account is refused — the previous owner has to release it, or
-    // support moves it after checking the receipt.
-    if (unit.owner_user_id != null) {
-      if (String(unit.owner_user_id) === String(sess.user.id)) return jsonResponse({ ok: true, id: unit.id, already_yours: true }, 200, request);
-      return jsonResponse({ error: 'This piece is registered to another account.', code: 'owned_by_other' }, 409, request);
-    }
-
-    const nickname = body.nickname != null ? (String(body.nickname).trim().slice(0, 120) || null) : null;
-    if (nickname != null) {
-      await dbRun(
-        `update garment_units set owner_user_id = ?, claimed_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')), nickname = ? where id = ? and owner_user_id is null`,
-        sess.user.id, nickname, unit.id
-      );
-    } else {
-      await dbRun(
-        `update garment_units set owner_user_id = ?, claimed_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ? and owner_user_id is null`,
-        sess.user.id, unit.id
-      );
-    }
-    const after = await dbGet('select owner_user_id from garment_units where id = ?', unit.id);
-    if (!after || String(after.owner_user_id) !== String(sess.user.id)) {
-      return jsonResponse({ error: 'This piece is registered to another account.', code: 'owned_by_other' }, 409, request);
-    }
-
-    return jsonResponse({ ok: true, id: unit.id }, 200, request);
-  }
-
-  // GET /api/pieces/lookup?code= — what a tag code points at, before claiming it: the
-  // product, and whether the piece is free, already yours, or in another wardrobe. Signed-in
-  // only and rate-limited alongside claim, so it reveals nothing claim itself doesn't.
-  async function apiLookupPiece(request) {
-    const sess = await getSessionUser(request);
-    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
-    const ip = getClientIP(request);
-    if (!rateLimitCheck('claim-piece:' + ip, RATE_LIMIT_MAX_ORDER)) {
-      return jsonResponse({ error: 'Too many attempts. Please try again later.' }, 429, request);
-    }
-    const code = String(new URL(request.url).searchParams.get('code') || '').trim().toUpperCase();
-    if (!code) return jsonResponse({ error: 'code required' }, 400, request);
-
-    const unit = await dbGet(
-      `select u.id, u.claim_code, u.owner_user_id, u.claimed_at, u.created_at,
-              p.title as product_title, p.slug as product_slug, p.image_url as product_image,
-              (select max(version) from garment_layers where unit_id = u.id) as version
-       from garment_units u join products p on p.id = u.product_id where u.claim_code = ?`,
-      code
-    );
-    if (!unit) return jsonResponse({ error: "That code doesn't match a registered piece." }, 404, request);
-    const version = unit.version || 0;
-
-    const status = unit.owner_user_id == null ? 'available'
-      : (String(unit.owner_user_id) === String(sess.user.id) ? 'yours' : 'owned');
-    return jsonResponse({
-      status,
-      id: status === 'yours' ? unit.id : null,
-      claim_code: unit.claim_code,
-      made_at: unit.created_at,
-      claimed_at: status === 'available' ? null : unit.claimed_at,
-      version,
-      product: { title: unit.product_title, slug: unit.product_slug, image_url: unit.product_image },
-    }, 200, request);
   }
 
   // GET /api/pieces — the logged-in customer's own wardrobe: every piece they've claimed,
@@ -3695,7 +4009,6 @@
     if (!unit || !ownsGarmentUnit(sess, unit)) return jsonResponse({ error: 'Not found' }, 404, request);
 
     const layers = await dbAll('select id, video_url, version, label, created_at from garment_layers where unit_id = ? order by version desc', id);
-    const origin = new URL(request.url).origin;
 
     return jsonResponse({
       id: unit.id,
@@ -3707,7 +4020,8 @@
       product: { id: unit.product_id, title: unit.product_title, slug: unit.product_slug, image_url: unit.product_image },
       layers,
       current_layer: layers[0] || null,
-      viewer_url: `${origin}/index.html?piece=${encodeURIComponent(unit.claim_code)}`,
+      qr_url: unit.qr_url || null,
+      viewer_url: pieceLink(publicSiteBase(request), unit.claim_code),
     }, 200, request);
   }
 
@@ -4228,73 +4542,10 @@
     return jsonResponse({ ok: true }, 200, request);
   }
 
-  // POST /api/orders/:id/items/:index/ar-video — lets a logged-in customer upload/replace
-  // the personal AR video for one line item in their own order. The physical marker (the
-  // product's printed design/target) is unchanged and stays shared across every buyer —
-  // only the video overlay is personal. Re-uploading replaces the previous video (the
-  // "edit" path). No guest-email fallback here, unlike resume-payment/cancel — this
-  // requires being logged in, per the confirmed flow.
-  async function apiUploadOrderArVideo(request, orderId, itemIndex) {
-    const rawId = String(orderId || '').trim();
-    if (!rawId) return jsonResponse({ error: 'order id required' }, 400, request);
-    if (!Number.isInteger(itemIndex) || itemIndex < 0) {
-      return jsonResponse({ error: 'Invalid item index' }, 400, request);
-    }
-
-    const sess = await getSessionUser(request);
-    if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
-
-    const row = await dbGet('select id, user_id, items_json from orders where id = ?', rawId);
-    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
-    if (!sessionOwnsOrder(sess, row)) return jsonResponse({ error: 'Not found' }, 404, request);
-
-    let items = [];
-    try { items = JSON.parse(row.items_json) || []; } catch {}
-    if (itemIndex >= items.length) return jsonResponse({ error: 'Invalid item index' }, 400, request);
-
-    const slug = String((items[itemIndex] && items[itemIndex].slug) || '').trim();
-    const product = slug ? await dbGet('select ar_target_id, brand_id from products where lower(slug) = lower(?)', slug) : null;
-    if (!product || product.ar_target_id == null) {
-      return jsonResponse({ error: 'This item is not AR-enabled' }, 400, request);
-    }
-    if (product.brand_id != null) {
-      return jsonResponse({ error: "This item's AR video is provided by the brand and can't be personalized." }, 400, request);
-    }
-
-    // Previous personal video for this item, cleaned up from R2 once the new one is stored.
-    const existing = await dbGet(
-      'select video_url from order_ar_videos where order_id = ? and item_index = ?',
-      rawId, itemIndex
-    );
-    const previousVideoUrl = existing ? existing.video_url : null;
-
-    const upload = await storeVideoUpload(request, 'order-ar-upload', (filename) => `order-videos/${rawId}/${itemIndex}-${Date.now()}-${filename}`);
-    if (upload.error) return upload.error;
-    const { videoUrl } = upload;
-
-    await dbRun(
-      `insert into order_ar_videos (order_id, item_index, video_url, updated_at)
-       values (?, ?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ','now')))
-       on conflict(order_id, item_index) do update set
-         video_url = excluded.video_url,
-         updated_at = excluded.updated_at`,
-      rawId, itemIndex, videoUrl
-    );
-
-    if (previousVideoUrl && previousVideoUrl !== videoUrl) {
-      try { await ASSETS_BUCKET.delete(keyFromPublicUrl(previousVideoUrl)); } catch {}
-    }
-
-    const origin = new URL(request.url).origin;
-    const viewerUrl = `${origin}/index.html?order=${encodeURIComponent(rawId)}&item=${itemIndex}`;
-    return jsonResponse({ ok: true, video_url: videoUrl, viewer_url: viewerUrl }, 200, request);
-  }
-
   // POST /api/products/:id/video — lets a brand (or admin) upload/replace the AR video for a
   // product assigned to their brand. The marker/target itself (compiled by admin from the
   // brand's submitted design) is unchanged — this replaces the target's one shared video,
-  // which is what everyone scanning that product's QR/marker sees (unlike the per-order
-  // personal video in apiUploadOrderArVideo above).
+  // which is what every shirt of the product plays until its owner picks their own video.
   async function apiUploadProductVideo(request, productId) {
     if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
 
@@ -4547,6 +4798,7 @@
       `select p.id, p.title, p.slug, p.price_cents, p.currency, p.image_url, p.image_urls,
               p.printful_catalog_product_id, p.printful_sync_variant_id, p.printful_variant_map, p.printful_variant_cost_map,
               p.printful_sync_product_id, p.printful_sync_variant_map,
+              p.ar_target_id, p.printful_qr, p.printful_design_images,
               p.updated_at, p.created_at, b.name as brand
        from products p
        left join brands b on b.id = p.brand_id
@@ -4567,6 +4819,9 @@
       printful_variant_cost_map: safeJsonParse(r.printful_variant_cost_map),
       printful_sync_product_id: r.printful_sync_product_id || null,
       printful_sync_variant_map: safeJsonParse(r.printful_sync_variant_map),
+      ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
+      printful_qr: parsePrintfulQr(r.printful_qr),
+      printful_design_images: safeJsonParse(r.printful_design_images),
       brand: r.brand || null,
       updated_at: r.updated_at || null,
       created_at: r.created_at || null,
@@ -4917,8 +5172,41 @@
       ? Math.round(firstPrice * 100)
       : null;
 
+    // Orders go to Printful as catalog items carrying our own art + QR layers, so the import
+    // also records each size's catalog variant and copies the print files into R2.
+    const catalogVariantMap = {};
+    let catalogProductId = null;
+    for (const v of variants) {
+      const size = String(v.size || '').trim();
+      const variantId = Number(v.variant_id || (v.product && v.product.variant_id));
+      if (!catalogProductId && v.product && Number(v.product.product_id)) catalogProductId = Number(v.product.product_id);
+      if (size && Number.isFinite(variantId) && variantId > 0 && !catalogVariantMap[size]) catalogVariantMap[size] = String(variantId);
+    }
+    const art = {};
+    const artErrors = [];
+    for (const v of variants) {
+      for (const f of (Array.isArray(v.files) ? v.files : [])) {
+        const type = String((f && f.type) || '').toLowerCase();
+        if (!type || type === 'preview' || !f.url) continue;
+        const placement = type === 'default' ? 'front' : type;
+        if (art[placement] || !/^[a-z0-9_]{1,40}$/.test(placement)) continue;
+        try {
+          const res = await fetch(f.url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const key = `products/${productId}/art-${placement}.png`;
+          await ASSETS_BUCKET.put(key, await res.arrayBuffer(), { httpMetadata: { contentType: res.headers.get('content-type') || 'image/png' } });
+          art[placement] = buildPublicAssetUrl(request, key);
+        } catch (e) {
+          artErrors.push(`${placement}: ${String(e && e.message ? e.message : e)}`);
+        }
+      }
+    }
+
     const setClauses = ['printful_sync_product_id = ?', 'printful_sync_variant_map = ?', 'image_urls = ?'];
     const params = [syncProductId, variantMapJson, imageUrlsJson];
+    if (Object.keys(catalogVariantMap).length) { setClauses.push('printful_variant_map = ?'); params.push(JSON.stringify(catalogVariantMap)); }
+    if (catalogProductId) { setClauses.push('printful_catalog_product_id = ?'); params.push(catalogProductId); }
+    if (Object.keys(art).length) { setClauses.push('printful_design_images = ?'); params.push(JSON.stringify(art)); }
     if (titleUpdate) { setClauses.push('title = ?'); params.push(titleUpdate); }
     if (sizesUpdate) { setClauses.push('sizes = ?'); params.push(sizesUpdate); }
     if (colorUpdate) { setClauses.push('color = ?'); params.push(colorUpdate); }
@@ -4930,7 +5218,11 @@
       ...params
     );
 
-    return jsonResponse({ ok: true, printful_sync_variant_map: variantMap, missing, image_urls: mergedImages }, 200, request);
+    return jsonResponse({
+      ok: true, printful_sync_variant_map: variantMap, missing, image_urls: mergedImages,
+      printful_variant_map: catalogVariantMap, printful_catalog_product_id: catalogProductId,
+      printful_design_images: art, art_errors: artErrors,
+    }, 200, request);
   }
 
   // POST /api/admin/printful/products/:id/mockup — kicks off a real Printful mockup render
@@ -4945,7 +5237,7 @@
     if (!productId || !Number.isFinite(productId)) return jsonResponse({ error: 'Invalid product id' }, 400, request);
 
     const product = await dbGet(
-      'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map, printful_design_images from products where id = ?',
+      'select id, brand_id, image_url, printful_catalog_product_id, printful_variant_map, printful_design_images, printful_qr from products where id = ?',
       productId
     );
     if (!product) return jsonResponse({ error: 'Not found' }, 404, request);
@@ -4954,11 +5246,26 @@
     }
 
     const body = await readJson(request);
-    const requestedPlacement = String(body.placement || 'front').trim().toLowerCase() || 'front';
+    // With QR settings (proposed in the body, or saved), preview the QR's placement with the
+    // art plus a sample QR exactly where each shirt's own QR will print.
+    const qr = body.qr !== undefined ? parsePrintfulQr(body.qr) : parsePrintfulQr(product.printful_qr);
+    if (body.qr !== undefined && body.qr != null && !qr) {
+      return jsonResponse({ error: 'QR settings need a placement, a size from 1 to 6 inches, and a position inside the print area' }, 400, request);
+    }
+    const requestedPlacement = (qr && qr.placement) || String(body.placement || 'front').trim().toLowerCase() || 'front';
     let designImages = {};
     try { designImages = product.printful_design_images ? JSON.parse(product.printful_design_images) : {}; } catch {}
-    const imageUrl = clampStr(body.image_url, 800) || designImages[requestedPlacement] || product.image_url;
-    if (!imageUrl) return jsonResponse({ error: 'This product has no design image to preview' }, 400, request);
+    const imageUrl = clampStr(body.image_url, 800) || designImages[requestedPlacement] ||
+      (requestedPlacement === 'front' ? product.image_url : '');
+    if (!imageUrl && !qr) return jsonResponse({ error: 'This product has no design image to preview' }, 400, request);
+
+    const layers = imageUrl ? [{ type: 'file', url: imageUrl }] : [];
+    if (qr) {
+      const sample = await QR.qrPng(pieceLink(publicSiteBase(request), 'SAMP-LE00'), qr.size_in);
+      const sampleKey = `qr/sample-${sample.pixels}.png`;
+      await ASSETS_BUCKET.put(sampleKey, sample.png, { httpMetadata: { contentType: 'image/png' } });
+      layers.push(qrPrintLayer(qr, buildPublicAssetUrl(request, sampleKey), sample.sizeIn).layer);
+    }
 
     let variantMap = {};
     try { variantMap = product.printful_variant_map ? JSON.parse(product.printful_variant_map) : {}; } catch {}
@@ -5008,7 +5315,7 @@
         mockupStyleIds: [styleId],
         placement,
         technique,
-        imageUrl,
+        layers,
       });
     } catch (e) {
       return jsonResponse({ error: `Mockup generation failed: ${String(e && e.message ? e.message : e)}` }, 502, request);

@@ -1,3 +1,7 @@
+/index.html /viewer 302
+/index /viewer 302
+/adminindex.html /viewer 302
+/p/:code /viewer?piece=:code 302
 / /ecommerce/ 302
 /ecommerce/single-product.html /ecommerce/product 302
 /ecommerce/single-product2.html /ecommerce/product 302

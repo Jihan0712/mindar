@@ -64,6 +64,10 @@
     <aside class="rail" id="app-rail" data-active="wardrobe"></aside>
     <main id="main" class="app__main">
       <p id="loadState" class="t-meta">Loading your T-shirt&hellip;</p>
+      <div id="pShare" class="t-meta" hidden style="margin:0 0 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <img id="pShareQr" alt="This T-shirt's QR code" width="96" height="96" hidden style="background:#fff;border:1px solid var(--line, #ddd)">
+        <span>The QR on this T-shirt opens <a id="pShareLink" class="t-link--teal" target="_blank" rel="noopener"></a> <button class="b b--ghost b--sm" type="button" id="pShareCopy" style="margin-left:6px">Copy link</button></span>
+      </div>
 
       <!-- W-02 · Your current video  /  W-13 · Video added -->
       <section id="vLayer" hidden>
@@ -193,6 +197,15 @@
       document.getElementById('pName').textContent = subline();
       document.getElementById('pMeta').innerHTML = (cur ? '<span class="sdot">Live</span>' : '<span class="sdot sdot--draft">No video</span>')
         + esc([P.claim_code, cur ? 'V' + cur.version : '', cur ? fmtDate(cur.created_at) : ''].filter(Boolean).join(' · '));
+      // The public link anyone can open to see this T-shirt's video (the same one its QR points to).
+      if (P.viewer_url) {
+        var shareLink = document.getElementById('pShareLink');
+        shareLink.href = P.viewer_url;
+        shareLink.textContent = P.viewer_url.replace(/^https?:\/\//, '');
+        document.getElementById('pShare').hidden = false;
+        var qrImg = document.getElementById('pShareQr');
+        if (P.qr_url) { qrImg.src = P.qr_url; qrImg.hidden = false; } else qrImg.hidden = true;
+      }
       var player = document.getElementById('player');
       if (cur && cur.video_url) {
         player.innerHTML = '<video controls playsinline preload="metadata" aria-label="Your current video" src="' + esc(cur.video_url) + '"></video>';
@@ -217,6 +230,13 @@
         document.getElementById('stillMeta').textContent = 'Current video · ' + fmtDate(cur.created_at);
       }
     }
+
+    document.getElementById('pShareCopy').addEventListener('click', async function () {
+      var b = this;
+      try { await navigator.clipboard.writeText(P.viewer_url); b.textContent = 'Copied'; }
+      catch (e) { b.textContent = 'Copy failed'; }
+      setTimeout(function () { b.textContent = 'Copy link'; }, 2000);
+    });
 
     /* ---------- rename ---------- */
     var rf = document.getElementById('renameForm');

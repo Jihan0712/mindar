@@ -465,7 +465,7 @@
 </div><!-- /inrl-dash-shell -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 
 
     <!-- Worker Auth Guard & Logout -->
@@ -1879,12 +1879,12 @@
           const brand = decodeURIComponent(encodedBrand || '');
           const product = decodeURIComponent(encodedProduct || '');
           const url = new URL(window.location.href);
-          const base = url.origin + url.pathname.replace(/\/admin\.html$/, '/');
+          const base = url.origin + '/';
           // Build query params
           const qs = [];
           if (brand) qs.push(`brand=${encodeURIComponent(brand)}`);
           if (product) qs.push(`product=${encodeURIComponent(product)}`);
-          const viewerUrl = `${base}index.html${qs.length ? '?' + qs.join('&') : ''}`;
+          const viewerUrl = `${base}viewer${qs.length ? '?' + qs.join('&') : ''}`;
           await navigator.clipboard.writeText(viewerUrl);
           statusEl.textContent = `✅ Viewer URL copied${brand ? ' for ' + brand : ''}${product ? ' / ' + product : ''}`;
           setTimeout(() => { if (statusEl && statusEl.textContent) statusEl.textContent = ''; }, 4000);
@@ -2030,11 +2030,11 @@
       function buildViewerUrl(encodedBrand, encodedProduct) {
         const brand = decodeURIComponent(encodedBrand || '');
         const product = decodeURIComponent(encodedProduct || '');
-        const base = window.location.origin + window.location.pathname.replace(/\/admin\.html$/, '/');
+        const base = window.location.origin + '/';
         const qs = [];
         if (brand) qs.push('brand=' + encodeURIComponent(brand));
         if (product) qs.push('product=' + encodeURIComponent(product));
-        return base + 'index.html' + (qs.length ? '?' + qs.join('&') : '');
+        return base + 'viewer' + (qs.length ? '?' + qs.join('&') : '');
       }
 
       window.showQR = async (encodedBrand, encodedProduct) => {

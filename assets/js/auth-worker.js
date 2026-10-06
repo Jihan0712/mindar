@@ -51,9 +51,9 @@
         return null;
       }
       if (allowed.length && !allowed.includes(user.role)) {
-        await auth.logout();
-        const sep = redirectTo.includes('?') ? '&' : '?';
-        location.href = `${redirectTo}${sep}next=${encodeURIComponent(next)}`;
+        // Signed in, just not for this page — send them to their own home rather than
+        // signing them out (a brand clicking an admin link shouldn't lose their session).
+        auth.redirectByRole(user);
         return null;
       }
       return user;

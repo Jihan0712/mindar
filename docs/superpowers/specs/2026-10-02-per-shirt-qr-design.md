@@ -1,7 +1,7 @@
 # Per-shirt QR printed at order time
 
 Date: 2026-10-02
-Status: design approved in conversation, spec awaiting review
+Status: implemented 2026-10-06
 
 ## Goal
 

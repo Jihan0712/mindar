@@ -116,6 +116,7 @@
         body: JSON.stringify({ cart, customer, site_url: location.origin }),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) { toSignIn(); return; }
       if (!res.ok || !data.checkout_url) throw new Error(data.error || `Server error ${res.status}`);
       // The bag is only cleared on order-confirmation.html once payment is verified.
       location.href = data.checkout_url;
@@ -132,6 +133,16 @@
   else setStatus(DEFAULT_NOTE);
 
   restoreDetails();
+  // Checkout needs an account — every T-shirt belongs to its buyer from the moment it is
+  // paid for. Signed out with something in the bag: sign in first (the bag is kept).
+  const toSignIn = () => location.replace('login.html?next=' + encodeURIComponent('checkout.html'));
+  if (window.auth) {
+    auth.me().then(user => {
+      if (!user) { if (Cart.list().length) toSignIn(); return; }
+      const el = document.getElementById('email');
+      if (user.email && el && !el.value) el.value = user.email;
+    }).catch(() => {});
+  }
   document.addEventListener('cart:change', syncEmpty);
   if (window.CartUI) CartUI.render();
   syncEmpty();

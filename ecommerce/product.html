@@ -330,7 +330,7 @@
 
       /* video — only T-shirts whose print is set up for one say anything about it */
       var note = document.getElementById('layerNote');
-      var viewer = '/index.html?product=' + encodeURIComponent(p.slug || slug) + (p.brand ? '&brand=' + encodeURIComponent(p.brand) : '');
+      var viewer = '/viewer?product=' + encodeURIComponent(p.slug || slug) + (p.brand ? '&brand=' + encodeURIComponent(p.brand) : '');
       if (p.ar_target_id != null) {
         note.hidden = false;
         note.innerHTML = '<span class="t-label"><span class="state-dot"></span>Add your video</span>Choose a video for this T-shirt after checkout. People see it over the print through their phone&rsquo;s camera, and you can change it whenever you want.';

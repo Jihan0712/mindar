@@ -4,8 +4,28 @@
 (function(){
   const UID_STORE = 'mindar_uid';
 
-  function cartKey()  { const u = localStorage.getItem(UID_STORE); return u ? 'mindar_cart_v1_' + u : 'mindar_cart_v1'; }
-  function wishKey()  { const u = localStorage.getItem(UID_STORE); return u ? 'mindar_wish_v1_' + u : 'mindar_wish_v1'; }
+  // Signed in: anything added while signed out (stored under the plain key) moves into this
+  // user's own bag the first time it is read — checkout sends shoppers to sign in, and the
+  // bag has to come with them. Same items are merged by id, quantities added.
+  function adopt(base, merge) {
+    const u = localStorage.getItem(UID_STORE);
+    if (!u) return base;
+    const userKey = base + '_' + u;
+    try {
+      const guest = JSON.parse(localStorage.getItem(base) || '[]');
+      if (Array.isArray(guest) && guest.length) {
+        const mine = JSON.parse(localStorage.getItem(userKey) || '[]');
+        localStorage.setItem(userKey, JSON.stringify(guest.reduce(merge, Array.isArray(mine) ? mine : [])));
+      }
+      localStorage.removeItem(base);
+    } catch {}
+    return userKey;
+  }
+  const mergeCart = (items, item) => { const i = items.findIndex(x => x.id === item.id); if (i === -1) items.push(item); else items[i].qty += item.qty; return items; };
+  const mergeWish = (items, item) => { if (!items.some(x => x.id === item.id)) items.push(item); return items; };
+
+  function cartKey()  { return adopt('mindar_cart_v1', mergeCart); }
+  function wishKey()  { return adopt('mindar_wish_v1', mergeWish); }
 
   const load = () => {
     try { return JSON.parse(localStorage.getItem(cartKey()) || '[]'); } catch { return []; }

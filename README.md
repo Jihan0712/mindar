@@ -4,7 +4,7 @@ Static UI (admin + viewer + shop) hosted on Cloudflare Pages, with a same-origin
 
 **Quick links**
 - Admin UI: [admin.html](admin.html)
-- Viewer: [index.html](index.html)
+- Viewer: [viewer.html](viewer.html) — public AR links are `/viewer?piece=<code>` (short form `/p/<code>`), `/viewer?product=<slug>`, `/viewer?brand=<name>&product=<slug>`. Old `/index.html?...` links redirect here (see [_redirects](_redirects)).
 - Shop: [ecommerce/index.html](ecommerce/index.html)
 - Product Dashboard: [ecommerce/dashboard.html](ecommerce/dashboard.html)
 - Product Page: [ecommerce/product.html](ecommerce/product.html)
@@ -29,6 +29,8 @@ Worker bindings / variables (configure in the Cloudflare dashboard):
 - Vars: `ASSETS_DOMAIN` (e.g. `https://assets.example.com`), `ALLOWED_ORIGINS` (comma-separated)
 - Secrets: `BOOTSTRAP_ADMIN_KEY` (one-time bootstrap), `WORKER_DELETE_KEY` (server-side deletes only)
 - Optional vars/secrets (cache purge): `CF_ZONE_ID`, `CF_API_TOKEN`
+- Email (optional, [Resend](https://resend.com)): `RESEND_API_KEY` (secret), `MAIL_FROM` (verified sender, e.g. `InRL <hello@inrl.co>`). Sends password reset links; without them the forgot-password page tells the customer to write in. Needs [sql/password_resets_migration.sql](sql/password_resets_migration.sql). The contact form still opens the visitor's own email app (server-side sending is on the TODO list).
+- Per-shirt QR: `PUBLIC_SITE_URL` (e.g. `https://shop.inrl.co`) — the link printed in each shirt's QR (`<PUBLIC_SITE_URL>/p/<code>`). Needs [sql/per_shirt_qr_migration.sql](sql/per_shirt_qr_migration.sql). Each AR product needs its QR placement set (Product Dashboard → Printful → QR placement) before checkout will sell it; products imported from printful.com before this must be re-imported once. See [the spec](docs/superpowers/specs/2026-10-02-per-shirt-qr-design.md).
 - Printful (print-on-demand): `PRINTFUL_API_KEY` (secret), `PRINTFUL_STORE_ID` (Manual/API store ID), `PRINTFUL_WEBHOOK_SECRET` (secret, optional), `PRINTFUL_CATALOG_PRODUCT_ID` (optional default blank product, e.g. `71` for Bella Canvas 3001)
 
 ## API surface (high level)
