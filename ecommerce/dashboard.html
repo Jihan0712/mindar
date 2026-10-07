@@ -1240,6 +1240,29 @@
     return (match && match.printful_catalog_product_id) || null;
   }
 
+  // Why a product can't be printed by Printful, or '' if it can. Mirrors what checkout needs
+  // (resolveCartItem + buildPrintfulOrderItems in the Worker): a Printful variant for every
+  // size it sells — printful_variant_map[size], else the printful_sync_variant_id fallback —
+  // plus print art. A bare printful_sync_product_id is NOT enough: products imported before
+  // variant maps existed carry one but no variants, and their orders fail at Printful.
+  // (AR products also need QR placement; that has its own chip.)
+  function printfulUnprintableReason(p) {
+    let map = p.printful_variant_map;
+    if (typeof map === 'string') { try { map = JSON.parse(map); } catch (e) { map = null; } }
+    const hasFallback = !!p.printful_sync_variant_id;
+    if (!hasFallback) {
+      const mapped = map && typeof map === 'object' ? map : {};
+      const sizes = String(p.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (!Object.keys(mapped).length) return p.printful_sync_product_id ? 'no variants — re-import' : 'not linked';
+      const missing = sizes.filter(s => mapped[s] == null);
+      if (missing.length) return 'no variant: ' + missing.join(', ');
+    }
+    const hasArt = !!(p.printful_design_images && Object.keys(p.printful_design_images).length) || !!p.image_url;
+    if (!hasArt) return 'no print art';
+    return '';
+  }
+  function isPrintfulPrintable(p) { return !printfulUnprintableReason(p); }
+
   // Re-renders the margin hint under the price field from currentProductCostMap and
   // whatever price is currently typed in — called on product load and on every keystroke
   // in the price field so the admin sees margin update live as they adjust price.
@@ -1318,9 +1341,7 @@
     if (!totalEl) return; // stats block not present (shouldn't happen, but don't hard-fail render)
     const list = items || [];
     const published = list.filter(function(p) { return p.is_published; }).length;
-    const linked = list.filter(function(p) {
-      return !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
-    }).length;
+    const linked = list.filter(isPrintfulPrintable).length;
     totalEl.textContent = String(list.length);
     el('statProductsPublished').textContent = String(published);
     el('statProductsDraft').textContent = String(list.length - published);
@@ -1344,7 +1365,7 @@
       const viewerLink = p.viewer_url || '/viewer';
       const storeLink = 'product.html?slug=' + encodeURIComponent((p.slug || '').toString()) + (!p.slug && p.id ? '&id=' + encodeURIComponent(String(p.id)) : '');
       const hasTarget = p.ar_target_id != null;
-      const isPfLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
+      const isPfLinked = isPrintfulPrintable(p);
       const thumb = p.image_url
         ? '<img src="' + escapeHtml(p.image_url) + '" alt="" style="width:36px;height:36px;object-fit:cover;border:1px solid var(--line-200);display:block">'
         : '<div style="width:36px;height:36px;background:var(--surface-50);border:1px solid var(--line-200)"></div>';
@@ -1357,7 +1378,7 @@
         '<td><span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + (p.is_published ? '#1c5d68' : 'var(--ink-500)') + '">' + (p.is_published ? 'Yes' : 'No') + '</span></td>' +
         '<td>' + (isPfLinked
           ? '<span style="color:#1c5d68;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">LINKED</span>'
-          : '<span style="background:#2a2a2a;color:var(--ink-500);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">UNLINKED</span>') + '</td>' +
+          : '<span title="' + escapeHtml(printfulUnprintableReason(p)) + '" style="background:#2a2a2a;color:var(--ink-500);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">UNLINKED</span>') + '</td>' +
         '<td>' +
           '<a href="' + storeLink + '" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">Store</a> ' +
           (hasTarget ? '<a href="' + viewerLink + '" class="btn btn-sm btn-inrl" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">AR</a>' : '<span style="font-size:.62rem;color:var(--line-200)">&#8212;</span>') +
@@ -2096,7 +2117,7 @@
         var ordersToday = allOrders.filter(function(o) { return o.created_at && o.created_at.slice(0, 10) === todayStr; }).length;
         var ordersYesterday = allOrders.filter(function(o) { return o.created_at && o.created_at.slice(0, 10) === yestStr; }).length;
 
-        var isProductPfLinked = function(p) { return !!(findPrintfulCatalogProductId(p.id) || p.printful_sync_product_id); };
+        var isProductPfLinked = isPrintfulPrintable;
         var linkedProducts = products.filter(isProductPfLinked).length;
         var unlinkedPublished = products.filter(function(p) { return p.is_published && !isProductPfLinked(p); }).length;
 
@@ -2482,10 +2503,10 @@
         }
 
         tbody.innerHTML = printfulProducts.map(function(p) {
-          var isLinked = !!(p.printful_variant_map && Object.keys(p.printful_variant_map).length) || !!p.printful_sync_variant_id || !!p.printful_sync_product_id;
-          var stateChip = isLinked
+          var unprintable = printfulUnprintableReason(p);
+          var stateChip = !unprintable
             ? printfulStatusChip('linked', '#1c5d68', 'rgba(18,162,184,.1)')
-            : printfulStatusChip('unlinked', '#c17a2e', 'rgba(193,122,46,.1)');
+            : printfulStatusChip(unprintable, '#c17a2e', 'rgba(193,122,46,.1)');
           var actionHtml = '<button class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem" data-pf-product-action="edit" data-id="' + p.id + '">Edit Design/Price</button>';
           // AR products print a QR on every shirt; checkout refuses them until it is placed.
           if (p.ar_target_id) {
