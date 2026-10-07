@@ -15,7 +15,14 @@
     <style>
       html, body { height: 100%; margin: 0; background: var(--dark-900); overflow: hidden; }
       body { font-family: var(--font-body); }
-      a-scene { width: 100vw; height: 100vh; }
+      /* MindAR fits the camera feed and sets the 3D camera's fov from its container (the
+         a-scene's parent) clientWidth/Height, while A-Frame draws the canvas fixed at the
+         visible viewport. They must be the same box. With the old `a-scene { height: 100vh }`
+         the container followed 100vh — on Android Chrome that is the height with the address
+         bar *hidden* — so while the bar showed, the overlay rendered ~half a bar too high and a
+         few percent too big, letting the print peek out below the video. */
+      #ar-mobile-root { position: fixed; inset: 0; }
+      a-scene { width: 100%; height: 100%; }
 
       /* ---------- shared overlay chrome ---------- */
       .ar-state { position: fixed; inset: 0; z-index: 10000; display: none; }
