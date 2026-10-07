@@ -1728,8 +1728,8 @@
                 <button onclick="setActive('${t.id}')" class="btn btn-sm btn-inrl me-1">Set Active</button>
                 ${deactivateBtn}
                 <button onclick="deleteTarget('${t.id}', '${t.name}', decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))" class="btn btn-sm btn-danger-inrl me-1">Delete</button>
-                <button onclick="copyViewer('${brandArg}','${productArg}')" class="btn btn-sm btn-inrl-outline me-1">Copy Link</button>
-                <button onclick="showQR('${brandArg}','${productArg}')" class="btn btn-sm btn-inrl-outline me-1">QR Code</button>
+                <button onclick="copyViewer('${brandArg}','${productArg}','${t.id}')" class="btn btn-sm btn-inrl-outline me-1">Copy Link</button>
+                <button onclick="showQR('${brandArg}','${productArg}','${t.id}')" class="btn btn-sm btn-inrl-outline me-1">QR Code</button>
                 <label class="btn btn-sm btn-inrl-outline mb-0" style="cursor:pointer">Replace video<input type="file" accept="video/*" data-replace-video="${t.id}" style="display:none"></label>
               </td>
             </tr>`;
@@ -1874,17 +1874,11 @@
       };
 
       // Copy viewer link for brand+product
-      window.copyViewer = async (encodedBrand, encodedProduct) => {
+      window.copyViewer = async (encodedBrand, encodedProduct, targetId) => {
         try {
           const brand = decodeURIComponent(encodedBrand || '');
           const product = decodeURIComponent(encodedProduct || '');
-          const url = new URL(window.location.href);
-          const base = url.origin + '/';
-          // Build query params
-          const qs = [];
-          if (brand) qs.push(`brand=${encodeURIComponent(brand)}`);
-          if (product) qs.push(`product=${encodeURIComponent(product)}`);
-          const viewerUrl = `${base}viewer${qs.length ? '?' + qs.join('&') : ''}`;
+          const viewerUrl = buildViewerUrl(encodedBrand, encodedProduct, targetId);
           await navigator.clipboard.writeText(viewerUrl);
           statusEl.textContent = `✅ Viewer URL copied${brand ? ' for ' + brand : ''}${product ? ' / ' + product : ''}`;
           setTimeout(() => { if (statusEl && statusEl.textContent) statusEl.textContent = ''; }, 4000);
@@ -2027,19 +2021,24 @@
       const qrUrlDisplay = document.getElementById('qrUrlDisplay');
       let currentQrUrl = '';
 
-      function buildViewerUrl(encodedBrand, encodedProduct) {
+      // Without a product, several active targets share one scope (all unscoped targets, or a
+      // brand's up-to-3), and /viewer?brand= can only resolve the newest — so pin the target id.
+      // Product-scoped targets keep the brand/product link: activation keeps exactly one active
+      // per product, and the printed QR follows whichever one is set active.
+      function buildViewerUrl(encodedBrand, encodedProduct, targetId) {
         const brand = decodeURIComponent(encodedBrand || '');
         const product = decodeURIComponent(encodedProduct || '');
         const base = window.location.origin + '/';
+        if (targetId && !product) return base + 'viewer?target=' + encodeURIComponent(targetId);
         const qs = [];
         if (brand) qs.push('brand=' + encodeURIComponent(brand));
         if (product) qs.push('product=' + encodeURIComponent(product));
         return base + 'viewer' + (qs.length ? '?' + qs.join('&') : '');
       }
 
-      window.showQR = async (encodedBrand, encodedProduct) => {
+      window.showQR = async (encodedBrand, encodedProduct, targetId) => {
         try {
-          currentQrUrl = buildViewerUrl(encodedBrand, encodedProduct);
+          currentQrUrl = buildViewerUrl(encodedBrand, encodedProduct, targetId);
           if (qrUrlDisplay) qrUrlDisplay.textContent = currentQrUrl;
           if (qrCanvasWrap) {
             qrCanvasWrap.innerHTML = '';

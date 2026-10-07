@@ -425,18 +425,19 @@
   // ---------- QR code (per-shirt QR printed with each order) ----------
   //
   // The Worker ships as one file with no bundler, so the encoder lives inline. Byte mode,
-  // error correction level Q (survives ~25% damage — it is printed on fabric), versions
-  // 1-10 (a /p/<code> link is ~35 bytes, version 3). Layout, masking and penalty scoring
-  // follow ISO/IEC 18004 and match the `qrcode` npm library module-for-module.
+  // error correction level H (survives ~30% damage — it is printed on fabric and drawn as a
+  // flowing emblem), versions 1-10 (a /p/<code> link is ~35 bytes, version 4). Layout,
+  // masking and penalty scoring follow ISO/IEC 18004 and match the `qrcode` npm library
+  // module-for-module.
   const QR = (() => {
-    // Level Q block structure per version: [ec codewords per block, [blocks, data codewords]...]
-    const Q_BLOCKS = [null,
-      [13, [1, 13]], [22, [1, 22]], [18, [2, 17]], [26, [2, 24]], [18, [2, 15], [2, 16]],
-      [24, [4, 19]], [18, [2, 14], [4, 15]], [22, [4, 18], [2, 19]], [20, [4, 16], [4, 17]], [24, [6, 19], [2, 20]],
+    // Level H block structure per version: [ec codewords per block, [blocks, data codewords]...]
+    const EC_BLOCKS = [null,
+      [17, [1, 9]], [28, [1, 16]], [22, [2, 13]], [16, [4, 9]], [22, [2, 11], [2, 12]],
+      [28, [4, 15]], [26, [4, 13], [1, 14]], [26, [4, 14], [2, 15]], [24, [4, 12], [4, 13]], [28, [6, 15], [2, 16]],
     ];
     const ALIGN = [null, [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50]];
     const REMAINDER_BITS = [0, 0, 7, 7, 7, 7, 7, 0, 0, 0, 0];
-    const EC_LEVEL_Q = 3; // format-info bits for level Q (L=1, M=0, Q=3, H=2)
+    const EC_LEVEL_BITS = 2; // format-info bits for level H (L=1, M=0, Q=3, H=2)
 
     const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
     { let x = 1; for (let i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; } for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255]; }
@@ -462,7 +463,7 @@
     }
 
     function dataCapacity(version) {
-      const [, ...groups] = Q_BLOCKS[version];
+      const [, ...groups] = EC_BLOCKS[version];
       return groups.reduce((n, [blocks, dc]) => n + blocks * dc, 0);
     }
 
@@ -481,7 +482,7 @@
       for (; n < bits.length / 8; n++) { let v = 0; for (let k = 0; k < 8; k++) v = (v << 1) | bits[n * 8 + k]; data[n] = v; }
       for (let pad = 0; n < capacity; n++, pad++) data[n] = pad % 2 ? 0x11 : 0xec;
 
-      const [ecLen, ...groups] = Q_BLOCKS[version];
+      const [ecLen, ...groups] = EC_BLOCKS[version];
       const dataBlocks = [], ecBlocks = [];
       let offset = 0;
       for (const [blocks, dc] of groups) for (let b = 0; b < blocks; b++) {
@@ -496,7 +497,7 @@
     }
 
     function bchFormat(mask) {
-      const data = (EC_LEVEL_Q << 3) | mask;
+      const data = (EC_LEVEL_BITS << 3) | mask;
       let d = data << 10;
       while (Math.clz32(d) - Math.clz32(0x537) <= 0) d ^= 0x537 << (Math.clz32(0x537) - Math.clz32(d));
       return ((data << 10) | d) ^ 0x5412;
@@ -672,28 +673,240 @@
       return out;
     }
 
-    // qrPng(text, sizeIn) -> { png, pixels, sizeIn }: 8-bit greyscale PNG at 300 DPI, 4-module
-    // quiet zone, every module the same whole number of pixels. sizeIn is recomputed from the
-    // final pixel width so what Printful prints matches the image exactly.
+    // ---- Fingerprint emblem ----
+    //
+    // A scanner samples only the centre of each module on the grid, the finder eyes and the
+    // light margin, so everything between module centres is free to style. Dark modules
+    // become dots joined by a seeded maze of strokes, smoothly blended so the joints flow;
+    // finder and alignment eyes are rounded squares; broken concentric rings sit outside a
+    // KEEP-module margin. Ink never reaches within ~0.3 module of a light module's centre.
+    const KEEP = 2;                  // light margin between code and rings, in modules
+    const DOT = 0.4;                 // radius of a dark module with no stroke
+    const STROKE_MIN = 0.3, STROKE_MAX = 0.38; // stroke radius range (seeded per stroke)
+    const DIAG_MAX = 0.33;           // diagonals pass 0.71 from two light centres; keep them thin
+    const BLEND = 0.2;               // smooth-union radius at corners and junctions
+    const PITCH = 1.7, RING = 0.4;   // ring spacing and ring half-width
+
+    // Deterministic 0..1 generator seeded from the text (FNV-1a into mulberry32), so a shirt's
+    // emblem is the same every time it is rendered and differs from every other shirt's.
+    function seededRandom(text) {
+      let h = 0x811c9dc5;
+      for (const ch of String(text)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193); }
+      return () => {
+        h = (h + 0x6d2b79f5) | 0;
+        let t = Math.imul(h ^ (h >>> 15), 1 | h);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function sdRoundBox(px, py, hw, rad) {
+      const qx = Math.abs(px) - hw + rad, qy = Math.abs(py) - hw + rad;
+      return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - rad;
+    }
+    function sdSegment(px, py, ax, ay, bx, by) {
+      const dx = bx - ax, dy = by - ay;
+      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+      return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+    }
+    function smin(a, b, k) {
+      const h = Math.max(k - Math.abs(a - b), 0) / k;
+      return Math.min(a, b) - h * h * k * 0.25;
+    }
+
+    // Eyes (finders, alignment patterns) as [centre col, centre row, half-size] in modules.
+    function eyesFor(size, version) {
+      const eyes = [[3.5, 3.5, 3.5], [size - 3.5, 3.5, 3.5], [3.5, size - 3.5, 3.5]];
+      const pos = ALIGN[version];
+      for (const r of pos) for (const c of pos) {
+        if ((r < 9 && c < 9) || (r < 9 && c > size - 10) || (r > size - 10 && c < 9)) continue;
+        eyes.push([c + 0.5, r + 0.5, 2.5]);
+      }
+      return eyes;
+    }
+
+    // The maze: dark modules outside the eyes are joined by strokes. Edges are shuffled and
+    // kept when they join two separate groups (a spanning forest, which reads as wandering
+    // lines), plus a few extra so some loops close like the whorls of a print. Diagonals only
+    // cross corners whose other two modules are light. Straight runs of kept edges become
+    // one segment, so the smooth blend rounds only corners and junctions; a module with no
+    // stroke is drawn as a dot. Each segment is listed under every cell of its bounding box.
+    const DIRS = [[1, 0], [0, 1], [1, 1], [-1, 1]];
+    function buildMaze(size, modules, eyes, rand) {
+      const inEye = (c, r) => eyes.some(([ec, er, h]) => Math.abs(c + 0.5 - ec) < h && Math.abs(r + 0.5 - er) < h);
+      const dark = (c, r) => c >= 0 && r >= 0 && c < size && r < size && modules[r * size + c] === 1 && !inEye(c, r);
+      const cand = []; // [col, row, dir, sort key]
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+        if (!dark(c, r)) continue;
+        if (dark(c + 1, r)) cand.push([c, r, 0, rand()]);
+        if (dark(c, r + 1)) cand.push([c, r, 1, rand()]);
+        if (dark(c + 1, r + 1) && !dark(c + 1, r) && !dark(c, r + 1)) cand.push([c, r, 2, rand() + 0.35]);
+        if (dark(c - 1, r + 1) && !dark(c - 1, r) && !dark(c, r + 1)) cand.push([c, r, 3, rand() + 0.35]);
+      }
+      cand.sort((p, q) => p[3] - q[3]);
+      const parent = Int32Array.from({ length: size * size }, (_, i) => i);
+      const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+      const kept = new Uint8Array(size * size * 4); // kept[node * 4 + dir]
+      const joined = new Uint8Array(size * size);
+      for (const [c, r, dir] of cand) {
+        const c1 = c + DIRS[dir][0], r1 = r + 1 - (dir === 0 ? 1 : 0);
+        const a = find(r * size + c), b = find(r1 * size + c1);
+        if (a !== b) parent[a] = b; else if (rand() > 0.22) continue;
+        kept[(r * size + c) * 4 + dir] = 1;
+        joined[r * size + c] = joined[r1 * size + c1] = 1;
+      }
+      const cells = Array.from({ length: size * size }, () => []);
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) for (let dir = 0; dir < 4; dir++) {
+        const [dc, dr] = DIRS[dir];
+        if (!kept[(r * size + c) * 4 + dir]) continue;
+        const pc = c - dc, pr = r - dr; // only start at the first edge of a straight run
+        if (pc >= 0 && pr >= 0 && pc < size && kept[(pr * size + pc) * 4 + dir]) continue;
+        let ec = c, er = r;
+        while (ec + dc >= 0 && ec + dc < size && er + dr < size && kept[(er * size + ec) * 4 + dir]) { ec += dc; er += dr; }
+        const w = Math.min(STROKE_MIN + rand() * (STROKE_MAX - STROKE_MIN), dir >= 2 ? DIAG_MAX : Infinity);
+        const seg = { ax: c + 0.5, ay: r + 0.5, bx: ec + 0.5, by: er + 0.5, w, seen: -1 };
+        for (let y = Math.min(r, er); y <= Math.max(r, er); y++)
+          for (let x = Math.min(c, ec); x <= Math.max(c, ec); x++) cells[y * size + x].push(seg);
+      }
+      const dots = new Uint8Array(size * size);
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) dots[r * size + c] = dark(c, r) && !joined[r * size + c] ? 1 : 0;
+      return { dots, cells };
+    }
+
+    function emblemLayout(text) {
+      const { size, version, modules } = qrMatrix(text);
+      const rand = seededRandom(text);
+      const half = size / 2, keep = half + KEEP;
+      const eyes = eyesFor(size, version);
+      const maze = buildMaze(size, modules, eyes, rand);
+      // Outline wobble shared by every ring so they stay nested.
+      const ph = [0, 1, 2].map(() => rand() * Math.PI * 2);
+      const shape = th => 1 + 0.045 * Math.sin(2 * th + ph[0]) + 0.03 * Math.sin(3 * th + ph[1]) + 0.015 * Math.sin(5 * th + ph[2]);
+      let minShape = Infinity, maxShape = 0;
+      for (let i = 0; i < 360; i++) { const v = shape(i * Math.PI / 180); minShape = Math.min(minShape, v); maxShape = Math.max(maxShape, v); }
+      // Inner rings start against the margin; trimming leaves partial arcs where the outline
+      // bulges away from the code. The outer two rings run unbroken past the corners.
+      const r0 = (keep + RING + 0.3) / maxShape;
+      const count = Math.ceil(((keep + RING) * Math.SQRT2 / minShape - r0) / PITCH) + 2;
+      const rings = [];
+      for (let k = 0; k < count; k++) {
+        const base = r0 + k * PITCH, wob = rand() * Math.PI * 2;
+        const radius = th => base * shape(th) + 0.14 * Math.sin(4 * th + wob + k);
+        const runs = []; // [start angle, end angle, half-width], rotated by off
+        const off = rand() * Math.PI * 2;
+        let a = 0;
+        while (a < Math.PI * 2 - 1.2 / base) {
+          const roll = rand();
+          const len = roll < 0.15 ? 0 : roll < 0.55 ? 0.6 + rand() * 2 : 2.5 + rand() * rand() * 9;
+          const a1 = Math.min(a + len / base, Math.PI * 2 - 0.9 / base);
+          const w = RING * (0.8 + rand() * 0.35);
+          // Trim the dash where it would enter the code's light margin.
+          let run = null;
+          const step = 0.2 / base;
+          for (let t = a + off; t <= a1 + off + 1e-9; t += step) {
+            const r = radius(t), x = r * Math.cos(t), y = r * Math.sin(t);
+            if (Math.abs(x) >= keep + w || Math.abs(y) >= keep + w) { if (run) run[1] = t; else run = [t, t, w]; }
+            else if (run) { runs.push(run); run = null; }
+          }
+          if (run) runs.push(run);
+          a = a1 + (0.75 + rand() * 0.9) / base;
+        }
+        // Back into [0, 2pi), splitting the dash that crosses the seam, sorted by start.
+        const TAU = Math.PI * 2, dashes = [];
+        for (const [s0, s1, w] of runs) {
+          const s = s0 % TAU, e = s + (s1 - s0);
+          if (e <= TAU) dashes.push([s, e, w]); else dashes.push([s, TAU, w], [0, e - TAU, w]);
+        }
+        dashes.sort((p, q) => p[0] - q[0]);
+        rings.push({ radius, dashes });
+      }
+      const last = rings[rings.length - 1], lastBase = r0 + (count - 1) * PITCH;
+      const edge = th => last.radius(th) + RING * 1.2 + 1.2; // white backing ends here
+      const extent = Math.ceil(lastBase * maxShape + 0.14 + RING * 1.2 + 1.4);
+      return { size, half, eyes, maze, rings, shape, r0, edge, extent, stamp: 0 };
+    }
+
+    // Signed distance (module units, < 0 = ink) to the code.
+    function codeDistance(L, x, y) {
+      const { size, maze } = L;
+      const u = x + L.half, v = y + L.half;
+      let d = Infinity;
+      // Eyes are unioned with the maze, not returned early: alignment eyes have no light
+      // separator, so data strokes run right up to them.
+      for (const [ec, er, h] of L.eyes) {
+        const px = u - ec, py = v - er;
+        if (Math.abs(px) < h + 0.5 && Math.abs(py) < h + 0.5) {
+          const big = h === 3.5, outer = big ? 1.4 : 1.1, core = big ? 1.5 : 0.5;
+          const ring = Math.max(sdRoundBox(px, py, h, outer), -sdRoundBox(px, py, h - 1, outer * 0.55));
+          d = Math.min(ring, sdRoundBox(px, py, core, big ? 0.6 : 0.45));
+        }
+      }
+      const ci = Math.floor(u), ri = Math.floor(v), stamp = ++L.stamp;
+      for (let r = Math.max(0, ri - 1); r <= Math.min(size - 1, ri + 1); r++)
+        for (let c = Math.max(0, ci - 1); c <= Math.min(size - 1, ci + 1); c++) {
+          if (maze.dots[r * size + c]) d = Math.min(d, Math.hypot(u - c - 0.5, v - r - 0.5) - DOT);
+          for (const e of maze.cells[r * size + c]) {
+            if (e.seen === stamp) continue; // an edge spans up to four cells; count it once
+            e.seen = stamp;
+            d = smin(d, sdSegment(u, v, e.ax, e.ay, e.bx, e.by) - e.w, BLEND);
+          }
+        }
+      return d;
+    }
+
+    // Signed distance to the nearest ring dash (rounded ends), or Infinity.
+    function ringDistance(L, x, y) {
+      const rho = Math.hypot(x, y);
+      let th = Math.atan2(y, x); if (th < 0) th += Math.PI * 2;
+      const kGuess = Math.round((rho / L.shape(th) - L.r0) / PITCH);
+      let d = Infinity;
+      for (let k = Math.max(0, kGuess - 1); k <= Math.min(L.rings.length - 1, kGuess + 1); k++) {
+        const ring = L.rings[k], dashes = ring.dashes;
+        const radial = rho - ring.radius(th);
+        if (Math.abs(radial) - RING * 1.2 >= d) continue;
+        let lo = 0, hi = dashes.length - 1; // last dash starting at or before th
+        while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (dashes[mid][0] <= th) lo = mid; else hi = mid - 1; }
+        for (const i of [lo - 1, lo, lo + 1, 0, dashes.length - 1]) {
+          const ds = dashes[i]; if (!ds) continue;
+          let ang = 0;
+          if (th < ds[0]) ang = Math.min(ds[0] - th, th + Math.PI * 2 - ds[1]);
+          else if (th > ds[1]) ang = Math.min(th - ds[1], ds[0] + Math.PI * 2 - th);
+          d = Math.min(d, Math.hypot(radial, ang * rho) - ds[2]);
+        }
+      }
+      return d;
+    }
+
+    // qrPng(text, sizeIn) -> { png, pixels, sizeIn }: the fingerprint emblem as an 8-bit
+    // grey+alpha PNG at 300 DPI, sizeIn wide overall (the code itself is about half of that).
+    // Black ink on a white backing shaped like the outer ring, transparent outside it, edges
+    // anti-aliased. sizeIn is recomputed from the pixel width so Printful prints the image at
+    // exactly its size.
     async function qrPng(text, sizeIn) {
-      const { size, modules } = qrMatrix(text);
-      const total = size + 8;
-      const scale = Math.max(1, Math.floor(Math.round(Number(sizeIn) * 300) / total));
-      const px = total * scale;
-      const raw = new Uint8Array(px * (px + 1));
-      for (let y = 0; y < px; y++) {
-        const rowStart = y * (px + 1);
-        raw[rowStart] = 0;
-        const my = Math.floor(y / scale) - 4;
-        for (let x = 0; x < px; x++) {
-          const mx = Math.floor(x / scale) - 4;
-          const dark = my >= 0 && my < size && mx >= 0 && mx < size && modules[my * size + mx];
-          raw[rowStart + 1 + x] = dark ? 0 : 255;
+      const L = emblemLayout(text);
+      const px = Math.max(64, Math.round(Number(sizeIn) * 300));
+      const scale = px / (L.extent * 2); // pixels per module
+      const codeReach = L.half + 0.5;
+      const raw = new Uint8Array(px * (px * 2 + 1));
+      for (let yPx = 0; yPx < px; yPx++) {
+        const rowStart = yPx * (px * 2 + 1);
+        const y = (yPx + 0.5) / scale - L.extent;
+        for (let xPx = 0; xPx < px; xPx++) {
+          const x = (xPx + 0.5) / scale - L.extent;
+          let th = Math.atan2(y, x); if (th < 0) th += Math.PI * 2;
+          const back = Math.min(1, Math.max(0, 0.5 - (Math.hypot(x, y) - L.edge(th)) * scale));
+          let ink = 0;
+          if (back > 0) {
+            const d = Math.abs(x) < codeReach && Math.abs(y) < codeReach ? codeDistance(L, x, y) : ringDistance(L, x, y);
+            ink = Math.min(1, Math.max(0, 0.5 - d * scale));
+          }
+          raw[rowStart + 1 + xPx * 2] = Math.round(255 * (1 - ink));
+          raw[rowStart + 2 + xPx * 2] = Math.round(255 * Math.max(back, ink));
         }
       }
       const ihdr = new Uint8Array(13);
       const dv = new DataView(ihdr.buffer);
-      dv.setUint32(0, px); dv.setUint32(4, px); ihdr[8] = 8; ihdr[9] = 0; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+      dv.setUint32(0, px); dv.setUint32(4, px); ihdr[8] = 8; ihdr[9] = 4; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
       const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', ihdr), pngChunk('IDAT', await deflate(raw)), pngChunk('IEND', new Uint8Array(0))];
       const png = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
       let o = 0; for (const p of parts) { png.set(p, o); o += p.length; }
@@ -2329,7 +2542,7 @@
     const base = publicSiteBase(request);
     for (const u of units) {
       const qr = parsePrintfulQr(u.printful_qr);
-      const { png, sizeIn } = await QR.qrPng(pieceLink(base, u.claim_code), qr ? qr.size_in : 1.5);
+      const { png, sizeIn } = await QR.qrPng(pieceLink(base, u.claim_code), qr ? qr.size_in : 2.5);
       const key = `qr/${u.claim_code}.png`;
       await ASSETS_BUCKET.put(key, png, {
         httpMetadata: { contentType: 'image/png' },
@@ -3788,6 +4001,41 @@
     const url = new URL(request.url);
     const brand   = (url.searchParams.get('brand') || '').trim();
     const product = (url.searchParams.get('product') || '').trim();
+    const targetId = (url.searchParams.get('target') || '').trim();
+
+    // ?target=<id> pins one exact target. Without it, targets that share the same scope (no
+    // product — e.g. several unscoped targets, or a brand's up-to-3 active ones) all resolve to
+    // the same "newest" row below, so every older target's QR loads the wrong .mind and never
+    // detects. Still requires is_active so Deactivate keeps working as an off switch.
+    if (targetId) {
+      if (!/^\d+$/.test(targetId)) return jsonResponse({ error: 'Invalid target' }, 400, request);
+      const row = await dbGet(
+        `select t.id, t.name, t.product, t.mind_url, t.video_url, t.image_url,
+                t.is_active, t.version, t.created_at, t.updated_at, b.name as brand
+         from targets t
+         left join brands b on b.id = t.brand_id
+         where t.id = ? and t.is_active = 1`,
+        Number(targetId)
+      );
+      if (!row) return jsonResponse({ error: 'No active target found' }, 404, request);
+      return withCache(
+        jsonResponse({
+          id: row.id,
+          name: row.name,
+          product: row.product,
+          brand: row.brand || null,
+          mindurl: row.mind_url,
+          videourl: row.video_url,
+          imageurl: row.image_url,
+          is_active: !!row.is_active,
+          version: row.version || 1,
+          updated_at: row.updated_at || row.created_at,
+          created_at: row.created_at,
+          source: 'target_id'
+        }, 200, request),
+        'public, max-age=30, s-maxage=60'
+      );
+    }
 
     // Step 12 integration: if a product slug is provided, prefer the catalog link
     // (products.ar_target_id) so ecommerce can drive AR without duplicating product

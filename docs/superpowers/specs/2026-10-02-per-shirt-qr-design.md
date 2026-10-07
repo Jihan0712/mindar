@@ -18,7 +18,7 @@ a tag code).
 | Ownership for buyers without an account | Account required to check out, every piece is owned from payment | User |
 | How the QR reaches Printful | Approach A: our dashboard holds the print files; every order is a Printful catalog order with the art layer plus a per-shirt QR layer | User |
 | Resale / transfer of a piece | Out of scope. A piece stays with the buying account; the admin moves one by hand if ever needed | Assumption, accepted |
-| QR look | Black modules on a white square with a 4-module quiet zone, readable on any shirt colour | Assumption, accepted |
+| QR look | Fingerprint emblem (2026-10-07): flowing maze strokes and rounded eyes inside broken concentric rings, all generated from the shirt's link; black on a white backing shaped like the outer ring, transparent outside | User |
 
 ## Non-goals
 
@@ -85,15 +85,25 @@ order (none are created any more, but older rows exist) are unaffected.
 
 The Worker is a single file deployed without a bundler, so the encoder is inline.
 
-- Byte mode, error correction level Q, smallest version 1-10 that fits. A typical link
-  `https://shop.inrl.co/p/ABCD-2345` (32 bytes) fits version 3 (29x29 modules).
+- Byte mode, error correction level H (30%, headroom for the styling), smallest version 1-10
+  that fits. A typical link `https://shop.inrl.co/p/ABCD-2345` (32 bytes) fits version 4
+  (33x33 modules).
 - Reed-Solomon over GF(256) with the standard generator polynomials and block structure.
 - All 8 masks evaluated with the four standard penalty rules; lowest score wins. Format and
   version information written per the spec.
-- PNG: 8-bit greyscale, white background, black modules, 4-module quiet zone. Pixel size =
-  `round(size_in * 300)` rounded down to a whole multiple of (modules + 8), so every module is
-  the same number of pixels. Scanlines use filter type 0 and are compressed with
-  `CompressionStream('deflate')` (zlib format, as PNG requires); CRC-32 computed inline.
+- PNG: the fingerprint emblem, 8-bit grey+alpha, drawn from signed distances with
+  anti-aliased edges. Scanners sample only module centres, finder/alignment eyes and the
+  margin, so: dark modules are joined by a maze of strokes (a spanning forest over
+  orthogonal and light-corner diagonal neighbours, picked by a generator seeded from the
+  link, with straight runs merged and corners smoothly blended); modules with no stroke are
+  dots; eyes are rounded squares; a 2-module light margin separates the code from broken
+  concentric rings whose wobble, dash lengths and gaps are also seeded from the link. Ink
+  never reaches within ~0.3 module of a light module's centre. Backing is white inside the
+  outer ring, transparent outside. `size_in` is the whole emblem's width (the code is about
+  half; admin default 2.5 in, minimum 2 in; the server still accepts 1 in for products saved
+  earlier). Pixel size = `round(size_in * 300)`. Scanlines use filter type 0 and are
+  compressed with `CompressionStream('deflate')` (zlib format, as PNG requires); CRC-32
+  computed inline.
 - The physical size sent to Printful is recomputed from the final pixel width at 300 DPI.
 - Public functions: `qrMatrix(text) -> { size, modules: Uint8Array }` and
   `qrPng(text, sizeIn) -> Promise<Uint8Array>`.
@@ -195,7 +205,7 @@ QR encoder, run in the built-in browser pane against the `qrcode@1.4.4` library 
 already loads in `piece.html`:
 
 - For a set of strings (short, the real link format, 1-10 version boundaries), force the
-  same version, level Q and each mask; module matrices must be identical.
+  same version, level H and each mask; module matrices must be identical.
 - Decompress the generated PNG and check every pixel against the matrix, including the quiet
   zone and the module scale.
 

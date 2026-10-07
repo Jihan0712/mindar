@@ -117,7 +117,9 @@
           } else {
             const brand = (params.get('brand') || '').trim();
             const product = (params.get('product') || '').trim();
+            const targetId = (params.get('target') || '').trim();
             const qs = new URLSearchParams();
+            if (targetId) qs.set('target', targetId);
             if (brand) qs.set('brand', brand);
             if (product) qs.set('product', product);
             url = `/api/viewer/active${qs.toString() ? `?${qs.toString()}` : ''}`;
