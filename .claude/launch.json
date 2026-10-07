@@ -4,13 +4,20 @@
     {
       "name": "site",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8765"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765"
+      ],
       "port": 8765
     },
     {
       "name": "fullstack-local",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["--no-warnings", "C:/Users/ryley/AppData/Local/Temp/claude/E--Documents-coding-MindAR/91f33c17-12ae-4091-a5c2-b595d4bef797/scratchpad/it/devserver.mjs"],
+      "runtimeArgs": [
+        "--no-warnings",
+        "C:/Users/ryley/AppData/Local/Temp/claude/E--Documents-coding-MindAR/91f33c17-12ae-4091-a5c2-b595d4bef797/scratchpad/it/devserver.mjs"
+      ],
       "port": 8787
     }
   ]

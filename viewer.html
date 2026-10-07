@@ -562,6 +562,37 @@
         }, 250);
         window.addEventListener('orientationchange', () => { try { setTimeout(() => { try { if (typeof window.softReinit === 'function') window.softReinit(); } catch (e) {} handleOrientationOrResize(); }, 200); } catch (e) {} });
         window.addEventListener('resize', handleOrientationOrResize);
+
+        // ?debug=1 — live readout of every box that has to agree for the overlay to sit on the
+        // print: viewport, body (A-Frame's non-embedded size source), MindAR's container, the
+        // canvas, the 3D camera's aspect/fov and the camera feed's placement. Screenshot it.
+        if (new URLSearchParams(location.search).get('debug') === '1') {
+          const box = document.createElement('pre');
+          box.style.cssText = 'position:fixed;left:4px;top:64px;z-index:10030;margin:0;padding:6px 8px;background:rgba(0,0,0,.75);color:#7CFC00;font:10px/1.35 monospace;pointer-events:none;white-space:pre';
+          document.body.appendChild(box);
+          const r = (n) => Math.round(n * 1000) / 1000;
+          setInterval(() => {
+            const root = document.getElementById('ar-mobile-root');
+            const cv = scene.canvas;
+            const camEl = document.querySelector('a-camera');
+            const cam = camEl && camEl.getObject3D && camEl.getObject3D('camera');
+            const feed = root.querySelector(':scope > video');
+            const vv = window.visualViewport;
+            const pm = target.components && target.components['mindar-image-target'] && target.components['mindar-image-target'].postMatrix;
+            box.textContent = [
+              `inner     ${innerWidth}x${innerHeight}  dpr ${devicePixelRatio}`,
+              `visualVP  ${vv ? Math.round(vv.width) + 'x' + Math.round(vv.height) : '-'}`,
+              `docEl     ${document.documentElement.clientWidth}x${document.documentElement.clientHeight}`,
+              `body      ${document.body.offsetWidth}x${document.body.offsetHeight}`,
+              `root      ${root.clientWidth}x${root.clientHeight}`,
+              `scene     ${scene.offsetWidth}x${scene.offsetHeight}`,
+              `canvas    css ${cv ? cv.clientWidth + 'x' + cv.clientHeight : '-'}  buf ${cv ? cv.width + 'x' + cv.height : '-'}`,
+              `canvasAR  ${cv ? r(cv.clientWidth / cv.clientHeight) : '-'}  camAspect ${cam ? r(cam.aspect) : '-'}  fov ${cam ? r(cam.fov) : '-'}`,
+              `feed      ${feed ? feed.videoWidth + 'x' + feed.videoHeight : '-'}  css ${feed ? feed.style.width + ' x ' + feed.style.height + ' @' + feed.style.left + ',' + feed.style.top : '-'}`,
+              `marker    ${pm ? r(pm.elements[12] * 2) + 'x' + r(pm.elements[13] * 2) : '-'}  plane ${planeEl.getAttribute('width')}x${r(Number(planeEl.getAttribute('height')))}`,
+            ].join('\n');
+          }, 500);
+        }
       });
 
       // ---------------- desktop fallback (AR-D1) ----------------
@@ -694,7 +725,14 @@
         <video id="pageVideo" playsinline controls style="max-width:100%;max-height:100%"></video>
       </div>
 
+      <!-- `embedded`: without it A-Frame sizes the canvas buffer and sets camera.aspect from
+           document.body's offset size (getMaxSize), while the canvas is shown at the viewport
+           and MindAR fits the camera feed + fov to #ar-mobile-root. On Android those disagree,
+           and since a-scene.resize() runs after every resize event, A-Frame's aspect wins —
+           the overlay renders horizontally stretched / vertically squashed against the print.
+           Embedded makes A-Frame measure this a-scene, i.e. the same box MindAR measures. -->
       <a-scene
+        embedded
         color-space="sRGB"
         renderer="colorManagement: true, physicallyCorrectLights"
         vr-mode-ui="enabled: false"
