@@ -18,6 +18,29 @@
     .player .t-label{color:var(--paper-300)}
     .player__bar{background:var(--surface-0);padding:12px 16px;font-size:13px;color:var(--ink-500)}
     @media (max-width:1023.98px){.player{aspect-ratio:4/3;margin-inline:calc(-1 * var(--margin))}.player__bar{display:none}}
+    /* current video + QR */
+    .layer{max-width:860px}
+    .layer .app-head{align-items:flex-end;padding-bottom:20px;border-bottom:1px solid var(--line-100)}
+    .layer__name{display:flex;align-items:center;gap:2px}
+    .layer__grid{display:grid;gap:20px}
+    @media (min-width:1024px){.layer__grid{grid-template-columns:minmax(0,1fr) 316px;gap:24px;align-items:start}}
+    .layer .player{aspect-ratio:4/5;border-radius:var(--radius-sm) var(--radius-sm) 0 0}
+    .layer .player__bar{border-radius:0 0 var(--radius-sm) var(--radius-sm)}
+    .qr{background:var(--surface-0);border-radius:var(--radius-sm);padding:22px;display:grid;gap:18px}
+    @media (min-width:1024px){.qr{position:sticky;top:24px}}
+    .qr[hidden]{display:none}
+    .qr__head p{margin:6px 0 0;font-size:13px;color:var(--ink-500)}
+    .qr__img{background:#fff;border:1px solid var(--line-100);border-radius:var(--radius-sm);padding:16px;display:flex;justify-content:center}
+    .qr__img img{width:100%;max-width:240px;height:auto;aspect-ratio:1}
+    .qr__link{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 10px 10px 14px;background:var(--surface-2, #f4f4f4);border-radius:var(--radius-sm);font-size:13px;min-width:0}
+    .qr__link a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;text-decoration:none}
+    .qr__link a:hover{text-decoration:underline}
+    .qr__link .b{flex-shrink:0;min-height:30px;padding:0 14px;background:var(--surface-0)}
+    .qr__actions{display:none;flex-direction:column;gap:8px}
+    .qr__actions .b[hidden]{display:none}
+    @media (max-width:1023.98px){.layer .player{aspect-ratio:4/5;max-height:70vh;border-radius:0}}
+    .qr__note{margin:-6px 0 0}
+    .qr__note:empty{display:none}
     .rename{display:none;gap:8px;margin-top:8px}
     .rename.is-on{display:flex}
     .icon-btn{background:none;border:0;color:var(--ink-500);padding:0 4px;cursor:pointer;vertical-align:baseline}
@@ -64,37 +87,44 @@
     <aside class="rail" id="app-rail" data-active="wardrobe"></aside>
     <main id="main" class="app__main">
       <p id="loadState" class="t-meta">Loading your T-shirt&hellip;</p>
-      <div id="pShare" class="t-meta" hidden style="margin:0 0 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-        <img id="pShareQr" alt="This T-shirt's QR code" width="200" height="200" hidden style="background:#fff;border:1px solid var(--line, #ddd)">
-        <span>The QR on this T-shirt opens <a id="pShareLink" class="t-link--teal" target="_blank" rel="noopener"></a> <button class="b b--ghost b--sm" type="button" id="pShareCopy" style="margin-left:6px">Copy link</button>
-          <span id="pQrActions" style="display:none;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="b b--dark b--sm" type="button" id="pQrDownload">Download QR</button>
-            <button class="b b--ghost b--sm" type="button" id="pPrintDownload" hidden>Download print file (design + QR)</button>
-          </span>
-          <span id="pQrNote" role="status" aria-live="polite" style="display:block;margin-top:6px"></span>
-        </span>
-      </div>
       <p id="pAdminNote" class="t-meta" hidden style="margin:-8px 0 18px">Admin view of someone else's T-shirt: read-only.</p>
 
       <!-- W-02 · Your current video  /  W-13 · Video added -->
-      <section id="vLayer" hidden>
+      <section id="vLayer" class="layer" hidden>
         <div class="app-head">
           <div>
             <a class="back" href="wardrobe.html">&larr; Back to your T-shirts</a>
             <h1 id="lTitle">Your current video</h1>
-            <p><span id="pName"></span> <button class="icon-btn" type="button" id="renameBtn" aria-label="Rename this T-shirt"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8-4 1z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button></p>
+            <p class="layer__name"><span id="pName"></span> <button class="icon-btn" type="button" id="renameBtn" aria-label="Rename this T-shirt"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8-4 1z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button></p>
             <form class="rename" id="renameForm"><label for="renameInput" class="visually-hidden">Name</label><input class="input" id="renameInput" maxlength="120" style="min-height:40px;max-width:320px"><button class="b b--dark b--sm" type="submit">Save</button><button class="b b--ghost b--sm" type="button" id="renameCancel">Cancel</button></form>
             <p id="pMeta" class="tnum"></p>
           </div>
-          <button class="b b--ghost b--sm d-none d-lg-inline-flex" type="button" data-go-replace style="background:var(--surface-0)">Change video</button>
+          <button class="b b--dark b--sm d-none d-lg-inline-flex" type="button" data-go-replace>Change video</button>
         </div>
 
-        <div class="two">
-          <div>
+        <div class="layer__grid">
+          <div class="layer__media">
             <div class="player" id="player"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M26 21l18 11-18 11z" fill="#fff"/></svg><span class="t-label">Your current video</span></div>
-            <div class="player__bar"><span id="fileMeta">&mdash;</span></div>
-            <button class="b b--ghost b--block d-lg-none" type="button" data-go-replace style="background:var(--surface-0);margin-top:16px">Change video</button>
+            <div class="player__bar"><span id="fileMeta" class="tnum">&mdash;</span></div>
+            <button class="b b--dark b--block d-lg-none" type="button" data-go-replace style="margin-top:16px">Change video</button>
           </div>
+
+          <aside class="qr" id="pShare" hidden aria-labelledby="qrHead">
+            <div class="qr__head">
+              <span class="t-label" id="qrHead">The QR on this T-shirt</span>
+              <p>Anyone who scans it lands on your video.</p>
+            </div>
+            <div class="qr__img"><img id="pShareQr" alt="This T-shirt's QR code" width="240" height="240" hidden></div>
+            <div class="qr__link">
+              <a id="pShareLink" class="t-link--teal tnum" target="_blank" rel="noopener"></a>
+              <button class="b b--ghost b--sm" type="button" id="pShareCopy">Copy link</button>
+            </div>
+            <div class="qr__actions" id="pQrActions">
+              <button class="b b--dark b--sm b--block" type="button" id="pQrDownload">Download QR</button>
+              <button class="b b--ghost b--sm b--block" type="button" id="pPrintDownload" hidden>Download print file (design + QR)</button>
+            </div>
+            <p class="t-small qr__note" id="pQrNote" role="status" aria-live="polite"></p>
+          </aside>
         </div>
       </section>
 

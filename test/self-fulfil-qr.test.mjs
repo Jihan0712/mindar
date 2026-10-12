@@ -6,6 +6,8 @@ import { createHmac } from 'node:crypto';
 import { makeHarness, seedUser } from './helpers/worker-harness.mjs';
 
 const SITE = 'https://shop.inrl.co';
+// R2 key of a stored QR from its public URL.
+const qrKey = u => decodeURIComponent(new URL(u).pathname).replace(/^\/+/, '').replace(/^api\/r2\//, '');
 
 async function setup(vars, { stripeStatus = 'open', withSession = true } = {}) {
   const h = await makeHarness(vars);
@@ -41,10 +43,10 @@ test('self-fulfil mints the buyer\'s shirts with QR codes on PUBLIC_SITE_URL and
     assert.equal(us.length, 2);
     for (const u of us) {
       assert.equal(u.owner_user_id, 'buyer1');
-      const obj = h.ASSETS_BUCKET.objects.get(`qr/${u.claim_code}.png`);
+      const obj = h.ASSETS_BUCKET.objects.get(qrKey(u.qr_url));
       assert.ok(obj, 'QR image stored');
       assert.equal(obj.customMetadata.size_in, '2.5');
-      assert.ok(u.qr_url.endsWith(`qr/${u.claim_code}.png`));
+      assert.match(qrKey(u.qr_url), new RegExp('^qr/' + u.claim_code + '-[a-z0-9]+\\.png$'));
     }
     const pieces = await h.call('GET', '/api/admin/orders/ord_1/pieces', { token: admin });
     assert.deepEqual(pieces.json.items.map(i => i.link), us.map(u => `${SITE}/p/${u.claim_code}`));
@@ -188,8 +190,8 @@ test('the shirt page makes a missing QR, lets the owner download it, and gives t
     h.exec("insert into garment_units (id, claim_code, product_id, owner_user_id, claimed_at) values ('unit_t', 'FQP5-KZ5W', 19, 'buyer1', '2026-10-12T00:00:00Z')");
     const own = await h.call('GET', '/api/pieces/unit_t', { token: buyer });
     assert.equal(own.status, 200, own.text);
-    assert.ok(own.json.qr_url && own.json.qr_url.endsWith('qr/FQP5-KZ5W.png'), 'QR generated on view');
-    assert.ok(h.ASSETS_BUCKET.objects.has('qr/FQP5-KZ5W.png'));
+    assert.match(qrKey(own.json.qr_url || ''), /^qr\/FQP5-KZ5W-[a-z0-9]+\.png$/, 'QR generated on view');
+    assert.ok(h.ASSETS_BUCKET.objects.has(qrKey(own.json.qr_url)));
     assert.equal(own.json.is_owner, true);
     assert.equal(own.json.print, null, 'owner gets no print file');
 

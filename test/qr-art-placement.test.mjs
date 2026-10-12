@@ -112,8 +112,9 @@ test("a placement edited after the sale changes neither the shirt's print spec, 
     assert.equal(front.layers[0].url, ART, 'art as sold');
     assert.deepEqual(front.layers[0].position, { area_width: 12, area_height: 16, width: 11.325, height: 16, top: 0, left: 0.3375 });
     assert.deepEqual(front.layers[1].position, { area_width: 12, area_height: 16, width: 2.5, height: 2.5, top: 13.1, left: 9.2 });
-    const unit = h.q("select claim_code from garment_units where order_id = 'ord_1'")[0];
-    assert.equal(h.ASSETS_BUCKET.objects.get('qr/' + unit.claim_code + '.png').customMetadata.size_in, '2.5', 'QR rendered at the sold size');
+    const unit = h.q("select qr_url from garment_units where order_id = 'ord_1'")[0];
+    const key = decodeURIComponent(new URL(unit.qr_url).pathname).replace(/^\/+/, '').replace(/^api\/r2\//, '');
+    assert.equal(h.ASSETS_BUCKET.objects.get(key).customMetadata.size_in, '2.5', 'QR rendered at the sold size');
     const r = await h.call('GET', '/api/admin/orders/ord_1/pieces', { token: admin });
     const [shirt] = r.json.items;
     assert.equal(shirt.print.art_url, ART);
