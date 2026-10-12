@@ -145,6 +145,15 @@
     @media (max-width:900px) { .pd-main .pd-panel:first-child { border-right:none; border-bottom:1px solid var(--line-200); } }
     .pd-panel-title { font-family:var(--font-body); color:var(--ink-900); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:.75rem; margin-bottom:.4rem; }
 
+    /* Shirt QR placer: the print area to scale, its art, and a draggable QR */
+    .qr-stage { position:relative; width:100%; max-width:380px; margin:0 auto; border:1px solid var(--line-200);
+      background:repeating-conic-gradient(#e9e9e9 0 25%, #fafafa 0 50%) 0 0 / 16px 16px; touch-action:none; user-select:none; overflow:hidden; }
+    .qr-stage-art { position:absolute; pointer-events:none; }
+    .qr-stage-box { position:absolute; aspect-ratio:1; border-radius:50%; background:rgba(255,255,255,.92);
+      outline:2px dashed #12a2b8; cursor:move; display:flex; align-items:center; justify-content:center;
+      font-size:.6rem; font-weight:700; color:#1c5d68; }
+    .qr-stage-handle { position:absolute; right:-6px; bottom:-6px; width:14px; height:14px; background:#12a2b8;
+      border:2px solid #fff; cursor:nwse-resize; }
     .pd-step-panel-sub { font-size:.68rem; color:var(--ink-500); margin-bottom:.9rem; line-height:1.5; }
     .pd-step-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.25rem; }
     .pd-step-form-grid > * { margin-bottom:.65rem; }
@@ -535,7 +544,11 @@
           <div class="pd-main">
 
             <!-- Images -->
-            <div class="pd-panel">
+            <div class="pd-panel" id="pfLinkedPhotosNote" style="display:none">
+              <div class="pd-panel-title">Storefront Photos</div>
+              <div class="pd-step-panel-sub">This product is linked to Printful &#8212; the shop shows Printful's own mockups. Re-import it from Printful to refresh them.</div>
+            </div>
+            <div class="pd-panel" id="storefrontPhotosPanel">
               <div class="pd-panel-title">Storefront Photos</div>
               <div class="pd-step-panel-sub">Photos shown on the storefront &#8212; the print design itself comes from Printful once this product is linked.</div>
 
@@ -1021,6 +1034,22 @@
             </div>
           </div>
         </div>
+        <div class="mt-3">
+          <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+            <span class="form-label mb-0">Drag the QR onto your design</span>
+            <label class="btn btn-sm btn-inrl-outline mb-0" style="font-size:.62rem">Upload print file&#8230;
+              <input type="file" id="qrArtFile" accept="image/png,image/jpeg" hidden />
+            </label>
+          </div>
+          <div id="qrStage" class="qr-stage" aria-label="Print area">
+            <img id="qrStageArt" class="qr-stage-art" alt="" hidden />
+            <div id="qrStageBox" class="qr-stage-box" title="Drag to move; drag the corner to resize">
+              <span>QR</span>
+              <div id="qrStageHandle" class="qr-stage-handle" title="Drag to resize"></div>
+            </div>
+          </div>
+          <div class="form-text" id="qrStageHint"></div>
+        </div>
         <p id="qrModalStatus" class="mt-3 mb-2" role="status" aria-live="polite"></p>
         <div id="qrPreview" class="d-flex flex-wrap gap-2"></div>
       </div>
@@ -1217,6 +1246,10 @@
     el('currencyInput').value = p ? (p.currency || 'USD') : 'USD';
     el('imageUrlInput').value = p ? (p.image_url || '') : '';
     el('imageFileInput').value = '';
+    // Printful-linked products use Printful's mockups as their gallery — no manual uploads.
+    const pfLinked = !!(p && p.printful_sync_product_id);
+    el('storefrontPhotosPanel').style.display = pfLinked ? 'none' : '';
+    el('pfLinkedPhotosNote').style.display = pfLinked ? '' : 'none';
     el('descInput').value = p ? (p.description || '') : '';
     el('publishInput').checked = !!(p && p.is_published);
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
@@ -1986,6 +2019,76 @@
       var shirtsModalEl = document.getElementById('orderShirtsModal');
       var shirtsModalInstance = shirtsModalEl ? new bootstrap.Modal(shirtsModalEl) : null;
       var shirtsOrderId = null;
+      var shirtsItems = [];
+
+      // One shirt's print file: the print area at 300 DPI with the art in its saved box and
+      // this shirt's own QR at the saved position — the same numbers the QR placer and the
+      // Printful order use. A pHYs chunk marks it 300 DPI so it prints at the right size.
+      function loadCorsImage(url) {
+        return new Promise(function(resolve, reject) {
+          var img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = function() { resolve(img); };
+          img.onerror = function() { reject(new Error('Could not load ' + url)); };
+          // A separate URL so a copy cached without CORS headers (from a plain <img>) is not reused.
+          img.src = url + (url.indexOf("?") === -1 ? "?" : "&") + "print=1";
+        });
+      }
+      var crcTable = null;
+      function crc32(bytes) {
+        if (!crcTable) {
+          crcTable = new Uint32Array(256);
+          for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c >>> 0; }
+        }
+        var crc = 0xffffffff;
+        for (var i = 0; i < bytes.length; i++) crc = crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+        return (crc ^ 0xffffffff) >>> 0;
+      }
+      async function pngAt300Dpi(blob) {
+        var png = new Uint8Array(await blob.arrayBuffer());
+        var ppm = Math.round(300 / 0.0254); // pixels per metre
+        var chunk = new Uint8Array(21);
+        var dv = new DataView(chunk.buffer);
+        dv.setUint32(0, 9);
+        chunk.set([0x70, 0x48, 0x59, 0x73], 4); // 'pHYs'
+        dv.setUint32(8, ppm); dv.setUint32(12, ppm); chunk[16] = 1;
+        dv.setUint32(17, crc32(chunk.subarray(4, 17)));
+        var at = 33; // after the signature (8) and IHDR (25)
+        var out = new Uint8Array(png.length + chunk.length);
+        out.set(png.subarray(0, at), 0); out.set(chunk, at); out.set(png.subarray(at), at + chunk.length);
+        return new Blob([out], { type: 'image/png' });
+      }
+      async function downloadPrintFile(u) {
+        var spec = u.print, q = spec.qr;
+        var W = Math.round(q.area_width_in * 300), H = Math.round(q.area_height_in * 300);
+        var canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        var ctx = canvas.getContext('2d');
+        if (spec.art_url) {
+          var art = await loadCorsImage(spec.art_url);
+          var box = q.art && q.art.url === spec.art_url ? q.art : null;
+          if (!box) {
+            var s = Math.min(q.area_width_in / art.naturalWidth, q.area_height_in / art.naturalHeight);
+            var bw = art.naturalWidth * s, bh = art.naturalHeight * s;
+            box = { left_in: (q.area_width_in - bw) / 2, top_in: (q.area_height_in - bh) / 2, width_in: bw, height_in: bh };
+          }
+          ctx.drawImage(art, Math.round(box.left_in * 300), Math.round(box.top_in * 300), Math.round(box.width_in * 300), Math.round(box.height_in * 300));
+        }
+        var qrImg = await loadCorsImage(u.qr_url);
+        // The QR PNG is already exactly its print size at 300 DPI — draw it 1:1.
+        ctx.drawImage(qrImg, Math.round(q.left_in * 300), Math.round(q.top_in * 300));
+        var blob = await new Promise(function(resolve, reject) {
+          try { canvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('Could not build the PNG')); }, 'image/png'); }
+          catch (e) { reject(new Error('The browser blocked reading the art file. Upload it again through QR placement → Upload print file.')); }
+        });
+        var file = await pngAt300Dpi(blob);
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(file);
+        a.download = u.claim_code + '-' + q.placement + '-print.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function() { URL.revokeObjectURL(a.href); }, 10000);
+        return { W: W, H: H };
+      }
       function shirtsStatus(msg, isError) {
         var st = document.getElementById('orderShirtsStatus');
         st.textContent = msg || '';
@@ -2006,6 +2109,7 @@
           document.getElementById('orderShirtsMeta').textContent = orderId + ' · payment ' + (o.payment_status || '—') +
             ' · Printful ' + (o.printful_status || '—') + (o.printful_order_id ? ' (#' + o.printful_order_id + ')' : '');
           var items = res.items || [];
+          shirtsItems = items;
           var isSelf = o.printful_status === 'self';
           document.getElementById('orderResubmitBtn').hidden = !(o.payment_status === 'paid' && !isSelf && (!o.printful_order_id || o.printful_status === 'error'));
           // Unpaid order: take it as paid and print it yourself. Self order: re-run to fill in
@@ -2016,7 +2120,8 @@
             (isSelf && (!items.length || items.some(function(u) { return u.product.has_ar && !u.qr_url; }))));
           tbody.innerHTML = items.length ? items.map(function(u) {
             var qr = u.qr_url
-              ? '<a href="' + escapeHtml(u.qr_url) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u.qr_url) + '" alt="QR ' + escapeHtml(u.claim_code) + '" width="56" height="56" style="background:#fff"></a>'
+              ? '<a href="' + escapeHtml(u.qr_url) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u.qr_url) + '" alt="QR ' + escapeHtml(u.claim_code) + '" width="56" height="56" style="background:#fff"></a>' +
+                (u.print ? '<div><button type="button" class="btn btn-sm btn-inrl-outline mt-1" style="font-size:.58rem;padding:.15rem .45rem" data-print-file="' + escapeHtml(u.id) + '">Print file</button></div>' : '')
               : '<span style="color:var(--ink-500);font-size:.7rem">' + (u.product.has_ar ? 'not generated' : 'no AR') + '</span>';
             return '<tr>' +
               '<td>' + qr + '</td>' +
@@ -2037,6 +2142,21 @@
       if (ordersTbodyEl) ordersTbodyEl.addEventListener('click', function(ev) {
         var btn = ev.target.closest('button[data-order-shirts]');
         if (btn) openOrderShirts(btn.getAttribute('data-order-shirts'));
+      });
+      var orderShirtsTbodyEl = document.getElementById('orderShirtsTbody');
+      if (orderShirtsTbodyEl) orderShirtsTbodyEl.addEventListener('click', async function(ev) {
+        var btn = ev.target.closest('button[data-print-file]');
+        if (!btn) return;
+        var u = shirtsItems.find(function(x) { return String(x.id) === btn.getAttribute('data-print-file'); });
+        if (!u || !u.print) return;
+        btn.disabled = true;
+        shirtsStatus('Building the print file for ' + u.claim_code + '…');
+        try {
+          var r = await downloadPrintFile(u);
+          shirtsStatus(u.claim_code + ': ' + r.W + ' × ' + r.H + ' px at 300 DPI (' + u.print.qr.area_width_in + ' × ' + u.print.qr.area_height_in + ' in), downloaded.');
+        } catch (e) {
+          shirtsStatus('Print file failed: ' + (e.message || String(e)), true);
+        } finally { btn.disabled = false; }
       });
       var orderResubmitBtn = document.getElementById('orderResubmitBtn');
       if (orderResubmitBtn) orderResubmitBtn.addEventListener('click', async function() {
@@ -2062,7 +2182,7 @@
           var r = await apiFetch('/admin/orders/' + encodeURIComponent(shirtsOrderId) + '/self-fulfil', { method: 'POST', body: {} });
           await loadAndRenderOrders();
           await openOrderShirts(shirtsOrderId);
-          shirtsStatus(r.shirts + ' shirt(s), ' + r.qr_codes + ' QR code(s). Click a QR to open the print file.');
+          shirtsStatus(r.shirts + ' shirt(s), ' + r.qr_codes + ' QR code(s). Use Print file on each shirt to download its print-ready PNG.');
         } catch (e) {
           shirtsStatus('Self-fulfil failed: ' + (e.message || String(e)), true);
         } finally { orderSelfFulfilBtn.disabled = false; }
@@ -2385,9 +2505,85 @@
         if (!pl || !pl.print_area_width || !pl.print_area_height) return null;
         return { w: Number(pl.print_area_width), h: Number(pl.print_area_height) };
       }
+      // The placer draws the print area to scale. The art is fitted inside it whole and
+      // centred (the same box is saved and sent to Printful as the art's position, and used
+      // for the shop's own print files), so where the QR sits on screen is where it prints.
+      var qrProduct = null;
+      var qrArt = null; // { url, w, h, isPhoto } — natural pixel size of the placement's art
+      var qrArtLoadSeq = 0;
+      function qrArtUrlFor(placement) {
+        var images = (qrProduct && qrProduct.printful_design_images) || {};
+        if (images[placement]) return { url: images[placement], isPhoto: false };
+        if (placement === 'front' && qrProduct && qrProduct.image_url) return { url: qrProduct.image_url, isPhoto: true };
+        return null;
+      }
+      function qrArtBox() {
+        var a = qrCurrentArea();
+        if (!a || !qrArt) return null;
+        var s = Math.min(a.w / qrArt.w, a.h / qrArt.h);
+        var w = qrArt.w * s, h = qrArt.h * s;
+        var r = function(n) { return Math.round(n * 10000) / 10000; };
+        return { url: qrArt.url, top_in: r((a.h - h) / 2), left_in: r((a.w - w) / 2), width_in: r(w), height_in: r(h) };
+      }
+      function qrRender() {
+        var a = qrCurrentArea();
+        var stage = qrEl('qrStage'), art = qrEl('qrStageArt'), box = qrEl('qrStageBox');
+        if (!a) { stage.style.display = 'none'; return; }
+        stage.style.display = '';
+        stage.style.aspectRatio = a.w + ' / ' + a.h;
+        var ab = qrArtBox();
+        art.hidden = !ab;
+        if (ab) {
+          art.style.left = (ab.left_in / a.w * 100) + '%';
+          art.style.top = (ab.top_in / a.h * 100) + '%';
+          art.style.width = (ab.width_in / a.w * 100) + '%';
+          art.style.height = (ab.height_in / a.h * 100) + '%';
+        }
+        var size = Number(qrEl('qrSize').value) || 0, top = Number(qrEl('qrTop').value) || 0, left = Number(qrEl('qrLeft').value) || 0;
+        box.style.left = (left / a.w * 100) + '%';
+        box.style.top = (top / a.h * 100) + '%';
+        box.style.width = (size / a.w * 100) + '%';
+        box.querySelector('span').textContent = 'QR ' + size.toFixed(2) + '"';
+      }
+      function qrShowArtHint() {
+        var hint = qrEl('qrStageHint');
+        var ab = qrArtBox();
+        if (!qrArt || !ab) {
+          hint.textContent = 'No print file for this placement yet. Upload one: export your design at the print area size (300 DPI) with the QR spot left empty.';
+          return;
+        }
+        var dpi = Math.round(qrArt.w / ab.width_in);
+        var a = qrCurrentArea();
+        var fills = Math.abs(ab.width_in - a.w) < 0.02 && Math.abs(ab.height_in - a.h) < 0.02;
+        hint.textContent = (qrArt.isPhoto ? 'Using the storefront photo — upload the real print file. ' : '') +
+          'Print file ' + qrArt.w + ' × ' + qrArt.h + ' px, ' + dpi + ' DPI' +
+          (fills ? ', fills the print area exactly.' : '; its shape differs from the print area, so it is centred with empty margins.') +
+          (dpi < 150 ? ' Too low for a sharp print: export at ' + Math.round(a.w * 300) + ' × ' + Math.round(a.h * 300) + ' px.' : '');
+      }
+      function qrLoadArt() {
+        var seq = ++qrArtLoadSeq;
+        var src = qrArtUrlFor(qrEl('qrPlacement').value);
+        qrArt = null;
+        qrRender();
+        qrShowArtHint();
+        if (!src) return;
+        var img = qrEl('qrStageArt');
+        img.onload = function() {
+          if (seq !== qrArtLoadSeq) return;
+          qrArt = { url: src.url, w: img.naturalWidth, h: img.naturalHeight, isPhoto: src.isPhoto };
+          qrRender();
+          qrShowArtHint();
+        };
+        img.onerror = function() {
+          if (seq !== qrArtLoadSeq) return;
+          qrEl('qrStageHint').textContent = 'The print file for this placement could not be loaded.';
+        };
+        img.src = src.url;
+      }
       function qrShowArea() {
         var a = qrCurrentArea();
         qrEl('qrAreaHint').textContent = a ? ('Print area ' + a.w + ' × ' + a.h + ' in') : 'Print area size unknown for this placement';
+        qrLoadArt();
       }
       function qrSettings() {
         var a = qrCurrentArea();
@@ -2396,11 +2592,53 @@
         if (!(size >= 2 && size <= 6)) throw new Error('Emblem width must be between 2 and 6 inches.');
         if (!(top >= 0) || !(left >= 0)) throw new Error('Top and left must be 0 or more.');
         if (left + size > a.w + 0.01 || top + size > a.h + 0.01) throw new Error('The QR must sit inside the ' + a.w + ' × ' + a.h + ' in print area.');
-        return { placement: qrEl('qrPlacement').value, size_in: size, top_in: top, left_in: left, area_width_in: a.w, area_height_in: a.h };
+        return { placement: qrEl('qrPlacement').value, size_in: size, top_in: top, left_in: left, area_width_in: a.w, area_height_in: a.h, art: qrArtBox() };
       }
+      // Drag the QR to move it; drag its corner handle to resize it (kept square, at least
+      // 2 in, inside the print area). Positions snap to 0.05 in, like the number fields.
+      (function qrInitDrag() {
+        var box = qrEl('qrStageBox'), handle = qrEl('qrStageHandle'), stage = qrEl('qrStage');
+        if (!box || !handle || !stage) return;
+        var drag = null;
+        var snap = function(n) { return Math.round(n * 20) / 20; };
+        function start(ev, mode) {
+          var a = qrCurrentArea();
+          if (!a) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          drag = { mode: mode, x: ev.clientX, y: ev.clientY, a: a, ppi: stage.clientWidth / a.w,
+            size: Number(qrEl('qrSize').value) || 2.5, top: Number(qrEl('qrTop').value) || 0, left: Number(qrEl('qrLeft').value) || 0 };
+          try { (mode === 'move' ? box : handle).setPointerCapture(ev.pointerId); } catch (e) {}
+        }
+        function move(ev) {
+          if (!drag) return;
+          var dx = (ev.clientX - drag.x) / drag.ppi, dy = (ev.clientY - drag.y) / drag.ppi, a = drag.a;
+          if (drag.mode === 'move') {
+            qrEl('qrLeft').value = Math.min(Math.max(0, snap(drag.left + dx)), snap(a.w - drag.size)).toFixed(2);
+            qrEl('qrTop').value = Math.min(Math.max(0, snap(drag.top + dy)), snap(a.h - drag.size)).toFixed(2);
+          } else {
+            var max = Math.min(6, a.w - drag.left, a.h - drag.top);
+            qrEl('qrSize').value = Math.min(Math.max(2, snap(drag.size + Math.max(dx, dy))), Math.floor(max * 20) / 20).toFixed(2);
+          }
+          qrRender();
+        }
+        function end() { drag = null; }
+        box.addEventListener('pointerdown', function(ev) { if (ev.target !== handle) start(ev, 'move'); });
+        handle.addEventListener('pointerdown', function(ev) { start(ev, 'resize'); });
+        [box, handle].forEach(function(el) {
+          el.addEventListener('pointermove', move);
+          el.addEventListener('pointerup', end);
+          el.addEventListener('pointercancel', end);
+        });
+        ['qrSize', 'qrTop', 'qrLeft'].forEach(function(id) { qrEl(id).addEventListener('input', qrRender); });
+      })();
       async function openQrModal(productId) {
         var p = printfulProducts.find(function(x) { return String(x.id) === String(productId); });
         if (!p) return;
+        qrProduct = p;
+        qrArt = null;
+        qrEl('qrStageHint').textContent = '';
+        qrEl('qrStage').style.display = 'none';
         qrEl('qrProductId').value = String(p.id);
         qrEl('qrProductTitle').textContent = (p.title || '') + ' — /' + (p.slug || '');
         qrEl('qrPreview').innerHTML = '';
@@ -2437,6 +2675,28 @@
           var a = qrCurrentArea();
           if (!a) return;
           qrEl('qrLeft').value = Math.max(0, (a.w - Number(qrEl('qrSize').value || 0)) / 2).toFixed(2);
+          qrRender();
+        });
+        // Upload the print file for the selected placement: stored as that placement's art
+        // (products.printful_design_images), which is what gets printed under the QR.
+        qrEl('qrArtFile').addEventListener('change', async function() {
+          var input = this, file = input.files && input.files[0];
+          input.value = '';
+          if (!file || !qrProduct) return;
+          var placement = qrEl('qrPlacement').value;
+          if (!placement) { qrSetStatus('Pick a placement first.', true); return; }
+          try {
+            qrSetStatus('Uploading print file…');
+            var url = await uploadProductImage(file, 'products/' + qrProduct.id + '/print');
+            var images = Object.assign({}, qrProduct.printful_design_images || {});
+            images[placement] = url;
+            await apiFetch('/products/' + encodeURIComponent(qrProduct.id), { method: 'POST', body: { printful_design_images: images } });
+            qrProduct.printful_design_images = images;
+            qrLoadArt();
+            qrSetStatus('Print file saved for ' + placement + '. Place the QR, then Save.');
+          } catch (e) {
+            qrSetStatus(e.message || String(e), true);
+          }
         });
         qrEl('qrSaveBtn').addEventListener('click', async function() {
           var btn = this;
@@ -2444,8 +2704,9 @@
             var settings = qrSettings();
             btn.disabled = true;
             await apiFetch('/products/' + encodeURIComponent(qrEl('qrProductId').value), { method: 'POST', body: { printful_qr: settings } });
-            qrSetStatus('Saved. New orders print the QR here.');
+            qrSetStatus('Saved. New orders print the QR here' + (settings.art ? ', on this print file.' : '.'));
             await loadPrintfulProducts();
+            qrProduct = printfulProducts.find(function(x) { return String(x.id) === String(qrEl('qrProductId').value); }) || qrProduct;
           } catch (e) {
             qrSetStatus(e.message || String(e), true);
           } finally { btn.disabled = false; }
@@ -2540,6 +2801,12 @@
             stateChip += ' ' + (p.printful_qr
               ? printfulStatusChip('QR ' + p.printful_qr.placement, '#1c5d68', 'rgba(18,162,184,.1)')
               : printfulStatusChip('QR missing', '#b23b3b', 'rgba(178,59,59,.08)'));
+            // The print file was replaced after the QR was placed on it — the saved art box
+            // no longer applies, so re-open QR placement and Save.
+            var qrArtNow = p.printful_qr && p.printful_qr.art && (p.printful_design_images || {})[p.printful_qr.placement];
+            if (p.printful_qr && p.printful_qr.art && qrArtNow !== p.printful_qr.art.url) {
+              stateChip += ' ' + printfulStatusChip('Re-place QR', '#c17a2e', 'rgba(193,122,46,.1)');
+            }
           }
           var marginHtml = renderMarginHtml(computeMarginSummary(p.price_cents, p.printful_variant_cost_map), p.currency) || '<span style="color:var(--ink-500)">\u2014</span>';
           return '<tr>' +
@@ -2679,7 +2946,7 @@
         if (imagesHint) {
           if (imageUrls && imageUrls.length) {
             imagesHint.style.display = '';
-            imagesHint.textContent = imageUrls.length + ' preview image(s) pulled into the storefront gallery from Printful.';
+            imagesHint.textContent = imageUrls.length + ' Printful mockup(s) set as the storefront gallery.';
           } else {
             imagesHint.style.display = 'none';
           }

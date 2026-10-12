@@ -2225,7 +2225,7 @@
       catalog_variant_id: catalogVariantId,
       product_id: row.id,
       has_ar: row.ar_target_id != null,
-      qr: parsePrintfulQr(row.printful_qr),
+      qr: resolvedQr(row.printful_qr, request),
     };
   }
 
@@ -2242,7 +2242,10 @@
   }
 
   // products.printful_qr — where each shirt's QR goes, in inches inside the placement's
-  // print area: {placement, size_in, top_in, left_in, area_width_in, area_height_in}.
+  // print area: {placement, size_in, top_in, left_in, area_width_in, area_height_in}, plus
+  // optionally `art` {url, top_in, left_in, width_in, height_in}: where the dashboard's QR
+  // placer drew that placement's art file, so Printful prints the art in exactly that box
+  // instead of fitting it however it likes, and the shop's own print files match it.
   function parsePrintfulQr(raw) {
     let q = raw;
     if (typeof q === 'string') { try { q = JSON.parse(q); } catch { return null; } }
@@ -2258,7 +2261,37 @@
     if (!(out.top_in >= 0) || !(out.left_in >= 0)) return null;
     if (!(out.area_width_in > 0) || !(out.area_height_in > 0)) return null;
     if (out.left_in + out.size_in > out.area_width_in + 0.01 || out.top_in + out.size_in > out.area_height_in + 0.01) return null;
+    out.art = null;
+    if (q.art != null) {
+      const a = q.art;
+      if (typeof a !== 'object') return null;
+      const box = {
+        url: String(a.url || '').trim(),
+        top_in: num(a.top_in), left_in: num(a.left_in), width_in: num(a.width_in), height_in: num(a.height_in),
+      };
+      if (!/^https?:\/\//i.test(box.url) || box.url.length > 800) return null;
+      if (!(box.top_in >= 0) || !(box.left_in >= 0) || !(box.width_in > 0) || !(box.height_in > 0)) return null;
+      if (box.left_in + box.width_in > out.area_width_in + 0.01 || box.top_in + box.height_in > out.area_height_in + 0.01) return null;
+      out.art = box;
+    }
     return out;
+  }
+
+  // The saved art box applies only to the exact art file it was placed with; a new file for
+  // that placement goes back to Printful's own fit until the QR placer is saved again.
+  function artLayerPosition(qr, placement, url) {
+    if (!qr || !qr.art || qr.placement !== placement || qr.art.url !== url) return null;
+    return {
+      area_width: qr.area_width_in, area_height: qr.area_height_in,
+      width: qr.art.width_in, height: qr.art.height_in, top: qr.art.top_in, left: qr.art.left_in,
+    };
+  }
+
+  // QR settings with the art box URL normalized the same way as the art URLs it is matched to.
+  function resolvedQr(raw, request) {
+    const qr = parsePrintfulQr(raw);
+    if (qr && qr.art) qr.art.url = normalizePublicUrl(qr.art.url, request);
+    return qr;
   }
 
   // Art per placement for a resolved item: the product designer's per-placement files,
@@ -2269,11 +2302,13 @@
   }
 
   // Placements for one Printful item. With a QR, its layer is added to the QR placement
-  // (or that placement is created holding only the QR when it has no art).
-  function printfulPlacements(art, qrLayer) {
-    const placements = Object.entries(art).map(([placement, url]) => ({
-      placement, technique: 'dtg', layers: [{ type: 'file', url }],
-    }));
+  // (or that placement is created holding only the QR when it has no art). `qr` (the
+  // product's QR settings) gives the art its saved position, when there is one.
+  function printfulPlacements(art, qrLayer, qr) {
+    const placements = Object.entries(art).map(([placement, url]) => {
+      const position = artLayerPosition(qr, placement, url);
+      return { placement, technique: 'dtg', layers: [position ? { type: 'file', url, position } : { type: 'file', url }] };
+    });
     if (qrLayer) {
       const target = placements.find(pl => pl.placement === qrLayer.placement);
       if (target) target.layers.push(qrLayer.layer);
@@ -2314,13 +2349,13 @@
           if (!u.qr_url || !u.qr_size_in) throw new Error(`Shirt ${u.claim_code} has no QR image`);
           items.push({
             source: 'catalog', external_id: u.id, catalog_variant_id: Number(it.catalog_variant_id), quantity: 1,
-            placements: printfulPlacements(art, qrPrintLayer(it.qr, u.qr_url, u.qr_size_in)),
+            placements: printfulPlacements(art, qrPrintLayer(it.qr, u.qr_url, u.qr_size_in), it.qr),
           });
         }
       } else {
         items.push({
           source: 'catalog', external_id: `${orderId}-${idx}`, catalog_variant_id: Number(it.catalog_variant_id),
-          quantity: Number(it.qty), placements: printfulPlacements(art, null),
+          quantity: Number(it.qty), placements: printfulPlacements(art, null, it.qr),
         });
       }
     });
@@ -2899,7 +2934,8 @@
     if (!order) return jsonResponse({ error: 'Not found' }, 404, request);
     const rows = await dbAll(
       `select u.id, u.claim_code, u.item_index, u.unit_index, u.qr_url, u.nickname, u.scan_count, u.last_scanned_at,
-              p.title as product_title, p.slug as product_slug, p.ar_target_id, us.email as owner_email,
+              p.title as product_title, p.slug as product_slug, p.ar_target_id, p.printful_qr, p.printful_design_images,
+              p.image_url as product_image_url, us.email as owner_email,
               (select max(version) from garment_layers where unit_id = u.id) as version
        from garment_units u
        join products p on p.id = u.product_id
@@ -2912,6 +2948,7 @@
     const items = rows.map(r => ({
       id: r.id, claim_code: r.claim_code, item_index: r.item_index, unit_index: r.unit_index,
       product: { title: r.product_title, slug: r.product_slug, has_ar: r.ar_target_id != null },
+      print: printFileSpec(r, request),
       owner_email: r.owner_email || null, nickname: r.nickname || null,
       qr_url: r.qr_url || null, link: pieceLink(base, r.claim_code),
       version: r.version || 0, scan_count: r.scan_count || 0, last_scanned_at: r.last_scanned_at || null,
@@ -2920,6 +2957,18 @@
       order: { id: order.id, status: order.status, payment_status: order.payment_status, printful_status: order.printful_status, printful_order_id: order.printful_order_id },
       items,
     }, 200, request);
+  }
+
+  // What the dashboard needs to build one shirt's own print file (art plus its QR) at 300 DPI:
+  // the QR settings and the art file of the QR's placement. Null until QR placement is saved.
+  function printFileSpec(row, request) {
+    const qr = parsePrintfulQr(row.printful_qr);
+    if (!qr) return null;
+    let images = {};
+    try { images = row.printful_design_images ? JSON.parse(row.printful_design_images) || {} : {}; } catch {}
+    const art = String(images[qr.placement] || (qr.placement === 'front' ? row.product_image_url : '') || '');
+    // Absolute URLs as stored (they are what the QR placer matched its art box against).
+    return { qr, art_url: art ? (/^https?:\/\//i.test(art) ? art : normalizePublicUrl(art, request)) : null };
   }
 
   // POST /api/admin/orders/:id/resubmit — re-sends a paid order whose Printful submission
@@ -5457,26 +5506,29 @@
     }
     const variantMapJson = Object.keys(variantMap).length ? JSON.stringify(variantMap) : null;
 
-    // Pull Printful's own already-rendered preview images into the storefront gallery —
-    // the admin designed this on printful.com, no need to make them re-upload what
-    // Printful already produced. Respects the existing 5-image cap; keeps any images
-    // already on the product rather than replacing them outright.
-    const previewUrls = [];
-    for (const v of variants) {
-      const files = Array.isArray(v.files) ? v.files : [];
-      for (const f of files) {
-        const url = f && (f.preview_url || f.thumbnail_url);
-        if (url && !previewUrls.includes(url)) previewUrls.push(url);
+    // The storefront gallery is Printful's own garment mockups only — the files of type
+    // "preview" (the design rendered onto the shirt), never the raw print-file previews
+    // (type "default"/"front"/...), which are just the flat artwork. Variants in the
+    // product's colour come first, then the sync product thumbnail as a fallback. Replaces
+    // the gallery outright so a re-import also clears out art pulled in by older imports;
+    // if Printful has no mockups at all, the existing gallery is left alone.
+    const wantColor = String(product.color || '').trim().toLowerCase();
+    const orderedVariants = [...variants].sort((a, b) =>
+      (String((b && b.color) || '').toLowerCase() === wantColor) - (String((a && a.color) || '').toLowerCase() === wantColor));
+    const mockupUrls = [];
+    for (const v of orderedVariants) {
+      for (const f of (Array.isArray(v.files) ? v.files : [])) {
+        if (String((f && f.type) || '').toLowerCase() !== 'preview') continue;
+        const url = f.preview_url || f.url || f.thumbnail_url;
+        if (url && !mockupUrls.includes(url)) mockupUrls.push(url);
       }
     }
+    const syncThumb = (syncProduct.sync_product || {}).thumbnail_url;
+    if (!mockupUrls.length && syncThumb) mockupUrls.push(syncThumb);
     let existingImages = [];
     try { existingImages = product.image_urls ? JSON.parse(product.image_urls) : []; } catch {}
     if (!Array.isArray(existingImages)) existingImages = [];
-    const mergedImages = [...existingImages];
-    for (const url of previewUrls) {
-      if (mergedImages.length >= 5) break;
-      if (!mergedImages.includes(url)) mergedImages.push(url);
-    }
+    const mergedImages = mockupUrls.length ? mockupUrls.slice(0, 5) : existingImages;
     const imageUrlsJson = mergedImages.length ? JSON.stringify(mergedImages) : null;
 
     // "Necessary details" the admin hasn't set yet get pulled straight from Printful too —
@@ -5531,6 +5583,9 @@
     if (Object.keys(catalogVariantMap).length) { setClauses.push('printful_variant_map = ?'); params.push(JSON.stringify(catalogVariantMap)); }
     if (catalogProductId) { setClauses.push('printful_catalog_product_id = ?'); params.push(catalogProductId); }
     if (Object.keys(art).length) { setClauses.push('printful_design_images = ?'); params.push(JSON.stringify(art)); }
+    // image_url is the listing/card photo, and the print-file fallback when there's no
+    // printful_design_images — so only point it at a mockup once real print art is stored.
+    if (mockupUrls.length && Object.keys(art).length) { setClauses.push('image_url = ?'); params.push(mockupUrls[0]); }
     if (titleUpdate) { setClauses.push('title = ?'); params.push(titleUpdate); }
     if (sizesUpdate) { setClauses.push('sizes = ?'); params.push(sizesUpdate); }
     if (colorUpdate) { setClauses.push('color = ?'); params.push(colorUpdate); }
@@ -5583,7 +5638,8 @@
       (requestedPlacement === 'front' ? product.image_url : '');
     if (!imageUrl && !qr) return jsonResponse({ error: 'This product has no design image to preview' }, 400, request);
 
-    const layers = imageUrl ? [{ type: 'file', url: imageUrl }] : [];
+    const artPosition = imageUrl ? artLayerPosition(qr, requestedPlacement, imageUrl) : null;
+    const layers = imageUrl ? [artPosition ? { type: 'file', url: imageUrl, position: artPosition } : { type: 'file', url: imageUrl }] : [];
     if (qr) {
       const sample = await QR.qrPng(pieceLink(publicSiteBase(request), 'SAMP-LE00'), qr.size_in);
       const sampleKey = `qr/sample-${sample.pixels}.png`;

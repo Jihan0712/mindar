@@ -45,9 +45,15 @@ function makeBucket() {
   const objects = new Map();
   return {
     objects,
-    put: async (key, body, opts = {}) => { objects.set(key, { body, ...opts }); },
-    head: async key => (objects.has(key) ? { customMetadata: objects.get(key).customMetadata || {} } : null),
-    get: async key => objects.get(key) || null,
+    put: async (key, body, opts = {}) => {
+      const bytes = new Uint8Array(await new Response(body).arrayBuffer());
+      objects.set(key, { body: bytes, size: bytes.length, httpMetadata: opts.httpMetadata || {}, customMetadata: opts.customMetadata || {} });
+    },
+    head: async key => (objects.has(key) ? { size: objects.get(key).size, customMetadata: objects.get(key).customMetadata } : null),
+    get: async key => {
+      const o = objects.get(key);
+      return o ? { ...o, body: new Blob([o.body]).stream() } : null;
+    },
     delete: async key => { objects.delete(key); },
   };
 }
@@ -81,6 +87,7 @@ export async function makeHarness(vars = {}) {
     DB, ASSETS_BUCKET, env, outside,
     onFetch(fn) { outsideHandler = fn; },
     restore() { globalThis.fetch = realFetch; },
+    handle: request => worker.fetch(request, env, { waitUntil() {} }),
     q: (sql, ...p) => DB.raw.prepare(sql).all(...p).map(r => ({ ...r })),
     exec: (sql, ...p) => DB.raw.prepare(sql).run(...p),
     async call(method, path, { token, body, host = 'https://edge.test' } = {}) {
