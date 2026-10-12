@@ -2568,15 +2568,22 @@
     const items = orderItems(order && order.items_json);
     for (const u of units) {
       const look = orderLineLook(items[u.item_index]);
-      const qr = look ? look.qr : parsePrintfulQr(u.printful_qr);
-      const { png, sizeIn } = await QR.qrPng(pieceLink(base, u.claim_code), qr ? qr.size_in : 2.5);
-      const key = `qr/${u.claim_code}.png`;
-      await ASSETS_BUCKET.put(key, png, {
-        httpMetadata: { contentType: 'image/png' },
-        customMetadata: { size_in: String(sizeIn) },
-      });
-      await dbRun('update garment_units set qr_url = ? where id = ?', buildPublicAssetUrl(request, key), u.id);
+      await storeUnitQr(u, look ? look.qr : parsePrintfulQr(u.printful_qr), base, request);
     }
+  }
+
+  // Renders one shirt's QR at its placement's size (2.5 in when there is none yet) and
+  // stores it; the printed size is kept on the R2 object. Returns the stored URL.
+  async function storeUnitQr(unit, qr, base, request) {
+    const { png, sizeIn } = await QR.qrPng(pieceLink(base, unit.claim_code), qr ? qr.size_in : 2.5);
+    const key = `qr/${unit.claim_code}.png`;
+    await ASSETS_BUCKET.put(key, png, {
+      httpMetadata: { contentType: 'image/png' },
+      customMetadata: { size_in: String(sizeIn) },
+    });
+    const url = buildPublicAssetUrl(request, key);
+    await dbRun('update garment_units set qr_url = ? where id = ?', url, unit.id);
+    return url;
   }
 
   async function qrSizeForUrl(qrUrl) {
@@ -4392,11 +4399,23 @@
     if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
 
     const unit = await dbGet(
-      `select u.*, p.title as product_title, p.slug as product_slug, p.image_url as product_image
+      `select u.*, p.title as product_title, p.slug as product_slug, p.image_url as product_image,
+              p.ar_target_id, p.printful_qr, p.printful_design_images, p.image_url as product_image_url
        from garment_units u join products p on p.id = u.product_id where u.id = ?`,
       id
     );
-    if (!unit || !ownsGarmentUnit(sess, unit)) return jsonResponse({ error: 'Not found' }, 404, request);
+    const isOwner = !!unit && ownsGarmentUnit(sess, unit);
+    const isAdmin = isAdminRole(sess.user.role);
+    if (!unit || (!isOwner && !isAdmin)) return jsonResponse({ error: 'Not found' }, 404, request);
+
+    // A shirt made outside checkout (or before its QR was generated) gets its QR now, so its
+    // owner can always see and download it. Never with a guessed host (see ensureOrderQrs).
+    const order = unit.order_id ? await dbGet('select items_json from orders where id = ?', unit.order_id) : null;
+    const line = order ? orderItems(order.items_json)[unit.item_index] : null;
+    if (!unit.qr_url && unit.ar_target_id != null && configuredSiteBase()) {
+      const look = orderLineLook(line);
+      unit.qr_url = await storeUnitQr(unit, look ? look.qr : parsePrintfulQr(unit.printful_qr), configuredSiteBase(), request);
+    }
 
     const layers = await dbAll('select id, video_url, version, label, created_at from garment_layers where unit_id = ? order by version desc', id);
 
@@ -4412,6 +4431,9 @@
       current_layer: layers[0] || null,
       qr_url: unit.qr_url || null,
       viewer_url: pieceLink(publicSiteBase(request), unit.claim_code),
+      is_owner: isOwner,
+      // The full print file (design + QR) is the shop's artwork: admins only.
+      print: isAdmin && unit.qr_url ? printFileSpec(unit, line, request) : null,
     }, 200, request);
   }
 

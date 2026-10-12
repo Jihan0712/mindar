@@ -518,6 +518,22 @@ From the end-to-end review of product creation → checkout → AR. Items 1–4 
 - [x] Global error handler returns full stack traces to clients (`fetch` handler, `detail`). Log them, return a generic message.
 - [x] Personal AR video upload (`apiUploadOrderArVideo`) works on unpaid orders; require `payment_status='paid'`. _(Done 2026-10-06: endpoint removed; order links play the shirt's own video.)_
 
+## INRL BETA self-printed test shirt (2026-10-12)
+
+Test shirt for nico@wearenot.co made without checkout (QR placement bypassed): code `FQP5-KZ5W`, link `https://shop.inrl.co/p/FQP5-KZ5W`, files in `print-files/`.
+
+- [ ] **View / download the test shirt QR** after deploying: as nico, Wardrobe → INRL BETA (test print) → Download QR (the QR is generated the first time the page opens); as admin, open `ecommerce/piece.html?id=unit_test_FQP5KZ5W` → Download print file (design + QR) — needs QR placement saved first.
+- [ ] **Run the test-shirt SQL in the D1 Console** (creates the shirt in nico's wardrobe; see the chat of 2026-10-12). Check it returned 1 row written.
+- [ ] **Recompile AR target #45 from `print-files/inrl-beta-back-ar-marker.png`** (back design, white disc where the QR goes) so the back scans and tracks.
+- [ ] **Print the test shirt** from `print-files/inrl-beta-back-PRINT-FQP5-KZ5W.png` at 100% / Actual size; check the QR is 2.06 in wide; scan it with a phone (signed in as admin to verify, as nico to play).
+- [ ] **Upload the back print file in QR placement** (Printful tab → INRL BETA → QR placement → Placement Back → `print-files/inrl-beta-back-print-transparent.png` → Save). Until then checkout refuses INRL BETA ("Not available for purchase yet").
+- [ ] **Get the original high-resolution artwork.** The current file is 849 × 1227 px enlarged 3.9×, so it prints soft (small text blurs). Regenerate the three `print-files/` from it.
+- [ ] **Redesign the bottom-right corner** so the 2 in QR slot doesn't cover the camera-arrow icon and the corner frame; re-mark the slot in #FF00FF.
+- [ ] **Deploy the QR work:** paste `cloudflare/worker/index.js` into the Worker; deploy `ecommerce/dashboard.html`, `ecommerce/piece.html`, `ecommerce/js/qr-print.js`, `ecommerce/js/qr-print-file.js`, `viewer.html`; run `sql/garment_units_verified_migration.sql` in the D1 Console; confirm `PUBLIC_SITE_URL = https://shop.inrl.co`.
+- [ ] **Commit the QR work** (T1-T10, tests, spec, TODO) — `print-files/` holds large PNGs; decide whether to keep them out of git.
+- [ ] **Clean up the test shirt** after testing if it shouldn't stay: it has no order, so it isn't in Orders → Shirts; remove its row in the D1 Console (`delete from garment_units where id = 'unit_test_FQP5KZ5W'`) only if it has no video layers you want to keep.
+- [ ] Optional: the design-check notes on `viewer.html` (overused font, skipped heading level, cramped padding) predate this work; review separately.
+
 ## Future development
 
 ### AR marker freshness

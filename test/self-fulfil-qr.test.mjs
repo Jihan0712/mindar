@@ -180,3 +180,26 @@ test('the QR placer gets a sample emblem PNG at the requested width; admins only
     assert.equal((await h.call('GET', '/api/admin/qr-sample?size_in=9', { token: admin })).status, 400);
   } finally { h.restore(); }
 });
+
+test('the shirt page makes a missing QR, lets the owner download it, and gives the print file to admins only', async () => {
+  const { h, admin, buyer } = await setup({ PUBLIC_SITE_URL: SITE });
+  try {
+    // A shirt made outside checkout (no order, no QR yet), owned by the buyer.
+    h.exec("insert into garment_units (id, claim_code, product_id, owner_user_id, claimed_at) values ('unit_t', 'FQP5-KZ5W', 19, 'buyer1', '2026-10-12T00:00:00Z')");
+    const own = await h.call('GET', '/api/pieces/unit_t', { token: buyer });
+    assert.equal(own.status, 200, own.text);
+    assert.ok(own.json.qr_url && own.json.qr_url.endsWith('qr/FQP5-KZ5W.png'), 'QR generated on view');
+    assert.ok(h.ASSETS_BUCKET.objects.has('qr/FQP5-KZ5W.png'));
+    assert.equal(own.json.is_owner, true);
+    assert.equal(own.json.print, null, 'owner gets no print file');
+
+    const asAdmin = await h.call('GET', '/api/pieces/unit_t', { token: admin });
+    assert.equal(asAdmin.status, 200);
+    assert.equal(asAdmin.json.is_owner, false);
+    assert.equal(asAdmin.json.print.qr.placement, 'front', 'admin gets the print spec');
+
+    seedUser(h, 'other1', 'client');
+    assert.equal((await h.call('GET', '/api/pieces/unit_t', { token: 'sess_other1' })).status, 404, 'other customers cannot see it');
+    assert.equal((await h.call('PATCH', '/api/pieces/unit_t', { token: admin, body: { nickname: 'x' } })).status, 404, 'admin view is read-only');
+  } finally { h.restore(); }
+});

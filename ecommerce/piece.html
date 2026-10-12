@@ -66,8 +66,15 @@
       <p id="loadState" class="t-meta">Loading your T-shirt&hellip;</p>
       <div id="pShare" class="t-meta" hidden style="margin:0 0 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         <img id="pShareQr" alt="This T-shirt's QR code" width="200" height="200" hidden style="background:#fff;border:1px solid var(--line, #ddd)">
-        <span>The QR on this T-shirt opens <a id="pShareLink" class="t-link--teal" target="_blank" rel="noopener"></a> <button class="b b--ghost b--sm" type="button" id="pShareCopy" style="margin-left:6px">Copy link</button></span>
+        <span>The QR on this T-shirt opens <a id="pShareLink" class="t-link--teal" target="_blank" rel="noopener"></a> <button class="b b--ghost b--sm" type="button" id="pShareCopy" style="margin-left:6px">Copy link</button>
+          <span id="pQrActions" style="display:none;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="b b--dark b--sm" type="button" id="pQrDownload">Download QR</button>
+            <button class="b b--ghost b--sm" type="button" id="pPrintDownload" hidden>Download print file (design + QR)</button>
+          </span>
+          <span id="pQrNote" role="status" aria-live="polite" style="display:block;margin-top:6px"></span>
+        </span>
       </div>
+      <p id="pAdminNote" class="t-meta" hidden style="margin:-8px 0 18px">Admin view of someone else's T-shirt: read-only.</p>
 
       <!-- W-02 · Your current video  /  W-13 · Video added -->
       <section id="vLayer" hidden>
@@ -163,6 +170,8 @@
   <script src="js/include.js"></script>
   <script src="js/app-rail.js"></script>
   <script src="js/auth-forms.js"></script>
+  <script src="js/qr-print.js"></script>
+  <script src="js/qr-print-file.js"></script>
   <script>
   (function () {
     var esc = INRL.esc;
@@ -205,6 +214,14 @@
         document.getElementById('pShare').hidden = false;
         var qrImg = document.getElementById('pShareQr');
         if (P.qr_url) { qrImg.src = P.qr_url; qrImg.hidden = false; } else qrImg.hidden = true;
+        // The owner can download their shirt's QR; an admin also gets the full print file.
+        document.getElementById('pQrActions').style.display = P.qr_url ? 'flex' : 'none';
+        document.getElementById('pPrintDownload').hidden = !P.print;
+      }
+      // An admin opening another customer's shirt sees it read-only.
+      if (P.is_owner === false) {
+        document.getElementById('pAdminNote').hidden = false;
+        document.querySelectorAll('#renameBtn, [data-go-replace], #publishTop, #publishM').forEach(function (el) { el.hidden = true; el.classList.add('d-none'); });
       }
       var player = document.getElementById('player');
       if (cur && cur.video_url) {
@@ -230,6 +247,28 @@
         document.getElementById('stillMeta').textContent = 'Current video · ' + fmtDate(cur.created_at);
       }
     }
+
+    function qrNote(msg, isError) {
+      var n = document.getElementById('pQrNote');
+      n.textContent = msg || '';
+      n.style.color = isError ? '#b23b3b' : '';
+    }
+    document.getElementById('pQrDownload').addEventListener('click', async function () {
+      var b = this; b.disabled = true;
+      try { await QrPrintFile.saveQr(P.qr_url, P.claim_code + '-qr.png'); qrNote('QR downloaded: print it at 100% / Actual size.'); }
+      catch (e) { qrNote(e.message || String(e), true); }
+      finally { b.disabled = false; }
+    });
+    document.getElementById('pPrintDownload').addEventListener('click', async function () {
+      var b = this; b.disabled = true;
+      qrNote('Building the print file…');
+      try {
+        var comp = await QrPrintFile.compose(P.print, P.qr_url);
+        await QrPrintFile.savePng(comp.canvas, P.claim_code + '-' + P.print.qr.placement + '-print.png');
+        qrNote('Print file downloaded: ' + comp.W + ' × ' + comp.H + ' px at 300 DPI (' + P.print.qr.area_width_in + ' × ' + P.print.qr.area_height_in + ' in). Print at 100% / Actual size.');
+      } catch (e) { qrNote(e.message || String(e), true); }
+      finally { b.disabled = false; }
+    });
 
     document.getElementById('pShareCopy').addEventListener('click', async function () {
       var b = this;
