@@ -1053,7 +1053,10 @@
         </div>
       </div>
       <div class="modal-footer" style="border-top:1px solid var(--line-200);justify-content:space-between">
-        <button type="button" id="orderResubmitBtn" class="btn btn-inrl" hidden>Resubmit to Printful</button>
+        <div class="d-flex gap-2">
+          <button type="button" id="orderResubmitBtn" class="btn btn-inrl" hidden>Resubmit to Printful</button>
+          <button type="button" id="orderSelfFulfilBtn" class="btn btn-inrl" hidden>Mark paid (self-fulfil)</button>
+        </div>
         <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
@@ -1994,6 +1997,7 @@
         tbody.innerHTML = '';
         document.getElementById('orderShirtsMeta').textContent = orderId;
         document.getElementById('orderResubmitBtn').hidden = true;
+        document.getElementById('orderSelfFulfilBtn').hidden = true;
         shirtsStatus('Loading…');
         if (shirtsModalInstance) shirtsModalInstance.show();
         try {
@@ -2001,8 +2005,15 @@
           var o = res.order || {};
           document.getElementById('orderShirtsMeta').textContent = orderId + ' · payment ' + (o.payment_status || '—') +
             ' · Printful ' + (o.printful_status || '—') + (o.printful_order_id ? ' (#' + o.printful_order_id + ')' : '');
-          document.getElementById('orderResubmitBtn').hidden = !(o.payment_status === 'paid' && (!o.printful_order_id || o.printful_status === 'error'));
           var items = res.items || [];
+          var isSelf = o.printful_status === 'self';
+          document.getElementById('orderResubmitBtn').hidden = !(o.payment_status === 'paid' && !isSelf && (!o.printful_order_id || o.printful_status === 'error'));
+          // Unpaid order: take it as paid and print it yourself. Self order: re-run to fill in
+          // any shirt or QR code that failed (e.g. PUBLIC_SITE_URL was missing).
+          var selfBtn = document.getElementById('orderSelfFulfilBtn');
+          selfBtn.textContent = isSelf ? 'Generate missing QR codes' : 'Mark paid (self-fulfil)';
+          selfBtn.hidden = !((o.payment_status !== 'paid' && o.status !== 'canceled') ||
+            (isSelf && (!items.length || items.some(function(u) { return u.product.has_ar && !u.qr_url; }))));
           tbody.innerHTML = items.length ? items.map(function(u) {
             var qr = u.qr_url
               ? '<a href="' + escapeHtml(u.qr_url) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u.qr_url) + '" alt="QR ' + escapeHtml(u.claim_code) + '" width="56" height="56" style="background:#fff"></a>'
@@ -2040,6 +2051,21 @@
         } catch (e) {
           shirtsStatus('Resubmit failed: ' + (e.message || String(e)), true);
         } finally { orderResubmitBtn.disabled = false; }
+      });
+
+      var orderSelfFulfilBtn = document.getElementById('orderSelfFulfilBtn');
+      if (orderSelfFulfilBtn) orderSelfFulfilBtn.addEventListener('click', async function() {
+        if (!shirtsOrderId || !confirm('Mark this order as paid and print it yourself? Its Stripe payment page is closed, its shirts and QR codes are created for the customer, and nothing is sent to Printful.')) return;
+        orderSelfFulfilBtn.disabled = true;
+        shirtsStatus('Creating shirts and QR codes…');
+        try {
+          var r = await apiFetch('/admin/orders/' + encodeURIComponent(shirtsOrderId) + '/self-fulfil', { method: 'POST', body: {} });
+          await loadAndRenderOrders();
+          await openOrderShirts(shirtsOrderId);
+          shirtsStatus(r.shirts + ' shirt(s), ' + r.qr_codes + ' QR code(s). Click a QR to open the print file.');
+        } catch (e) {
+          shirtsStatus('Self-fulfil failed: ' + (e.message || String(e)), true);
+        } finally { orderSelfFulfilBtn.disabled = false; }
       });
 
       var ordersRefreshBtn = document.getElementById('ordersRefreshBtn');

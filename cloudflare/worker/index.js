@@ -391,6 +391,14 @@
       return callStripe(env, 'POST', '/checkout/sessions', params);
     }
 
+    async function getCheckoutSession(env, id) {
+      return callStripe(env, 'GET', `/checkout/sessions/${encodeURIComponent(id)}`, null);
+    }
+
+    async function expireCheckoutSession(env, id) {
+      return callStripe(env, 'POST', `/checkout/sessions/${encodeURIComponent(id)}/expire`, {});
+    }
+
     // Verifies the `Stripe-Signature` header per Stripe's documented scheme:
     // header is `t=<timestamp>,v1=<hmac-sha256 hex of "timestamp.rawBody">[,v1=...]`.
     async function verifyWebhookSignature(rawBody, sigHeader, secret, toleranceSeconds = 300) {
@@ -419,7 +427,7 @@
       return parsed.v1.some((v1) => timingSafeEqual(v1, expectedHex));
     }
 
-    return { getStripeConfig, createCheckoutSession, verifyWebhookSignature };
+    return { getStripeConfig, createCheckoutSession, getCheckoutSession, expireCheckoutSession, verifyWebhookSignature };
   })();
 
   // ---------- QR code (per-shirt QR printed with each order) ----------
@@ -1413,6 +1421,9 @@
     }
     if (request.method === 'POST' && /^\/api\/admin\/orders\/[^/]+\/resubmit$/.test(pathname)) {
       return apiAdminResubmitOrder(request, decodeURIComponent(pathname.split('/')[4]));
+    }
+    if (request.method === 'POST' && /^\/api\/admin\/orders\/[^/]+\/self-fulfil$/.test(pathname)) {
+      return apiAdminSelfFulfilOrder(request, decodeURIComponent(pathname.split('/')[4]));
     }
     // Printful admin
     if (request.method === 'GET'  && pathname === '/api/admin/printful/webhooks')          return apiPrintfulWebhookHealth(request);
@@ -2522,16 +2533,20 @@
 
   // The public link a shirt's QR encodes. PUBLIC_SITE_URL keeps it on the storefront
   // domain whatever host the webhook arrived on.
-  function publicSiteBase(request) {
+  function configuredSiteBase() {
     const configured = String(globalThis.PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
-    if (configured) return /^https?:\/\//i.test(configured) ? configured : 'https://' + configured;
-    return request ? new URL(request.url).origin : '';
+    if (!configured) return '';
+    return /^https?:\/\//i.test(configured) ? configured : 'https://' + configured;
+  }
+  function publicSiteBase(request) {
+    return configuredSiteBase() || (request ? new URL(request.url).origin : '');
   }
   function pieceLink(base, code) { return `${base}/p/${encodeURIComponent(code)}`; }
 
   // Generates and stores the QR PNG for every AR shirt of the order that has none yet.
   // The printed size (from the PNG's whole-pixel width at 300 DPI) is kept on the R2
-  // object so Printful gets exactly the size of the image.
+  // object so Printful gets exactly the size of the image. A printed link can never be
+  // fixed, so this refuses rather than guess a host when PUBLIC_SITE_URL is missing.
   async function ensureOrderQrs(orderId, request) {
     const units = await dbAll(
       `select u.id, u.claim_code, u.qr_url, p.printful_qr, p.ar_target_id
@@ -2539,7 +2554,9 @@
        where u.order_id = ? and p.ar_target_id is not null and u.qr_url is null`,
       orderId
     );
-    const base = publicSiteBase(request);
+    if (!units.length) return;
+    const base = configuredSiteBase();
+    if (!base) throw new Error('PUBLIC_SITE_URL is not set on the Worker, so no QR was printed. Set it, then run it again.');
     for (const u of units) {
       const qr = parsePrintfulQr(u.printful_qr);
       const { png, sizeIn } = await QR.qrPng(pieceLink(base, u.claim_code), qr ? qr.size_in : 2.5);
@@ -2790,8 +2807,13 @@
       } else if (event.type === 'checkout.session.expired') {
         const session = event.data && event.data.object;
         const orderId = session && session.metadata && session.metadata.order_id;
+        // An order marked paid another way (admin self-fulfil expires its session) keeps
+        // its status.
         if (orderId) {
-          await dbRun(`update orders set status = ? where id = ?`, 'payment_expired', orderId);
+          await dbRun(
+            `update orders set status = ? where id = ? and (payment_status is null or payment_status != 'paid')`,
+            'payment_expired', orderId
+          );
         }
       }
     } catch (e) {
@@ -2873,7 +2895,7 @@
   async function apiAdminOrderPieces(request, orderId) {
     const { error } = await requireAdminSession(request);
     if (error) return error;
-    const order = await dbGet('select id, payment_status, printful_status, printful_order_id from orders where id = ?', orderId);
+    const order = await dbGet('select id, status, payment_status, printful_status, printful_order_id from orders where id = ?', orderId);
     if (!order) return jsonResponse({ error: 'Not found' }, 404, request);
     const rows = await dbAll(
       `select u.id, u.claim_code, u.item_index, u.unit_index, u.qr_url, u.nickname, u.scan_count, u.last_scanned_at,
@@ -2895,7 +2917,7 @@
       version: r.version || 0, scan_count: r.scan_count || 0, last_scanned_at: r.last_scanned_at || null,
     }));
     return jsonResponse({
-      order: { id: order.id, payment_status: order.payment_status, printful_status: order.printful_status, printful_order_id: order.printful_order_id },
+      order: { id: order.id, status: order.status, payment_status: order.payment_status, printful_status: order.printful_status, printful_order_id: order.printful_order_id },
       items,
     }, 200, request);
   }
@@ -2912,9 +2934,70 @@
     if (order.printful_order_id && order.printful_status !== 'error') {
       return jsonResponse({ error: 'Printful already has a confirmed order for this' }, 409, request);
     }
+    if (order.printful_status === 'self') {
+      return jsonResponse({ error: 'This order is printed by the shop, not Printful' }, 409, request);
+    }
     const result = await finalizeOrderPrintfulSubmission(orderId, request);
     if (!result || !result.ok) return jsonResponse({ error: (result && result.error) || 'Printful did not confirm the order' }, 502, request);
     return jsonResponse({ ok: true, printful_order_id: result.printful_order_id }, 200, request);
+  }
+
+  // POST /api/admin/orders/:id/self-fulfil — the admin takes an unpaid checkout order as
+  // paid outside Stripe and prints it themselves: the order's shirts are minted for the
+  // buyer and their QR codes generated exactly as a Stripe payment would, but nothing is
+  // sent to Printful (printful_status 'self'). The order's open Stripe session is expired
+  // first so the customer can't also pay it. Re-running it on a self order only fills in
+  // missing shirts or QR codes.
+  async function apiAdminSelfFulfilOrder(request, orderId) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+    const order = await dbGet(
+      'select id, user_id, status, payment_status, printful_status, stripe_session_id from orders where id = ?',
+      orderId
+    );
+    if (!order) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (!order.user_id) return jsonResponse({ error: 'Order has no customer account to own its shirts' }, 400, request);
+    if (order.status === 'canceled') return jsonResponse({ error: 'Order was cancelled' }, 400, request);
+
+    if (order.payment_status === 'paid') {
+      if (order.printful_status !== 'self') {
+        return jsonResponse({ error: 'Order was paid through Stripe; use Resubmit to Printful' }, 409, request);
+      }
+    } else {
+      if (order.stripe_session_id && Stripe.getStripeConfig(stripeEnv()).secretKey) {
+        try {
+          const session = await Stripe.getCheckoutSession(stripeEnv(), order.stripe_session_id);
+          if (session.status === 'complete') {
+            return jsonResponse({ error: 'The customer already paid this through Stripe; wait for the payment to arrive' }, 409, request);
+          }
+          if (session.status === 'open') await Stripe.expireCheckoutSession(stripeEnv(), order.stripe_session_id);
+        } catch (e) {
+          return jsonResponse({ error: `Could not close the order's Stripe payment page: ${String(e && e.message ? e.message : e)}` }, 502, request);
+        }
+      }
+      const { changes } = await dbRun(
+        `update orders set payment_status = 'paid', status = 'paid', printful_status = 'self',
+                paid_at = coalesce(paid_at, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+         where id = ? and (payment_status is null or payment_status != 'paid')`,
+        orderId
+      );
+      if (changes !== 1) {
+        const now = await dbGet('select printful_status from orders where id = ?', orderId);
+        if (!now || now.printful_status !== 'self') {
+          return jsonResponse({ error: 'Order was paid through Stripe meanwhile; use Resubmit to Printful' }, 409, request);
+        }
+      }
+    }
+
+    try {
+      await mintOrderUnits(orderId);
+      await ensureOrderQrs(orderId, request);
+    } catch (e) {
+      console.error('[self-fulfil] Order', orderId, String(e && e.message ? e.message : e));
+      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 502, request);
+    }
+    const units = await dbAll('select id, claim_code, qr_url from garment_units where order_id = ? order by item_index, unit_index', orderId);
+    return jsonResponse({ ok: true, shirts: units.length, qr_codes: units.filter(u => u.qr_url).length }, 200, request);
   }
 
   // POST /api/webhooks/printful and /api/admin/printful/webhook — receive Printful event notifications.
@@ -3059,7 +3142,7 @@
              (select count(*) from targets t where t.user_id = u.id) as target_count,
              (select count(*) from products p
                 where p.brand_id in (select brand_id from brand_users where user_id = u.id)) as product_count,
-             (select count(*) from orders o where o.user_id = u.id or (o.user_id is null and lower(trim(o.email)) = lower(u.email))) as order_count,
+             (select count(*) from orders o where o.user_id = u.id) as order_count,
              (select count(*) from brand_designs d
                 where d.brand_id in (select brand_id from brand_users where user_id = u.id)) as pending_design_count
       from users u
@@ -4604,10 +4687,11 @@
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
 
-    // Authorization: admin/brand see all; clients must own the order
+    // Admin sees every order. Anyone else only an order placed from their own account —
+    // not by email match (unverified), and brands get no access to customers' orders.
     if (!user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
-    if (user.role !== 'admin' && user.role !== 'brand') {
-      if (user.email !== row.email) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (user.role !== 'admin' && !sessionOwnsOrder(sess, row)) {
+      return jsonResponse({ error: 'Not found' }, 404, request);
     }
 
     let items = [];
@@ -4827,28 +4911,20 @@
     return jsonResponse({ ok: true, video_url: videoUrl }, 200, request);
   }
 
-  // GET /api/orders/mine — the logged-in customer's own order history, matched by the
-  // account's own email (not user_id) — surfaces every order ever placed under that email,
-  // including guest orders placed before the account existed, and reuses the exact lookup
-  // shape apiGetOrderTrackPublic already relies on successfully.
+  // GET /api/orders/mine — the signed-in customer's own orders: the ones placed while signed
+  // in to this account (orders.user_id). Never matched by email — signups don't verify email,
+  // so an email match would hand a stranger's orders (and address) to whoever registers it.
   async function apiListMyOrders(request) {
     const sess = await getSessionUser(request);
     if (!sess || !sess.user) return jsonResponse({ error: 'Unauthorized' }, 401, request);
 
-    const email = String(sess.user.email || '').trim().toLowerCase();
-    const userId = sess.user.id;
-    if (!email && !userId) return jsonResponse({ items: [] }, 200, request);
-
-    // Match by account email OR by user_id — checkout records user_id for anyone logged
-    // in at the time of purchase, even if they typed a different email into the checkout
-    // form than the one on their account. Matching email alone missed those orders.
     const rows = await dbAll(
       `select id, status, payment_status, printful_status, tracking_number, tracking_url, carrier,
               total_cents, currency, items_json, created_at
-       from orders where user_id = ? or lower(trim(email)) = ?
+       from orders where user_id = ?
        order by created_at desc
        limit 100`,
-      userId, email
+      sess.user.id
     );
 
     const parsedRows = rows.map((r) => {

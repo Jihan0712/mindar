@@ -489,10 +489,10 @@ From the end-to-end review of product creation → checkout → AR. Items 1–4 
 
 ### Security / data
 
-- [ ] **Unverified email takes over guest orders and pieces.** `apiRegister` has no email verification, but `provisionGarmentUnitsForOrder`, `apiListMyOrders` and `apiGetOrder` all trust an email match. Someone who registers a guest buyer's email gets their pieces (and AR control) plus name and address. Add email verification and only email-match against verified accounts.
+- [x] **Unverified email takes over guest orders and pieces.** _(Done 2026-10-12: checkout requires an account; order lists, order detail and piece ownership use `user_id` only — no email matching. Guest lookup on order-tracking still needs order id + email.)_ `apiRegister` has no email verification, but `provisionGarmentUnitsForOrder`, `apiListMyOrders` and `apiGetOrder` all trust an email match. Someone who registers a guest buyer's email gets their pieces (and AR control) plus name and address. Add email verification and only email-match against verified accounts.
 - [x] **Claim code is both the ownership secret and the public QR.** _(Done 2026-10-06: claiming removed; every shirt is owned from payment and its code is only a public `/p/<code>` link.)_ `apiGetPiece` builds `viewer_url` as `index.html?piece=<claim_code>`, the same code `/api/pieces/claim` accepts. Unclaimed pieces (guest order, no account) can be claimed by anyone who scans the shirt. Add a separate public viewer id on `garment_units`; keep the claim code on the collar tag only.
 - [ ] **Brand-supplied text runs as HTML on the AR viewer.** `index.html` puts `activeTarget.name` / `product_title` into `innerHTML` (`footerMeta`). Escape it. Also block `image/svg+xml` in `handleUpload` (or serve uploads with `Content-Disposition: attachment` / a CSP), since R2 files are served from the shop origin.
-- [ ] **Brand accounts can read any order's PII.** `apiGetOrder` lets `brand` see every order like `admin`. Restrict brands to orders containing their own products (or to admin only).
+- [x] **Brand accounts can read any order's PII.** _(Done 2026-10-12: `apiGetOrder` is admin or the order's own account only.)_ `apiGetOrder` lets `brand` see every order like `admin`. Restrict brands to orders containing their own products (or to admin only).
 
 ### Orders / fulfillment
 
@@ -500,6 +500,7 @@ From the end-to-end review of product creation → checkout → AR. Items 1–4 
 - [ ] **Sync Product (v1) orders never receive webhook updates.** `apiPrintfulWebhook` matches only `printful_order_id`; v1 ids are stored in `printful_order_id_v1`. Match both columns.
 - [ ] **Resume payment can double-charge.** `apiResumeOrderPayment` creates a new Stripe session without expiring the old one; paying both charges twice and the second is ignored, not refunded. Expire the previous `stripe_session_id` (`POST /v1/checkout/sessions/:id/expire`) first.
 - [ ] Mixed carts (Sync Product + catalog items) become two Printful orders, so Printful bills shipping twice while checkout quotes it once. Decide whether to quote per group.
+- [ ] **Per-shirt QRs render before Stripe gets its 200 (P3).** _What:_ return the webhook's 200 after the paid lock and minting, and run QR rendering plus Printful submission in `ctx.waitUntil` (or a queue). _Why:_ a 2.5 in emblem is 750 x 750 = 562,500 pixels per shirt (`qrPng`, `index.js` `Math.round(Number(sizeIn) * 300)`), all inside `apiStripeWebhook` before it responds; a big order can exceed the Worker CPU limit and leave a paid order unsent. _Context:_ Orders → Resubmit to Printful already recovers that state (shown when there is no `printful_order_id`). Start by timing a 10-shirt order in the local D1 shim. _Depends on:_ the Worker plan's CPU limit. (From /plan-eng-review 2026-10-12, D7.)
 
 ### AR targets
 
