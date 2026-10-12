@@ -64,10 +64,16 @@ async function loadWorker() {
   workerPromise ||= (async () => {
     const dir = mkdtempSync(join(tmpdir(), 'mindar-worker-'));
     const file = join(dir, 'worker.mjs');
-    writeFileSync(file, readFileSync(join(ROOT, 'cloudflare', 'worker', 'index.js'), 'utf8'));
-    return (await import(pathToFileURL(file).href)).default;
+    // Also export the inline QR module so its output can be checked directly.
+    writeFileSync(file, readFileSync(join(ROOT, 'cloudflare', 'worker', 'index.js'), 'utf8') + '\nexport { QR as __QR };\n');
+    const mod = await import(pathToFileURL(file).href);
+    return Object.assign(mod.default, { QR: mod.__QR });
   })();
   return workerPromise;
+}
+
+export async function loadQr() {
+  return (await loadWorker()).QR;
 }
 
 export async function makeHarness(vars = {}) {

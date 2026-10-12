@@ -684,15 +684,11 @@
     // ---- Fingerprint emblem ----
     //
     // A scanner samples only the centre of each module on the grid, the finder eyes and the
-    // light margin, so everything between module centres is free to style. Dark modules
-    // become dots joined by a seeded maze of strokes, smoothly blended so the joints flow;
-    // finder and alignment eyes are rounded squares; broken concentric rings sit outside a
-    // KEEP-module margin. Ink never reaches within ~0.3 module of a light module's centre.
+    // light margin, so everything outside the code is free to style. Dark modules are
+    // classic crisp squares that merge into solid blocks with their neighbours; finder and
+    // alignment eyes are rounded squares; broken concentric rings sit outside a KEEP-module
+    // margin, like the ridges of a fingerprint.
     const KEEP = 2;                  // light margin between code and rings, in modules
-    const DOT = 0.4;                 // radius of a dark module with no stroke
-    const STROKE_MIN = 0.3, STROKE_MAX = 0.38; // stroke radius range (seeded per stroke)
-    const DIAG_MAX = 0.33;           // diagonals pass 0.71 from two light centres; keep them thin
-    const BLEND = 0.2;               // smooth-union radius at corners and junctions
     const PITCH = 1.7, RING = 0.4;   // ring spacing and ring half-width
 
     // Deterministic 0..1 generator seeded from the text (FNV-1a into mulberry32), so a shirt's
@@ -712,15 +708,6 @@
       const qx = Math.abs(px) - hw + rad, qy = Math.abs(py) - hw + rad;
       return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - rad;
     }
-    function sdSegment(px, py, ax, ay, bx, by) {
-      const dx = bx - ax, dy = by - ay;
-      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
-      return Math.hypot(px - ax - t * dx, py - ay - t * dy);
-    }
-    function smin(a, b, k) {
-      const h = Math.max(k - Math.abs(a - b), 0) / k;
-      return Math.min(a, b) - h * h * k * 0.25;
-    }
 
     // Eyes (finders, alignment patterns) as [centre col, centre row, half-size] in modules.
     function eyesFor(size, version) {
@@ -733,52 +720,12 @@
       return eyes;
     }
 
-    // The maze: dark modules outside the eyes are joined by strokes. Edges are shuffled and
-    // kept when they join two separate groups (a spanning forest, which reads as wandering
-    // lines), plus a few extra so some loops close like the whorls of a print. Diagonals only
-    // cross corners whose other two modules are light. Straight runs of kept edges become
-    // one segment, so the smooth blend rounds only corners and junctions; a module with no
-    // stroke is drawn as a dot. Each segment is listed under every cell of its bounding box.
-    const DIRS = [[1, 0], [0, 1], [1, 1], [-1, 1]];
-    function buildMaze(size, modules, eyes, rand) {
+    // Dark data modules outside the eyes (the eyes are drawn on their own).
+    function dataModules(size, modules, eyes) {
       const inEye = (c, r) => eyes.some(([ec, er, h]) => Math.abs(c + 0.5 - ec) < h && Math.abs(r + 0.5 - er) < h);
-      const dark = (c, r) => c >= 0 && r >= 0 && c < size && r < size && modules[r * size + c] === 1 && !inEye(c, r);
-      const cand = []; // [col, row, dir, sort key]
-      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
-        if (!dark(c, r)) continue;
-        if (dark(c + 1, r)) cand.push([c, r, 0, rand()]);
-        if (dark(c, r + 1)) cand.push([c, r, 1, rand()]);
-        if (dark(c + 1, r + 1) && !dark(c + 1, r) && !dark(c, r + 1)) cand.push([c, r, 2, rand() + 0.35]);
-        if (dark(c - 1, r + 1) && !dark(c - 1, r) && !dark(c, r + 1)) cand.push([c, r, 3, rand() + 0.35]);
-      }
-      cand.sort((p, q) => p[3] - q[3]);
-      const parent = Int32Array.from({ length: size * size }, (_, i) => i);
-      const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-      const kept = new Uint8Array(size * size * 4); // kept[node * 4 + dir]
-      const joined = new Uint8Array(size * size);
-      for (const [c, r, dir] of cand) {
-        const c1 = c + DIRS[dir][0], r1 = r + 1 - (dir === 0 ? 1 : 0);
-        const a = find(r * size + c), b = find(r1 * size + c1);
-        if (a !== b) parent[a] = b; else if (rand() > 0.22) continue;
-        kept[(r * size + c) * 4 + dir] = 1;
-        joined[r * size + c] = joined[r1 * size + c1] = 1;
-      }
-      const cells = Array.from({ length: size * size }, () => []);
-      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) for (let dir = 0; dir < 4; dir++) {
-        const [dc, dr] = DIRS[dir];
-        if (!kept[(r * size + c) * 4 + dir]) continue;
-        const pc = c - dc, pr = r - dr; // only start at the first edge of a straight run
-        if (pc >= 0 && pr >= 0 && pc < size && kept[(pr * size + pc) * 4 + dir]) continue;
-        let ec = c, er = r;
-        while (ec + dc >= 0 && ec + dc < size && er + dr < size && kept[(er * size + ec) * 4 + dir]) { ec += dc; er += dr; }
-        const w = Math.min(STROKE_MIN + rand() * (STROKE_MAX - STROKE_MIN), dir >= 2 ? DIAG_MAX : Infinity);
-        const seg = { ax: c + 0.5, ay: r + 0.5, bx: ec + 0.5, by: er + 0.5, w, seen: -1 };
-        for (let y = Math.min(r, er); y <= Math.max(r, er); y++)
-          for (let x = Math.min(c, ec); x <= Math.max(c, ec); x++) cells[y * size + x].push(seg);
-      }
-      const dots = new Uint8Array(size * size);
-      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) dots[r * size + c] = dark(c, r) && !joined[r * size + c] ? 1 : 0;
-      return { dots, cells };
+      const dark = new Uint8Array(size * size);
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) dark[r * size + c] = modules[r * size + c] === 1 && !inEye(c, r) ? 1 : 0;
+      return dark;
     }
 
     function emblemLayout(text) {
@@ -786,7 +733,7 @@
       const rand = seededRandom(text);
       const half = size / 2, keep = half + KEEP;
       const eyes = eyesFor(size, version);
-      const maze = buildMaze(size, modules, eyes, rand);
+      const dark = dataModules(size, modules, eyes);
       // Outline wobble shared by every ring so they stay nested.
       const ph = [0, 1, 2].map(() => rand() * Math.PI * 2);
       const shape = th => 1 + 0.045 * Math.sin(2 * th + ph[0]) + 0.03 * Math.sin(3 * th + ph[1]) + 0.015 * Math.sin(5 * th + ph[2]);
@@ -828,38 +775,44 @@
         dashes.sort((p, q) => p[0] - q[0]);
         rings.push({ radius, dashes });
       }
-      const last = rings[rings.length - 1], lastBase = r0 + (count - 1) * PITCH;
-      const edge = th => last.radius(th) + RING * 1.2 + 1.2; // white backing ends here
-      const extent = Math.ceil(lastBase * maxShape + 0.14 + RING * 1.2 + 1.4);
-      return { size, half, eyes, maze, rings, shape, r0, edge, extent, stamp: 0 };
+      // The white backing is an exact circle that just clears the outermost ring's widest
+      // bulge, and the image is exactly that circle's width, so every emblem's disc is the
+      // same round shape and fills a round slot edge to edge; the rings wobble inside it.
+      const lastBase = r0 + (count - 1) * PITCH;
+      const extent = lastBase * maxShape + 0.14 + RING * 1.2 + 1.2;
+      const edge = () => extent; // white backing ends here
+      return { size, half, eyes, dark, rings, shape, r0, edge, extent };
     }
 
     // Signed distance (module units, < 0 = ink) to the code.
     function codeDistance(L, x, y) {
-      const { size, maze } = L;
+      const { size, dark } = L;
       const u = x + L.half, v = y + L.half;
       let d = Infinity;
-      // Eyes are unioned with the maze, not returned early: alignment eyes have no light
-      // separator, so data strokes run right up to them.
+      // Eyes are unioned with the squares, not returned early: alignment eyes have no light
+      // separator, so data modules sit right against them.
       for (const [ec, er, h] of L.eyes) {
         const px = u - ec, py = v - er;
         if (Math.abs(px) < h + 0.5 && Math.abs(py) < h + 0.5) {
-          const big = h === 3.5, outer = big ? 1.4 : 1.1, core = big ? 1.5 : 0.5;
+          const big = h === 3.5, outer = big ? 1.2 : 1.1, core = big ? 1.5 : 0.5;
           const ring = Math.max(sdRoundBox(px, py, h, outer), -sdRoundBox(px, py, h - 1, outer * 0.55));
           d = Math.min(ring, sdRoundBox(px, py, core, big ? 0.6 : 0.45));
         }
       }
-      const ci = Math.floor(u), ri = Math.floor(v), stamp = ++L.stamp;
-      for (let r = Math.max(0, ri - 1); r <= Math.min(size - 1, ri + 1); r++)
-        for (let c = Math.max(0, ci - 1); c <= Math.min(size - 1, ci + 1); c++) {
-          if (maze.dots[r * size + c]) d = Math.min(d, Math.hypot(u - c - 0.5, v - r - 0.5) - DOT);
-          for (const e of maze.cells[r * size + c]) {
-            if (e.seen === stamp) continue; // an edge spans up to four cells; count it once
-            e.seen = stamp;
-            d = smin(d, sdSegment(u, v, e.ax, e.ay, e.bx, e.by) - e.w, BLEND);
-          }
-        }
-      return d;
+      // Exact distance to the union of the dark squares (not a blend of separate squares),
+      // so touching modules form one solid block with no seam or notch where they meet:
+      // inside a dark cell it is minus the distance to the nearest light cell, outside it is
+      // the distance to the nearest dark cell. Cells off the grid count as light.
+      const ci = Math.floor(u), ri = Math.floor(v);
+      const isDark = (c, r) => c >= 0 && r >= 0 && c < size && r < size && dark[r * size + c] === 1;
+      const toCell = (c, r) => Math.hypot(Math.max(c - u, 0, u - c - 1), Math.max(r - v, 0, v - r - 1));
+      const inside = isDark(ci, ri);
+      let squares = inside ? -1 : Infinity;
+      for (let r = ri - 1; r <= ri + 1; r++) for (let c = ci - 1; c <= ci + 1; c++) {
+        if (isDark(c, r) === inside) continue;
+        squares = inside ? Math.max(squares, -toCell(c, r)) : Math.min(squares, toCell(c, r));
+      }
+      return Math.min(d, squares);
     }
 
     // Signed distance to the nearest ring dash (rounded ends), or Infinity.
@@ -921,7 +874,7 @@
       return { png, pixels: px, sizeIn: px / 300 };
     }
 
-    return { qrMatrix, qrPng };
+    return { qrMatrix, qrPng, emblemLayout };
   })();
 
   // ES Module format: expose fetch and inject env bindings into globals per request
@@ -1421,6 +1374,10 @@
     }
     if (request.method === 'POST' && /^\/api\/admin\/orders\/[^/]+\/resubmit$/.test(pathname)) {
       return apiAdminResubmitOrder(request, decodeURIComponent(pathname.split('/')[4]));
+    }
+    if (request.method === 'GET'  && pathname === '/api/admin/qr-sample') return apiAdminQrSample(request);
+    if (request.method === 'POST' && /^\/api\/admin\/pieces\/[^/]+\/verify$/.test(pathname)) {
+      return apiAdminVerifyPiece(request, decodeURIComponent(pathname.split('/')[4]));
     }
     if (request.method === 'POST' && /^\/api\/admin\/orders\/[^/]+\/self-fulfil$/.test(pathname)) {
       return apiAdminSelfFulfilOrder(request, decodeURIComponent(pathname.split('/')[4]));
@@ -2578,13 +2535,28 @@
   }
   function pieceLink(base, code) { return `${base}/p/${encodeURIComponent(code)}`; }
 
+  // How an order line looks in print, as it was set up when the customer checked out:
+  // items_json keeps each line's QR settings and art (resolveOrderItemFromD1 output), so a
+  // later product edit can't move or re-art a shirt that is already sold. Null for lines
+  // without a saved QR (older orders, admin manual orders); callers then use the product.
+  function orderLineLook(item) {
+    const it = item && typeof item === 'object' ? item : null;
+    const qr = it ? parsePrintfulQr(it.qr) : null;
+    if (!qr) return null;
+    const images = it.design_images && typeof it.design_images === 'object' ? it.design_images : null;
+    return { qr, design_images: images && Object.keys(images).length ? images : null, image_url: it.image_url || null };
+  }
+  function orderItems(itemsJson) {
+    try { const items = JSON.parse(itemsJson); return Array.isArray(items) ? items : []; } catch { return []; }
+  }
+
   // Generates and stores the QR PNG for every AR shirt of the order that has none yet.
   // The printed size (from the PNG's whole-pixel width at 300 DPI) is kept on the R2
   // object so Printful gets exactly the size of the image. A printed link can never be
   // fixed, so this refuses rather than guess a host when PUBLIC_SITE_URL is missing.
   async function ensureOrderQrs(orderId, request) {
     const units = await dbAll(
-      `select u.id, u.claim_code, u.qr_url, p.printful_qr, p.ar_target_id
+      `select u.id, u.claim_code, u.qr_url, u.item_index, p.printful_qr, p.ar_target_id
        from garment_units u join products p on p.id = u.product_id
        where u.order_id = ? and p.ar_target_id is not null and u.qr_url is null`,
       orderId
@@ -2592,8 +2564,11 @@
     if (!units.length) return;
     const base = configuredSiteBase();
     if (!base) throw new Error('PUBLIC_SITE_URL is not set on the Worker, so no QR was printed. Set it, then run it again.');
+    const order = await dbGet('select items_json from orders where id = ?', orderId);
+    const items = orderItems(order && order.items_json);
     for (const u of units) {
-      const qr = parsePrintfulQr(u.printful_qr);
+      const look = orderLineLook(items[u.item_index]);
+      const qr = look ? look.qr : parsePrintfulQr(u.printful_qr);
       const { png, sizeIn } = await QR.qrPng(pieceLink(base, u.claim_code), qr ? qr.size_in : 2.5);
       const key = `qr/${u.claim_code}.png`;
       await ASSETS_BUCKET.put(key, png, {
@@ -2625,11 +2600,14 @@
     try { items = JSON.parse(row.items_json) || []; } catch {}
 
     try {
-      // Re-resolve against current D1 data so a fixed product (variant, art, QR settings)
-      // is picked up on resubmit; prices stay as charged in items_json.
+      // Re-resolve against current D1 data so a fixed Printful variant is picked up on
+      // resubmit, but keep how each shirt looks (QR settings and art) as it was at checkout;
+      // prices stay as charged in items_json.
       const resolved = [];
       for (const it of items) {
         const r = await resolveOrderItemFromD1({ slug: it.slug, size: it.size, qty: it.qty }, request);
+        const look = orderLineLook(it);
+        if (look) { r.qr = look.qr; r.design_images = look.design_images; r.image_url = look.image_url || r.image_url; }
         resolved.push(r);
       }
       await ensureOrderQrs(orderId, request);
@@ -2770,12 +2748,12 @@
     try { items = JSON.parse(row.items_json) || []; } catch {}
 
     const slots = [];
+    const unknown = [];
     for (let idx = 0; idx < items.length; idx++) {
       const it = items[idx] || {};
       const slug = String(it.slug || '').trim();
-      if (!slug) continue;
-      const product = await dbGet('select id, title from products where lower(slug) = lower(?)', slug);
-      if (!product) continue;
+      const product = slug ? await dbGet('select id, title from products where lower(slug) = lower(?)', slug) : null;
+      if (!product) { unknown.push(`line ${idx + 1} (${slug || 'no product'})`); continue; }
       const qty = Math.max(1, Math.min(99, parseInt(it.qty, 10) || 1));
       const nickname = String(it.name || product.title || '').trim().slice(0, 120) || null;
       for (let u = 0; u < qty; u++) slots.push({ productId: product.id, itemIndex: idx, unitIndex: u, nickname });
@@ -2785,14 +2763,20 @@
       const have = new Set((await dbAll('select item_index, unit_index from garment_units where order_id = ?', orderId))
         .map(r => `${r.item_index}:${r.unit_index}`));
       const missing = slots.filter(sl => !have.has(`${sl.itemIndex}:${sl.unitIndex}`));
-      if (!missing.length) return;
+      if (!missing.length) break;
       await DB.batch(missing.map(sl => DB.prepare(
         `insert into garment_units (id, claim_code, product_id, order_id, item_index, unit_index, owner_user_id, claimed_at, nickname)
          values (?, ?, ?, ?, ?, ?, ?, ${row.user_id ? "strftime('%Y-%m-%dT%H:%M:%fZ','now')" : 'null'}, ?)
          on conflict do nothing`
       ).bind(randomId('unit_'), randomClaimCode(), sl.productId, orderId, sl.itemIndex, sl.unitIndex, row.user_id || null, sl.nickname)));
     }
-    console.error('[wardrobe] Order', orderId, 'still has unminted shirts after 3 passes');
+    const minted = (await dbGet('select count(*) as n from garment_units where order_id = ?', orderId)).n;
+    if (minted < slots.length) console.error('[wardrobe] Order', orderId, 'still has unminted shirts after 3 passes');
+    // Every line that could be minted was; a line whose product no longer exists (deleted, or
+    // its slug changed since the order) can never get a shirt — say so instead of passing.
+    if (unknown.length) {
+      throw new Error(`No shirt made for ${unknown.join(', ')}: that product no longer exists (deleted or its slug changed)`);
+    }
   }
 
   // POST /api/webhooks/stripe — no session auth (server-to-server), authenticated instead
@@ -2930,11 +2914,12 @@
   async function apiAdminOrderPieces(request, orderId) {
     const { error } = await requireAdminSession(request);
     if (error) return error;
-    const order = await dbGet('select id, status, payment_status, printful_status, printful_order_id from orders where id = ?', orderId);
+    const order = await dbGet('select id, status, payment_status, printful_status, printful_order_id, items_json from orders where id = ?', orderId);
     if (!order) return jsonResponse({ error: 'Not found' }, 404, request);
+    const lines = orderItems(order.items_json);
     const rows = await dbAll(
-      `select u.id, u.claim_code, u.item_index, u.unit_index, u.qr_url, u.nickname, u.scan_count, u.last_scanned_at,
-              p.title as product_title, p.slug as product_slug, p.ar_target_id, p.printful_qr, p.printful_design_images,
+      `select u.id, u.claim_code, u.item_index, u.unit_index, u.qr_url, u.nickname, u.scan_count, u.last_scanned_at, u.verified_at,
+              p.id as product_id, p.title as product_title, p.slug as product_slug, p.ar_target_id, p.printful_qr, p.printful_design_images,
               p.image_url as product_image_url, us.email as owner_email,
               (select max(version) from garment_layers where unit_id = u.id) as version
        from garment_units u
@@ -2945,14 +2930,28 @@
       orderId
     );
     const base = publicSiteBase(request);
-    const items = rows.map(r => ({
+    // Why a shirt can't be printed yet, so the dashboard can name the fix.
+    const issueFor = (r, print) => {
+      if (r.ar_target_id == null) return null;
+      if (!r.qr_url) {
+        if (order.payment_status !== 'paid') return 'unpaid';
+        if (!configuredSiteBase()) return 'site_url';
+        return 'qr_missing';
+      }
+      return print ? null : 'no_placement';
+    };
+    const items = rows.map(r => {
+      const print = printFileSpec(r, lines[r.item_index], request);
+      return {
       id: r.id, claim_code: r.claim_code, item_index: r.item_index, unit_index: r.unit_index,
-      product: { title: r.product_title, slug: r.product_slug, has_ar: r.ar_target_id != null },
-      print: printFileSpec(r, request),
+      size: (lines[r.item_index] && lines[r.item_index].size) || null,
+      product: { id: r.product_id, title: r.product_title, slug: r.product_slug, has_ar: r.ar_target_id != null },
+      print, issue: issueFor(r, print), verified_at: r.verified_at || null,
       owner_email: r.owner_email || null, nickname: r.nickname || null,
       qr_url: r.qr_url || null, link: pieceLink(base, r.claim_code),
       version: r.version || 0, scan_count: r.scan_count || 0, last_scanned_at: r.last_scanned_at || null,
-    }));
+    };
+    });
     return jsonResponse({
       order: { id: order.id, status: order.status, payment_status: order.payment_status, printful_status: order.printful_status, printful_order_id: order.printful_order_id },
       items,
@@ -2960,15 +2959,26 @@
   }
 
   // What the dashboard needs to build one shirt's own print file (art plus its QR) at 300 DPI:
-  // the QR settings and the art file of the QR's placement. Null until QR placement is saved.
-  function printFileSpec(row, request) {
-    const qr = parsePrintfulQr(row.printful_qr);
-    if (!qr) return null;
-    let images = {};
-    try { images = row.printful_design_images ? JSON.parse(row.printful_design_images) || {} : {}; } catch {}
-    const art = String(images[qr.placement] || (qr.placement === 'front' ? row.product_image_url : '') || '');
-    // Absolute URLs as stored (they are what the QR placer matched its art box against).
-    return { qr, art_url: art ? (/^https?:\/\//i.test(art) ? art : normalizePublicUrl(art, request)) : null };
+  // the QR settings and the art file of the QR's placement, from the order line's checkout
+  // snapshot when it has one, else the product. drift is true when the product's current
+  // settings differ from what the shirt was sold with. Null until QR placement is saved.
+  function printFileSpec(row, line, request) {
+    const artFor = (qr, images, imageUrl) => {
+      const art = String((images && images[qr.placement]) || (qr.placement === 'front' ? imageUrl : '') || '');
+      // Absolute URLs as stored (they are what the QR placer matched its art box against).
+      return art ? (/^https?:\/\//i.test(art) ? art : normalizePublicUrl(art, request)) : null;
+    };
+    let productImages = {};
+    try { productImages = row.printful_design_images ? JSON.parse(row.printful_design_images) || {} : {}; } catch {}
+    const live = parsePrintfulQr(row.printful_qr);
+    const liveSpec = live ? { qr: live, art_url: artFor(live, productImages, row.product_image_url) } : null;
+    const look = orderLineLook(line);
+    if (!look) return liveSpec ? { ...liveSpec, drift: false } : null;
+    const spec = { qr: look.qr, art_url: artFor(look.qr, look.design_images, look.image_url) };
+    const https = u => (u ? String(u).replace(/^http:\/\//i, 'https://') : u);
+    const key = q => JSON.stringify({ ...q, art: q.art ? { ...q.art, url: https(q.art.url) } : null });
+    spec.drift = !liveSpec || key(liveSpec.qr) !== key(spec.qr) || https(liveSpec.art_url) !== https(spec.art_url);
+    return spec;
   }
 
   // POST /api/admin/orders/:id/resubmit — re-sends a paid order whose Printful submission
@@ -4459,7 +4469,7 @@
     // One read for everything a scan needs: the unit, its product, the product's target and
     // the unit's newest layer (was four sequential queries — this runs on every scan).
     const row = await dbGet(
-      `select u.id as unit_id, p.slug, p.title, p.price_cents, p.currency,
+      `select u.id as unit_id, u.claim_code, u.order_id, u.item_index, u.unit_index, u.verified_at, p.slug, p.title, p.price_cents, p.currency,
               t.id as target_id, t.name, t.mind_url, t.video_url, t.image_url, t.is_active,
               l.video_url as layer_video_url, l.version as layer_version, l.created_at as layer_created_at
        from garment_units u
@@ -4473,14 +4483,30 @@
     if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
     if (row.target_id == null) return jsonResponse({ error: 'No AR content for this piece' }, 404, request);
 
-    // Scan counting is best-effort and off the response path — never delay or fail actual
-    // AR playback over it.
-    const countScan = dbRun(
-      `update garment_units set scan_count = scan_count + 1, last_scanned_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
-      row.unit_id
-    ).catch(() => {});
-    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(countScan);
-    else await countScan;
+    // An admin scanning a freshly pressed shirt to check it is not a customer scan: it is not
+    // counted, and the response carries which order line the shirt belongs to.
+    const sess = await getSessionUser(request).catch(() => null);
+    const isAdmin = !!(sess && sess.user && isAdminRole(sess.user.role));
+    let admin = null;
+    if (isAdmin) {
+      const order = row.order_id ? await dbGet('select id, items_json from orders where id = ?', row.order_id) : null;
+      const line = order ? orderItems(order.items_json)[row.item_index] : null;
+      const owner = await dbGet('select us.email from garment_units u left join users us on us.id = u.owner_user_id where u.id = ?', row.unit_id);
+      admin = {
+        unit_id: row.unit_id, claim_code: row.claim_code, order_id: row.order_id || null,
+        line: row.item_index != null ? row.item_index + 1 : null, shirt: row.unit_index != null ? row.unit_index + 1 : null,
+        size: (line && line.size) || null, owner_email: (owner && owner.email) || null, verified_at: row.verified_at || null,
+      };
+    } else {
+      // Scan counting is best-effort and off the response path — never delay or fail actual
+      // AR playback over it.
+      const countScan = dbRun(
+        `update garment_units set scan_count = scan_count + 1, last_scanned_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+        row.unit_id
+      ).catch(() => {});
+      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(countScan);
+      else await countScan;
+    }
 
     return withCache(
       jsonResponse({
@@ -4499,9 +4525,34 @@
         updated_at: row.layer_created_at || null,
         created_at: null,
         source: 'piece',
+        admin,
       }, 200, request),
       'no-store'
     );
+  }
+
+  // GET /api/admin/qr-sample?size_in=2.5 — a sample emblem (the SAMP-LE00 link) at a given
+  // width, for the QR placer to draw where each shirt's own emblem will go. Every emblem has
+  // the same round rim, so the sample shows the exact outline any customer's will have.
+  async function apiAdminQrSample(request) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+    const sizeIn = Number(new URL(request.url).searchParams.get('size_in'));
+    if (!(sizeIn >= 1 && sizeIn <= 6)) return jsonResponse({ error: 'size_in must be 1 to 6' }, 400, request);
+    const { png } = await QR.qrPng(pieceLink(publicSiteBase(request), 'SAMP-LE00'), sizeIn);
+    return new Response(png, { status: 200, headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=3600' } });
+  }
+
+  // POST /api/admin/pieces/:id/verify — the admin has checked a pressed shirt (scanned it and
+  // matched order, line and size) and marks it verified before shipping.
+  async function apiAdminVerifyPiece(request, unitId) {
+    const { error } = await requireAdminSession(request);
+    if (error) return error;
+    const unit = await dbGet('select id from garment_units where id = ?', unitId);
+    if (!unit) return jsonResponse({ error: 'Not found' }, 404, request);
+    await dbRun(`update garment_units set verified_at = coalesce(verified_at, strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`, unitId);
+    const row = await dbGet('select verified_at from garment_units where id = ?', unitId);
+    return jsonResponse({ ok: true, verified_at: row.verified_at }, 200, request);
   }
 
   // ---------- Existing R2 handlers (unchanged from your current worker) ----------

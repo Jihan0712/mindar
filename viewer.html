@@ -204,6 +204,46 @@
           if (activeTarget.product) { seeLink.href = 'ecommerce/product.html?slug=' + encodeURIComponent(activeTarget.product); seeLink.style.display = ''; }
         }
 
+        // ---- admin check of a pressed shirt (scan while signed in as admin) ----
+        // The scan was not counted; this bar says which order line the shirt belongs to so it
+        // can be matched to the blank before shipping, and marks it verified.
+        if (activeTarget && activeTarget.admin) {
+          const a = activeTarget.admin;
+          const bar = document.createElement('div');
+          bar.setAttribute('role', 'region');
+          bar.setAttribute('aria-label', 'Admin shirt check');
+          bar.style.cssText = 'position:fixed;left:12px;right:12px;top:12px;z-index:9999;background:#fff;color:#111;border-radius:12px;padding:12px 14px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.35)';
+          const title = document.createElement('div');
+          title.style.cssText = 'font-weight:700;font-family:ui-monospace,Menlo,monospace;font-size:16px';
+          title.textContent = a.claim_code;
+          const meta = document.createElement('div');
+          meta.textContent = [a.order_id, a.line ? 'line ' + a.line : '', a.shirt ? 'shirt ' + a.shirt : '', a.size ? 'size ' + a.size : '', a.owner_email || 'unowned'].filter(Boolean).join(' · ');
+          const note = document.createElement('div');
+          note.style.cssText = 'color:#555;font-size:12px';
+          note.textContent = 'Admin scan: not counted as a customer scan.';
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;gap:10px;align-items:center;margin-top:8px';
+          const state = document.createElement('span');
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.style.cssText = 'min-height:44px;padding:0 16px;border-radius:999px;border:0;background:#1c5d68;color:#fff;font-weight:700';
+          const showVerified = (at) => { state.textContent = at ? '✓ Verified ' + String(at).slice(0, 10) : ''; btn.hidden = !!at; };
+          btn.textContent = 'Mark verified';
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+              const r = await fetch('/api/admin/pieces/' + encodeURIComponent(a.unit_id) + '/verify', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+              showVerified(j.verified_at);
+            } catch (e) { state.textContent = 'Verify failed: ' + (e.message || e); btn.disabled = false; }
+          });
+          showVerified(a.verified_at);
+          row.append(btn, state);
+          bar.append(title, meta, note, row);
+          document.body.appendChild(bar);
+        }
+
         // ---- sound toggle (shared across states) ----
         let audioCtx = null;
         let soundEnabled = localStorage.getItem('inrl_sound_enabled') === 'true';

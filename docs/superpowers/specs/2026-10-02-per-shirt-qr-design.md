@@ -18,7 +18,7 @@ a tag code).
 | Ownership for buyers without an account | Account required to check out, every piece is owned from payment | User |
 | How the QR reaches Printful | Approach A: our dashboard holds the print files; every order is a Printful catalog order with the art layer plus a per-shirt QR layer | User |
 | Resale / transfer of a piece | Out of scope. A piece stays with the buying account; the admin moves one by hand if ever needed | Assumption, accepted |
-| QR look | Fingerprint emblem (2026-10-07): flowing maze strokes and rounded eyes inside broken concentric rings, all generated from the shirt's link; black on a white backing shaped like the outer ring, transparent outside | User |
+| QR look | Fingerprint emblem: classic square modules merged into solid blocks (2026-10-12, replacing the 2026-10-07 maze strokes) and rounded eyes inside broken concentric rings, all generated from the shirt's link; black on a white backing shaped like the outer ring, transparent outside | User |
 
 ## Non-goals
 
@@ -93,10 +93,9 @@ The Worker is a single file deployed without a bundler, so the encoder is inline
   version information written per the spec.
 - PNG: the fingerprint emblem, 8-bit grey+alpha, drawn from signed distances with
   anti-aliased edges. Scanners sample only module centres, finder/alignment eyes and the
-  margin, so: dark modules are joined by a maze of strokes (a spanning forest over
-  orthogonal and light-corner diagonal neighbours, picked by a generator seeded from the
-  link, with straight runs merged and corners smoothly blended); modules with no stroke are
-  dots; eyes are rounded squares; a 2-module light margin separates the code from broken
+  margin, so: dark modules are crisp squares drawn as one exact union, so neighbours form
+  solid blocks with no seam (`test/qr-emblem.test.mjs` checks every module centre and every
+  shared edge); eyes are rounded squares; a 2-module light margin separates the code from broken
   concentric rings whose wobble, dash lengths and gaps are also seeded from the link. Ink
   never reaches within ~0.3 module of a light module's centre. Backing is white inside the
   outer ring, transparent outside. `size_in` is the whole emblem's width (the code is about
@@ -166,14 +165,60 @@ Products imported before this change must be re-imported once.
 
 ## Admin UI (dashboard.html, Printful tab, per product)
 
-Shown once the product has an AR target and a Printful link:
+_Rewritten 2026-10-12 by /plan-design-review (Issue 16). "Built" is shipped code; "Approved"
+is decided in that review and not built yet._
 
-- Placement select (from `GET /api/admin/printful/catalog/:id/placements`), size in inches
-  (default 1.5, minimum 1.0), top and left in inches, "Centre horizontally" button.
-- "Preview" calls the mockup endpoint, extended to accept the QR settings and render the art
-  plus a sample QR (`SAMP-LE00`).
-- "Save" writes `printful_qr` via `POST /api/products/:id`.
-- Orders tab: "Resubmit to Printful" on paid orders with `printful_status = 'error'`.
+**QR placement window** (Printful tab → QR placement; shown once the product has an AR target
+and a Printful garment, which stays required: Issue 14 kept it):
+- Built: placement select with its print area from `GET /api/admin/printful/catalog/:id/placements`;
+  emblem width 2 to 6 in (default 2.5); top and left in inches; "Centre horizontally"; a
+  to-scale stage with the placement's art fitted whole and centred; the QR box drags and
+  resizes (square, ≥2 in, inside the area, 0.05 in snap); "Upload print file" per placement;
+  Save writes `printful_qr` including the `art` box; a "Re-place QR" chip when the art changed.
+- Approved (Issue 1): stage first, as tall as the modal allows, with a 4× close-up of the slot;
+  number fields collapse under "Exact values".
+- Approved (Issue 2): the QR box is outline-only by default (slot visible through it), with a
+  toggle that draws a real sample emblem at the placed size.
+- Approved (Issue 8, built; magenta handling per eng review 2 D4): the art marks the slot
+  with a solid #FF00FF disc (PNG only). On load the placer finds it and snaps the QR to it,
+  0.03 in larger on every side so the emblem's opaque white disc hides the marker; the
+  print file is stored as uploaded. Errors: "No slot found", "Slot is under 2 in", "Slot is not round". No pre-filled
+  default numbers before a slot is found.
+- Approved (Issue 6): an uploaded file is a draft; Save commits art and placement together;
+  Cancel discards the draft.
+- Approved (Issue 5): Save is disabled with the reason shown until the art has loaded and
+  passed a canvas read test ("No print file", "This file can't be used for print files,
+  re-upload it").
+- Approved (Issue 13): the QR box is focusable; arrows move 0.05 in, Shift+arrows 0.25 in,
+  +/− resize by 0.05 in; teal focus ring; position and status announced (aria-live).
+- Approved (Issue 15): when the product's AR marker was compiled from a different file than
+  the current print file, the placer and product list show "AR marker out of date".
+- "Preview" asks Printful for a mockup with a sample QR (`SAMP-LE00`): it checks garment
+  placement only. It is not the per-shirt proof (each customer's emblem differs).
+
+**Orders → Shirts** (per order):
+- Built: Mark paid (self-fulfil) / Generate missing QR codes; Resubmit to Printful on paid
+  Printful orders with `printful_status = 'error'` (never on self orders); per shirt QR
+  thumbnail and Print file (300 DPI PNG of art plus that shirt's QR).
+- Approved (Issue 4): placement and art are frozen on the order at payment; print files and
+  resubmits use the frozen copy; "Product placement changed since this order" when they differ.
+- Approved (Issue 3): a per-shirt proof panel before download: the composed file large with
+  zoom on the QR, shirt code, order line, size, owner, inches and DPI.
+- Approved (Issue 10): the proof decodes the composed file in the browser and enables Download
+  only when it reads that shirt's exact link ("Reads https://shop.inrl.co/p/K7QX-9MPZ ✓").
+- Approved (Issue 11): "Print at 100% / Actual size, not Fit to page" beside Download, and a
+  paper test sheet: this QR at true size, a 1 in / 25 mm ruler, the slot's corner marks.
+- Approved (Issue 17): file name `<order>-L<line>-S<shirt>-<size>-<code>-<placement>.png`; the
+  same label is printed on the test sheet.
+- Approved (Issue 7): a shirt with no QR or no print file shows the cause and a link to the
+  fix ("No QR: PUBLIC_SITE_URL not set", "No print file: save QR placement").
+- Approved (Issue 12): "Verify printed shirt" scans a pressed shirt from the dashboard, shows
+  code, order, line, size and owner, marks it verified; admin scans don't count toward
+  `scan_count`.
+
+**Emblem** (Issue 9, approved): the white disc's outer edge is an exact circle on every
+emblem, so it fills a round slot edge to edge; the rings inside keep their per-customer
+wobble. This changes the rim of the user's reference image, whose outer edge wobbles.
 
 ## Customer UI
 
@@ -237,8 +282,9 @@ then one real single-shirt order shipped to the owner.
 ## Risks
 
 - The print file stored on printful.com may not carry the exact on-shirt position set in
-  Printful's designer. Mitigation: the Preview renders exactly what will be printed; the
-  admin can upload a print-ready art file per placement if it is off.
+  Printful's designer. Mitigation: upload a print-ready art file at the print area's exact
+  size (the art box then fixes its position); the Printful Preview checks garment placement
+  with a sample QR, and the per-shirt proof (Admin UI) checks each real shirt.
 - Exact field names on Printful v1 sync variants (`variant_id`, `product.product_id`,
   `files[].type`, `files[].url`) are confirmed on the first re-import, which reports what it
   copied.
@@ -403,7 +449,7 @@ Upload the art as is and nudge QR top/left until the Preview mockup looks right.
 State: approved
 Actual answer: A) Art at exact print-area size (D3, 2026-10-12)
 Accepted scope: export the art at the chosen placement's exact print area at 300 DPI (read area_width/area_height from the dashboard's placement picker), with the empty 2.5 in slot; measure QR top/left in inches on that file; confirm with Preview before any real order. No code change.
-History: none
+History: Superseded 2026-10-12: the user asked for all four placement fixes, so the QR placer now saves the art's box and sends it to Printful as the art layer's position (`artLayerPosition`, `printFileSpec`). The export rule still holds; "no code change" no longer does. See Admin UI.
 
 ### R4: what the QR link uses when PUBLIC_SITE_URL is not set
 Finding: A3, P2, confidence 7/10, `cloudflare/worker/index.js:2525-2528` (`publicSiteBase`: `const configured = String(globalThis.PUBLIC_SITE_URL || '')...` then `return request ? new URL(request.url).origin : ''`), Architecture.
@@ -757,17 +803,520 @@ REALITY: pr-count pass default one PR (no .gstack/ship-policy.json); code change
 - (confidence: 4/10) Teal/teal-on-black emblem might scan fine on current iOS and Android camera apps; not tested here, which is why D2 kept dark-on-light.
 - (confidence: 3/10) The INRL bar's thin outline near the slot may pick up DTG bleed next to a white disc; check in the T7 print.
 
+---
+
+# Design review 2026-10-12: making each customer's QR land correctly
+
+Target: this spec, reviewed by /plan-design-review against `ecommerce/dashboard.html` (QR
+placement window, Orders → Shirts) and `cloudflare/worker/index.js` (`qrPng`, `printFileSpec`).
+Question: what is the best way to make sure the QR placement on each customer's custom QR is
+correct? Outside voice: an independent Claude subagent (Codex not installed). Mockups: not
+generated (the gstack designer has no OpenAI key here).
+
+## Answer
+
+Make the art define the slot, make every emblem fit it identically, freeze the setup per
+order, and prove each shirt before and after printing:
+
+1. The design marks the slot (solid #FF00FF disc); the placer finds it and snaps the QR to it.
+2. Every emblem's white disc has the same exact round edge, so it fills that slot on every shirt.
+3. Placement and art are frozen on the order at payment, so later edits can't move sold shirts.
+4. Each shirt's proof shows its composed file and must decode to its own link before Download.
+5. A paper test sheet with a ruler catches printer scaling; a "Verify printed shirt" scan
+   confirms the pressed shirt is the right customer's.
+
+## Decisions (each individually approved)
+
+| # | Issue | Decision |
+|---|---|---|
+| 1 | Placer too small to judge alignment | 1A stage first, large, 4× slot zoom |
+| 2 | QR placeholder hides the slot | 2A outline by default + real sample emblem toggle |
+| 3 | No per-shirt proof before printing | 3A proof panel before Download |
+| 4 | Old orders change when placement is edited (critical) | 4A freeze placement + art per order |
+| 5 | Save works with missing/unreadable art | 5A block Save until art is print-ready |
+| 6 | Upload goes live before Save; Cancel doesn't undo | 6A upload is a draft until Save |
+| 7 | "Not generated" gives no reason | 7A cause + fix per shirt |
+| 8 | Slot defined twice by hand | 8A auto-detect a #FF00FF slot in the art |
+| 9 | Emblem rim differs per customer | 9A exact round rim, wobble inside only |
+| 10 | Composed file never scan-checked | 10A decode in browser, Download only on match |
+| 11 | Printer may rescale the file | 11A paper test sheet + "Print at 100%" |
+| 12 | No check of which pressed shirt is which | 12A "Verify printed shirt" scan |
+| 13 | Drag-only placement | 13A keyboard nudge, focus ring, aria-live |
+| 14 | Placer needs a Printful garment | 14B keep Printful required (user choice) |
+| 15 | AR marker not tied to the print file | 15A warn "AR marker out of date" |
+| 16 | Spec Admin UI section out of date | 16A rewritten above; D3 marked superseded |
+| 17 | Print file names don't say which shirt | 17A `<order>-L<line>-S<shirt>-<size>-<code>-<placement>.png` |
+
+## Information hierarchy (approved)
+
+```
+QR PLACEMENT WINDOW                         SHIRT PROOF (per shirt)
+┌──────────────────────────┬────────────┐   ┌──────────────────────────┬──────────────┐
+│ 1 Print area to scale    │ 2 Slot 4×  │   │ 1 Composed print file    │ 2 Code, line │
+│   art + slot + QR outline│   close-up │   │   (art + this QR), zoom  │   size, owner│
+│                          ├────────────┤   │                          ├──────────────┤
+│                          │ 3 Status:  │   │                          │ 3 Reads link │
+│                          │   slot found│  │                          │   ✓ / ✗      │
+│                          │   art ready │  │                          ├──────────────┤
+│                          ├────────────┤   │                          │ 4 Download   │
+│                          │ Exact values│  │                          │   12×16 in,  │
+│                          │ (collapsed) │  │                          │   300 DPI    │
+└──────────────────────────┴────────────┘   │                          │   Print 100% │
+  Save (disabled until ready) · Cancel      │                          │ Test sheet   │
+                                            └──────────────────────────┴──────────────┘
+```
+
+## Interaction states (approved)
+
+```
+FEATURE          | LOADING              | EMPTY                    | ERROR                                 | SUCCESS                       | PARTIAL
+-----------------|----------------------|--------------------------|---------------------------------------|-------------------------------|------------------------------
+Placer art       | "Loading print file…"| "No print file yet:      | "Can't be used for print files,       | "Slot found: 2.50 in at       | Draft uploaded, not saved:
+                 | stage shows area     |  upload one (print area  |  re-upload" / "No slot found" /       |  9.20, 13.10 in"; Save on     |  "Unsaved changes", Cancel
+                 | outline              |  size, #FF00FF slot)"    |  "Slot under 2 in" / "not round"      |                               |  discards
+Save             | button shows "Saving"| disabled, reason shown   | server error text, nothing changed    | "Saved. New orders print here"| n/a
+Shirt QR         | spinner in QR cell   | "No QR: <cause>" + link  | "QR failed: <reason>"                 | thumbnail + Proof             | some shirts done: per-row
+Proof            | "Building proof…"    | "No print file: save QR  | "Doesn't read this shirt's link",     | "Reads <link> ✓", Download on | n/a
+                 |                      |  placement" + link       |  Download stays disabled              |                               |
+Verify scan      | camera starting      | "Point the camera at the | "Not a shirt from this shop" /        | "Verified: <code> · L1 S1 · M |  n/a
+                 |                      |  shirt's QR"             |  "Different order"                    |  · <owner>"                   |
+Drift            | n/a                  | n/a                      | "Product placement changed since this | n/a                           | n/a
+                 |                      |                          |  order" (uses the order's frozen copy)|                               |
+```
+
+## Journey (approved)
+
+```
+STEP | USER DOES                          | USER FEELS        | PLAN SPECIFIES
+-----|------------------------------------|-------------------|-----------------------------------------------
+1    | Exports art with #FF00FF slot      | unsure of rules   | export rule in the upload hint (Issue 8)
+2    | Uploads it, sees QR snap into slot | relief, confidence| auto-detect + snap, sample emblem toggle (2, 8)
+3    | Saves                              | done, safe        | Save blocked until ready, atomic (5, 6)
+4    | Customer pays                      | (none)            | placement frozen on the order (4)
+5    | Opens the shirt's proof            | checking          | composed preview, decode ✓ (3, 10)
+6    | Prints the test sheet, measures    | certain           | ruler + "Print at 100%" (11)
+7    | Presses, scans with Verify         | finished          | verify scan, not counted as a customer scan (12)
+```
+
+## Pass scores
+
+| Pass | Before | After | Remaining gap |
+|---|---|---|---|
+| 1 Information architecture | 4 | 8 | none material |
+| 2 Interaction states | 3 | 8 | none material |
+| 3 Journey | 4 | 9 | none material |
+| 4 AI slop (OPERATE surface) | 8 | 8 | no hard rejections; litmus 7/7 yes or n/a |
+| 5 Design system | 6 | 6 | no DESIGN.md (TODO added) |
+| 6 Responsive & a11y | 4 | 8 | desktop-only by design (≥1024 px) |
+| 7 Decisions | | | 17 decided, 0 open |
+
+## NOT in scope
+
+- Manual print area for products with no Printful garment: declined (Issue 14B).
+- Visual mockups: the gstack designer needs an OpenAI key; run its `setup` to enable them.
+- DESIGN.md: deferred to TODO.md.
+
+## What already exists
+
+- To-scale stage, drag/resize, art box and Save (`qrStage`, `qrSettings` in `ecommerce/dashboard.html`).
+- Composed per-shirt PNG at 300 DPI with a pHYs tag (`downloadPrintFile`, `pngAt300Dpi`).
+- Shirts modal table, status line, `printfulStatusChip`, `btn-inrl` / `btn-inrl-outline`.
+- Square-module emblem with scan tests (`qrPng`, `test/qr-emblem.test.mjs`).
+
+## Implementation Tasks
+Synthesized from this review's findings. Each task derives from a specific
+finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~4h / CC: ~25min)** — worker + db — Freeze QR placement and art per order at payment; use it for print files and resubmit; drift warning
+  - Surfaced by: Pass 2 — Issue 4 (printFileSpec reads live product settings)
+  - Files: cloudflare/worker/index.js, sql/ (new migration), ecommerce/dashboard.html
+  - Verify: test that editing placement after payment leaves the order's print spec unchanged
+- [ ] **T2 (P1, human: ~3h / CC: ~20min)** — emblem — Exact round outer rim, wobble only inside
+  - Surfaced by: Pass 3 — Issue 9 (shape(th) varies ±9% per customer)
+  - Files: cloudflare/worker/index.js, test/qr-emblem.test.mjs
+  - Verify: test that the backing edge radius is constant for several links; scan tests still pass
+- [ ] **T3 (P1, human: ~1 day / CC: ~45min)** — placer — Auto-detect #FF00FF slot, snap QR, strip magenta, slot errors, no pre-filled defaults
+  - Surfaced by: Pass 3 — Issue 8
+  - Files: ecommerce/dashboard.html
+  - Verify: local placer run with test art; QR equals the slot box; saved file has no magenta
+- [ ] **T4 (P1, human: ~2h / CC: ~15min)** — placer — Draft upload committed with Save; Save blocked until art is print-ready (canvas read test)
+  - Surfaced by: Pass 2 — Issues 5, 6
+  - Files: ecommerce/dashboard.html, cloudflare/worker/index.js
+  - Verify: Cancel after upload leaves the live art unchanged; Save disabled for unreadable art
+- [ ] **T5 (P1, human: ~4h / CC: ~30min)** — shirts — Proof panel with composed preview, zoom, decode gate, descriptive file name
+  - Surfaced by: Pass 1/3 — Issues 3, 10, 17
+  - Files: ecommerce/dashboard.html (plus a small vendored QR decoder)
+  - Verify: Download disabled until the decode equals the shirt's link; file name matches pattern
+- [ ] **T6 (P2, human: ~2h / CC: ~15min)** — shirts — Paper test sheet + "Print at 100%" notice
+  - Surfaced by: Pass 3 — Issue 11
+  - Files: ecommerce/dashboard.html
+  - Verify: printed sheet's ruler measures 1 in / 25 mm at 100%
+- [ ] **T7 (P2, human: ~2h / CC: ~15min)** — shirts — Per-shirt cause + fix for missing QR or print file
+  - Surfaced by: Pass 2 — Issue 7
+  - Files: cloudflare/worker/index.js, ecommerce/dashboard.html
+  - Verify: unset PUBLIC_SITE_URL shows "No QR: PUBLIC_SITE_URL not set" with a link
+- [ ] **T8 (P2, human: ~3h / CC: ~20min)** — placer — Large stage first, 4× slot zoom, outline QR + sample emblem toggle
+  - Surfaced by: Pass 1 — Issues 1, 2
+  - Files: ecommerce/dashboard.html, cloudflare/worker/index.js (sample emblem endpoint)
+  - Verify: local placer run; slot edges visible through the QR outline
+- [ ] **T9 (P2, human: ~1h / CC: ~10min)** — placer — Keyboard nudge, focus ring, aria-live
+  - Surfaced by: Pass 6 — Issue 13
+  - Files: ecommerce/dashboard.html
+  - Verify: arrows move 0.05 in, Shift 0.25 in; screen reader announces position
+- [ ] **T10 (P2, human: ~1 day / CC: ~45min)** — shirts — "Verify printed shirt" camera scan, not counted as a customer scan
+  - Surfaced by: Pass 3 — Issue 12
+  - Files: ecommerce/dashboard.html, cloudflare/worker/index.js
+  - Verify: scanning a shirt marks it verified; scan_count unchanged
+- [ ] **T11 (P3, human: ~3h / CC: ~20min)** — AR — Record the marker's source-file fingerprint; "AR marker out of date" chip
+  - Surfaced by: Pass 7 — Issue 15
+  - Files: admin.html, cloudflare/worker/index.js, ecommerce/dashboard.html
+  - Verify: replacing the print file shows the chip until the marker is recompiled
+
+_No new tasks from Pass 4 (AI slop)._ Pass 5 produced a TODO only.
+
+## Unresolved decisions
+
+None. Deferred: DESIGN.md (TODO.md).
+
+## Completion summary
+
+```
+  +====================================================================+
+  |         DESIGN PLAN REVIEW — COMPLETION SUMMARY                    |
+  +====================================================================+
+  | System Audit         | no DESIGN.md; UI: QR placer, Shirts modal   |
+  | Step 0               | 4/10; all 7 passes                          |
+  | Pass 1  (Info Arch)  | 4/10 → 8/10 after fixes                     |
+  | Pass 2  (States)     | 3/10 → 8/10 after fixes                     |
+  | Pass 3  (Journey)    | 4/10 → 9/10 after fixes                     |
+  | Pass 4  (AI Slop)    | 8/10 → 8/10 after fixes                     |
+  | Pass 5  (Design Sys) | 6/10 → 6/10 after fixes                     |
+  | Pass 6  (Responsive) | 4/10 → 8/10 after fixes                     |
+  | Pass 7  (Decisions)  | 17 resolved, 0 deferred                     |
+  +--------------------------------------------------------------------+
+  | NOT in scope         | written (3 items)                           |
+  | What already exists  | written                                     |
+  | TODOS.md updates     | 1 item proposed (added to TODO.md)          |
+  | Approved Mockups     | 0 generated, 0 approved (no designer key)   |
+  | Decisions made       | 16 added to plan (+1 keep-as-is)            |
+  | Decisions deferred   | 1 (DESIGN.md TODO)                          |
+  | Overall design score | 3/10 → 6/10                                 |
+  +====================================================================+
+```
+
+---
+
+# Eng review 2 (2026-10-12): design-review tasks T1-T11
+
+Target: this spec's "Design review 2026-10-12" Implementation Tasks T1-T11, reviewed by
+/plan-eng-review against `cloudflare/worker/index.js`, `ecommerce/dashboard.html`,
+`viewer.html` and `admin.html`.
+
+## Scope record (eng review 2)
+
+feature answers: D1 B (T11 deferred to TODO.md); structure: D2 B (smaller arrangement);
+accepted scope: T1-T10 with T1 reading the order's existing `items_json` snapshot (each line's
+`qr` and `design_images`, saved at checkout, `index.js:2682`) instead of a new column, and T10
+as a phone scan of `/p/<code>` that shows an admin overlay (order, line, size, owner, Mark
+verified) without counting the scan, instead of a dashboard webcam view; pending remedies:
+E1 decoder, E2 magenta edge, E3 resubmit vs freeze, E6 test seam. Scope Challenge result:
+scope reduced per recommendation (T11 deferred).
+
+## Decision ledger (eng review 2)
+
+### E1: how the proof checks the composed file reads the shirt's link
+Finding: E1, P1, confidence 9/10, Architecture. Approved behaviour (design Issue 10): Download only when the composed file reads that shirt's exact link. Windows Chrome has no `BarcodeDetector` (Chrome shape-detection docs list macOS, ChromeOS, Android).
+Plan baseline: design review T5 "plus a small vendored QR decoder".
+Runtime evidence: no decoder in the repo; the dashboard already loads Bootstrap from cdn.jsdelivr.net (`ecommerce/dashboard.html:7-8`).
+Comparison grid:
+| Choice | Current | A | B | C |
+|---|---|---|---|---|
+| E1 decoder | none | `barcode-detector` polyfill (ZXing in WebAssembly) from jsDelivr, used only when native is missing; decode a crop around the QR | jsQR (plain JS) from jsDelivr; decode a crop around the QR | no decoder: server returns the expected module grid; the page samples the composed file at each module centre |
+| Behaviour | n/a | Download only on exact link match | same | same, but checks bits, not real scanner reading |
+Question D3:
+D3 — How should the proof check the QR actually reads?
+Header: Decoder
+Options:
+A) barcode-detector polyfill (recommended)
+Native BarcodeDetector where it exists, else the ZXing-in-WebAssembly polyfill from jsDelivr (about 1 MB, loaded only on the proof). Decodes a crop around the QR. Human ~3h / CC ~20 min.
+B) jsQR
+Plain-JS decoder from jsDelivr (about 130 KB). Decodes a crop around the QR. Same effort; older, less tolerant decoder.
+C) Bit check, no decoder
+Server sends the expected module grid; page samples the composed file at module centres. No library, but it checks our own encoder's bits rather than a real scanner reading.
+
+State: approved
+Actual answer: A) barcode-detector polyfill (D3, 2026-10-12)
+Accepted scope: proof uses native BarcodeDetector when it supports qr_code, else the barcode-detector polyfill (ZXing WebAssembly) loaded from jsDelivr only when a proof opens; it decodes a crop around the QR and Download is enabled only when the text equals that shirt's link exactly.
+History: none
+
+### E2: what happens to the #FF00FF slot marker in the art
+Finding: E2, P1, confidence 8/10, Architecture. The slot's anti-aliased edge pixels are blends of magenta and the art, not exact #FF00FF, so "strip the magenta" (design Issue 8) leaves a pink fringe unless it uses a tolerance; re-encoding a 3600 x 4800 PNG in the browser to strip it is slow and changes the user's file.
+Plan baseline: design Issue 8 "strips the magenta from the saved print file".
+Runtime evidence: the QR layer always prints over the art in the same placement (`printfulPlacements`, `downloadPrintFile`); the emblem's white disc is opaque.
+Comparison grid:
+| Choice | Current | A | B |
+|---|---|---|---|
+| E2 slot marker | n/a | keep the file as uploaded; the emblem is drawn with a 0.03 in bleed past the detected slot, so its opaque white disc always hides the magenta and its fringe; PNG only | strip near-magenta pixels (colour-distance tolerance) to transparent in the browser and save the stripped PNG; emblem exactly slot size |
+Question D4:
+D4 — Hide the magenta slot under the QR, or cut it out of the file?
+Header: Slot marker
+Options:
+A) Cover it with a 0.03 in bleed (recommended)
+Keep the uploaded file unchanged; the QR emblem is 0.03 in wider than the detected slot so its white disc always covers the magenta and its soft edge. PNG uploads only.
+B) Strip near-magenta in the browser
+Turn magenta and near-magenta pixels transparent and save a new PNG; emblem exactly slot-sized. Slower upload and the saved file differs from yours.
+
+State: approved
+Actual answer: A) Cover it with a 0.03 in bleed (D4, 2026-10-12)
+Accepted scope: the uploaded print file is stored unchanged (PNG only); the placer detects the #FF00FF disc and saves the QR at the slot's bounding box grown by 0.03 in each side: size = slot diameter + 0.06 in, top/left = slot top/left - 0.03 in, so the emblem's opaque white disc covers the magenta and its blended edge. Supersedes design Issue 8's "strips the magenta".
+History: none
+
+### E3: what Resubmit to Printful uses once placement is frozen
+Finding: E3, P2, confidence 9/10, Architecture. `finalizeOrderPrintfulSubmission` re-reads every line from the product on purpose ("so a fixed product (variant, art, QR settings) is picked up on resubmit"); design Issue 4 freezes placement and art per order.
+Plan baseline: design Issue 4 "print files and resubmits use the frozen copy".
+Runtime evidence: `resolveOrderItemFromD1` returns catalog_variant_id, design_images and qr together; items_json holds the checkout-time copy of all three.
+Comparison grid:
+| Choice | Current | A | B |
+|---|---|---|---|
+| E3 resubmit source | everything re-read from the product | QR placement + art from the order's snapshot; Printful variant re-read from the product (so a fixed size mapping still applies) | everything from the snapshot, nothing re-read |
+Question D5:
+D5 — On resubmit, what may still come from the product's current settings?
+Header: Resubmit
+Options:
+A) Freeze art + QR, re-read variant (recommended)
+Placement and art come from the order's snapshot; the Printful variant for the size is re-read, so fixing a wrong size mapping and resubmitting still works.
+B) Freeze everything
+Resubmit uses only the snapshot; fixing a product's variant mapping no longer helps an order that failed because of it.
+
+State: approved
+Actual answer: A) Freeze art + QR, re-read variant (D5, 2026-10-12)
+Accepted scope: print files (`printFileSpec`) and `finalizeOrderPrintfulSubmission` take each line's `qr` and `design_images` from the order's `items_json` snapshot; only the Printful catalog variant is re-read from the product. The Shirts view warns "Product placement changed since this order" when the snapshot differs from the product.
+History: none
+
+Section 1 findings with no new choice (implementation of approved behaviour):
+- A4, P2, 9/10, `cloudflare/worker/index.js:4435` (`update garment_units set scan_count = scan_count + 1`): `apiViewerPiece` counts every scan; T10's admin overlay must skip the count when the session is an admin, and store `garment_units.verified_at` (one small migration).
+- A5, P2, 8/10, `emblemLayout` `const extent = Math.ceil(...)`: the image is rounded up to whole modules, so the white disc is narrower than the emblem width. With D4's bleed rule the disc diameter must equal the emblem width exactly; T2 sets the rim radius to `extent` itself.
+
+### E5: what the proof does when the QR reader can't load
+Finding: E5, P2, confidence 8/10, Code quality. D3's reader loads from jsDelivr when a proof opens; if it fails (offline, CDN blocked), Download stays disabled with no way forward.
+Plan baseline: design Issue 10 "Download only on a match".
+Runtime evidence: none yet (new code).
+Comparison grid:
+| Choice | Current | A | B |
+|---|---|---|---|
+| E5 reader unavailable | n/a | Download stays disabled; message "QR reader didn't load: check your connection" + Retry | same message + an "I scanned it with my phone" checkbox that unlocks Download for that shirt only |
+Question D6:
+D6 — If the QR reader can't load, may the admin still download?
+Header: Reader fails
+Options:
+A) Block, show Retry (recommended)
+Download stays off until the reader loads and the code matches; clear message and a Retry button.
+B) Allow a phone-scan override
+Same message, plus a per-shirt "I scanned it with my phone" checkbox that unlocks Download.
+
+State: approved
+Actual answer: A) Block, show Retry (D6, 2026-10-12)
+Accepted scope: if the reader fails to load, the proof shows "QR reader didn't load: check your connection" with Retry; Download stays disabled; no override.
+History: none
+
+### E6: where the slot detector and print-geometry code live
+Finding: E6, P2, confidence 9/10, Code quality / Test review. The placer and print-file logic (contain-fit art box, composite positions, file name) are inline in `ecommerce/dashboard.html`'s single script, which no test can load; T3's slot detector and T6's test sheet would add more pure geometry there.
+Plan baseline: design review T3/T5/T6 list only `ecommerce/dashboard.html`.
+Runtime evidence: the dashboard's inline script is one closure; the existing tests load only the Worker.
+Comparison grid:
+| Choice | Current | A | B |
+|---|---|---|---|
+| E6 code home | inline in dashboard.html | new `ecommerce/js/qr-print.js` (plain browser script, also importable by node tests): `findSlot(rgba, w, h)`, `fitArtBox`, `slotPlacement` (with D4 bleed), `printFileName`, `testSheetLayout`; dashboard calls it | keep inline; verify by hand in the local browser harness only |
+Question D7:
+D7 — Move the slot detector and print geometry into a testable file?
+Header: Code home
+Options:
+A) New qr-print.js module (recommended)
+Pure functions in ecommerce/js/qr-print.js used by the dashboard and unit-tested with node --test. Human ~1h / CC ~10 min extra.
+B) Keep inline
+Everything stays in dashboard.html; checked by hand in the local browser harness.
+
+State: approved
+Actual answer: A) New qr-print.js module (D7, 2026-10-12)
+Accepted scope: `ecommerce/js/qr-print.js` holds `findSlot`, `fitArtBox`, `slotPlacement` (D4 bleed), `printFileName`, `testSheetLayout` as pure functions; the dashboard loads it with a script tag; unit tests import it with node --test.
+History: none
+
+Approval readiness: PASS. Checked E1 (D3 A), E2 (D4 A), E3 (D5 A), E5 (D6 A), E6 (D7 A); scope D1 B, D2 B. A4 and A5 are required implementation of approved design Issues 12 and 9.
+
+## Section results (eng review 2)
+
+Section 1, Architecture:
+- [P1] (confidence: 9/10) no QR reader on Windows Chrome for the proof. Dispositions: accepted D3 A.
+- [P1] (confidence: 8/10) stripping the #FF00FF slot leaves a pink fringe. Dispositions: accepted D4 A (cover with a 0.03 in bleed).
+- [P2] (confidence: 9/10) `finalizeOrderPrintfulSubmission` re-reads the product on resubmit. Dispositions: accepted D5 A.
+- [P2] (confidence: 9/10) cloudflare/worker/index.js:4435 counts every scan. Dispositions: required for T10 (skip when admin; `verified_at`).
+- [P2] (confidence: 8/10) `emblemLayout` rounds `extent` up, so the disc is narrower than the emblem width. Dispositions: required for T2.
+
+Section 2, Code quality:
+- [P2] (confidence: 8/10) proof has no path when the reader fails to load. Dispositions: accepted D6 A.
+- [P2] (confidence: 9/10) placement maths inline in dashboard.html, untestable. Dispositions: accepted D7 A (`ecommerce/js/qr-print.js`).
+
+Section 3, Tests:
+
+```
+CODE PATHS                                              USER FLOWS
+[+] ecommerce/js/qr-print.js (new)                      [+] Place QR on a product
+  ├── findSlot()   [GAP] disc / none / <2 in / oval       ├── [GAP] PNG with slot → snap → Save
+  ├── slotPlacement() [GAP] 0.03 in bleed each side       ├── [GAP] Upload then Cancel leaves live art
+  ├── fitArtBox()  [GAP] fills / letterboxed               └── [GAP] JPEG refused
+  ├── printFileName() [GAP] order-L-S-size-code-place     [+] Print a shirt
+  └── testSheetLayout() [GAP] ruler 300 px = 1 in          ├── [GAP] [→E2E] proof decodes ✓, Download on
+[+] cloudflare/worker/index.js                             ├── [GAP] reader fails → Retry, Download off
+  ├── printFileSpec() from items_json [GAP] after edit     └── [GAP] test sheet prints 1 in at 100%
+  ├── finalize/resubmit: snapshot look + fresh variant     [+] Verify pressed shirt
+  │   [GAP] variant fixed after failure still resubmits    ├── [GAP] admin phone scan → overlay, Mark verified
+  ├── qrPng() rim [GAP] constant radius = width/2          └── [GAP] customer scan still counted
+  └── apiViewerPiece() [GAP] admin scan not counted
+
+COVERAGE: 0/17 new paths tested (all new)  |  existing: qr-emblem + self-fulfil + art-placement suites green
+QUALITY: planned ★★★ for qr-print.js tables, ★★ worker snapshot/resubmit, manual E2E print
+```
+
+Proposed tests (required proof of approved behaviour, value cards in the Test Plan artifact
+`~/.gstack/projects/Jihan0712-ar-customizer/ryley-main-eng-review-test-plan-20261012-203041.md`):
+- `test/qr-print.test.mjs`: table-driven `findSlot` (disc, none, small, oval, two blobs), `slotPlacement` bleed, `fitArtBox`, `printFileName`, `testSheetLayout`.
+- `test/self-fulfil-qr.test.mjs` (extend): placement edited after payment leaves the print spec unchanged; drift flag set.
+- `test/qr-art-placement.test.mjs` (extend): resubmit after a variant fix uses the new variant with the snapshot's art and QR.
+- `test/qr-emblem.test.mjs` (extend): rim radius constant across links and equal to half the emblem width.
+- New viewer test in `test/self-fulfil-qr.test.mjs`: admin scan of `/api/viewer/piece` leaves `scan_count`; customer scan increments it.
+- Manual: the proof's decode gate and the printed test sheet (browser + printer; not automatable here).
+
+Section 4, Performance: No issues found. `findSlot` scans 17.3 M pixels once per upload
+(about 50-100 ms, estimated); the proof composites one 3600 x 4800 canvas per shirt (about
+69 MB, freed after download) and decodes only a crop around the QR.
+
+Outside voice: unavailable (Codex not installed; this session has no TaskOutput tool for the
+native fallback). Missing coverage, not a clean result.
+
+## Revised Implementation Tasks (eng review 2)
+
+Replaces the design review's T1-T11 where they differ.
+
+- [x] **T1 (P1, human: ~2h / CC: ~15min)** — worker — print spec and resubmit read QR + art from `items_json`; variant re-read; drift flag (D2 B, D5 A)
+  - Files: cloudflare/worker/index.js, ecommerce/dashboard.html, test/self-fulfil-qr.test.mjs, test/qr-art-placement.test.mjs
+  - Verify: `npm test`
+- [x] **T2 (P1, human: ~3h / CC: ~20min)** — emblem — constant rim radius equal to half the emblem width; rings inside (A5)
+  - Files: cloudflare/worker/index.js, test/qr-emblem.test.mjs
+  - Verify: `npm test`
+- [x] **T3 (P1, human: ~1 day / CC: ~45min)** — placer — `qr-print.js` `findSlot` + `slotPlacement` with 0.03 in bleed; PNG only; slot errors (D4 A, D7 A)
+  - Files: ecommerce/js/qr-print.js (new), ecommerce/dashboard.html, test/qr-print.test.mjs (new)
+  - Verify: `npm test`; local placer run
+- [x] **T4 (P1, human: ~2h / CC: ~15min)** — placer — draft upload committed with Save; Save gated on canvas read test
+  - Files: ecommerce/dashboard.html, cloudflare/worker/index.js
+  - Verify: local placer run (Cancel keeps live art)
+- [x] **T5 (P1, human: ~4h / CC: ~30min)** — shirts — proof panel; barcode-detector polyfill decode gate; Retry on load failure; descriptive file name (D3 A, D6 A)
+  - Files: ecommerce/dashboard.html, ecommerce/js/qr-print.js
+  - Verify: local proof run; Download only after "Reads <link> ✓"
+- [x] **T6 (P2, human: ~2h / CC: ~15min)** — shirts — test sheet + "Print at 100%"
+  - Files: ecommerce/js/qr-print.js, ecommerce/dashboard.html
+  - Verify: `npm test` (layout); print at 100%, ruler = 1 in
+- [x] **T7 (P2, human: ~2h / CC: ~15min)** — shirts — per-shirt cause + fix
+  - Files: cloudflare/worker/index.js, ecommerce/dashboard.html
+  - Verify: unset PUBLIC_SITE_URL shows the cause and link
+- [x] **T8 (P2, human: ~3h / CC: ~20min)** — placer — large stage, 4x zoom, outline + sample emblem toggle
+  - Files: ecommerce/dashboard.html, cloudflare/worker/index.js
+  - Verify: local placer run
+- [x] **T9 (P2, human: ~1h / CC: ~10min)** — placer — keyboard nudge, focus ring, aria-live
+  - Files: ecommerce/dashboard.html
+  - Verify: arrows/Shift/±; screen reader announces
+- [x] **T10 (P2, human: ~3h / CC: ~20min)** — viewer — admin overlay on `/p/<code>` with Mark verified; admin scans not counted; `verified_at` migration (D2 B, A4)
+  - Files: viewer.html, cloudflare/worker/index.js, sql/ (new migration), test/self-fulfil-qr.test.mjs
+  - Verify: `npm test`; phone scan as admin
+- T11 deferred to TODO.md (D1 B).
+
+## NOT in scope (eng review 2)
+
+- T11 AR marker fingerprint: deferred to TODO.md (D1).
+- Dashboard webcam scanner: replaced by the phone scan of `/p/<code>` (D2).
+- Stripping magenta from print files: replaced by the 0.03 in bleed (D4).
+- Proof download override when the reader is down: declined (D6).
+
+## What already exists (eng review 2)
+
+- `orders.items_json` already snapshots each line's `qr` and `design_images` at checkout: reused for T1.
+- `/p/<code>` → `viewer.html` → `apiViewerPiece`: reused for T10.
+- `downloadPrintFile` / `pngAt300Dpi`: reused for the proof and test sheet.
+- `test/helpers/worker-harness.mjs`: reused for the new worker tests.
+
+## Failure modes (eng review 2)
+
+| Path | Realistic failure | Test / handling | User sees |
+|---|---|---|---|
+| Slot detection | magenta area is an oval or two blobs | findSlot table test; error | "Slot is not round" |
+| Bleed | disc diameter smaller than emblem width | rim test (T2) | none: test fails before ship |
+| Snapshot | old order without art box in items_json | falls back to the snapshot's art with fit-and-centre | proof shows the fit; drift flag if product differs |
+| Decode | reader CDN down | D6 Retry, Download disabled | clear message, Retry |
+| Verify | admin scan counted as customer scan | viewer test | none: test fails before ship |
+
+Critical gaps: 0.
+
+## Worktree parallelization strategy (eng review 2)
+
+| Step | Modules touched | Depends on |
+|------|----------------|------------|
+| T1, T2, T7, T10 worker | cloudflare/worker/, sql/, test/ | — |
+| T3, T6 qr-print.js | ecommerce/js/, test/ | — |
+| T4, T5, T8, T9 dashboard UI | ecommerce/dashboard.html | T3 (qr-print.js API) |
+| T10 viewer overlay | viewer.html | T10 worker endpoint |
+
+Lane A: worker tasks (cloudflare/worker/, sql/). Lane B: qr-print.js. Then Lane C: dashboard UI + viewer.
+Execution order: launch A + B in parallel; merge both; then C. Conflict flag: T5 and T7 both edit the Shirts modal in dashboard.html; keep them in Lane C, sequential.
+
+## Completion summary (eng review 2)
+
+- Step 0: Scope Challenge — scope reduced per recommendation (T11 deferred)
+- Reality rows: 7/7 applicable rows emitted, 1 unverified premise
+- Architecture Review: 5 issues found
+- Code Quality Review: 2 issues found
+- Test Review: diagram produced, 17 gaps identified
+- Performance Review: 0 issues found
+- NOT in scope: written
+- What already exists: written
+- TODOS.md updates: 1 item (T11, from D1)
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 0 in this review
+- Outside voice: codex, unavailable (not installed; no TaskOutput for native fallback)
+- Parallelization: 3 lanes, 2 parallel / 1 sequential
+- Lake Score: 1/5 (D3-D7 scored; only D7 A was a 10/10 option)
+
+## Reality rows (eng review 2)
+
+| premise | claim | file:line receipt | verdict |
+|---|---|---|---|
+| P1 | items_json snapshots qr and design_images | cloudflare/worker/index.js:2682, :2174, :2178 | true |
+| P2 | resubmit re-reads the product | cloudflare/worker/index.js finalizeOrderPrintfulSubmission ("Re-resolve against current D1 data") | true |
+| P3 | every piece scan is counted | cloudflare/worker/index.js:4435 | true |
+| P4 | Windows Chrome lacks BarcodeDetector | Chrome shape-detection docs (macOS, ChromeOS, Android) | true |
+| P5 | dashboard already loads from jsDelivr | ecommerce/dashboard.html:7-8 | true |
+| P6 | findSlot runs in ~50-100 ms on 17.3 M px | none | unverified |
+
+unverified=1
+
+REALITY: premise-table finding 6 premises, unverified=1 (P6) cloudflare/worker/index.js:2682
+REALITY: already-done pass no commits since 2026-10-12 implement T1-T11 (git log 083a7ed) ecommerce/dashboard.html:1
+REALITY: surface-check pass /p/<code>, /api/viewer/piece, /api/admin/orders/:id/pieces exist cloudflare/worker/index.js:4435
+REALITY: binding-decisions pass design decisions Issues 1-17 honoured; D4 supersedes Issue 8's strip, recorded docs/superpowers/specs/2026-10-02-per-shirt-qr-design.md:1069
+REALITY: numbers pass 3600 x 4800 = 17.3 M px [measured: arithmetic], 1 MB polyfill [estimated], 0.03 in bleed [decided D4] docs/superpowers/specs/2026-10-02-per-shirt-qr-design.md:1069
+REALITY: deferred-asks pass T11 deferred with reason (D1); all other design tasks kept docs/superpowers/specs/2026-10-02-per-shirt-qr-design.md:1032
+REALITY: pr-count pass default one PR; three lanes merge before UI lane docs/superpowers/specs/2026-10-02-per-shirt-qr-design.md:1032
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-| Outside Review | codex via `/plan-eng-review` | Independent 2nd opinion | 1 | unavailable | not installed; no native fallback tool |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | ISSUES OPEN | 6 issues, 1 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| Outside Review | codex via `/plan-eng-review`; Claude subagent via `/plan-design-review` | Independent 2nd opinion | 3 | unavailable (codex, both eng runs); design voice in-host completed | design: 21 subagent findings folded into Issues 1-17 |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | ISSUES OPEN | 24 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | ISSUES OPEN | score: 3/10 → 6/10, 16 decisions |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-- **OUTSIDE COVERAGE:** codex, plan-review, unavailable (CLI not installed; native fallback needs TaskOutput, absent). No findings; missing coverage, not a pass.
-- **VERDICT:** none CLEAR. Eng review has open mapped work (T1-T7) and 1 critical gap tracked as a TODO; eng review required.
+- **OUTSIDE COVERAGE:** codex unavailable for both eng plan-reviews and the design phase (CLI not installed). The design phase's in-host Claude subagent is not outside coverage.
+- **VERDICT:** none CLEAR. Eng review 2 has mapped work (revised T1-T10) with 0 critical gaps and 0 unresolved decisions; status stays issues_open until built; eng review required.
 
 NO UNRESOLVED DECISIONS
+

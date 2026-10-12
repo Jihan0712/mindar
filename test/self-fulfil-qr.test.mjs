@@ -112,3 +112,71 @@ test('a late Stripe "session expired" event leaves a self-fulfilled order paid',
     assert.deepEqual(order(h), { status: 'paid', payment_status: 'paid', printful_status: 'self', printful_order_id: null });
   } finally { h.restore(); }
 });
+
+test('self-fulfil reports a line whose product no longer exists instead of passing with no shirts', async () => {
+  const { h, admin } = await setup({ PUBLIC_SITE_URL: SITE }, { withSession: false });
+  try {
+    h.exec('update orders set items_json = ? where id = ?', JSON.stringify([
+      { slug: 'hoodie', size: 'S', qty: 1, name: 'Uni (S)' },
+      { slug: 'inrl-beta', size: 'M', qty: 1, name: 'INRL BETA (M)' },
+    ]), 'ord_1');
+    const r = await h.call('POST', '/api/admin/orders/ord_1/self-fulfil', { token: admin });
+    assert.equal(r.status, 502);
+    assert.match(r.json.error, /line 1 \(hoodie\).*no longer exists/);
+    assert.deepEqual(h.q("select item_index from garment_units where order_id = 'ord_1'"), [{ item_index: 1 }], 'the line with a product still gets its shirt');
+  } finally { h.restore(); }
+});
+
+test('an admin scan of a shirt is not counted and shows its order line; other scans are counted', async () => {
+  const { h, admin, buyer } = await setup({ PUBLIC_SITE_URL: SITE });
+  try {
+    assert.equal((await h.call('POST', '/api/admin/orders/ord_1/self-fulfil', { token: admin })).status, 200);
+    const { claim_code: code, id } = h.q("select claim_code, id from garment_units where order_id = 'ord_1' and unit_index = 1")[0];
+    const count = () => h.q('select scan_count from garment_units where id = ?', id)[0].scan_count;
+
+    const asAdmin = await h.call('GET', `/api/viewer/piece?code=${code}`, { token: admin });
+    assert.equal(asAdmin.status, 200);
+    assert.deepEqual(asAdmin.json.admin, {
+      unit_id: id, claim_code: code, order_id: 'ord_1', line: 1, shirt: 2, size: 'M', owner_email: 'buyer1@test', verified_at: null,
+    });
+    assert.equal(count(), 0, 'admin scan not counted');
+
+    const anon = await h.call('GET', `/api/viewer/piece?code=${code}`);
+    assert.equal(anon.json.admin, null);
+    await h.call('GET', `/api/viewer/piece?code=${code}`, { token: buyer });
+    assert.equal(count(), 2, 'anonymous and customer scans counted');
+
+    assert.equal((await h.call('POST', `/api/admin/pieces/${id}/verify`, { token: buyer })).status, 403);
+    const v = await h.call('POST', `/api/admin/pieces/${id}/verify`, { token: admin });
+    assert.equal(v.status, 200);
+    assert.match(v.json.verified_at, /^\d{4}-\d\d-\d\dT/);
+    const pieces = await h.call('GET', '/api/admin/orders/ord_1/pieces', { token: admin });
+    assert.equal(pieces.json.items.find(i => i.id === id).verified_at, v.json.verified_at);
+  } finally { h.restore(); }
+});
+
+test('a shirt without a QR says why: unpaid, then PUBLIC_SITE_URL missing', async () => {
+  const { h, admin } = await setup({});
+  try {
+    h.exec("insert into garment_units (id, claim_code, product_id, order_id, item_index, unit_index) values ('u_x', 'XXXX-0000', 19, 'ord_1', 0, 0)");
+    let r = await h.call('GET', '/api/admin/orders/ord_1/pieces', { token: admin });
+    assert.equal(r.json.items[0].issue, 'unpaid');
+    h.exec("update orders set payment_status = 'paid' where id = 'ord_1'");
+    r = await h.call('GET', '/api/admin/orders/ord_1/pieces', { token: admin });
+    assert.equal(r.json.items[0].issue, 'site_url');
+    assert.equal(r.json.items[0].size, 'M');
+  } finally { h.restore(); }
+});
+
+test('the QR placer gets a sample emblem PNG at the requested width; admins only', async () => {
+  const { h, admin, buyer } = await setup({ PUBLIC_SITE_URL: SITE });
+  try {
+    const worker = await h.handle(new Request('https://edge.test/api/admin/qr-sample?size_in=2.5', { headers: { Cookie: `session=${admin}` } }));
+    assert.equal(worker.status, 200);
+    assert.equal(worker.headers.get('content-type'), 'image/png');
+    const png = new Uint8Array(await worker.arrayBuffer());
+    assert.equal(new DataView(png.buffer).getUint32(16), 750, '2.5 in at 300 DPI');
+    assert.equal((await h.call('GET', '/api/admin/qr-sample?size_in=2.5', { token: buyer })).status, 403);
+    assert.equal((await h.call('GET', '/api/admin/qr-sample?size_in=9', { token: admin })).status, 400);
+  } finally { h.restore(); }
+});

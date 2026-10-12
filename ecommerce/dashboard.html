@@ -6,6 +6,7 @@
   <title>Product Dashboard | INRL</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="js/qr-print.js"></script>
   <link rel="stylesheet" type="text/css" href="css/global.css" />
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <style>
@@ -146,14 +147,24 @@
     .pd-panel-title { font-family:var(--font-body); color:var(--ink-900); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:.75rem; margin-bottom:.4rem; }
 
     /* Shirt QR placer: the print area to scale, its art, and a draggable QR */
-    .qr-stage { position:relative; width:100%; max-width:380px; margin:0 auto; border:1px solid var(--line-200);
+    .qr-stage { position:relative; width:100%; max-width:min(100%, calc((100vh - 260px) * 0.75)); margin:0 auto; border:1px solid var(--line-200);
       background:repeating-conic-gradient(#e9e9e9 0 25%, #fafafa 0 50%) 0 0 / 16px 16px; touch-action:none; user-select:none; overflow:hidden; }
     .qr-stage-art { position:absolute; pointer-events:none; }
-    .qr-stage-box { position:absolute; aspect-ratio:1; border-radius:50%; background:rgba(255,255,255,.92);
+    .qr-stage-box { position:absolute; aspect-ratio:1; border-radius:50%; background:rgba(255,255,255,.18);
       outline:2px dashed #12a2b8; cursor:move; display:flex; align-items:center; justify-content:center;
-      font-size:.6rem; font-weight:700; color:#1c5d68; }
+      font-size:.6rem; font-weight:700; color:#12a2b8; text-shadow:0 0 2px #fff; }
+    .qr-stage-box:focus-visible { outline:3px solid #12a2b8; outline-offset:2px; }
+    .qr-stage-box.has-sample { background:none; }
+    .qr-stage-box.has-sample span { display:none; }
+    .qr-stage-sample { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
     .qr-stage-handle { position:absolute; right:-6px; bottom:-6px; width:14px; height:14px; background:#12a2b8;
       border:2px solid #fff; cursor:nwse-resize; }
+    .qr-placer { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:1.25rem; align-items:start; }
+    .proof-grid { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:1.25rem; align-items:start; }
+    .proof-preview { width:100%; max-height:calc(100vh - 260px); object-fit:contain; border:1px solid var(--line-200);
+      background:repeating-conic-gradient(#e9e9e9 0 25%, #fafafa 0 50%) 0 0 / 16px 16px; }
+    .proof-code { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:1.15rem; font-weight:700; }
+    .qr-zoom { width:240px; height:240px; border:1px solid var(--line-200); background:#fafafa; image-rendering:pixelated; }
     .pd-step-panel-sub { font-size:.68rem; color:var(--ink-500); margin-bottom:.9rem; line-height:1.5; }
     .pd-step-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.25rem; }
     .pd-step-form-grid > * { margin-bottom:.65rem; }
@@ -1001,7 +1012,7 @@
 </div>
 
 <div class="modal fade" id="printfulQrModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
     <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
       <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
         <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Shirt QR placement</h5>
@@ -1010,54 +1021,58 @@
       <div class="modal-body">
         <input type="hidden" id="qrProductId" />
         <p class="form-text mt-0" id="qrProductTitle"></p>
-        <p class="form-text">Every shirt of this product is printed with its own QR, linking to that shirt's video. Positions are in inches from the top-left corner of the print area.</p>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label" for="qrPlacement">Placement</label>
-            <select id="qrPlacement" class="form-select"></select>
-            <div class="form-text" id="qrAreaHint"></div>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="qrSize">Emblem width (in)</label>
-            <input id="qrSize" class="form-control" type="number" step="0.05" min="2" max="6" value="2.5" />
-            <div class="form-text">The whole fingerprint emblem; the QR inside it is about half this. At least 2 inches so phones read it from arm's length.</div>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="qrTop">From the top (in)</label>
-            <input id="qrTop" class="form-control" type="number" step="0.05" min="0" value="12" />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="qrLeft">From the left (in)</label>
-            <div class="d-flex gap-2">
-              <input id="qrLeft" class="form-control" type="number" step="0.05" min="0" value="5.25" />
-              <button type="button" id="qrCentreBtn" class="btn btn-inrl-outline" style="white-space:nowrap">Centre horizontally</button>
+        <div class="qr-placer">
+          <!-- 1: the print area to scale, its art, and the QR -->
+          <div class="qr-placer-main">
+            <div id="qrStage" class="qr-stage" role="group" aria-label="Print area">
+              <img id="qrStageArt" class="qr-stage-art" alt="" hidden />
+              <div id="qrStageBox" class="qr-stage-box" tabindex="0" role="slider" aria-label="QR position: arrow keys move 0.05 in, Shift 0.25 in, plus and minus resize"
+                   title="Drag to move; drag the corner to resize; arrow keys nudge">
+                <img id="qrStageSample" class="qr-stage-sample" alt="" hidden />
+                <span>QR</span>
+                <div id="qrStageHandle" class="qr-stage-handle" title="Drag to resize"></div>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="mt-3">
-          <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-            <span class="form-label mb-0">Drag the QR onto your design</span>
-            <label class="btn btn-sm btn-inrl-outline mb-0" style="font-size:.62rem">Upload print file&#8230;
-              <input type="file" id="qrArtFile" accept="image/png,image/jpeg" hidden />
+          <!-- 2: slot close-up, 3: status and actions -->
+          <div class="qr-placer-side">
+            <div class="form-label mb-1">Slot close-up (4&times;)</div>
+            <canvas id="qrZoom" class="qr-zoom" width="240" height="240" aria-hidden="true"></canvas>
+            <label class="form-check mt-2 mb-0" style="font-size:.72rem">
+              <input type="checkbox" class="form-check-input" id="qrShowSample" /> Show a real sample emblem
             </label>
+            <div id="qrStageHint" class="form-text mt-2"></div>
+            <div id="qrSlotStatus" class="mt-2" style="font-size:.72rem"></div>
+            <label class="btn btn-sm btn-inrl-outline mt-2 mb-0" style="font-size:.62rem">Upload print file (PNG)&#8230;
+              <input type="file" id="qrArtFile" accept="image/png" hidden />
+            </label>
+            <div class="form-text">Export the design at the print area size (300 DPI) and mark the QR spot with a solid #FF00FF disc. The QR snaps to it.</div>
+            <details class="mt-3" id="qrExact">
+              <summary class="form-label mb-1" style="cursor:pointer">Exact values</summary>
+              <label class="form-label mt-2" for="qrPlacement">Placement</label>
+              <select id="qrPlacement" class="form-select form-select-sm"></select>
+              <div class="form-text" id="qrAreaHint"></div>
+              <label class="form-label mt-2" for="qrSize">Emblem width (in)</label>
+              <input id="qrSize" class="form-control form-control-sm" type="number" step="0.05" min="2" max="6" />
+              <label class="form-label mt-2" for="qrTop">From the top (in)</label>
+              <input id="qrTop" class="form-control form-control-sm" type="number" step="0.05" min="0" />
+              <label class="form-label mt-2" for="qrLeft">From the left (in)</label>
+              <div class="d-flex gap-2">
+                <input id="qrLeft" class="form-control form-control-sm" type="number" step="0.05" min="0" />
+                <button type="button" id="qrCentreBtn" class="btn btn-sm btn-inrl-outline" style="white-space:nowrap">Centre</button>
+              </div>
+            </details>
           </div>
-          <div id="qrStage" class="qr-stage" aria-label="Print area">
-            <img id="qrStageArt" class="qr-stage-art" alt="" hidden />
-            <div id="qrStageBox" class="qr-stage-box" title="Drag to move; drag the corner to resize">
-              <span>QR</span>
-              <div id="qrStageHandle" class="qr-stage-handle" title="Drag to resize"></div>
-            </div>
-          </div>
-          <div class="form-text" id="qrStageHint"></div>
         </div>
         <p id="qrModalStatus" class="mt-3 mb-2" role="status" aria-live="polite"></p>
         <div id="qrPreview" class="d-flex flex-wrap gap-2"></div>
       </div>
       <div class="modal-footer" style="border-top:1px solid var(--line-200);justify-content:space-between">
-        <button type="button" id="qrPreviewBtn" class="btn btn-inrl-outline">Preview</button>
-        <div class="d-flex gap-2">
+        <button type="button" id="qrPreviewBtn" class="btn btn-inrl-outline" title="A Printful mockup with a sample QR: checks garment placement, not each shirt">Printful preview</button>
+        <div class="d-flex gap-2 align-items-center">
+          <span id="qrSaveReason" class="form-text m-0"></span>
           <button type="button" class="btn btn-inrl-outline" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" id="qrSaveBtn" class="btn btn-inrl">Save</button>
+          <button type="button" id="qrSaveBtn" class="btn btn-inrl" disabled>Save</button>
         </div>
       </div>
     </div>
@@ -1065,7 +1080,7 @@
 </div>
 
 <div class="modal fade" id="orderShirtsModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
     <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
       <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
         <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Shirts in this order</h5>
@@ -1074,11 +1089,37 @@
       <div class="modal-body">
         <p class="form-text mt-0" id="orderShirtsMeta"></p>
         <p id="orderShirtsStatus" role="status" aria-live="polite"></p>
-        <div class="table-responsive">
+        <div class="table-responsive" id="orderShirtsList">
           <table class="table mb-0 inrl-table" style="border-collapse:collapse">
             <thead><tr><th>QR</th><th>Shirt</th><th>Owner</th><th>Video</th><th>Scans</th></tr></thead>
             <tbody id="orderShirtsTbody"></tbody>
           </table>
+        </div>
+        <!-- One shirt's proof: its own print file (art + its QR) checked before download -->
+        <div id="shirtProof" hidden>
+          <button type="button" class="btn btn-sm btn-inrl-outline mb-3" id="proofBackBtn">&larr; All shirts</button>
+          <div class="proof-grid">
+            <div>
+              <canvas id="proofPreview" class="proof-preview" aria-label="Print file preview"></canvas>
+            </div>
+            <div>
+              <div id="proofCode" class="proof-code"></div>
+              <div id="proofMeta" class="form-text mt-1"></div>
+              <div id="proofDrift" class="mt-2" style="font-size:.72rem;color:#c17a2e" hidden></div>
+              <div class="form-label mt-3 mb-1">QR close-up</div>
+              <canvas id="proofZoom" class="qr-zoom" width="240" height="240" aria-hidden="true"></canvas>
+              <div id="proofDecode" class="mt-2" role="status" aria-live="polite" style="font-size:.78rem"></div>
+              <button type="button" class="btn btn-sm btn-inrl-outline mt-1" id="proofRetryBtn" hidden>Retry</button>
+              <div class="mt-3">
+                <button type="button" class="btn btn-inrl" id="proofDownloadBtn" disabled>Download print file</button>
+                <div class="form-text" id="proofSize"></div>
+                <div class="form-text" style="font-weight:700">Print at 100% / Actual size, not Fit to page.</div>
+              </div>
+              <button type="button" class="btn btn-sm btn-inrl-outline mt-2" id="proofSheetBtn" disabled>Download paper test sheet</button>
+              <div class="form-text">Print it at 100% first: both rulers must measure exactly 1 in and 25 mm.</div>
+              <div class="mt-3" id="proofVerified" style="font-size:.72rem"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer" style="border-top:1px solid var(--line-200);justify-content:space-between">
@@ -2021,9 +2062,10 @@
       var shirtsOrderId = null;
       var shirtsItems = [];
 
-      // One shirt's print file: the print area at 300 DPI with the art in its saved box and
-      // this shirt's own QR at the saved position — the same numbers the QR placer and the
-      // Printful order use. A pHYs chunk marks it 300 DPI so it prints at the right size.
+      // One shirt's print file: the print area at 300 DPI with the art in its box and this
+      // shirt's own QR at its position, both as the shirt was sold (the order's snapshot) —
+      // the same numbers the QR placer and the Printful order use. A pHYs chunk marks it
+      // 300 DPI so it prints at the right size.
       function loadCorsImage(url) {
         return new Promise(function(resolve, reject) {
           var img = new Image();
@@ -2058,44 +2100,199 @@
         out.set(png.subarray(0, at), 0); out.set(chunk, at); out.set(png.subarray(at), at + chunk.length);
         return new Blob([out], { type: 'image/png' });
       }
-      async function downloadPrintFile(u) {
-        var spec = u.print, q = spec.qr;
-        var W = Math.round(q.area_width_in * 300), H = Math.round(q.area_height_in * 300);
-        var canvas = document.createElement('canvas');
-        canvas.width = W; canvas.height = H;
-        var ctx = canvas.getContext('2d');
-        if (spec.art_url) {
-          var art = await loadCorsImage(spec.art_url);
-          var box = q.art && q.art.url === spec.art_url ? q.art : null;
-          if (!box) {
-            var s = Math.min(q.area_width_in / art.naturalWidth, q.area_height_in / art.naturalHeight);
-            var bw = art.naturalWidth * s, bh = art.naturalHeight * s;
-            box = { left_in: (q.area_width_in - bw) / 2, top_in: (q.area_height_in - bh) / 2, width_in: bw, height_in: bh };
-          }
-          ctx.drawImage(art, Math.round(box.left_in * 300), Math.round(box.top_in * 300), Math.round(box.width_in * 300), Math.round(box.height_in * 300));
-        }
-        var qrImg = await loadCorsImage(u.qr_url);
-        // The QR PNG is already exactly its print size at 300 DPI — draw it 1:1.
-        ctx.drawImage(qrImg, Math.round(q.left_in * 300), Math.round(q.top_in * 300));
-        var blob = await new Promise(function(resolve, reject) {
+      function canvasBlob(canvas) {
+        return new Promise(function(resolve, reject) {
           try { canvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('Could not build the PNG')); }, 'image/png'); }
           catch (e) { reject(new Error('The browser blocked reading the art file. Upload it again through QR placement → Upload print file.')); }
         });
-        var file = await pngAt300Dpi(blob);
+      }
+      async function savePng(canvas, name) {
+        var file = await pngAt300Dpi(await canvasBlob(canvas));
         var a = document.createElement('a');
         a.href = URL.createObjectURL(file);
-        a.download = u.claim_code + '-' + q.placement + '-print.png';
+        a.download = name;
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(function() { URL.revokeObjectURL(a.href); }, 10000);
-        return { W: W, H: H };
       }
+      async function composePrintFile(u) {
+        var spec = u.print, q = spec.qr;
+        if (!spec.art_url) throw new Error('This shirt has no print file for its placement: save QR placement with a print file first.');
+        var W = Math.round(q.area_width_in * 300), H = Math.round(q.area_height_in * 300);
+        var canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        var ctx = canvas.getContext('2d', { willReadFrequently: true });
+        var art = await loadCorsImage(spec.art_url);
+        var box = q.art && q.art.url === spec.art_url ? q.art
+          : QrPrint.fitArtBox({ w: q.area_width_in, h: q.area_height_in }, { w: art.naturalWidth, h: art.naturalHeight });
+        ctx.drawImage(art, Math.round(box.left_in * 300), Math.round(box.top_in * 300), Math.round(box.width_in * 300), Math.round(box.height_in * 300));
+        var qrImg = await loadCorsImage(u.qr_url);
+        // The QR PNG is already exactly its print size at 300 DPI — draw it 1:1.
+        var qx = Math.round(q.left_in * 300), qy = Math.round(q.top_in * 300);
+        ctx.drawImage(qrImg, qx, qy);
+        return { canvas: canvas, W: W, H: H, qrImg: qrImg, qr: { x: qx, y: qy, size: qrImg.naturalWidth } };
+      }
+
+      // The QR reader for the proof: the browser's own BarcodeDetector when it reads QR codes,
+      // else the barcode-detector ponyfill (ZXing in WebAssembly) from jsDelivr, loaded on first
+      // use. A failed load is not cached, so Retry tries again.
+      var qrDetectorPromise = null;
+      function getQrDetector() {
+        if (!qrDetectorPromise) {
+          qrDetectorPromise = (async function() {
+            if ('BarcodeDetector' in window) {
+              try {
+                var formats = await window.BarcodeDetector.getSupportedFormats();
+                if (formats.indexOf('qr_code') !== -1) return new window.BarcodeDetector({ formats: ['qr_code'] });
+              } catch (e) {}
+            }
+            var mod = await import('https://cdn.jsdelivr.net/npm/barcode-detector@3.2.1/dist/es/ponyfill.min.js');
+            return new mod.BarcodeDetector({ formats: ['qr_code'] });
+          })();
+          qrDetectorPromise.catch(function() { qrDetectorPromise = null; });
+        }
+        return qrDetectorPromise;
+      }
+      // Reads the QR back out of the composed print file: a crop around the emblem (the art
+      // around it included, since art overlapping the code is what can break it).
+      async function readQrFromPrintFile(composed) {
+        var detector = await getQrDetector();
+        var pad = Math.round(composed.qr.size * 0.15), side = composed.qr.size + 2 * pad;
+        var scale = Math.min(1, 1000 / side);
+        var crop = document.createElement('canvas');
+        crop.width = Math.round(side * scale); crop.height = crop.width;
+        crop.getContext('2d').drawImage(composed.canvas, composed.qr.x - pad, composed.qr.y - pad, side, side, 0, 0, crop.width, crop.height);
+        var found = await detector.detect(await canvasBlob(crop));
+        return found.length ? String(found[0].rawValue || '') : null;
+      }
+
       function shirtsStatus(msg, isError) {
         var st = document.getElementById('orderShirtsStatus');
         st.textContent = msg || '';
         st.style.color = isError ? '#b23b3b' : 'var(--ink-500)';
       }
+      function shirtLabel(u) {
+        return 'Line ' + (u.item_index + 1) + ', shirt ' + (u.unit_index + 1) + (u.size ? ' · size ' + u.size : '');
+      }
+      function shirtFileName(u) {
+        return QrPrint.printFileName({ order: shirtsOrderId, line: u.item_index + 1, shirt: u.unit_index + 1, size: u.size, code: u.claim_code, placement: u.print.qr.placement });
+      }
+      // Why a shirt can't be printed yet, and what fixes it (server reports the cause).
+      function shirtIssueHtml(u) {
+        var map = {
+          unpaid: 'No QR yet: the order isn\'t paid. Use <b>Mark paid (self-fulfil)</b> if you\'re printing it yourself.',
+          site_url: 'No QR: <b>PUBLIC_SITE_URL</b> isn\'t set on the Worker. Set it, then click <b>Generate missing QR codes</b>.',
+          qr_missing: 'No QR yet: click <b>Generate missing QR codes</b>.',
+          no_placement: 'No print file: <button type="button" class="btn btn-link p-0 align-baseline" style="font-size:inherit" data-open-qr="' + escapeHtml(String(u.product.id)) + '">save QR placement</button> for this product.',
+        };
+        return u.issue && map[u.issue] ? '<div style="font-size:.66rem;color:#c17a2e;max-width:180px">' + map[u.issue] + '</div>' : '';
+      }
+      function shirtVerifiedHtml(u) {
+        return u.verified_at ? '<div style="font-size:.62rem;color:#1c5d68">&#10003; Verified ' + escapeHtml(String(u.verified_at).slice(0, 10)) + '</div>' : '';
+      }
+
+      // ---- Proof view (inside the Shirts window) ----
+      var proofShirt = null, proofComposed = null;
+      function proofSetDecode(html, color) {
+        var el = document.getElementById('proofDecode');
+        el.innerHTML = html; el.style.color = color || 'var(--ink-500)';
+      }
+      function proofRenderVerified() {
+        var u = proofShirt, el = document.getElementById('proofVerified');
+        el.innerHTML = u.verified_at
+          ? '<span style="color:#1c5d68">&#10003; Verified ' + escapeHtml(String(u.verified_at).slice(0, 16).replace('T', ' ')) + '</span>'
+          : 'Not verified yet: scan the pressed shirt with your phone while signed in, or <button type="button" class="btn btn-link p-0 align-baseline" style="font-size:inherit" id="proofVerifyBtn">mark it verified</button> after checking it.';
+        var vb = document.getElementById('proofVerifyBtn');
+        if (vb) vb.onclick = async function() {
+          try {
+            var r = await apiFetch('/admin/pieces/' + encodeURIComponent(u.id) + '/verify', { method: 'POST', body: {} });
+            u.verified_at = r.verified_at; proofRenderVerified();
+          } catch (e) { proofSetDecode('Verify failed: ' + escapeHtml(e.message || String(e)), '#b23b3b'); }
+        };
+      }
+      async function proofCheckDecode() {
+        var dl = document.getElementById('proofDownloadBtn'), retry = document.getElementById('proofRetryBtn');
+        dl.disabled = true; retry.hidden = true;
+        proofSetDecode('Reading the QR from the print file…');
+        try {
+          var text = await readQrFromPrintFile(proofComposed);
+          if (text === proofShirt.link) {
+            proofSetDecode('&#10003; Reads ' + escapeHtml(text), '#1c5d68');
+            dl.disabled = false;
+          } else if (text) {
+            proofSetDecode('&#10007; Reads ' + escapeHtml(text) + ', not this shirt\'s link ' + escapeHtml(proofShirt.link) + '. Don\'t print it.', '#b23b3b');
+          } else {
+            proofSetDecode('&#10007; No readable QR in the print file. Check that the art doesn\'t cover the emblem, then fix the placement.', '#b23b3b');
+          }
+        } catch (e) {
+          proofSetDecode('QR reader didn\'t load: check your connection. Download stays off until the code is checked.', '#b23b3b');
+          retry.hidden = false;
+        }
+      }
+      async function openProof(u) {
+        proofShirt = u; proofComposed = null;
+        document.getElementById('orderShirtsList').hidden = true;
+        document.getElementById('shirtProof').hidden = false;
+        document.getElementById('proofCode').textContent = u.claim_code;
+        document.getElementById('proofMeta').textContent = shirtLabel(u) + ' · ' + (u.owner_email || 'unowned') + ' · ' + shirtFileName(u);
+        var drift = document.getElementById('proofDrift');
+        drift.hidden = !u.print.drift;
+        drift.textContent = 'Product placement changed since this order. This shirt still prints as it was sold.';
+        document.getElementById('proofDownloadBtn').disabled = true;
+        document.getElementById('proofSheetBtn').disabled = true;
+        document.getElementById('proofSize').textContent = '';
+        proofRenderVerified();
+        proofSetDecode('Building the proof…');
+        try {
+          proofComposed = await composePrintFile(u);
+          if (proofShirt !== u) return;
+          var pv = document.getElementById('proofPreview'), c = proofComposed.canvas;
+          var w = Math.min(900, c.width);
+          pv.width = w; pv.height = Math.round(c.height * w / c.width);
+          pv.getContext('2d').drawImage(c, 0, 0, pv.width, pv.height);
+          var z = document.getElementById('proofZoom'), zc = z.getContext('2d'), q = proofComposed.qr;
+          var pad = Math.round(q.size * 0.25);
+          zc.clearRect(0, 0, z.width, z.height);
+          zc.drawImage(c, q.x - pad, q.y - pad, q.size + 2 * pad, q.size + 2 * pad, 0, 0, z.width, z.height);
+          var qin = u.print.qr;
+          document.getElementById('proofSize').textContent = c.width + ' × ' + c.height + ' px, 300 DPI = ' + qin.area_width_in + ' × ' + qin.area_height_in + ' in';
+          document.getElementById('proofSheetBtn').disabled = false;
+          await proofCheckDecode();
+        } catch (e) {
+          proofSetDecode(escapeHtml(e.message || String(e)), '#b23b3b');
+        }
+      }
+      function closeProof() {
+        proofShirt = null; proofComposed = null;
+        document.getElementById('shirtProof').hidden = true;
+        document.getElementById('orderShirtsList').hidden = false;
+      }
+      async function downloadTestSheet() {
+        var u = proofShirt, comp = proofComposed;
+        var name = shirtFileName(u).replace(/\.png$/, '');
+        var t = QrPrint.testSheetLayout({ qrSizeIn: comp.qrImg.naturalWidth / 300, label: name });
+        var cv = document.createElement('canvas');
+        cv.width = t.width; cv.height = t.height;
+        var ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.drawImage(comp.qrImg, t.qr.x, t.qr.y);
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.fillStyle = '#000';
+        t.corners.forEach(function(c) {
+          ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + c.dx, c.y); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x, c.y + c.dy); ctx.stroke();
+        });
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 42px sans-serif'; ctx.fillText(t.label.text, t.label.x, t.label.y);
+        t.rulers.forEach(function(r) {
+          ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(r.x + r.length, r.y);
+          ctx.moveTo(r.x, r.y - 24); ctx.lineTo(r.x, r.y + 24); ctx.moveTo(r.x + r.length, r.y - 24); ctx.lineTo(r.x + r.length, r.y + 24); ctx.stroke();
+          ctx.font = '34px sans-serif'; ctx.fillText(r.label, r.x + r.length / 2, r.y - 36);
+        });
+        ctx.font = '30px sans-serif'; ctx.fillText(t.note.text, t.note.x, t.note.y);
+        await savePng(cv, name + '-test-sheet.png');
+      }
+
       async function openOrderShirts(orderId) {
         shirtsOrderId = orderId;
+        closeProof();
         var tbody = document.getElementById('orderShirtsTbody');
         tbody.innerHTML = '';
         document.getElementById('orderShirtsMeta').textContent = orderId;
@@ -2121,18 +2318,20 @@
           tbody.innerHTML = items.length ? items.map(function(u) {
             var qr = u.qr_url
               ? '<a href="' + escapeHtml(u.qr_url) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u.qr_url) + '" alt="QR ' + escapeHtml(u.claim_code) + '" width="56" height="56" style="background:#fff"></a>' +
-                (u.print ? '<div><button type="button" class="btn btn-sm btn-inrl-outline mt-1" style="font-size:.58rem;padding:.15rem .45rem" data-print-file="' + escapeHtml(u.id) + '">Print file</button></div>' : '')
-              : '<span style="color:var(--ink-500);font-size:.7rem">' + (u.product.has_ar ? 'not generated' : 'no AR') + '</span>';
+                (u.print ? '<div><button type="button" class="btn btn-sm btn-inrl-outline mt-1" style="font-size:.58rem;padding:.15rem .45rem" data-proof="' + escapeHtml(u.id) + '">Proof &amp; print</button></div>' : '')
+              : '<span style="color:var(--ink-500);font-size:.7rem">' + (u.product.has_ar ? 'no QR' : 'no AR') + '</span>';
             return '<tr>' +
-              '<td>' + qr + '</td>' +
+              '<td>' + qr + shirtIssueHtml(u) + '</td>' +
               '<td><div style="font-weight:700">' + escapeHtml(u.nickname || u.product.title || '') + '</div>' +
-                '<div style="font-size:.66rem;color:var(--ink-500)"><code>' + escapeHtml(u.claim_code) + '</code> · line ' + (u.item_index + 1) + ', shirt ' + (u.unit_index + 1) + '</div>' +
+                '<div style="font-size:.66rem;color:var(--ink-500)"><code>' + escapeHtml(u.claim_code) + '</code> · ' + escapeHtml(shirtLabel(u)) + '</div>' +
+                (u.print && u.print.drift ? '<div style="font-size:.62rem;color:#c17a2e">Product placement changed since this order</div>' : '') +
+                shirtVerifiedHtml(u) +
                 '<a href="' + escapeHtml(u.link) + '" target="_blank" rel="noopener" style="font-size:.66rem">' + escapeHtml(u.link) + '</a></td>' +
               '<td style="font-size:.72rem">' + escapeHtml(u.owner_email || '— unowned') + '</td>' +
               '<td style="font-size:.72rem">' + (u.version ? 'Own video · v' + u.version : 'Default') + '</td>' +
               '<td style="font-size:.72rem">' + escapeHtml(String(u.scan_count || 0)) + '</td>' +
             '</tr>';
-          }).join('') : '<tr><td colspan="5" class="text-center p-4" style="color:var(--ink-500)">No shirts minted for this order (it has not been paid).</td></tr>';
+          }).join('') : '<tr><td colspan="5" class="text-center p-4" style="color:var(--ink-500)">No shirts for this order yet: they are created when it is paid (or marked paid with Mark paid (self-fulfil)).</td></tr>';
           shirtsStatus('');
         } catch (e) {
           shirtsStatus('Shirts failed to load: ' + (e.message || String(e)), true);
@@ -2145,18 +2344,33 @@
       });
       var orderShirtsTbodyEl = document.getElementById('orderShirtsTbody');
       if (orderShirtsTbodyEl) orderShirtsTbodyEl.addEventListener('click', async function(ev) {
-        var btn = ev.target.closest('button[data-print-file]');
+        var openQr = ev.target.closest('[data-open-qr]');
+        if (openQr) {
+          if (shirtsModalInstance) shirtsModalInstance.hide();
+          if (!printfulProducts.length) await loadPrintfulProducts();
+          openQrModal(openQr.getAttribute('data-open-qr'));
+          return;
+        }
+        var btn = ev.target.closest('button[data-proof]');
         if (!btn) return;
-        var u = shirtsItems.find(function(x) { return String(x.id) === btn.getAttribute('data-print-file'); });
-        if (!u || !u.print) return;
+        var u = shirtsItems.find(function(x) { return String(x.id) === btn.getAttribute('data-proof'); });
+        if (u && u.print) openProof(u);
+      });
+      document.getElementById('proofBackBtn').addEventListener('click', closeProof);
+      document.getElementById('proofRetryBtn').addEventListener('click', proofCheckDecode);
+      document.getElementById('proofDownloadBtn').addEventListener('click', async function() {
+        var btn = this;
+        if (!proofComposed || btn.disabled) return;
         btn.disabled = true;
-        shirtsStatus('Building the print file for ' + u.claim_code + '…');
         try {
-          var r = await downloadPrintFile(u);
-          shirtsStatus(u.claim_code + ': ' + r.W + ' × ' + r.H + ' px at 300 DPI (' + u.print.qr.area_width_in + ' × ' + u.print.qr.area_height_in + ' in), downloaded.');
+          await savePng(proofComposed.canvas, shirtFileName(proofShirt));
+          shirtsStatus(proofShirt.claim_code + ': print file downloaded. Print at 100% / Actual size.');
         } catch (e) {
           shirtsStatus('Print file failed: ' + (e.message || String(e)), true);
         } finally { btn.disabled = false; }
+      });
+      document.getElementById('proofSheetBtn').addEventListener('click', async function() {
+        try { await downloadTestSheet(); } catch (e) { shirtsStatus('Test sheet failed: ' + (e.message || String(e)), true); }
       });
       var orderResubmitBtn = document.getElementById('orderResubmitBtn');
       if (orderResubmitBtn) orderResubmitBtn.addEventListener('click', async function() {
@@ -2182,7 +2396,7 @@
           var r = await apiFetch('/admin/orders/' + encodeURIComponent(shirtsOrderId) + '/self-fulfil', { method: 'POST', body: {} });
           await loadAndRenderOrders();
           await openOrderShirts(shirtsOrderId);
-          shirtsStatus(r.shirts + ' shirt(s), ' + r.qr_codes + ' QR code(s). Use Print file on each shirt to download its print-ready PNG.');
+          shirtsStatus(r.shirts + ' shirt(s), ' + r.qr_codes + ' QR code(s). Open Proof & print on each shirt to check and download its print file.');
         } catch (e) {
           shirtsStatus('Self-fulfil failed: ' + (e.message || String(e)), true);
         } finally { orderSelfFulfilBtn.disabled = false; }
@@ -2491,9 +2705,21 @@
       var printfulModalInstance = printfulModalEl ? new bootstrap.Modal(printfulModalEl) : null;
 
       // ---- Shirt QR placement (products.printful_qr) ----
+      // The print area is drawn to scale with the placement's art fitted whole and centred
+      // (that box is saved and sent to Printful as the art's position, and used for each
+      // shirt's print file). The art marks the QR spot with a solid #FF00FF disc: the QR snaps
+      // to it, 0.03 in larger on every side so its white disc hides the marker. Save stays off
+      // until the art has loaded, can be read for print files, and has a slot. An upload is a
+      // draft: it replaces the product's print file only when Save is pressed.
       var qrModalEl = document.getElementById('printfulQrModal');
       var qrModalInstance = qrModalEl ? new bootstrap.Modal(qrModalEl) : null;
       var qrPlacements = [];
+      var qrProduct = null;
+      var qrArt = null;      // { url, w, h, isPhoto, canvas, readable, slot } for the selected placement
+      var qrDraft = null;    // { placement, url } uploaded but not saved yet
+      var qrSnap = null;     // { size_in, top_in, left_in } detected from the slot
+      var qrArtLoadSeq = 0;
+      var qrSampleUrl = null, qrSampleSize = null;
       function qrEl(id) { return document.getElementById(id); }
       function qrSetStatus(msg, isError) {
         var st = qrEl('qrModalStatus');
@@ -2505,13 +2731,8 @@
         if (!pl || !pl.print_area_width || !pl.print_area_height) return null;
         return { w: Number(pl.print_area_width), h: Number(pl.print_area_height) };
       }
-      // The placer draws the print area to scale. The art is fitted inside it whole and
-      // centred (the same box is saved and sent to Printful as the art's position, and used
-      // for the shop's own print files), so where the QR sits on screen is where it prints.
-      var qrProduct = null;
-      var qrArt = null; // { url, w, h, isPhoto } — natural pixel size of the placement's art
-      var qrArtLoadSeq = 0;
       function qrArtUrlFor(placement) {
+        if (qrDraft && qrDraft.placement === placement) return { url: qrDraft.url, isPhoto: false };
         var images = (qrProduct && qrProduct.printful_design_images) || {};
         if (images[placement]) return { url: images[placement], isPhoto: false };
         if (placement === 'front' && qrProduct && qrProduct.image_url) return { url: qrProduct.image_url, isPhoto: true };
@@ -2520,15 +2741,72 @@
       function qrArtBox() {
         var a = qrCurrentArea();
         if (!a || !qrArt) return null;
-        var s = Math.min(a.w / qrArt.w, a.h / qrArt.h);
-        var w = qrArt.w * s, h = qrArt.h * s;
-        var r = function(n) { return Math.round(n * 10000) / 10000; };
-        return { url: qrArt.url, top_in: r((a.h - h) / 2), left_in: r((a.w - w) / 2), width_in: r(w), height_in: r(h) };
+        return Object.assign({ url: qrArt.url }, QrPrint.fitArtBox(a, qrArt));
+      }
+      function qrValues() {
+        return { size: Number(qrEl('qrSize').value) || 0, top: Number(qrEl('qrTop').value) || 0, left: Number(qrEl('qrLeft').value) || 0 };
+      }
+      function qrSetValues(v) {
+        qrEl('qrSize').value = Number(v.size_in).toFixed(2);
+        qrEl('qrTop').value = Number(v.top_in).toFixed(2);
+        qrEl('qrLeft').value = Number(v.left_in).toFixed(2);
+      }
+      // Why Save is off, or '' when it can be pressed.
+      function qrSaveBlocker() {
+        var a = qrCurrentArea();
+        if (!a) return 'Pick a placement with a known print area.';
+        if (!qrArt) return 'No print file for this placement yet.';
+        if (qrArt.isPhoto) return 'This is the storefront photo: upload the real print file.';
+        if (!qrArt.readable) return "This file can't be used for print files: re-upload it.";
+        if (!qrArt.slot || qrArt.slot.error) return 'No usable #FF00FF slot in the print file.';
+        var v = qrValues();
+        if (!(v.size >= 2 && v.size <= 6)) return 'Emblem width must be 2 to 6 in.';
+        if (v.left + v.size > a.w + 0.01 || v.top + v.size > a.h + 0.01) return 'The QR must sit inside the print area.';
+        return '';
+      }
+      function qrUpdateSave() {
+        var why = qrSaveBlocker();
+        qrEl('qrSaveBtn').disabled = !!why;
+        qrEl('qrSaveReason').textContent = why;
+      }
+      function qrSlotStatus() {
+        var el = qrEl('qrSlotStatus');
+        if (!qrArt || !qrArt.readable) { el.textContent = ''; return; }
+        var s = qrArt.slot;
+        if (!s || s.error === 'none') { el.innerHTML = '<span style="color:#b23b3b">No #FF00FF slot found.</span> Mark the QR spot with a solid #FF00FF disc and re-upload.'; return; }
+        if (s.error === 'not_round') { el.innerHTML = '<span style="color:#b23b3b">The #FF00FF area is not one round disc.</span> Use a single solid circle.'; return; }
+        if (s.error === 'too_small') { el.innerHTML = '<span style="color:#b23b3b">The slot is under 2 in.</span> Make it at least 2 in wide.'; return; }
+        var v = qrValues();
+        var off = qrSnap && (Math.abs(v.size - qrSnap.size_in) > 0.005 || Math.abs(v.top - qrSnap.top_in) > 0.005 || Math.abs(v.left - qrSnap.left_in) > 0.005);
+        el.innerHTML = off
+          ? '<span style="color:#c17a2e">Moved off the slot.</span> <button type="button" class="btn btn-sm btn-inrl-outline" id="qrSnapBtn" style="font-size:.58rem;padding:.1rem .45rem">Snap back</button>'
+          : '<span style="color:#1c5d68">&#10003; Snapped to the slot:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in';
+        var snapBtn = qrEl('qrSnapBtn');
+        if (snapBtn) snapBtn.onclick = function() { qrSetValues(qrSnap); qrRender(); };
+      }
+      function qrRenderZoom() {
+        var cv = qrEl('qrZoom'), ctx = cv.getContext('2d'), a = qrCurrentArea();
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        if (!a) return;
+        var v = qrValues(), ab = qrArtBox();
+        // Region: the QR square plus a quarter of its size on every side, in inches.
+        var pad = v.size * 0.25, rx = v.left - pad, ry = v.top - pad, rs = v.size + 2 * pad;
+        var k = cv.width / rs; // canvas px per inch
+        if (ab && qrArt && qrArt.canvas) {
+          var ppi = qrArt.w / ab.width_in; // art px per inch
+          ctx.drawImage(qrArt.canvas, (rx - ab.left_in) * ppi, (ry - ab.top_in) * ppi, rs * ppi, rs * ppi, 0, 0, cv.width, cv.height);
+        }
+        var x = (v.left - rx) * k, y = (v.top - ry) * k, d = v.size * k;
+        var sample = qrEl('qrShowSample').checked && qrEl('qrStageSample').complete && !qrEl('qrStageSample').hidden ? qrEl('qrStageSample') : null;
+        if (sample) ctx.drawImage(sample, x, y, d, d);
+        ctx.strokeStyle = '#12a2b8'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.arc(x + d / 2, y + d / 2, d / 2, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
       }
       function qrRender() {
         var a = qrCurrentArea();
         var stage = qrEl('qrStage'), art = qrEl('qrStageArt'), box = qrEl('qrStageBox');
-        if (!a) { stage.style.display = 'none'; return; }
+        if (!a) { stage.style.display = 'none'; qrUpdateSave(); return; }
         stage.style.display = '';
         stage.style.aspectRatio = a.w + ' / ' + a.h;
         var ab = qrArtBox();
@@ -2539,46 +2817,74 @@
           art.style.width = (ab.width_in / a.w * 100) + '%';
           art.style.height = (ab.height_in / a.h * 100) + '%';
         }
-        var size = Number(qrEl('qrSize').value) || 0, top = Number(qrEl('qrTop').value) || 0, left = Number(qrEl('qrLeft').value) || 0;
-        box.style.left = (left / a.w * 100) + '%';
-        box.style.top = (top / a.h * 100) + '%';
-        box.style.width = (size / a.w * 100) + '%';
-        box.querySelector('span').textContent = 'QR ' + size.toFixed(2) + '"';
+        var v = qrValues();
+        box.style.left = (v.left / a.w * 100) + '%';
+        box.style.top = (v.top / a.h * 100) + '%';
+        box.style.width = (v.size / a.w * 100) + '%';
+        box.querySelector('span').textContent = 'QR ' + v.size.toFixed(2) + '"';
+        box.setAttribute('aria-valuetext', 'QR ' + v.size.toFixed(2) + ' inches wide, ' + v.left.toFixed(2) + ' from the left, ' + v.top.toFixed(2) + ' from the top');
+        qrRenderZoom();
+        qrSlotStatus();
+        qrUpdateSave();
       }
       function qrShowArtHint() {
         var hint = qrEl('qrStageHint');
         var ab = qrArtBox();
         if (!qrArt || !ab) {
-          hint.textContent = 'No print file for this placement yet. Upload one: export your design at the print area size (300 DPI) with the QR spot left empty.';
+          hint.textContent = 'No print file for this placement yet.';
           return;
         }
         var dpi = Math.round(qrArt.w / ab.width_in);
         var a = qrCurrentArea();
         var fills = Math.abs(ab.width_in - a.w) < 0.02 && Math.abs(ab.height_in - a.h) < 0.02;
-        hint.textContent = (qrArt.isPhoto ? 'Using the storefront photo — upload the real print file. ' : '') +
+        hint.textContent = (qrDraft ? 'Unsaved upload. ' : '') + (qrArt.isPhoto ? 'Storefront photo, not a print file. ' : '') +
           'Print file ' + qrArt.w + ' × ' + qrArt.h + ' px, ' + dpi + ' DPI' +
           (fills ? ', fills the print area exactly.' : '; its shape differs from the print area, so it is centred with empty margins.') +
           (dpi < 150 ? ' Too low for a sharp print: export at ' + Math.round(a.w * 300) + ' × ' + Math.round(a.h * 300) + ' px.' : '');
       }
+      // Loads the placement's art for display and for reading its pixels (which also proves it
+      // can be used to build print files: a file served without CORS can't be read back).
       function qrLoadArt() {
         var seq = ++qrArtLoadSeq;
         var src = qrArtUrlFor(qrEl('qrPlacement').value);
-        qrArt = null;
+        qrArt = null; qrSnap = null;
         qrRender();
         qrShowArtHint();
         if (!src) return;
-        var img = qrEl('qrStageArt');
+        qrEl('qrStageHint').textContent = 'Loading print file…';
+        var shown = qrEl('qrStageArt');
+        shown.src = src.url;
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = function() {
           if (seq !== qrArtLoadSeq) return;
-          qrArt = { url: src.url, w: img.naturalWidth, h: img.naturalHeight, isPhoto: src.isPhoto };
+          var art = { url: src.url, w: img.naturalWidth, h: img.naturalHeight, isPhoto: src.isPhoto, canvas: null, readable: false, slot: null };
+          try {
+            var cv = document.createElement('canvas');
+            cv.width = art.w; cv.height = art.h;
+            var ctx = cv.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0);
+            var data = ctx.getImageData(0, 0, art.w, art.h).data;
+            art.canvas = cv; art.readable = true;
+            art.slot = QrPrint.findSlot(data, art.w, art.h);
+          } catch (e) { art.readable = false; }
+          qrArt = art;
+          var a = qrCurrentArea();
+          if (art.readable && art.slot && !art.slot.error && a) {
+            var p = QrPrint.slotPlacement(art.slot, art, QrPrint.fitArtBox(a, art), a);
+            if (p.error) art.slot = { error: p.error };
+            else { qrSnap = p; qrSetValues(p); }
+          }
           qrRender();
           qrShowArtHint();
+          if (!art.readable) qrSetStatus("This file can't be used for print files: re-upload it here.", true);
         };
         img.onerror = function() {
           if (seq !== qrArtLoadSeq) return;
           qrEl('qrStageHint').textContent = 'The print file for this placement could not be loaded.';
+          qrUpdateSave();
         };
-        img.src = src.url;
+        img.src = src.url + (src.url.indexOf('?') === -1 ? '?' : '&') + 'print=1';
       }
       function qrShowArea() {
         var a = qrCurrentArea();
@@ -2586,69 +2892,44 @@
         qrLoadArt();
       }
       function qrSettings() {
-        var a = qrCurrentArea();
-        if (!a) throw new Error('Pick a placement with a known print area.');
-        var size = Number(qrEl('qrSize').value), top = Number(qrEl('qrTop').value), left = Number(qrEl('qrLeft').value);
-        if (!(size >= 2 && size <= 6)) throw new Error('Emblem width must be between 2 and 6 inches.');
-        if (!(top >= 0) || !(left >= 0)) throw new Error('Top and left must be 0 or more.');
-        if (left + size > a.w + 0.01 || top + size > a.h + 0.01) throw new Error('The QR must sit inside the ' + a.w + ' × ' + a.h + ' in print area.');
-        return { placement: qrEl('qrPlacement').value, size_in: size, top_in: top, left_in: left, area_width_in: a.w, area_height_in: a.h, art: qrArtBox() };
+        var why = qrSaveBlocker();
+        if (why) throw new Error(why);
+        var a = qrCurrentArea(), v = qrValues();
+        return { placement: qrEl('qrPlacement').value, size_in: v.size, top_in: v.top, left_in: v.left, area_width_in: a.w, area_height_in: a.h, art: qrArtBox() };
       }
-      // Drag the QR to move it; drag its corner handle to resize it (kept square, at least
-      // 2 in, inside the print area). Positions snap to 0.05 in, like the number fields.
-      (function qrInitDrag() {
-        var box = qrEl('qrStageBox'), handle = qrEl('qrStageHandle'), stage = qrEl('qrStage');
-        if (!box || !handle || !stage) return;
-        var drag = null;
-        var snap = function(n) { return Math.round(n * 20) / 20; };
-        function start(ev, mode) {
-          var a = qrCurrentArea();
-          if (!a) return;
-          ev.preventDefault();
-          ev.stopPropagation();
-          drag = { mode: mode, x: ev.clientX, y: ev.clientY, a: a, ppi: stage.clientWidth / a.w,
-            size: Number(qrEl('qrSize').value) || 2.5, top: Number(qrEl('qrTop').value) || 0, left: Number(qrEl('qrLeft').value) || 0 };
-          try { (mode === 'move' ? box : handle).setPointerCapture(ev.pointerId); } catch (e) {}
-        }
-        function move(ev) {
-          if (!drag) return;
-          var dx = (ev.clientX - drag.x) / drag.ppi, dy = (ev.clientY - drag.y) / drag.ppi, a = drag.a;
-          if (drag.mode === 'move') {
-            qrEl('qrLeft').value = Math.min(Math.max(0, snap(drag.left + dx)), snap(a.w - drag.size)).toFixed(2);
-            qrEl('qrTop').value = Math.min(Math.max(0, snap(drag.top + dy)), snap(a.h - drag.size)).toFixed(2);
-          } else {
-            var max = Math.min(6, a.w - drag.left, a.h - drag.top);
-            qrEl('qrSize').value = Math.min(Math.max(2, snap(drag.size + Math.max(dx, dy))), Math.floor(max * 20) / 20).toFixed(2);
-          }
-          qrRender();
-        }
-        function end() { drag = null; }
-        box.addEventListener('pointerdown', function(ev) { if (ev.target !== handle) start(ev, 'move'); });
-        handle.addEventListener('pointerdown', function(ev) { start(ev, 'resize'); });
-        [box, handle].forEach(function(el) {
-          el.addEventListener('pointermove', move);
-          el.addEventListener('pointerup', end);
-          el.addEventListener('pointercancel', end);
-        });
-        ['qrSize', 'qrTop', 'qrLeft'].forEach(function(id) { qrEl(id).addEventListener('input', qrRender); });
-      })();
+      async function qrLoadSample() {
+        var size = Number(qrEl('qrSize').value) || 2.5;
+        var img = qrEl('qrStageSample'), box = qrEl('qrStageBox');
+        if (!qrEl('qrShowSample').checked) { img.hidden = true; box.classList.remove('has-sample'); qrRenderZoom(); return; }
+        if (qrSampleUrl && qrSampleSize === size) { img.hidden = false; box.classList.add('has-sample'); qrRenderZoom(); return; }
+        try {
+          var res = await fetch('/api/admin/qr-sample?size_in=' + encodeURIComponent(size), { credentials: 'include' });
+          if (!res.ok) throw new Error('Sample emblem failed (' + res.status + ')');
+          if (qrSampleUrl) URL.revokeObjectURL(qrSampleUrl);
+          qrSampleUrl = URL.createObjectURL(await res.blob()); qrSampleSize = size;
+          img.onload = qrRenderZoom;
+          img.src = qrSampleUrl; img.hidden = false; box.classList.add('has-sample');
+        } catch (e) { qrSetStatus(e.message || String(e), true); }
+      }
       async function openQrModal(productId) {
         var p = printfulProducts.find(function(x) { return String(x.id) === String(productId); });
         if (!p) return;
-        qrProduct = p;
-        qrArt = null;
+        qrProduct = p; qrArt = null; qrDraft = null; qrSnap = null;
         qrEl('qrStageHint').textContent = '';
+        qrEl('qrSlotStatus').textContent = '';
         qrEl('qrStage').style.display = 'none';
         qrEl('qrProductId').value = String(p.id);
         qrEl('qrProductTitle').textContent = (p.title || '') + ' — /' + (p.slug || '');
         qrEl('qrPreview').innerHTML = '';
         var saved = p.printful_qr || null;
-        qrEl('qrSize').value = saved ? saved.size_in : 2.5;
-        qrEl('qrTop').value = saved ? saved.top_in : 12;
-        qrEl('qrLeft').value = saved ? saved.left_in : 5.25;
+        // No made-up defaults: the slot sets these once the art loads.
+        qrEl('qrSize').value = saved ? saved.size_in : '';
+        qrEl('qrTop').value = saved ? saved.top_in : '';
+        qrEl('qrLeft').value = saved ? saved.left_in : '';
         var sel = qrEl('qrPlacement');
         sel.innerHTML = '';
         qrPlacements = [];
+        qrUpdateSave();
         if (qrModalInstance) qrModalInstance.show();
         if (!p.printful_catalog_product_id) {
           qrSetStatus('Link this product to Printful first (re-import it from Printful so its garment is known).', true);
@@ -2662,7 +2943,7 @@
             return '<option value="' + escapeHtml(pl.placement) + '">' + escapeHtml(pl.display_name || pl.placement) + '</option>';
           }).join('');
           var art = p.printful_design_images ? Object.keys(p.printful_design_images) : [];
-          sel.value = saved ? saved.placement : (qrPlacements.some(function(x) { return x.placement === 'back'; }) ? 'back' : (art[0] || (qrPlacements[0] && qrPlacements[0].placement) || ''));
+          sel.value = saved ? saved.placement : (art[0] || (qrPlacements.some(function(x) { return x.placement === 'front'; }) ? 'front' : (qrPlacements[0] && qrPlacements[0].placement) || ''));
           qrShowArea();
           qrSetStatus(saved ? 'Saved settings loaded.' : 'Not saved yet — checkout refuses this product until it is.');
         } catch (e) {
@@ -2671,45 +2952,112 @@
       }
       if (qrModalEl) {
         qrEl('qrPlacement').addEventListener('change', qrShowArea);
+        qrEl('qrShowSample').addEventListener('change', qrLoadSample);
         qrEl('qrCentreBtn').addEventListener('click', function() {
           var a = qrCurrentArea();
           if (!a) return;
           qrEl('qrLeft').value = Math.max(0, (a.w - Number(qrEl('qrSize').value || 0)) / 2).toFixed(2);
           qrRender();
         });
-        // Upload the print file for the selected placement: stored as that placement's art
-        // (products.printful_design_images), which is what gets printed under the QR.
+        // Drag the QR to move it; drag its corner handle to resize it (kept square, at least
+        // 2 in, inside the print area). Positions snap to 0.05 in, like the number fields.
+        (function qrInitDrag() {
+          var box = qrEl('qrStageBox'), handle = qrEl('qrStageHandle'), stage = qrEl('qrStage');
+          var drag = null;
+          var snap = function(n) { return Math.round(n * 20) / 20; };
+          function start(ev, mode) {
+            var a = qrCurrentArea();
+            if (!a) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            var v = qrValues();
+            drag = { mode: mode, x: ev.clientX, y: ev.clientY, a: a, ppi: stage.clientWidth / a.w, size: v.size || 2.5, top: v.top, left: v.left };
+            try { (mode === 'move' ? box : handle).setPointerCapture(ev.pointerId); } catch (e) {}
+          }
+          function move(ev) {
+            if (!drag) return;
+            var dx = (ev.clientX - drag.x) / drag.ppi, dy = (ev.clientY - drag.y) / drag.ppi, a = drag.a;
+            if (drag.mode === 'move') {
+              qrEl('qrLeft').value = Math.min(Math.max(0, snap(drag.left + dx)), snap(a.w - drag.size)).toFixed(2);
+              qrEl('qrTop').value = Math.min(Math.max(0, snap(drag.top + dy)), snap(a.h - drag.size)).toFixed(2);
+            } else {
+              var max = Math.min(6, a.w - drag.left, a.h - drag.top);
+              qrEl('qrSize').value = Math.min(Math.max(2, snap(drag.size + Math.max(dx, dy))), Math.floor(max * 20) / 20).toFixed(2);
+            }
+            qrRender();
+          }
+          function end() { if (drag && drag.mode === 'resize') qrLoadSample(); drag = null; }
+          box.addEventListener('pointerdown', function(ev) { if (ev.target !== handle) start(ev, 'move'); });
+          handle.addEventListener('pointerdown', function(ev) { start(ev, 'resize'); });
+          [box, handle].forEach(function(el) {
+            el.addEventListener('pointermove', move);
+            el.addEventListener('pointerup', end);
+            el.addEventListener('pointercancel', end);
+          });
+          // Keyboard: arrows move 0.05 in (Shift: 0.25 in); + and - resize by 0.05 in.
+          box.addEventListener('keydown', function(ev) {
+            var a = qrCurrentArea();
+            if (!a) return;
+            var v = qrValues(), step = ev.shiftKey ? 0.25 : 0.05, r = function(n) { return Math.round(n * 100) / 100; };
+            var size = v.size || 2.5, left = v.left, top = v.top;
+            if (ev.key === 'ArrowLeft') left -= step;
+            else if (ev.key === 'ArrowRight') left += step;
+            else if (ev.key === 'ArrowUp') top -= step;
+            else if (ev.key === 'ArrowDown') top += step;
+            else if (ev.key === '+' || ev.key === '=') size += 0.05;
+            else if (ev.key === '-' || ev.key === '_') size -= 0.05;
+            else return;
+            ev.preventDefault();
+            size = Math.min(Math.max(2, r(size)), 6, a.w - Math.max(0, left), a.h - Math.max(0, top));
+            qrSetValues({ size_in: size, left_in: r(Math.min(Math.max(0, left), a.w - size)), top_in: r(Math.min(Math.max(0, top), a.h - size)) });
+            qrRender();
+            qrSetStatus(box.getAttribute('aria-valuetext'));
+            if (ev.key === '+' || ev.key === '=' || ev.key === '-' || ev.key === '_') qrLoadSample();
+          });
+          ['qrSize', 'qrTop', 'qrLeft'].forEach(function(id) { qrEl(id).addEventListener('input', qrRender); });
+          qrEl('qrSize').addEventListener('change', qrLoadSample);
+        })();
+        // Upload the print file for the selected placement as a draft: it is shown and checked
+        // here, and replaces the product's print file only when Save is pressed.
         qrEl('qrArtFile').addEventListener('change', async function() {
           var input = this, file = input.files && input.files[0];
           input.value = '';
           if (!file || !qrProduct) return;
           var placement = qrEl('qrPlacement').value;
           if (!placement) { qrSetStatus('Pick a placement first.', true); return; }
+          if (file.type !== 'image/png') { qrSetStatus('Upload a PNG: JPEG blurs the #FF00FF slot marker.', true); return; }
           try {
             qrSetStatus('Uploading print file…');
             var url = await uploadProductImage(file, 'products/' + qrProduct.id + '/print');
-            var images = Object.assign({}, qrProduct.printful_design_images || {});
-            images[placement] = url;
-            await apiFetch('/products/' + encodeURIComponent(qrProduct.id), { method: 'POST', body: { printful_design_images: images } });
-            qrProduct.printful_design_images = images;
+            qrDraft = { placement: placement, url: url };
             qrLoadArt();
-            qrSetStatus('Print file saved for ' + placement + '. Place the QR, then Save.');
+            qrSetStatus('Print file uploaded for ' + placement + ' (not saved yet). Check the QR, then Save.');
           } catch (e) {
             qrSetStatus(e.message || String(e), true);
           }
         });
+        // Cancel / close discards an unsaved upload.
+        qrModalEl.addEventListener('hidden.bs.modal', function() { qrDraft = null; });
         qrEl('qrSaveBtn').addEventListener('click', async function() {
           var btn = this;
           try {
             var settings = qrSettings();
             btn.disabled = true;
-            await apiFetch('/products/' + encodeURIComponent(qrEl('qrProductId').value), { method: 'POST', body: { printful_qr: settings } });
-            qrSetStatus('Saved. New orders print the QR here' + (settings.art ? ', on this print file.' : '.'));
+            var body = { printful_qr: settings };
+            if (qrDraft && qrDraft.placement === settings.placement) {
+              var images = Object.assign({}, qrProduct.printful_design_images || {});
+              images[qrDraft.placement] = qrDraft.url;
+              body.printful_design_images = images; // art and placement change together
+            }
+            await apiFetch('/products/' + encodeURIComponent(qrEl('qrProductId').value), { method: 'POST', body: body });
+            qrDraft = null;
+            qrSetStatus('Saved. New orders print the QR here, on this print file.');
             await loadPrintfulProducts();
             qrProduct = printfulProducts.find(function(x) { return String(x.id) === String(qrEl('qrProductId').value); }) || qrProduct;
+            qrShowArtHint();
           } catch (e) {
             qrSetStatus(e.message || String(e), true);
-          } finally { btn.disabled = false; }
+          } finally { qrUpdateSave(); }
         });
         qrEl('qrPreviewBtn').addEventListener('click', async function() {
           var btn = this;
@@ -2718,7 +3066,9 @@
             btn.disabled = true;
             qrEl('qrPreview').innerHTML = '';
             qrSetStatus('Asking Printful for a mockup with a sample QR (SAMP-LE00)…');
-            var task = await apiFetch('/admin/printful/products/' + encodeURIComponent(qrEl('qrProductId').value) + '/mockup', { method: 'POST', body: { qr: settings } });
+            var task = await apiFetch('/admin/printful/products/' + encodeURIComponent(qrEl('qrProductId').value) + '/mockup', {
+              method: 'POST', body: { qr: settings, image_url: settings.art ? settings.art.url : undefined },
+            });
             for (var i = 0; i < 30; i++) {
               await new Promise(function(r) { setTimeout(r, 2000); });
               var t = await apiFetch('/admin/printful/mockup-tasks/' + encodeURIComponent(task.task_id));
@@ -2726,7 +3076,7 @@
                 qrEl('qrPreview').innerHTML = t.image_urls.map(function(u) {
                   return '<img src="' + escapeHtml(u) + '" alt="Mockup" style="max-width:240px;border:1px solid var(--line-200)">';
                 }).join('');
-                qrSetStatus('This is what will be printed (with each shirt\'s own QR).');
+                qrSetStatus('Garment check with a sample QR. Each shirt is checked on its own proof in Orders → Shirts.');
                 return;
               }
               var status = String(t.status || '').toLowerCase();

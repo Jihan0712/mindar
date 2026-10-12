@@ -520,6 +520,14 @@ From the end-to-end review of product creation → checkout → AR. Items 1–4 
 
 ## Future development
 
+### AR marker freshness
+
+- [ ] **Warn when the AR marker was compiled from a different file than the print file (P3).** _What:_ store a fingerprint of the marker's source image on the target and show "AR marker out of date" on the product when it differs from the current print file. _Why:_ after a design change the marker can go stale and AR on new shirts tracks badly. _Context:_ deferred from the 2026-10-12 design review (T11) by eng review 2 (D1); print files are now stored as uploaded with the #FF00FF slot kept (D4), so compile the marker from that same file. Start in `admin.html` (marker compile) and `apiPrintfulListLinkedProducts`. _Depends on:_ the QR placer changes (T3-T4).
+
+### DESIGN.md for the admin dashboard
+
+- [ ] **Write a DESIGN.md for the dashboard.** _What:_ record the dashboard's colours (teal `#12a2b8`, charcoal surfaces), type, buttons (`btn-inrl` / `btn-inrl-outline`), status chips (`printfulStatusChip`) and `form-text` hints. _Why:_ the approved QR proof panel, test sheet and placer changes (spec, design review 2026-10-12) are otherwise styled by copying nearby code. _Context:_ no DESIGN.md exists; run /design-consultation. _Depends on:_ nothing. (From /plan-design-review 2026-10-12, D20.)
+
 ### Contact form sends from the server
 
 `ecommerce/contact.html` already posts `{name, email, order, message}` to `POST /api/contact` and, while that route answers 404/501, opens the visitor's own email app with the message written out to contact@inrl.co (they still have to press Send).
