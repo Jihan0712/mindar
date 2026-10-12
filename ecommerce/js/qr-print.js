@@ -8,6 +8,9 @@
   var DPI = 300;
   var BLEED_IN = 0.03;   // the emblem overhangs the slot this much on every side (hides the marker)
   var MIN_QR_IN = 2;     // smallest emblem phones read reliably from fabric
+  // The emblem's white backing is a fingerprint-shaped blob; at its narrowest it is never
+  // less than this fraction of the emblem width (0.857 measured over 3000 links).
+  var RIM_MIN = 0.85;
 
   // A slot marker pixel: the solid #FF00FF disc the designer leaves where the QR goes. A
   // little tolerance covers PNG export colour shifts; JPEG is refused upstream.
@@ -46,15 +49,17 @@
   }
 
   // slotPlacement(slot, art, box, area) -> { size_in, top_in, left_in } or { error }.
-  // The emblem is the slot plus BLEED_IN on every side, so its opaque white disc covers the
-  // marker and its blended edge; clamped to the print area.
+  // The emblem is centred on the slot and sized so the narrowest part of its white blob still
+  // reaches BLEED_IN past the slot's edge, covering the marker and its blended edge in every
+  // direction (the blob bulges past the slot elsewhere); clamped to the print area.
   function slotPlacement(slot, art, box, area) {
     var inPerPx = box.width_in / art.w;
-    var size = slot.size * inPerPx + 2 * BLEED_IN;
-    if (size < MIN_QR_IN) return { error: 'too_small', size_in: size };
+    var slotIn = slot.size * inPerPx;
+    var size = (slotIn + 2 * BLEED_IN) / RIM_MIN;
+    if (slotIn + 2 * BLEED_IN < MIN_QR_IN * RIM_MIN) return { error: 'too_small', size_in: size };
     var round = function (n) { return Math.round(n * 1000) / 1000; };
-    var left = box.left_in + slot.left * inPerPx - BLEED_IN;
-    var top = box.top_in + slot.top * inPerPx - BLEED_IN;
+    var left = box.left_in + slot.left * inPerPx + slotIn / 2 - size / 2;
+    var top = box.top_in + slot.top * inPerPx + slotIn / 2 - size / 2;
     left = Math.min(Math.max(0, left), area.w - size);
     top = Math.min(Math.max(0, top), area.h - size);
     return { size_in: round(size), top_in: round(top), left_in: round(left) };
@@ -91,7 +96,7 @@
     };
   }
 
-  var api = { DPI: DPI, BLEED_IN: BLEED_IN, MIN_QR_IN: MIN_QR_IN, isMarker: isMarker, findSlot: findSlot, fitArtBox: fitArtBox, slotPlacement: slotPlacement, printFileName: printFileName, testSheetLayout: testSheetLayout };
+  var api = { DPI: DPI, BLEED_IN: BLEED_IN, MIN_QR_IN: MIN_QR_IN, RIM_MIN: RIM_MIN, isMarker: isMarker, findSlot: findSlot, fitArtBox: fitArtBox, slotPlacement: slotPlacement, printFileName: printFileName, testSheetLayout: testSheetLayout };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.QrPrint = api;
 })(this);

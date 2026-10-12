@@ -80,19 +80,22 @@ test('neighbouring dark squares join with no light seam or notch anywhere along 
   }
 });
 
-test('every emblem has the same round white rim, exactly as wide as the emblem', async () => {
+test('the white backing is a fingerprint blob that always covers a centred circle of 85% of the width', async () => {
   const QR = await loadQr();
   for (const text of [...TEXTS, 'https://shop.inrl.co/p/ZZZZ-0001', 'https://shop.inrl.co/p/AB12-CD34']) {
+    assert.ok(QR.emblemLayout(text).rimMin >= 0.85, 'narrowest rim at least 85% of the width');
     const img = decodeGreyAlpha((await QR.qrPng(text, 2.5)).png);
-    const c = img.width / 2;
+    const c = img.width / 2, r = 0.85 * c - 2;
+    let widestOpaque = 0;
     for (let deg = 0; deg < 360; deg += 3) {
       const th = deg * Math.PI / 180;
-      const at = r => [Math.min(img.width - 1, Math.floor(c + r * Math.cos(th))), Math.min(img.width - 1, Math.floor(c + r * Math.sin(th)))];
-      const [xi, yi] = at(c - 2.5); // just inside the rim
-      assert.ok(img.alpha(xi, yi) > 245, `opaque just inside the rim at ${deg} deg (${text.slice(-9)})`);
-      assert.ok(img.grey(xi, yi) > 215, `white just inside the rim at ${deg} deg (${text.slice(-9)})`);
+      const x = Math.floor(c + r * Math.cos(th)), y = Math.floor(c + r * Math.sin(th));
+      assert.ok(img.alpha(x, y) > 245, `opaque backing at 85% radius, ${deg} deg (${text.slice(-9)})`);
+      // How far out the backing reaches along this ray.
+      let k = c; while (k > 1 && img.alpha(Math.min(img.width - 1, Math.floor(c + k * Math.cos(th))), Math.min(img.width - 1, Math.floor(c + k * Math.sin(th)))) < 128) k--;
+      widestOpaque = Math.max(widestOpaque, k);
     }
-    // Outside the circle (the image corners) stays transparent.
+    assert.ok(widestOpaque > c - 3, 'the blob touches the image edge at its widest point');
     for (const [x, y] of [[1, 1], [img.width - 2, 1], [1, img.width - 2], [img.width - 2, img.width - 2]]) {
       assert.ok(img.alpha(x, y) < 10, `corner ${x},${y} is transparent`);
     }

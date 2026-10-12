@@ -216,9 +216,7 @@ and a Printful garment, which stays required: Issue 14 kept it):
   code, order, line, size and owner, marks it verified; admin scans don't count toward
   `scan_count`.
 
-**Emblem** (Issue 9, approved): the white disc's outer edge is an exact circle on every
-emblem, so it fills a round slot edge to edge; the rings inside keep their per-customer
-wobble. This changes the rim of the user's reference image, whose outer edge wobbles.
+**Emblem** (Issue 9 reversed by the user 2026-10-12, matching their reference image): the white backing is a fingerprint-shaped blob that follows the outermost ring, unique per shirt; rings are thin and dense (pitch 1.45, half-width 0.3 modules). The blob is never narrower than 85% of the emblem width (`RIM_MIN`, 0.857 measured over 3000 links), so the placer centres the emblem on the slot and makes it (slot + 2 x 0.03 in) / 0.85 wide: its narrowest part still covers the #FF00FF marker, and it bulges past the slot elsewhere.
 
 ## Customer UI
 

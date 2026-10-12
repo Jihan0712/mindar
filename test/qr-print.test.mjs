@@ -42,18 +42,24 @@ test('fitArtBox fills an exact-size file and centres a narrower one', () => {
   assert.deepEqual(fitArtBox({ w: 12, h: 16 }, { w: 849, h: 1199 }), { left_in: 0.3353, top_in: 0, width_in: 11.3294, height_in: 16 });
 });
 
-test('slotPlacement: slot plus a 0.03 in bleed each side, clamped to the area; too small is an error', () => {
+test("slotPlacement: centred on the slot, sized so the blob narrowest part still covers it plus 0.03 in", () => {
   const area = { w: 12, h: 16 }, art = { w: 3600, h: 4800 }, box = fitArtBox(area, art);
-  // A 2.5 in slot at 9.2 / 13.1 in.
-  assert.deepEqual(slotPlacement({ left: 2760, top: 3930, size: 750 }, art, box, area), { size_in: 2.56, top_in: 13.07, left_in: 9.17 });
   assert.equal(BLEED_IN, 0.03);
-  // Touching the right edge: clamped so the emblem stays inside.
-  assert.deepEqual(slotPlacement({ left: 2850, top: 0, size: 750 }, art, box, area), { size_in: 2.56, top_in: 0, left_in: 9.44 });
-  assert.equal(slotPlacement({ left: 0, top: 0, size: 300 }, art, box, area).error, 'too_small');
+  assert.equal(QrPrint.RIM_MIN, 0.85);
+  // A 2.0 in slot centred at 9.2 + 1.0, 13.0 + 1.0 in: emblem (2.0 + 0.06) / 0.85 = 2.424 in, same centre.
+  const p = slotPlacement({ left: 2760, top: 3900, size: 600 }, art, box, area);
+  assert.deepEqual(p, { size_in: 2.424, top_in: 12.788, left_in: 8.988 });
+  assert.ok(Math.abs(p.left_in + p.size_in / 2 - 10.2) < 0.001 && Math.abs(p.top_in + p.size_in / 2 - 14.0) < 0.001);
+  assert.ok(p.size_in * QrPrint.RIM_MIN >= 2.0 + 2 * BLEED_IN - 0.001, 'narrowest blob covers slot + bleed');
+  // Touching the right/bottom edges: clamped so the emblem stays inside.
+  const e = slotPlacement({ left: 3000, top: 4200, size: 600 }, art, box, area);
+  assert.ok(Math.abs(e.left_in + e.size_in - 12) < 0.002 && Math.abs(e.top_in + e.size_in - 16) < 0.002);
+  assert.equal(slotPlacement({ left: 0, top: 0, size: 450 }, art, box, area).error, 'too_small');
   // On a letterboxed file the art box offset is added.
   const art2 = { w: 849, h: 1199 }, box2 = fitArtBox(area, art2);
-  const p = slotPlacement({ left: 650, top: 1090, size: 180 }, art2, box2, area);
-  assert.ok(Math.abs(p.left_in - (box2.left_in + 650 * box2.width_in / 849 - 0.03)) < 0.001);
+  const q = slotPlacement({ left: 650, top: 1000, size: 180 }, art2, box2, area);
+  const ppi = 849 / box2.width_in;
+  assert.ok(Math.abs(q.left_in + q.size_in / 2 - (box2.left_in + (650 + 90) / ppi)) < 0.001);
 });
 
 test('printFileName says order, line, shirt, size, code and placement, and is file-system safe', () => {
@@ -63,7 +69,7 @@ test('printFileName says order, line, shirt, size, code and placement, and is fi
 });
 
 test('testSheetLayout puts the QR at true size and rulers of exactly 1 in and 25 mm on a Letter page', () => {
-  const t = testSheetLayout({ qrSizeIn: 2.56, label: 'ord_1-L1-S1' });
+  const t = testSheetLayout({ qrSizeIn: 2.56, label: 'ord_1-L1-S1' }); // any emblem width
   assert.deepEqual([t.width, t.height], [2550, 3300]);
   assert.equal(t.qr.size, 768);
   assert.deepEqual(t.rulers.map(r => [r.label, r.length]), [['1 in', 300], ['25 mm', 295]]);

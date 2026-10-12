@@ -689,7 +689,7 @@
     // alignment eyes are rounded squares; broken concentric rings sit outside a KEEP-module
     // margin, like the ridges of a fingerprint.
     const KEEP = 2;                  // light margin between code and rings, in modules
-    const PITCH = 1.7, RING = 0.4;   // ring spacing and ring half-width
+    const PITCH = 1.45, RING = 0.3;  // ring spacing and ring half-width (dense, thin ridges)
 
     // Deterministic 0..1 generator seeded from the text (FNV-1a into mulberry32), so a shirt's
     // emblem is the same every time it is rendered and differs from every other shirt's.
@@ -775,13 +775,14 @@
         dashes.sort((p, q) => p[0] - q[0]);
         rings.push({ radius, dashes });
       }
-      // The white backing is an exact circle that just clears the outermost ring's widest
-      // bulge, and the image is exactly that circle's width, so every emblem's disc is the
-      // same round shape and fills a round slot edge to edge; the rings wobble inside it.
-      const lastBase = r0 + (count - 1) * PITCH;
-      const extent = lastBase * maxShape + 0.14 + RING * 1.2 + 1.2;
-      const edge = () => extent; // white backing ends here
-      return { size, half, eyes, dark, rings, shape, r0, edge, extent };
+      // The white backing follows the outermost ring (a wobbly fingerprint-shaped blob, unique
+      // per shirt). The image is exactly as wide as the blob's widest point; rimMin is the
+      // narrowest point as a fraction of that, which placement uses to cover the slot.
+      const last = rings[rings.length - 1];
+      const edge = th => last.radius(th) + RING * 1.2 + 1.2; // white backing ends here
+      let extent = 0, rimMinR = Infinity;
+      for (let i = 0; i < 720; i++) { const e = edge(i * Math.PI / 360); extent = Math.max(extent, e); rimMinR = Math.min(rimMinR, e); }
+      return { size, half, eyes, dark, rings, shape, r0, edge, extent, rimMin: rimMinR / extent };
     }
 
     // Signed distance (module units, < 0 = ink) to the code.
