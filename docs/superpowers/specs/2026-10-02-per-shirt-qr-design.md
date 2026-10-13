@@ -18,7 +18,7 @@ a tag code).
 | Ownership for buyers without an account | Account required to check out, every piece is owned from payment | User |
 | How the QR reaches Printful | Approach A: our dashboard holds the print files; every order is a Printful catalog order with the art layer plus a per-shirt QR layer | User |
 | Resale / transfer of a piece | Out of scope. A piece stays with the buying account; the admin moves one by hand if ever needed | Assumption, accepted |
-| QR look | Fingerprint emblem: classic square modules merged into solid blocks (2026-10-12, replacing the 2026-10-07 maze strokes) and rounded eyes inside broken concentric rings, all generated from the shirt's link; black on a white backing shaped like the outer ring, transparent outside | User |
+| QR look | Fingerprint emblem: classic square modules merged into solid blocks (2026-10-12; a dots-and-lines version was tried the same day and reverted because it did not scan) and rounded eyes inside broken concentric rings, all generated from the shirt's link; black on a white backing shaped like the outer ring, transparent outside | User |
 
 ## Non-goals
 

@@ -84,7 +84,9 @@
       .ar-desktop-body { display: flex; height: calc(100vh - 65px); }
       .ar-desktop-video { flex: 1; background: #000; display: flex; align-items: center; justify-content: center; position: relative; }
       .ar-desktop-video video { max-width: 100%; max-height: 100%; }
-      .ar-desktop-video .play-btn { width: 64px; height: 64px; border-radius: 999px; border: 2px solid var(--paper-100); background: transparent; color: var(--paper-100); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+      /* Absolutely centred, not a flex sibling: as a sibling it sat beside the video and the
+         pair was centred together. The video is centred in this box, so box centre = video centre. */
+      .ar-desktop-video .play-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 999px; border: 2px solid var(--paper-100); background: rgba(11,15,16,.45); color: var(--paper-100); display: flex; align-items: center; justify-content: center; cursor: pointer; }
       .ar-desktop-video .caption { position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: var(--paper-500); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
       .ar-desktop-info { flex: 1; max-width: 460px; padding: 48px; overflow-y: auto; box-sizing: border-box; }
       .ar-desktop-info .eyebrow { color: var(--accent-400); font-size: 12px; font-weight: 500; letter-spacing: .06em; margin-bottom: 16px; }

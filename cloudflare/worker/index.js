@@ -684,14 +684,11 @@
     // ---- Fingerprint emblem ----
     //
     // A scanner samples only the centre of each module on the grid, the finder eyes and the
-    // light margin, so everything between module centres is free to style. Dark modules
-    // are round dots, and each dot is joined to its dark neighbours left/right and up/down by
-    // a thinner line (never diagonally), like a circuit; finder and alignment eyes are
-    // rounded squares; broken concentric rings sit outside a KEEP-module margin, like the
-    // ridges of a fingerprint. Ink never reaches within ~0.5 module of a light module's centre.
+    // light margin, so everything outside the code is free to style. Dark modules are
+    // classic crisp squares that merge into solid blocks with their neighbours; finder and
+    // alignment eyes are rounded squares; broken concentric rings sit outside a KEEP-module
+    // margin, like the ridges of a fingerprint.
     const KEEP = 2;                  // light margin between code and rings, in modules
-    const DOT_R = 0.32;              // radius of a dark module's dot, in modules
-    const LINK_R = 0.26;             // half-width of the line joining two dark neighbours
     const PITCH = 1.45, RING = 0.3;  // ring spacing and ring half-width (dense, thin ridges)
 
     // Deterministic 0..1 generator seeded from the text (FNV-1a into mulberry32), so a shirt's
@@ -803,20 +800,20 @@
           d = Math.min(ring, sdRoundBox(px, py, core, big ? 0.6 : 0.45));
         }
       }
-      // Dots on dark modules, plus a line from each dark module to its dark right and lower
-      // neighbours (each link once). Lines end at dot centres, so joints are round.
+      // Exact distance to the union of the dark squares (not a blend of separate squares),
+      // so touching modules form one solid block with no seam or notch where they meet:
+      // inside a dark cell it is minus the distance to the nearest light cell, outside it is
+      // the distance to the nearest dark cell. Cells off the grid count as light.
       const ci = Math.floor(u), ri = Math.floor(v);
       const isDark = (c, r) => c >= 0 && r >= 0 && c < size && r < size && dark[r * size + c] === 1;
+      const toCell = (c, r) => Math.hypot(Math.max(c - u, 0, u - c - 1), Math.max(r - v, 0, v - r - 1));
+      const inside = isDark(ci, ri);
+      let squares = inside ? -1 : Infinity;
       for (let r = ri - 1; r <= ri + 1; r++) for (let c = ci - 1; c <= ci + 1; c++) {
-        if (!isDark(c, r)) continue;
-        const px = u - c - 0.5, py = v - r - 0.5;
-        d = Math.min(d, Math.hypot(px, py) - DOT_R);
-        // To the right: segment from (0,0) to (1,0) in this module's frame.
-        if (isDark(c + 1, r)) d = Math.min(d, Math.hypot(px - Math.min(Math.max(px, 0), 1), py) - LINK_R);
-        // Downwards: segment from (0,0) to (0,1).
-        if (isDark(c, r + 1)) d = Math.min(d, Math.hypot(px, py - Math.min(Math.max(py, 0), 1)) - LINK_R);
+        if (isDark(c, r) === inside) continue;
+        squares = inside ? Math.max(squares, -toCell(c, r)) : Math.min(squares, toCell(c, r));
       }
-      return d;
+      return Math.min(d, squares);
     }
 
     // Signed distance to the nearest ring dash (rounded ends), or Infinity.
