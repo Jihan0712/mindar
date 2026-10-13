@@ -1439,6 +1439,9 @@
     if (request.method === 'POST' && /^\/api\/targets\/\d+\/video$/.test(pathname)) {
       const id = parseInt(pathname.split('/')[3], 10); return apiUploadTargetVideo(request, id);
     }
+    if (request.method === 'POST' && /^\/api\/targets\/\d+\/marker$/.test(pathname)) {
+      const id = parseInt(pathname.split('/')[3], 10); return apiReplaceTargetMarker(request, id);
+    }
 
     // Brand design submissions
     if (request.method === 'GET'  && pathname === '/api/brand/designs')         return apiListBrandDesigns(request);
@@ -4045,6 +4048,36 @@
     }
 
     return jsonResponse({ ok: true, video_url: videoUrl }, 200, request);
+  }
+
+  // POST /api/targets/:id/marker { mind_url, image_url } — swaps the tracked image (the
+  // compiled .mind and its preview/aspect image) on an existing target in place. The target
+  // id never changes, so every product, shirt QR and /p/<code> link pointing at it keeps
+  // working and simply picks up the new marker. The viewer sizes the video plane to the
+  // marker, so cropping the marker here is how admins change the area the video covers.
+  // Old files are left in R2: a phone mid-session may still be loading them.
+  async function apiReplaceTargetMarker(request, id) {
+    if (!id) return jsonResponse({ error: 'id required' }, 400, request);
+    const sess = await getSessionUser(request);
+    if (!sess) return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    if (!isPrivilegedRole(sess.user.role)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+
+    const target = await dbGet('select id, brand_id from targets where id = ?', id);
+    if (!target) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (sess.user.role === 'brand') {
+      if (!sessionOwnsBrand(sess, target.brand_id)) return jsonResponse({ error: 'Forbidden' }, 403, request);
+    }
+
+    const body = await readJson(request);
+    const mindUrl = String(body.mind_url || '').trim();
+    const imageUrl = String(body.image_url || '').trim();
+    if (!mindUrl || !imageUrl) return jsonResponse({ error: 'mind_url and image_url required' }, 400, request);
+
+    await dbRun(
+      `update targets set mind_url = ?, image_url = ?, version = version + 1, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')) where id = ?`,
+      mindUrl, imageUrl, id
+    );
+    return jsonResponse({ ok: true, mind_url: mindUrl, image_url: imageUrl }, 200, request);
   }
 
   // ---------- Brand Design Submissions ----------

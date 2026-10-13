@@ -35,6 +35,9 @@
     .inrl-table tr:hover td { background:var(--surface-50) !important; }
     #imageModal { position:fixed; inset:0; background:rgba(11,15,16,.85); z-index:9999; display:flex; align-items:center; justify-content:center; }
     #imageModal.hidden { display:none; }
+    #markerModal { position:fixed; inset:0; background:rgba(11,15,16,.85); z-index:9999; display:flex; align-items:center; justify-content:center; }
+    #markerModal.hidden { display:none; }
+    #markerCropCanvas { display:block; max-width:100%; touch-action:none; cursor:crosshair; background:var(--surface-50); border:1px solid var(--line-200); border-radius:8px; margin:0 auto; }
     .target-thumb { width:72px; height:72px; object-fit:contain; cursor:zoom-in; border:1px solid var(--line-200); border-radius:8px; background:var(--surface-50); }
     #status { font-size:.78rem; padding:.55rem .9rem; border-radius:8px; margin-bottom:.75rem; border-left:2px solid var(--accent-500); color:var(--accent-700); background:rgba(18,162,184,.06); }
     #status:empty { display:none !important; }
@@ -177,6 +180,29 @@
         <img id="imageModalImg" src="" alt="Target preview" style="width:100%;max-height:65vh;object-fit:contain;border:1px solid var(--line-200);border-radius:8px;background:var(--surface-50);" />
       </div>
       <div id="imageModalMeta" class="text-secondary small mt-2"></div>
+    </div>
+  </div>
+
+  <!-- ===== EDIT MARKER MODAL ===== -->
+  <!-- Swaps / crops the tracked image on an existing target. Same target id, so every
+       product, shirt QR and /p/<code> link keeps working. The viewer sizes the video to
+       the marker, so the crop box is exactly the area the AR video will cover. -->
+  <div id="markerModal" class="hidden">
+    <div class="inrl-card p-4" style="max-width:720px;width:94%;max-height:94vh;overflow:auto;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 id="markerModalTitle" class="mb-0" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900);font-size:1rem;">Edit tracked image</h5>
+        <button id="closeMarkerModal" class="btn btn-sm btn-inrl-outline" style="padding:.2rem .6rem;">&#x2715;</button>
+      </div>
+      <p class="text-secondary small mb-2">Drag a box over the part of the artwork the camera should track. The AR video plays inside that box. Existing links and printed QR codes keep working.</p>
+      <canvas id="markerCropCanvas" width="10" height="10"></canvas>
+      <div id="markerCropInfo" class="text-secondary small mt-2"></div>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <label class="btn btn-sm btn-inrl-outline mb-0" style="cursor:pointer">Use a different image<input type="file" id="markerModalFile" accept="image/*" style="display:none"></label>
+        <button id="markerCropReset" class="btn btn-sm btn-inrl-outline">Select whole image</button>
+        <span class="flex-grow-1"></span>
+        <button id="markerCropSave" class="btn btn-sm btn-inrl">Save &amp; recompile</button>
+      </div>
+      <div id="markerModalStatus" class="text-secondary small mt-2"></div>
     </div>
   </div>
 
@@ -1731,6 +1757,7 @@
                 <button onclick="copyViewer('${brandArg}','${productArg}','${t.id}')" class="btn btn-sm btn-inrl-outline me-1">Copy Link</button>
                 <button onclick="showQR('${brandArg}','${productArg}','${t.id}')" class="btn btn-sm btn-inrl-outline me-1">QR Code</button>
                 <label class="btn btn-sm btn-inrl-outline mb-0" style="cursor:pointer">Replace video<input type="file" accept="video/*" data-replace-video="${t.id}" style="display:none"></label>
+                <button data-edit-marker="${t.id}" data-image="${imageArg}" data-name="${encodeURIComponent(t.name)}" class="btn btn-sm btn-inrl-outline ms-1">Edit marker</button>
               </td>
             </tr>`;
             targetsTable.innerHTML += row;
@@ -2012,6 +2039,243 @@
         } finally {
           if (label) label.childNodes[0].textContent = origText || 'Replace video';
           input.value = '';
+        }
+      });
+
+      // ---------- Edit Marker (crop / swap the tracked image) ----------
+      // Recompiles a cropped region of the artwork into a new .mind and points the SAME
+      // target row at it (POST /api/targets/:id/marker), so nothing that links to the target
+      // — products, shirt QRs, /p/<code> — changes. The viewer sizes the video plane to the
+      // marker image, so the crop box is the area the video covers on the shirt.
+      const markerModal = document.getElementById('markerModal');
+      const markerCanvas = document.getElementById('markerCropCanvas');
+      const markerCtx = markerCanvas.getContext('2d');
+      const markerCropInfo = document.getElementById('markerCropInfo');
+      const markerModalStatus = document.getElementById('markerModalStatus');
+      const markerModalTitle = document.getElementById('markerModalTitle');
+      const markerSaveBtn = document.getElementById('markerCropSave');
+      const MIN_CROP_PX = 64;   // below this the compiler has almost nothing to work with
+      const HANDLE = 10;        // corner grab radius, in canvas pixels
+      // img: source image; scale: canvas px per image px; crop: {x,y,w,h} in image px.
+      const mk = { targetId: null, img: null, srcName: 'marker', scale: 1, crop: null, drag: null, busy: false };
+
+      // Load stored images through the Worker's same-origin /api/r2/ proxy so the canvas
+      // isn't tainted by CORS (a tainted canvas can't be exported for compiling).
+      function sameOriginAssetUrl(u) {
+        try {
+          const url = new URL(u, location.href);
+          if (url.origin === location.origin) return url.href;
+          let key = url.pathname.replace(/^\/+/, '');
+          if (!key.startsWith('api/r2/')) key = 'api/r2/' + key;
+          return '/' + key;
+        } catch { return u; }
+      }
+
+      async function loadMarkerImage(src) {
+        const img = new Image();
+        img.src = src;
+        await img.decode();
+        mk.img = img;
+        mk.crop = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
+        const maxW = Math.max(200, Math.min(660, markerModal.querySelector('.inrl-card').clientWidth - 48));
+        mk.scale = Math.min(1, maxW / img.naturalWidth, (window.innerHeight * 0.55) / img.naturalHeight);
+        markerCanvas.width = Math.round(img.naturalWidth * mk.scale);
+        markerCanvas.height = Math.round(img.naturalHeight * mk.scale);
+        drawMarkerCrop();
+      }
+
+      function markerCorners(c) {
+        return { nw: [c.x, c.y], ne: [c.x + c.w, c.y], sw: [c.x, c.y + c.h], se: [c.x + c.w, c.y + c.h] };
+      }
+
+      function drawMarkerCrop() {
+        if (!mk.img) return;
+        const { width: W, height: H } = markerCanvas;
+        const c = mk.crop, s = mk.scale;
+        const x = c.x * s, y = c.y * s, w = c.w * s, h = c.h * s;
+        markerCtx.clearRect(0, 0, W, H);
+        markerCtx.drawImage(mk.img, 0, 0, W, H);
+        markerCtx.fillStyle = 'rgba(11,15,16,.6)';
+        markerCtx.fillRect(0, 0, W, y);
+        markerCtx.fillRect(0, y + h, W, H - y - h);
+        markerCtx.fillRect(0, y, x, h);
+        markerCtx.fillRect(x + w, y, W - x - w, h);
+        markerCtx.strokeStyle = '#12a2b8';
+        markerCtx.lineWidth = 2;
+        markerCtx.strokeRect(x + 1, y + 1, Math.max(0, w - 2), Math.max(0, h - 2));
+        markerCtx.fillStyle = '#12a2b8';
+        for (const [cx, cy] of Object.values(markerCorners(c))) markerCtx.fillRect(cx * s - 5, cy * s - 5, 10, 10);
+        const full = isWholeImage(c);
+        markerCropInfo.textContent = `Tracked area: ${Math.round(c.w)} × ${Math.round(c.h)} px, aspect ${(c.w / Math.max(1, c.h)).toFixed(2)}:1` +
+          (full ? ' (whole image)' : ` at ${Math.round(c.x)}, ${Math.round(c.y)}`) +
+          '. The AR video fills this box — match its aspect to avoid letterboxing.';
+      }
+
+      function canvasPoint(e) {
+        const r = markerCanvas.getBoundingClientRect();
+        return { x: (e.clientX - r.left) * (markerCanvas.width / r.width), y: (e.clientY - r.top) * (markerCanvas.height / r.height) };
+      }
+
+      function clampCrop(c) {
+        const iw = mk.img.naturalWidth, ih = mk.img.naturalHeight;
+        const w = Math.min(Math.max(c.w, Math.min(MIN_CROP_PX, iw)), iw);
+        const h = Math.min(Math.max(c.h, Math.min(MIN_CROP_PX, ih)), ih);
+        return { x: Math.min(Math.max(c.x, 0), iw - w), y: Math.min(Math.max(c.y, 0), ih - h), w, h };
+      }
+
+      function cornerAt(p) {
+        const s = mk.scale;
+        for (const [k, [cx, cy]] of Object.entries(markerCorners(mk.crop))) {
+          if (Math.abs(p.x - cx * s) <= HANDLE && Math.abs(p.y - cy * s) <= HANDLE) return k;
+        }
+        return null;
+      }
+
+      // A whole-image box can't move, so dragging inside it draws a new box instead.
+      function isWholeImage(c) {
+        return c.x <= 0 && c.y <= 0 && c.w >= mk.img.naturalWidth && c.h >= mk.img.naturalHeight;
+      }
+
+      function insideCrop(ix, iy) {
+        const c = mk.crop;
+        return ix > c.x && ix < c.x + c.w && iy > c.y && iy < c.y + c.h;
+      }
+
+      markerCanvas.addEventListener('pointerdown', (e) => {
+        if (!mk.img || mk.busy) return;
+        markerCanvas.setPointerCapture(e.pointerId);
+        const p = canvasPoint(e), c = mk.crop, ix = p.x / mk.scale, iy = p.y / mk.scale;
+        const corner = cornerAt(p);
+        if (corner) {
+          // Resize from a corner: the opposite corner stays anchored.
+          mk.drag = { mode: 'draw', ax: corner.includes('w') ? c.x + c.w : c.x, ay: corner.includes('n') ? c.y + c.h : c.y };
+        } else if (insideCrop(ix, iy) && !isWholeImage(c)) {
+          mk.drag = { mode: 'move', dx: ix - c.x, dy: iy - c.y };
+        } else {
+          mk.drag = { mode: 'draw', ax: ix, ay: iy };
+        }
+      });
+
+      markerCanvas.addEventListener('pointermove', (e) => {
+        if (!mk.img) return;
+        const p = canvasPoint(e), ix = p.x / mk.scale, iy = p.y / mk.scale;
+        if (!mk.drag) {
+          const corner = cornerAt(p);
+          markerCanvas.style.cursor = corner ? (corner === 'nw' || corner === 'se' ? 'nwse-resize' : 'nesw-resize')
+            : insideCrop(ix, iy) && !isWholeImage(mk.crop) ? 'move' : 'crosshair';
+          return;
+        }
+        if (mk.drag.mode === 'move') {
+          mk.crop = clampCrop({ ...mk.crop, x: ix - mk.drag.dx, y: iy - mk.drag.dy });
+        } else {
+          const bx = Math.min(Math.max(ix, 0), mk.img.naturalWidth), by = Math.min(Math.max(iy, 0), mk.img.naturalHeight);
+          const { ax, ay } = mk.drag;
+          mk.crop = { x: Math.min(ax, bx), y: Math.min(ay, by), w: Math.abs(bx - ax), h: Math.abs(by - ay) };
+        }
+        drawMarkerCrop();
+      });
+
+      const endMarkerDrag = () => {
+        if (!mk.drag) return;
+        mk.drag = null;
+        mk.crop = clampCrop(mk.crop);
+        drawMarkerCrop();
+      };
+      markerCanvas.addEventListener('pointerup', endMarkerDrag);
+      markerCanvas.addEventListener('pointercancel', endMarkerDrag);
+
+      document.getElementById('markerCropReset').addEventListener('click', () => {
+        if (!mk.img || mk.busy) return;
+        mk.crop = { x: 0, y: 0, w: mk.img.naturalWidth, h: mk.img.naturalHeight };
+        drawMarkerCrop();
+      });
+
+      document.getElementById('markerModalFile').addEventListener('change', async (e) => {
+        const f = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!f || mk.busy) return;
+        mk.srcName = f.name.replace(/\.[^/.]+$/, '').replace(/[^a-z0-9_-]+/gi, '_') || 'marker';
+        markerModalStatus.textContent = '';
+        try { await loadMarkerImage(URL.createObjectURL(f)); }
+        catch { markerModalStatus.textContent = '❌ Could not read that image.'; }
+      });
+
+      function closeMarkerModal() {
+        if (mk.busy) return; // don't abandon a save mid-upload
+        markerModal.classList.add('hidden');
+        mk.img = null; mk.targetId = null;
+      }
+      document.getElementById('closeMarkerModal').addEventListener('click', closeMarkerModal);
+      markerModal.addEventListener('click', (e) => { if (e.target === markerModal) closeMarkerModal(); });
+
+      targetsTable.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-edit-marker]');
+        if (!btn) return;
+        const name = decodeURIComponent(btn.getAttribute('data-name') || '');
+        const imageUrl = decodeURIComponent(btn.getAttribute('data-image') || '');
+        mk.targetId = btn.getAttribute('data-edit-marker');
+        mk.srcName = (name || 'marker').replace(/[^a-z0-9_-]+/gi, '_');
+        mk.img = null;
+        markerModalTitle.textContent = `Edit tracked image — ${name}`;
+        markerCropInfo.textContent = '';
+        markerCanvas.width = 10; markerCanvas.height = 10;
+        markerModal.classList.remove('hidden');
+        if (!imageUrl) {
+          markerModalStatus.textContent = 'No stored image for this target — choose the artwork with “Use a different image”.';
+          return;
+        }
+        markerModalStatus.textContent = 'Loading current image…';
+        try {
+          await loadMarkerImage(sameOriginAssetUrl(imageUrl));
+          markerModalStatus.textContent = '';
+        } catch (err) {
+          console.warn('Could not load marker image', err);
+          markerModalStatus.textContent = 'Could not load the current image — choose the artwork with “Use a different image”.';
+        }
+      });
+
+      markerSaveBtn.addEventListener('click', async () => {
+        if (!mk.img || !mk.targetId || mk.busy) return;
+        const targetId = mk.targetId;
+        const c = clampCrop(mk.crop);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(c.w); canvas.height = Math.round(c.h);
+        canvas.getContext('2d').drawImage(mk.img, c.x, c.y, c.w, c.h, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+        if (!blob) { markerModalStatus.textContent = '❌ Could not export the cropped image.'; return; }
+        const file = new File([blob], `${mk.srcName}-crop.png`, { type: 'image/png' });
+
+        // Same trackability check new targets get — once printed it's too late.
+        const q = await analyseMarkerImage(file);
+        if (q.ok && q.verdict !== 'good') {
+          const go = confirm(`This area is likely to track poorly once printed on fabric (${q.score}/100):\n\n${q.warnings.map(w => '• ' + w.text).join('\n')}\n\nSave anyway?`);
+          if (!go) return;
+        }
+        if (!confirm('Replace the tracked image for this target? Anyone scanning it will use the new marker right away. Links and QR codes stay the same.')) return;
+
+        mk.busy = true;
+        markerSaveBtn.disabled = true;
+        try {
+          markerModalStatus.textContent = 'Compiling…';
+          const buffer = await compileImageClient([file], (p) => { markerModalStatus.textContent = `Compiling… ${p.toFixed(0)}%`; });
+          warnOnWeakCompile();
+          markerModalStatus.textContent = 'Uploading…';
+          const mindName = `${mk.srcName}-crop.mind`;
+          const [mindUp, imgUp] = await Promise.all([
+            uploadToWorker(new File([buffer], mindName, { type: 'application/octet-stream' }), 'minds', mindName),
+            uploadToWorker(file, 'markers', file.name)
+          ]);
+          await apiFetch(`/targets/${encodeURIComponent(targetId)}/marker`, { method: 'POST', body: { mind_url: mindUp.url, image_url: imgUp.url } });
+          toast('Tracked image updated — links unchanged.');
+          mk.busy = false;
+          closeMarkerModal();
+          loadTargets();
+        } catch (err) {
+          console.error('Marker replace failed', err);
+          markerModalStatus.textContent = '❌ ' + (err.message || err);
+        } finally {
+          mk.busy = false;
+          markerSaveBtn.disabled = false;
         }
       });
 
