@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm run test:ar)",
+      "Bash(npm test)",
+      "Bash(npx tsc -b)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(gh api repos/Wearenico/INRL2/commits/:*)"
+    ]
+  }
+}

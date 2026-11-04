@@ -1,0 +1,84 @@
+/* Post viewer (Figma C1 / G1 / G4): the picture full screen, info bottom-left, actions on the right. */
+.pv { transition: background-color 0.3s; }
+.pv { touch-action: none; }
+.pv-top { justify-content: space-between; }
+.pv-top .look-icon { border: 0; padding: 0; background: none; cursor: pointer; }
+
+.pv-art { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; pointer-events: none; transition: opacity 0.35s; }
+.pv-art.is-hidden { opacity: 0; }
+.pv-art img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.pv::after { content: ''; position: absolute; z-index: 2; inset: auto 0 0; height: 40%; background: linear-gradient(transparent, rgba(0, 0, 0, 0.28)); pointer-events: none; }
+/* Info over the 3D: fingers go through to the scene except on buttons. */
+.pv-info {
+  pointer-events: none;
+  position: absolute; z-index: 4; left: 26px; right: 76px;
+  bottom: calc(env(safe-area-inset-bottom) + 28px);
+  display: grid; gap: 8px; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.pv-info p { margin: 0; }
+.pv-who { display: flex; gap: 8px; align-items: center; }
+.pv-counts { display: flex; gap: 14px; opacity: 0.9; }
+.pv-counts span { display: inline-flex; align-items: center; gap: 4px; }
+.pv-caption { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; opacity: 0.9; }
+.pv-actions {
+  position: absolute; z-index: 4; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 28px);
+  display: grid; gap: 14px;
+}
+.pv-actions button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3)); }
+.pv-note {
+  position: absolute; z-index: 8; left: 50%; top: 45%; transform: translateX(-50%); margin: 0;
+  padding: 10px 16px; border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.65); color: #fff; white-space: nowrap;
+}
+
+/* Switching posts: a frozen frame of the old scene fades out over the new one. */
+.pv-fade { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
+.pv-fade.is-fading { animation: pv-fade 0.35s ease-out; }
+@keyframes pv-fade { from { opacity: 1; } to { opacity: 0; } }
+
+/* With the strip of posts at the bottom (Figma C3 / A2), the info and actions sit above it. */
+.pv[data-strip='true'] .pv-info, .pv[data-strip='true'] .pv-actions { bottom: calc(env(safe-area-inset-bottom) + 112px); }
+/* A carousel: scrolls with the finger, snaps a thumbnail into the middle. Slots never change size (only the circle scales), so nothing jumps. */
+.pv-strip {
+  position: absolute; z-index: 5; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 14px);
+  display: flex; align-items: center; overflow-x: auto; padding: 4px calc(50% - 36px);
+  scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x; -webkit-overflow-scrolling: touch;
+}
+.pv-strip::-webkit-scrollbar { display: none; }
+.pv-strip button { flex: 0 0 72px; height: 80px; padding: 0; border: 0; background: none; cursor: pointer; scroll-snap-align: center; display: grid; place-items: center; }
+.pv-strip button > span {
+  display: block; width: 72px; height: 72px; overflow: hidden; border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.55); background: rgba(255, 255, 255, 0.3);
+  transform: scale(0.72); opacity: 0.85; transition: transform 0.2s ease-out, opacity 0.2s, border-color 0.2s;
+}
+.pv-strip button.is-active > span { transform: scale(1); opacity: 1; border-color: #fff; }
+.pv-strip img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* Author: picture (with the "+" to follow, Figma G1) and name lead to their profile. */
+.pv-who { pointer-events: auto; }
+.pv-avatar { position: relative; flex: 0 0 auto; }
+.pv-avatar a { display: block; border-radius: 50%; }
+.pv-follow { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 2px solid #fff; border-radius: 50%; background: var(--teal-fill); cursor: pointer; }
+.pv-name { color: #fff; text-decoration: none; display: block; }
+
+/* Like: the heart with its count (Figma C1's right column); red when liked. */
+.pv-actions .pv-like, .pv-actions .pv-count { height: auto; display: grid; justify-items: center; gap: 0; color: #fff; }
+.pv-like .t-label-12, .pv-count .t-label-12 { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+.pv-like.is-on svg { animation: pv-beat 0.3s ease-out; }
+@keyframes pv-beat { 50% { transform: scale(1.25); } }
+/* Double tap: a heart pops where the finger was. */
+.pv-pop { position: absolute; z-index: 9; pointer-events: none; transform: translate(-50%, -50%); filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25)); animation: pv-pop 0.9s ease-out forwards; }
+@keyframes pv-pop {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  20% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+  35% { transform: translate(-50%, -50%) scale(0.95); }
+  70% { transform: translate(-50%, -60%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -110%) scale(0.9); opacity: 0; }
+}
+/* Reset view: once the scene was turned (double tap now likes). */
+.pv-reset {
+  position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 64px);
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 0; border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.35); color: #fff; font: 500 13px/1 var(--font); cursor: pointer;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}

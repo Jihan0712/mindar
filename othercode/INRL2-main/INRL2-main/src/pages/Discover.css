@@ -1,0 +1,20 @@
+/* Discover (Figma G3). */
+.dc-search { display: flex; align-items: center; gap: 8px; margin: 0 13px 10px; height: 38px; padding: 0 12px; border-radius: var(--radius-md); background: var(--surface-placeholder); }
+.dc-search input { flex: 1; min-width: 0; border: 0; background: none; font: 400 16px/1 var(--font); color: var(--ink-900); }
+.dc-search input:focus { outline: none; }
+.dc-search input::placeholder { color: var(--ink-500); }
+.dc-search input::-webkit-search-cancel-button { filter: grayscale(1); }
+.dc-people { display: grid; gap: 2px; margin: 0 13px 12px; }
+.dc-person { display: flex; align-items: center; gap: 10px; padding: 8px 4px; color: var(--ink-900); text-decoration: none; border-radius: var(--radius-md); }
+.dc-person > span { display: grid; }
+.dc-person .t-label-12 { color: var(--ink-400); }
+.dc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 13px; }
+.dc-card { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-placeholder); cursor: pointer; }
+.dc-card.is-big { grid-column: 1 / -1; }
+.dc-card > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.dc-info { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; gap: 6px; align-items: center; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+.dc-card.is-big .dc-info { top: 18px; left: 17px; bottom: auto; }
+.dc-info p { margin: 0; }
+.dc-card::after { content: ''; position: absolute; inset: auto 0 0; height: 40%; background: linear-gradient(transparent, rgba(0, 0, 0, 0.22)); pointer-events: none; }
+.dc-card.is-big::after { inset: 0 0 auto; background: linear-gradient(rgba(0, 0, 0, 0.22), transparent); }
+.dc-info { z-index: 1; }

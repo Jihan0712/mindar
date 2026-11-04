@@ -1,0 +1,22 @@
+.mode-pill {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-pill);
+}
+.mode-pill button {
+  border: 0;
+  background: transparent;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font: 500 12px/140% var(--font);
+  color: var(--ink-500);
+  cursor: pointer;
+}
+.mode-pill button.is-active {
+  background: var(--surface-white);
+  color: var(--ink-900);
+}

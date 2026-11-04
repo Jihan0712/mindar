@@ -343,6 +343,7 @@
               <th class="p-3">Product</th>
               <th class="p-3">Created</th>
               <th class="p-3">Active</th>
+              <th class="p-3" title="Matching feature points in the compiled marker. Below 250 it detects slowly or not at all on fabric.">Tracking</th>
               <th class="p-3 text-center">Actions</th>
             </tr>
           </thead>
@@ -706,6 +707,7 @@
               <th class="p-3">Product</th>
               <th class="p-3">Created</th>
               <th class="p-3">Active</th>
+              <th class="p-3" title="Matching feature points in the compiled marker. Below 250 it detects slowly or not at all on fabric.">Tracking</th>
               <th class="p-3 text-center">Actions</th>
             `;
           }
@@ -760,6 +762,7 @@
                 <th class="p-3">Product</th>
                 <th class="p-3">Created</th>
                 <th class="p-3">Active</th>
+                <th class="p-3" title="Matching feature points in the compiled marker. Below 250 it detects slowly or not at all on fabric.">Tracking</th>
                 <th class="p-3 text-center">Actions</th>
               `;
             }
@@ -1389,12 +1392,8 @@
         // that scored well but compiled thin still gets caught before print.
         lastCompileStats = [];
         try {
-          (compiler.data || []).forEach((target, i) => {
-            const matching = (target.matchingData || []).reduce(
-              (sum, d) => sum + (d.maximaPoints?.length || 0) + (d.minimaPoints?.length || 0), 0);
-            const tracking = (target.trackingData || []).reduce(
-              (sum, d) => sum + (d.points?.length || 0), 0);
-            lastCompileStats.push({ index: i, name: cleanFiles[i]?.name || `target ${i}`, matching, tracking });
+          countTargetPoints(compiler.data).forEach((s, i) => {
+            lastCompileStats.push({ index: i, name: cleanFiles[i]?.name || `target ${i}`, ...s });
           });
         } catch (e) { console.warn('Could not read compile keypoint stats', e); }
 
@@ -1409,6 +1408,18 @@
       // Below this many matching keypoints a target is not reliably detectable —
       // on fabric, where contrast drops further, it will effectively never lock.
       const MIN_MATCHING_KEYPOINTS = 250;
+
+      // Feature points per compiled target. The same data shape comes from a fresh
+      // compile (compiler.data) and from an existing .mind read back with
+      // Compiler.importData(), so new and already-printed targets are counted alike.
+      function countTargetPoints(dataList) {
+        return (dataList || []).map((target) => ({
+          matching: (target.matchingData || []).reduce(
+            (sum, d) => sum + (d.maximaPoints?.length || 0) + (d.minimaPoints?.length || 0), 0),
+          tracking: (target.trackingData || []).reduce(
+            (sum, d) => sum + (d.points?.length || 0), 0)
+        }));
+      }
 
       function describeCompileStats() {
         if (!lastCompileStats.length) return '';
@@ -1429,12 +1440,86 @@
         return confirm(`${noun} likely to track poorly once printed on fabric:\n\n${detail}\n\nCompile anyway?`);
       }
 
-      // Reports the compiler's real keypoint counts once a compile has finished.
-      function warnOnWeakCompile() {
+      // The compiler's real keypoint counts are the final check, after the
+      // pre-compile score: below MIN_MATCHING_KEYPOINTS the marker is not used
+      // unless whoever is compiling says so. Returns false if they chose to stop,
+      // in which case nothing is uploaded or replaced.
+      function confirmCompileStrength() {
         const weak = lastCompileStats.filter(s => s.matching < MIN_MATCHING_KEYPOINTS);
-        if (!weak.length) return;
+        if (!weak.length) return true;
         console.warn('Low keypoint counts:', lastCompileStats);
-        alert(`Compiled, but the tracker found very few features:\n\n${describeCompileStats()}\n\nThis will detect slowly or not at all on fabric. Strongly consider reworking the artwork before printing.`);
+        return confirm(`The tracker found too few features to find this marker reliably (needs at least ${MIN_MATCHING_KEYPOINTS} matching points):\n\n${describeCompileStats()}\n\nIt will detect slowly or not at all once printed on fabric. Rework the artwork (more detail and contrast, spread across the whole print).\n\nUse this marker anyway?`);
+      }
+
+      // Shows the compiled counts next to the pre-compile trackability report.
+      function renderCompileStrength() {
+        const host = document.getElementById('markerQuality');
+        if (!host) return;
+        document.getElementById('compileStrength')?.remove();
+        if (!lastCompileStats.length) return;
+        const weak = lastCompileStats.some(s => s.matching < MIN_MATCHING_KEYPOINTS);
+        const color = weak ? 'var(--danger-500,#b3261e)' : 'var(--success-500,#1a7f5a)';
+        const el = document.createElement('div');
+        el.id = 'compileStrength';
+        el.className = 'p-3 mb-2';
+        el.style.cssText = `border:1px solid ${color};border-radius:8px;`;
+        el.innerHTML =
+          `<div class="small mb-1" style="color:${color};font-weight:600;">` +
+          `${weak ? 'Too few feature points' : 'Enough feature points'} (needs ${MIN_MATCHING_KEYPOINTS})</div>` +
+          `<div class="small" style="color:var(--ink-700,#444);">` +
+          lastCompileStats.map(s => `${escapeHtml(s.name)}: <strong>${s.matching}</strong> matching / ${s.tracking} tracking`).join('<br>') +
+          `</div>`;
+        host.appendChild(el);
+      }
+
+      // ---- Existing targets: tracking strength from their .mind files ----------
+      // Reads each target's compiled .mind back (no recompile) and counts its
+      // points, so weak markers already on shirts show up in the table. Cached per
+      // URL for the page's lifetime; a replaced marker gets a new URL.
+      const mindStrengthCache = new Map();
+
+      function readMindStrength(mindUrl) {
+        if (!mindStrengthCache.has(mindUrl)) {
+          mindStrengthCache.set(mindUrl, (async () => {
+            await readyPromise;
+            if (!Compiler) throw new Error('Compiler not loaded');
+            let res = await fetch(sameOriginAssetUrl(mindUrl)).catch(() => null);
+            if (!res || !res.ok) res = await fetch(mindUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = new Compiler().importData(await res.arrayBuffer());
+            const counts = countTargetPoints(data);
+            if (!counts.length) throw new Error('Unreadable or outdated .mind');
+            return counts;
+          })());
+        }
+        return mindStrengthCache.get(mindUrl);
+      }
+
+      async function fillTargetStrength() {
+        const cells = Array.from(document.querySelectorAll('[data-mind-points]'));
+        // A few at a time: each is a download of the whole .mind file.
+        let next = 0;
+        const worker = async () => {
+          while (next < cells.length) {
+            const cell = cells[next++];
+            const mindUrl = decodeURIComponent(cell.dataset.mindPoints || '');
+            if (!mindUrl) { cell.textContent = '—'; continue; }
+            try {
+              const counts = await readMindStrength(mindUrl);
+              const min = Math.min(...counts.map(c => c.matching));
+              const weak = min < MIN_MATCHING_KEYPOINTS;
+              cell.innerHTML = `<span style="color:${weak ? 'var(--danger-500,#b3261e)' : 'var(--success-500,#1a7f5a)'};font-weight:600;">${weak ? 'Weak' : 'OK'}</span> <span class="text-secondary">${counts.map(c => c.matching).join(' / ')}</span>`;
+              cell.title = weak
+                ? `Fewer than ${MIN_MATCHING_KEYPOINTS} matching points: likely to detect slowly or not at all on fabric. Use "Edit marker" to pick a more detailed area.`
+                : `${counts.map(c => `${c.matching} matching / ${c.tracking} tracking`).join(', ')} points (needs ${MIN_MATCHING_KEYPOINTS}).`;
+            } catch (e) {
+              console.warn('Could not read .mind for strength', mindUrl, e);
+              cell.textContent = '?';
+              cell.title = 'Could not read this target\'s .mind file: ' + (e?.message || e);
+            }
+          }
+        };
+        await Promise.all([worker(), worker(), worker(), worker()]);
       }
 
       // UI: show selected marker files
@@ -1445,6 +1530,7 @@
           const files = Array.from(markerInputEl.files || []);
           markerQualityResults = [];
           lastCompileStats = [];
+          document.getElementById('compileStrength')?.remove();
           // A new (or cleared) selection invalidates whatever was compiled before —
           // otherwise a swapped-in image would silently upload with the old marker's
           // compiled .mind still attached.
@@ -1553,7 +1639,11 @@
           const buffer = await compileImageClient(markerFiles, (p) => {
             compileStatus.textContent = `Compiling… ${p.toFixed(0)}%`;
           });
-          warnOnWeakCompile();
+          renderCompileStrength();
+          if (!confirmCompileStrength()) {
+            compileStatus.textContent = '❌ Not used: too few feature points. Rework the artwork and re-select it.';
+            return null;
+          }
 
           compileStatus.textContent = 'Uploading compiled marker…';
           const baseName = markerFiles[0]?.name ? markerFiles[0].name.replace(/\.[^/.]+$/, '') : `markers-${Date.now()}`;
@@ -1750,6 +1840,7 @@
               <td class="p-3">${t.product || ''}</td>
               <td class="p-3 text-secondary">${new Date(t.created_at).toLocaleString()}</td>
               <td class="p-3">${isActive}</td>
+              <td class="p-3 small" style="white-space:nowrap;" data-mind-points="${mindArg}">…</td>
               <td class="p-3 text-center" style="white-space:nowrap;">
                 <button onclick="setActive('${t.id}')" class="btn btn-sm btn-inrl me-1">Set Active</button>
                 ${deactivateBtn}
@@ -1762,6 +1853,7 @@
             </tr>`;
             targetsTable.innerHTML += row;
           });
+          fillTargetStrength().catch(e => console.warn('Tracking strength check failed', e));
         } catch (e) {
           console.error('Error loading targets:', e);
           targetsTable.innerHTML = `<tr><td class="p-3" style="color:var(--danger-500);">Failed to load targets: ${e.message || e}</td></tr>`;
@@ -2258,7 +2350,12 @@
         try {
           markerModalStatus.textContent = 'Compiling…';
           const buffer = await compileImageClient([file], (p) => { markerModalStatus.textContent = `Compiling… ${p.toFixed(0)}%`; });
-          warnOnWeakCompile();
+          // This replaces the live marker on printed shirts: a weak one is not
+          // saved unless confirmed.
+          if (!confirmCompileStrength()) {
+            markerModalStatus.textContent = `Not saved: only ${lastCompileStats[0]?.matching ?? 0} feature points (needs ${MIN_MATCHING_KEYPOINTS}). Pick a more detailed area.`;
+            return;
+          }
           markerModalStatus.textContent = 'Uploading…';
           const mindName = `${mk.srcName}-crop.mind`;
           const [mindUp, imgUp] = await Promise.all([

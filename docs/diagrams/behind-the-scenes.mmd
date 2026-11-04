@@ -1,0 +1,19 @@
+graph TD
+  S0([SETUP: admin and brand]) --> S1[Brand submits a design]
+  S1 --> S2[Admin uploads AR target: marker and default video]
+  S2 --> S3[Admin sets target active]
+  S3 --> S4[Admin imports product from Printful]
+  S4 --> S5[Admin links AR target and publishes]
+  S5 --> S6[Admin sets QR placement and previews]
+  S6 --> S7[Product on sale]
+  S5 -.->|optional| S8[Brand replaces default video]
+  S7 -->|customer checks out| P0([AFTER PAYMENT])
+  P0 --> P1[Stripe confirms payment]
+  P1 --> P2[One shirt record per unit, owned by the buyer]
+  P2 --> P3[QR image made for each shirt]
+  P3 --> P4[Printful order: art plus each shirt's QR]
+  P4 -->|confirmed| P5[Printed and shipped, tracking updates]
+  P4 -->|Printful error| P6[Admin: Orders, Shirts, Resubmit]
+  P6 --> P4
+  P7[Admin: Mark paid, self-fulfil] -->|no Stripe| P8[Shirt records and QR made for the buyer]
+  P8 -->|not sent to Printful| P9[Shop prints and ships it itself]

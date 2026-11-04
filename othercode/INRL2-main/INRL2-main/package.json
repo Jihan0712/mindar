@@ -1,0 +1,51 @@
+{
+  "name": "inrl2",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:ar": "node scripts/ar-smoke-test.mjs",
+    "test:look": "node scripts/look-ar-test.mjs",
+    "look-fonts": "node scripts/make-look-fonts.mjs",
+    "marker": "node scripts/make-test-marker.mjs",
+    "thumbs": "node scripts/make-studio-thumbs.mjs",
+    "test:studio": "node scripts/studio-test.mjs",
+    "test:publish": "node scripts/publish-test.mjs",
+    "test:social": "node scripts/social-test.mjs",
+    "marker-check": "node scripts/marker-check.mjs",
+    "test:inrl": "node scripts/inrl-test.mjs"
+  },
+  "dependencies": {
+    "delaunator": "^5.1.0",
+    "jsqr": "^1.4.0",
+    "mind-ar": "^1.2.5",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4",
+    "three": "^0.186.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/delaunator": "^5.0.3",
+    "@types/node": "^24.13.3",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@types/sql.js": "^1.4.11",
+    "@types/three": "^0.186.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "opentype.js": "^2.0.0",
+    "oxlint": "^1.81.0",
+    "puppeteer-core": "^24.43.1",
+    "sql.js": "^1.14.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,19 @@
+graph TD
+  A[Home or Shop] --> B[Product page]
+  B -->|See it in action| N
+  B -->|pick size| C[Add to bag]
+  C --> D{Signed in?}
+  D -->|no| E[Sign in or create account]
+  E -->|bag is kept| F
+  D -->|yes| F[Checkout: shipping address]
+  F --> G[Stripe payment page]
+  G -->|paid| H[Order confirmation]
+  H --> T[Your orders: tracking]
+  H --> I[Your T-shirts]
+  I --> J[T-shirt page: its QR and link]
+  J -->|add or change video| K[New video version is live]
+  L[Shirt arrives with its own QR] --> M[Anyone scans the QR]
+  M -->|shop.inrl.co/p/code| N[AR viewer]
+  N -->|phone| O[Camera on the print: video plays]
+  N -->|laptop or no camera| P[Video plays as a page]
+  K -.->|every later scan| N

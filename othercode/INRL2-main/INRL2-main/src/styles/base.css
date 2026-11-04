@@ -1,0 +1,26 @@
+@import './tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  font: 400 14px/140% var(--font);
+  color: var(--ink-900);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button { font: inherit; color: inherit; }
+
+/* Buttons from the Components section of the design system. */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; height: 43px; padding: 0 20px;
+  border: 0; border-radius: var(--radius-xl);
+  font: 500 14px/140% var(--font); text-decoration: none; cursor: pointer;
+}
+.btn-primary { background: var(--teal-fill); color: #fff; }
+.btn-secondary { background: var(--surface-chip); color: var(--ink-900); }
+.btn:disabled { opacity: 0.5; cursor: default; }

@@ -8,6 +8,8 @@
     <!-- A-Frame + MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- Frame lock + gyroscope fusion + One Euro anti-jitter on MindAR's pose (ported from INRL2). -->
+    <script src="assets/js/ar-stabilizer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 
     <link rel="stylesheet" type="text/css" href="ecommerce/css/global.css">
@@ -409,6 +411,13 @@
         // Deliberately narrow: this only corrects the cover plane's height, only
         // once MindAR is ready, and only if the value actually differs. If the
         // read fails for any reason the imageurl-derived value above stands.
+        // Hooks the stabiliser onto MindAR's controller before its first tracked frame
+        // (arReady fires right before processVideo starts). Again after each softReinit.
+        scene.addEventListener('arReady', () => {
+          try { if (window.INRLStabilizer) window.INRLStabilizer.install({ scene, targetEl: target }); }
+          catch (e) { console.warn('[INRL AR] stabiliser install failed; plain MindAR pose in use', e); }
+        });
+
         scene.addEventListener('arReady', () => {
           try {
             const comp = target.components && target.components['mindar-image-target'];
@@ -549,6 +558,9 @@
 
         // ---- Gate (M1): request camera on tap, branch on the resulting error type ----
         async function requestCameraAndScan() {
+          // Must run synchronously inside the tap, before the first await: iOS only grants
+          // motion-sensor access (gyroscope fusion) to a request started by a user gesture.
+          try { if (window.INRLStabilizer) window.INRLStabilizer.requestMotion(); } catch (e) {}
           try {
             const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
             probe.getTracks().forEach(t => t.stop());
@@ -632,6 +644,7 @@
               `canvasAR  ${cv ? r(cv.clientWidth / cv.clientHeight) : '-'}  camAspect ${cam ? r(cam.aspect) : '-'}  fov ${cam ? r(cam.fov) : '-'}`,
               `feed      ${feed ? feed.videoWidth + 'x' + feed.videoHeight : '-'}  css ${feed ? feed.style.width + ' x ' + feed.style.height + ' @' + feed.style.left + ',' + feed.style.top : '-'}`,
               `marker    ${pm ? r(pm.elements[12] * 2) + 'x' + r(pm.elements[13] * 2) : '-'}  plane ${planeEl.getAttribute('width')}x${r(Number(planeEl.getAttribute('height')))}`,
+              `stabilise ${window.INRLStabilizer ? `motion ${INRLStabilizer.motion.status} ${INRLStabilizer.motion.rate}/s  gyro ${INRLStabilizer.state.gyroActive ? 'on' : 'off'}  framelock ${INRLStabilizer.state.frameLock ? 'on' : 'off'}  track ${INRLStabilizer.state.trackFps}/s` : 'not loaded'}`,
             ].join('\n');
           }, 500);
         }

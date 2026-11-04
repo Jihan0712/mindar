@@ -1,0 +1,17 @@
+/* INRL of a post on a real surface (Figma A4 / A41): drawn over the native app's camera, so nothing opaque. */
+.look.inrl { background: transparent; }
+.inrl::after { height: 32%; }
+.inrl-readout { top: calc(env(safe-area-inset-top) + 64px); }
+.inrl-hint { top: auto; bottom: calc(env(safe-area-inset-bottom) + 220px); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
+.inrl[data-phase='placed'] .inrl-hint { display: none; }
+
+/* Author and caption centred above the strip, as in A4. */
+.inrl-info { left: 24px; right: 24px; justify-items: center; text-align: center; }
+.inrl-info .pv-who { text-decoration: none; }
+.inrl-caption { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; opacity: 0.9; }
+.inrl .pv-actions { bottom: calc(env(safe-area-inset-bottom) + 190px); }
+.inrl:not([data-strip='true']) .pv-actions { bottom: calc(env(safe-area-inset-bottom) + 100px); }
+
+.inrl-menu { z-index: 9; }
+.inrl-elsewhere .look-sheet { z-index: 6; }
+.inrl-lowpower { top: calc(env(safe-area-inset-top) + 100px); left: 50%; transform: translateX(-50%); white-space: nowrap; }

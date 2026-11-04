@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "id": "test-scene-1",
+  "title": "Step 1 test scene",
+  "background": {
+    "color": "#E1E8E9"
+  },
+  "music": {
+    "src": "/test/music.m4a",
+    "title": "Test loop",
+    "artist": "InRL"
+  },
+  "objects": [
+    {
+      "id": "screen",
+      "kind": "video",
+      "src": "/test/video.mp4",
+      "width": 0.3,
+      "style": "screen",
+      "transform": {
+        "position": [
+          0.02,
+          0,
+          -0.3
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "fox",
+      "kind": "model",
+      "src": "/test/Fox.glb",
+      "height": 0.35,
+      "animation": "Survey",
+      "transform": {
+        "position": [
+          0.22,
+          0,
+          0.1
+        ],
+        "rotation": [
+          0,
+          -40,
+          0
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "duck",
+      "kind": "model",
+      "src": "/test/Duck.glb",
+      "height": 0.18,
+      "transform": {
+        "position": [
+          -0.25,
+          0,
+          0.18
+        ],
+        "rotation": [
+          0,
+          30,
+          0
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "photo",
+      "kind": "image",
+      "src": "/test/photo.jpg",
+      "width": 0.26,
+      "transform": {
+        "position": [
+          -0.33,
+          0.05,
+          -0.12
+        ],
+        "rotation": [
+          0,
+          35,
+          0
+        ],
+        "scale": 1
+      }
+    }
+  ]
+}

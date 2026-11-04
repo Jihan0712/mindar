@@ -1,0 +1,88 @@
+/* Profiles (Figma B1r2 own, G2 / G21 others, Posts 01 grid) and the Marker tab (B12r2–B15r2). */
+.pf { min-height: 100%; padding: 0 16px calc(env(safe-area-inset-bottom) + 24px); }
+.pf-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 12px) 0 12px;
+}
+.pf-top h1 { margin: 0; }
+.pf-icon { display: grid; place-items: center; width: 40px; height: 40px; border: 0; background: none; color: var(--ink-900); }
+
+.pf-head { display: grid; justify-items: center; gap: 2px; padding: 8px 0 16px; text-align: center; }
+.pf-name { margin: 6px 0 0; font: 600 30px/120% var(--font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--teal-700); text-align: center; }
+.pf-handle { margin: 0; color: var(--ink-400); text-align: center; }
+
+.pf-tabs { display: grid; grid-template-columns: 1fr 1fr; margin: 0 -16px 12px; border-bottom: 1px solid var(--ink-200); }
+.pf-tabs button { border: 0; background: none; padding: 12px 0; font: 500 14px/140% var(--font); color: var(--ink-400); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.pf-tabs button[aria-selected='true'] { color: var(--ink-900); border-bottom-color: var(--teal-500); }
+
+/* Posts 01: the pinned post big, the others two by two. */
+.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pf-grid > .is-big, .pf-grid > .pf-new, .pf-grid > .pf-empty { grid-column: 1 / -1; }
+.pf-new, .pf-post { position: relative; overflow: hidden; border-radius: var(--radius-md); }
+.pf-post { aspect-ratio: 4 / 5; }
+.pf-new { display: flex; align-items: center; justify-content: center; gap: 8px; height: 56px; border: 2px dashed var(--ink-200); color: var(--ink-700); text-decoration: none; }
+.pf-post { background: var(--surface-placeholder); }
+.pf-post img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pf-empty { grid-column: 1 / -1; color: var(--ink-500); margin: 12px 0; }
+
+/* Marker tab (B12r2): artwork, avatar overlapping its bottom edge, name, two buttons. */
+.pf-marker { display: grid; justify-items: center; padding: 8px 10px 0; }
+.pf-art { position: relative; width: 100%; aspect-ratio: 1; margin-bottom: 44px; border-radius: var(--radius-md); background: var(--surface-white); }
+.pf-art > img { width: 100%; height: 100%; display: block; border-radius: var(--radius-md); }
+.pf-avatar-over { position: absolute; left: 50%; bottom: -42px; transform: translateX(-50%); border: 3px solid var(--surface-white); }
+.pf-making { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 24px; text-align: center; color: var(--ink-700); }
+.pf-making progress { width: 60%; accent-color: var(--teal-500); }
+.pf-spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--surface-chip); border-top-color: var(--teal-500); animation: pf-spin 0.9s linear infinite; }
+@keyframes pf-spin { to { transform: rotate(360deg); } }
+.pf-shows { margin: 8px 0 0; color: var(--ink-500); text-align: center; }
+.pf-actions { display: grid; gap: 12px; width: 100%; margin-top: 28px; }
+.pf-error { margin: 16px 0 0; color: var(--signal-alert); text-align: center; }
+
+/* Sheets (Edit your Marker B13r2, menu) over a darkened, blurred screen. */
+.pf-veil { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-end; background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pf-sheet {
+  position: relative; width: 100%; display: grid; gap: 12px; text-align: center;
+  padding: 28px 27px calc(env(safe-area-inset-bottom) + 24px);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0; background: var(--surface-white);
+}
+.pf-sheet h2, .pf-sheet p { margin: 0; }
+.pf-close { position: absolute; top: 24px; right: 24px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--surface-chip); color: var(--ink-700); }
+.pf-pick { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px; }
+.pf-pick > * { flex: 0 0 auto; width: 110px; height: 110px; padding: 0; overflow: hidden; border: 3px solid transparent; border-radius: var(--radius-md); background: var(--surface-subtle); }
+.pf-pick button.is-active { border-color: var(--teal-500); }
+.pf-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pf-pick-new { display: grid; place-items: center; }
+
+/* Published Successfully (E19r3, B15r2). */
+.published { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(6, 49, 55, 0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.published-card { display: grid; justify-items: center; gap: 12px; padding: 24px 32px; border-radius: var(--radius-xl); background: rgba(242, 242, 242, 0.95); text-align: center; animation: published-in 0.25s ease-out; }
+.published-card p { margin: 0; font-size: 18px; color: var(--ink-900); }
+@keyframes published-in { from { transform: scale(0.9); opacity: 0; } }
+.pf-open { position: absolute; inset: 0; display: block; }
+.pf-drafts { flex-direction: column; gap: 2px; height: auto; padding: 12px 16px; border-style: solid; border-width: 1px; background: var(--surface-white); }
+.pf-drafts .t-label-12 { color: var(--ink-500); }
+
+/* Header block (B1r2 / G2): avatar, NAME, @handle, stats, bio, buttons. */
+.pf-head .avatar { margin-bottom: 4px; }
+.pf-stats { display: flex; gap: 18px; justify-content: center; margin: 6px 0 0; color: var(--ink-900); }
+.pf-stats span { display: inline-flex; align-items: center; gap: 4px; }
+.pf-stats b { font-weight: 500; }
+.pf-bio { max-width: 300px; margin: 6px 0 0; color: var(--ink-900); white-space: pre-line; }
+.pf-buttons { display: flex; gap: 9px; justify-content: center; margin-top: 12px; }
+.pf-btn { min-width: 108px; height: 34px; padding: 0 16px; border: 0; border-radius: var(--radius-xl); background: var(--surface-chip); color: var(--ink-900); font: 500 12px/1 var(--font); cursor: pointer; }
+.pf-btn.is-primary { background: var(--teal-fill); color: #fff; }
+.pf-btn-icon { display: grid; place-items: center; width: 49px; height: 34px; border: 1.5px solid var(--ink-400); border-radius: var(--radius-xl); background: transparent; cursor: pointer; }
+.pf-head > .pf-spinner { margin: 40px auto; }
+
+/* Cards: picture, pin on the big one, likes / views bottom-left, ••• (own posts). */
+.pf-post.is-big { aspect-ratio: 4 / 5; }
+.pf-pin { position: absolute; top: 12px; left: 12px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)); pointer-events: none; }
+.pf-counts { position: absolute; left: 10px; bottom: 8px; display: flex; gap: 10px; margin: 0; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); pointer-events: none; }
+.pf-counts span { display: inline-flex; align-items: center; gap: 3px; }
+.pf-more { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)); }
+.btn.pf-danger { background: var(--signal-alert); color: #fff; }
+.pf-note { position: fixed; z-index: 50; left: 50%; top: 45%; transform: translateX(-50%); margin: 0; padding: 10px 16px; border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.7); color: #fff; }
+.pf-blocked { max-width: 300px; margin: 10px 0 0; color: var(--ink-500); }
+.pf-muted { color: var(--ink-500); }
+.pf-blockrow { display: flex; align-items: center; gap: 10px; text-align: left; }
+.pf-blockrow span { flex: 1; }

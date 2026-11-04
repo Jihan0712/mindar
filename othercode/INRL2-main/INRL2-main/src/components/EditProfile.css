@@ -1,0 +1,19 @@
+/* Edit Profile: picture circle (F25), name, bio. Uses the profile's sheet styles (Profile.css). */
+.ep { justify-items: center; max-height: 92vh; overflow-y: auto; }
+.ep > * { width: 100%; }
+.ep-pick, .ep-crop, .ep-zoom, .ep-links { width: auto; }
+.ep-pick { padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; }
+.ep-empty { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: var(--surface-chip); }
+.ep-crop { position: relative; overflow: hidden; border-radius: 50%; background: var(--surface-chip); touch-action: none; cursor: grab; box-shadow: 0 0 0 3px var(--teal-500); }
+.ep-crop img { position: absolute; left: 0; top: 0; max-width: none; user-select: none; pointer-events: none; }
+.ep-zoom { width: 200px; accent-color: var(--teal-500); }
+.ep-muted { color: var(--ink-500); }
+.ep-links { display: flex; gap: 16px; justify-content: center; }
+.ep-links button { border: 0; background: none; padding: 4px; color: var(--teal-fill); cursor: pointer; }
+.ep-input, .ep-bio textarea {
+  width: 100%; border: 1px solid var(--ink-200); border-radius: var(--radius-xl); background: transparent;
+  padding: 10px 16px; font: 400 16px/140% var(--font); color: var(--ink-900);
+}
+.ep-bio { position: relative; display: block; }
+.ep-bio textarea { resize: none; border-radius: 16px; }
+.ep-bio span { position: absolute; right: 12px; bottom: 10px; color: var(--ink-500); }

@@ -1,0 +1,38 @@
+/* Comments sheet (Figma C12): white, top corners round, over the post (not blurred). */
+.cm-veil { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.12); }
+.cm {
+  position: fixed; left: 0; right: 0; bottom: 0; height: min(62vh, 520px);
+  display: flex; flex-direction: column; border-radius: 40px 40px 0 0; background: var(--surface-white);
+  padding-bottom: env(safe-area-inset-bottom); animation: cm-up 0.25s ease-out; transition: bottom 0.15s;
+}
+@keyframes cm-up { from { transform: translateY(100%); } }
+.cm-grab { align-self: center; width: 38px; height: 3px; margin-top: 9px; border-radius: 2px; background: #9fb8b9; }
+.cm-top { position: relative; padding: 10px 20px 10px; text-align: center; border-bottom: 1px solid var(--ink-200); }
+.cm-top h2 { margin: 0; color: var(--ink-900); }
+.cm-x { position: absolute; right: 20px; top: 12px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; background: none; color: var(--ink-900); cursor: pointer; }
+.cm-list { flex: 1; overflow-y: auto; padding: 8px 17px; overscroll-behavior: contain; }
+.cm-muted { color: var(--ink-500); text-align: center; margin: 24px 0; }
+.cm-row { display: flex; gap: 10px; padding: 10px 0; }
+.cm-row.is-hidden { opacity: 0.5; }
+.cm-who { flex: 0 0 auto; border-radius: 50%; }
+.cm-body { flex: 1; min-width: 0; }
+.cm-body p { margin: 0; color: var(--ink-900); }
+.cm-body a { color: inherit; text-decoration: none; }
+.cm-time { color: var(--ink-400); font-weight: 400; }
+.cm-flag { margin-left: 6px; padding: 1px 6px; border-radius: var(--radius-pill); background: var(--surface-chip); color: var(--ink-700); }
+.cm-text { white-space: pre-line; overflow-wrap: anywhere; }
+.cm-acts { display: flex; gap: 14px; margin-top: 4px !important; }
+.cm-acts button { padding: 0; border: 0; background: none; color: #808080; font: inherit; cursor: pointer; }
+.cm-like { flex: 0 0 auto; display: grid; justify-items: center; align-content: start; gap: 2px; width: 32px; padding: 4px 0 0; border: 0; background: none; color: var(--ink-400); cursor: pointer; }
+.cm-like.is-on svg { animation: cm-beat 0.3s ease-out; }
+@keyframes cm-beat { 50% { transform: scale(1.3); } }
+.cm-error { margin: 0 20px 6px; color: var(--signal-alert); }
+.cm-add { display: flex; align-items: center; gap: 10px; padding: 10px 17px 12px; border-top: 1px solid var(--ink-200); }
+.cm-input { position: relative; flex: 1; display: flex; align-items: center; min-height: 36px; border: 1px solid #cdcdcd; border-radius: 18px; }
+.cm-input textarea {
+  flex: 1; resize: none; border: 0; background: none; padding: 8px 14px; max-height: 96px;
+  font: 400 16px/130% var(--font); color: var(--ink-900); /* 16px: no iOS zoom on focus */
+}
+.cm-input textarea::placeholder { color: #666464; }
+.cm-input textarea:focus { outline: none; }
+.cm-send { flex: 0 0 auto; display: grid; place-items: center; width: 30px; height: 30px; margin-right: 3px; padding: 0; border: 0; border-radius: 50%; background: var(--teal-fill); cursor: pointer; }

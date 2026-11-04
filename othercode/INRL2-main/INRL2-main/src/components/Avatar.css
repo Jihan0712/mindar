@@ -1,0 +1,6 @@
+.avatar {
+  flex: 0 0 auto; display: inline-grid; place-items: center; border-radius: 50%;
+  background: var(--surface-cool); color: var(--teal-700); font-weight: 500; line-height: 1;
+}
+.avatar { overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
