@@ -1047,7 +1047,7 @@
             <label class="btn btn-sm btn-inrl-outline mt-2 mb-0" style="font-size:.62rem">Upload print file (PNG)&#8230;
               <input type="file" id="qrArtFile" accept="image/png" hidden />
             </label>
-            <div class="form-text">Export the design at the print area size (300 DPI) and mark the QR spot with a solid #FF00FF disc. The QR snaps to it.</div>
+            <div class="form-text">Export the design at the print area size (300 DPI) with a placeholder QR (any QR) where each shirt's QR goes; a solid #FF00FF disc also works. Each shirt's own emblem replaces it, sized to hide it completely.</div>
             <details class="mt-3" id="qrExact">
               <summary class="form-label mb-1" style="cursor:pointer">Exact values</summary>
               <label class="form-label mt-2" for="qrPlacement">Placement</label>
@@ -2694,7 +2694,8 @@
         if (!qrArt) return 'No print file for this placement yet.';
         if (qrArt.isPhoto) return 'This is the storefront photo: upload the real print file.';
         if (!qrArt.readable) return "This file can't be used for print files: re-upload it.";
-        if (!qrArt.slot || qrArt.slot.error) return 'No usable #FF00FF slot in the print file.';
+        if (!qrArt.slot) return 'Still looking for the QR spot…';
+        if (qrArt.slot.error) return 'No usable QR spot in the print file.';
         var v = qrValues();
         if (!(v.size >= 2 && v.size <= 6)) return 'Emblem width must be 2 to 6 in.';
         if (v.left + v.size > a.w + 0.01 || v.top + v.size > a.h + 0.01) return 'The QR must sit inside the print area.';
@@ -2709,14 +2710,18 @@
         var el = qrEl('qrSlotStatus');
         if (!qrArt || !qrArt.readable) { el.textContent = ''; return; }
         var s = qrArt.slot;
-        if (!s || s.error === 'none') { el.innerHTML = '<span style="color:#b23b3b">No #FF00FF slot found.</span> Mark the QR spot with a solid #FF00FF disc and re-upload.'; return; }
-        if (s.error === 'not_round') { el.innerHTML = '<span style="color:#b23b3b">The #FF00FF area is not one round disc.</span> Use a single solid circle.'; return; }
-        if (s.error === 'too_small') { el.innerHTML = '<span style="color:#b23b3b">The slot is under 2 in.</span> Make it at least 2 in wide.'; return; }
+        var bad = function(head, tail) { el.innerHTML = '<span style="color:#b23b3b">' + head + '</span> ' + tail; };
+        if (!s) { el.textContent = 'Looking for the QR spot…'; return; }
+        if (s.error === 'none') return bad('No QR spot found.', "Put a placeholder QR (any QR) where each shirt's QR goes and re-upload.");
+        if (s.error === 'no_reader') return bad("Couldn't load the QR reader.", 'Check the connection and reopen QR placement, or mark the spot with a solid #FF00FF disc.');
+        if (s.error === 'many_qr') return bad('Found ' + s.count + ' QR codes.', "Leave only the placeholder where each shirt's QR goes.");
+        if (s.error === 'not_round') return bad('The #FF00FF area is not one round disc.', 'Use a single solid circle.');
+        if (s.error === 'too_small') return bad('The QR spot is too small.', "Make the placeholder at least 1.7 in wide: each shirt's emblem must be 2 in.");
         var v = qrValues();
         var off = qrSnap && (Math.abs(v.size - qrSnap.size_in) > 0.005 || Math.abs(v.top - qrSnap.top_in) > 0.005 || Math.abs(v.left - qrSnap.left_in) > 0.005);
         el.innerHTML = off
-          ? '<span style="color:#c17a2e">Moved off the slot.</span> <button type="button" class="btn btn-sm btn-inrl-outline" id="qrSnapBtn" style="font-size:.58rem;padding:.1rem .45rem">Snap back</button>'
-          : '<span style="color:#1c5d68">&#10003; Snapped to the slot:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in';
+          ? '<span style="color:#c17a2e">Moved off the QR spot.</span> <button type="button" class="btn btn-sm btn-inrl-outline" id="qrSnapBtn" style="font-size:.58rem;padding:.1rem .45rem">Snap back</button>'
+          : '<span style="color:#1c5d68">&#10003; Snapped to the ' + (s.kind === 'qr' ? 'placeholder QR' : '#FF00FF disc') + ':</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in';
         var snapBtn = qrEl('qrSnapBtn');
         if (snapBtn) snapBtn.onclick = function() { qrSetValues(qrSnap); qrRender(); };
       }
@@ -2778,6 +2783,38 @@
           (fills ? ', fills the print area exactly.' : '; its shape differs from the print area, so it is centred with empty margins.') +
           (dpi < 150 ? ' Too low for a sharp print: export at ' + Math.round(a.w * 300) + ' × ' + Math.round(a.h * 300) + ' px.' : '');
       }
+      // Finds where each shirt's QR goes: a placeholder QR left in the design (any QR; read on a
+      // grey-backed copy at most 2000 px, then at full size), else a #FF00FF disc. Two or more
+      // QR codes is an error, since only one spot can be meant.
+      async function qrFindSpot(cv, data, w, h) {
+        var detector = null;
+        try { detector = await getQrDetector(); } catch (e) {}
+        if (detector) {
+          var first = Math.min(1, 2000 / Math.max(w, h));
+          var scales = first < 1 ? [first, 1] : [1];
+          for (var k = 0; k < scales.length; k++) {
+            var s = scales[k], copy = document.createElement('canvas');
+            copy.width = Math.round(w * s); copy.height = Math.round(h * s);
+            var cctx = copy.getContext('2d');
+            cctx.fillStyle = '#808080'; // a QR on transparency reads on mid grey whether it is black or white
+            cctx.fillRect(0, 0, copy.width, copy.height);
+            cctx.drawImage(cv, 0, 0, copy.width, copy.height);
+            var found = [];
+            try { found = await detector.detect(await canvasBlob(copy)); } catch (e) {}
+            if (found.length > 1) return { error: 'many_qr', count: found.length };
+            var pts = found.length ? found[0].cornerPoints : null;
+            if (pts && pts.length === 4) {
+              var slot = QrPrint.placeholderSlot(data, w, h, pts.map(function(p) { return { x: p.x / s, y: p.y / s }; }));
+              if (!slot.error) slot.kind = 'qr';
+              return slot;
+            }
+          }
+        }
+        var disc = QrPrint.findSlot(data, w, h);
+        if (disc.error === 'none' && !detector) return { error: 'no_reader' };
+        if (!disc.error) disc.kind = 'disc';
+        return disc;
+      }
       // Loads the placement's art for display and for reading its pixels (which also proves it
       // can be used to build print files: a file served without CORS can't be read back).
       function qrLoadArt() {
@@ -2795,25 +2832,30 @@
         img.onload = function() {
           if (seq !== qrArtLoadSeq) return;
           var art = { url: src.url, w: img.naturalWidth, h: img.naturalHeight, isPhoto: src.isPhoto, canvas: null, readable: false, slot: null };
+          var data = null;
           try {
             var cv = document.createElement('canvas');
             cv.width = art.w; cv.height = art.h;
             var ctx = cv.getContext('2d', { willReadFrequently: true });
             ctx.drawImage(img, 0, 0);
-            var data = ctx.getImageData(0, 0, art.w, art.h).data;
+            data = ctx.getImageData(0, 0, art.w, art.h).data;
             art.canvas = cv; art.readable = true;
-            art.slot = QrPrint.findSlot(data, art.w, art.h);
           } catch (e) { art.readable = false; }
           qrArt = art;
-          var a = qrCurrentArea();
-          if (art.readable && art.slot && !art.slot.error && a) {
-            var p = QrPrint.slotPlacement(art.slot, art, QrPrint.fitArtBox(a, art), a);
-            if (p.error) art.slot = { error: p.error };
-            else { qrSnap = p; qrSetValues(p); }
-          }
           qrRender();
           qrShowArtHint();
-          if (!art.readable) qrSetStatus("This file can't be used for print files: re-upload it here.", true);
+          if (!art.readable) { qrSetStatus("This file can't be used for print files: re-upload it here.", true); return; }
+          qrFindSpot(art.canvas, data, art.w, art.h).then(function(slot) {
+            if (seq !== qrArtLoadSeq) return;
+            art.slot = slot;
+            var a = qrCurrentArea();
+            if (!slot.error && a) {
+              var p = QrPrint.slotPlacement(slot, art, QrPrint.fitArtBox(a, art), a);
+              if (p.error) art.slot = { error: p.error };
+              else { qrSnap = p; qrSetValues(p); }
+            }
+            qrRender();
+          });
         };
         img.onerror = function() {
           if (seq !== qrArtLoadSeq) return;

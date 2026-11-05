@@ -39,6 +39,46 @@
     return { left: minX, top: minY, size: Math.max(w, h) };
   }
 
+  // A placeholder QR left in the design marks the spot too. Its footprint (code, quiet zone,
+  // and for an emblem its white backing and rings) is measured outward from the code; an
+  // emblem's backing is at most 2.12x its code's side (measured over 3000 links), a plain QR
+  // with a 4-module quiet zone at most 1.95x, so the scan never goes past PLACEHOLDER_MAX.
+  var PLACEHOLDER_MAX = 2.2;
+
+  // Black, white or the grey of their blended edges: the placeholder. Colour and transparency
+  // are the design around it.
+  function isPlaceholderPixel(r, g, b, a) { return a >= 200 && Math.max(r, g, b) - Math.min(r, g, b) <= 40; }
+
+  // placeholderSlot(rgba, width, height, corners) -> { left, top, size } in px: the smallest
+  // disc round the code's centre holding the whole placeholder, or { error: 'too_small' } for
+  // a code under 40 px. corners: the code's four corner points as a QR reader reports them.
+  // Each of 120 rays walks out from inside the code and stops after a run of design pixels
+  // (about a module wide), so the dashes and gaps of an emblem's rings don't end it early.
+  function placeholderSlot(rgba, width, height, corners) {
+    var cx = 0, cy = 0, side = 0;
+    for (var k = 0; k < 4; k++) {
+      var p = corners[k], q = corners[(k + 1) % 4];
+      cx += p.x / 4; cy += p.y / 4;
+      side += Math.hypot(q.x - p.x, q.y - p.y) / 4;
+    }
+    if (!(side >= 40)) return { error: 'too_small' };
+    var start = side * 0.45, cap = side * PLACEHOLDER_MAX / 2, gap = Math.max(3, Math.round(side / 25));
+    var reach = start;
+    for (var n = 0; n < 120; n++) {
+      var dx = Math.cos(n * Math.PI / 60), dy = Math.sin(n * Math.PI / 60);
+      var last = start, run = 0;
+      for (var r = start; r <= cap; r++) {
+        var x = Math.round(cx + dx * r), y = Math.round(cy + dy * r);
+        var i = (y * width + x) * 4;
+        var inside = x >= 0 && y >= 0 && x < width && y < height && isPlaceholderPixel(rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]);
+        if (inside) { last = r; run = 0; } else if (++run >= gap) break;
+      }
+      if (last > reach) reach = last;
+    }
+    reach += 1;
+    return { left: Math.round(cx - reach), top: Math.round(cy - reach), size: Math.round(2 * reach) };
+  }
+
   // fitArtBox(area, art) -> the art drawn whole and centred in the print area, in inches.
   // area: { w, h } inches; art: { w, h } px.
   function fitArtBox(area, art) {
@@ -96,7 +136,7 @@
     };
   }
 
-  var api = { DPI: DPI, BLEED_IN: BLEED_IN, MIN_QR_IN: MIN_QR_IN, RIM_MIN: RIM_MIN, isMarker: isMarker, findSlot: findSlot, fitArtBox: fitArtBox, slotPlacement: slotPlacement, printFileName: printFileName, testSheetLayout: testSheetLayout };
+  var api = { DPI: DPI, BLEED_IN: BLEED_IN, MIN_QR_IN: MIN_QR_IN, RIM_MIN: RIM_MIN, PLACEHOLDER_MAX: PLACEHOLDER_MAX, isMarker: isMarker, findSlot: findSlot, placeholderSlot: placeholderSlot, fitArtBox: fitArtBox, slotPlacement: slotPlacement, printFileName: printFileName, testSheetLayout: testSheetLayout };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.QrPrint = api;
 })(this);
