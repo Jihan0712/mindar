@@ -50,17 +50,21 @@ test('slotPlacement: the emblem takes the spot\'s own size and centre', () => {
   // Touching the right/bottom edges: clamped so the emblem stays inside.
   const e = slotPlacement({ left: 3100, top: 4300, size: 600 }, art, box, area);
   assert.ok(Math.abs(e.left_in + e.size_in - 12) < 0.002 && Math.abs(e.top_in + e.size_in - 16) < 0.002);
-  // Under 2 in: a measuring hair under is rounded up round the same centre, more is too small.
-  const near = slotPlacement({ left: 1000, top: 1000, size: 590 }, art, box, area);
-  assert.equal(near.size_in, 2);
-  assert.ok(Math.abs(near.left_in + 1 - (1000 + 295) / 300) < 0.002);
-  // Down to MIN_SPOT_IN (what the earlier rule accepted) a spot is grown to 2 in, not refused.
-  const small = slotPlacement({ left: 1000, top: 1000, size: 510 }, art, box, area);
-  assert.equal(small.size_in, 2);
+  // A 1.08 in spot (the INRL BETA back, scanned fine on paper) prints at exactly 1.08 in.
+  const beta = slotPlacement({ left: 2383, top: 3669, size: 325 }, art, box, area);
+  assert.equal(beta.size_in, 1.083);
+  assert.equal(beta.grown, undefined);
+  // Under 1 in: a measuring hair under is rounded up round the same centre, more is too small.
+  const near = slotPlacement({ left: 1000, top: 1000, size: 295 }, art, box, area);
+  assert.equal(near.size_in, 1);
+  assert.ok(Math.abs(near.left_in + 0.5 - (1000 + 147.5) / 300) < 0.002);
+  // Down to MIN_SPOT_IN a spot is grown to 1 in, not refused.
+  const small = slotPlacement({ left: 1000, top: 1000, size: 288 }, art, box, area);
+  assert.equal(small.size_in, 1);
   assert.equal(small.grown, true);
-  assert.ok(Math.abs(small.left_in + 1 - (1000 + 255) / 300) < 0.002, 'grown round the same centre');
+  assert.ok(Math.abs(small.left_in + 0.5 - (1000 + 144) / 300) < 0.002, 'grown round the same centre');
   assert.equal(slotPlacement({ left: 2760, top: 3900, size: 600 }, art, box, area).grown, undefined);
-  assert.equal(slotPlacement({ left: 0, top: 0, size: 450 }, art, box, area).error, 'too_small');
+  assert.equal(slotPlacement({ left: 0, top: 0, size: 270 }, art, box, area).error, 'too_small');
   // On a letterboxed file the art box offset is added.
   const art2 = { w: 849, h: 1199 }, box2 = fitArtBox(area, art2);
   const ppi = 849 / box2.width_in;

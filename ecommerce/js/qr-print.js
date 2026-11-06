@@ -6,10 +6,12 @@
   'use strict';
 
   var DPI = 300;
-  var MIN_QR_IN = 2;     // smallest emblem phones read reliably from fabric
-  // Smallest QR spot accepted (grown to MIN_QR_IN): what the earlier bleed rule accepted
-  // ((2 * 0.85) - 2 * 0.03 in), so a print file saved before is never refused on reopen.
-  var MIN_SPOT_IN = 1.64;
+  // Smallest emblem: 1 in, scanned fine on paper at 1.08 in (2026-11-06; was 2 in). Paper
+  // prints sharper than fabric, so print a test shirt before selling a design this small.
+  var MIN_QR_IN = 1;
+  // Smallest QR spot accepted: a spot measured a hair under MIN_QR_IN (measuring error) is
+  // grown to it.
+  var MIN_SPOT_IN = 0.95;
   // Each shirt's emblem is exactly the size of the spot the design marks (a placeholder QR or
   // a #FF00FF disc). The marker itself is erased from the print file when it is saved
   // (eraseSpot), so nothing of it shows round an emblem whose outline differs.

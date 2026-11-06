@@ -1144,14 +1144,14 @@
             <label class="btn btn-sm btn-inrl-outline mt-2 mb-0" style="font-size:.62rem">Upload print file (PNG)&#8230;
               <input type="file" id="qrArtFile" accept="image/png" hidden />
             </label>
-            <div class="form-text">Export the design at the print area size (300 DPI) with a placeholder QR (any QR) where each shirt's QR goes; a solid #FF00FF disc also works. Each shirt's own emblem takes its exact size and place, and the placeholder is erased from the saved print file. Make it at least 2 in wide.</div>
+            <div class="form-text">Export the design at the print area size (300 DPI) with a placeholder QR (any QR) where each shirt's QR goes; a solid #FF00FF disc also works. Each shirt's own emblem takes its exact size and place, and the placeholder is erased from the saved print file. Make it at least 1 in wide (2 in scans most easily).</div>
             <details class="mt-3" id="qrExact">
               <summary class="form-label mb-1" style="cursor:pointer">Exact values</summary>
               <label class="form-label mt-2" for="qrPlacement">Placement</label>
               <select id="qrPlacement" class="form-select form-select-sm"></select>
               <div class="form-text" id="qrAreaHint"></div>
               <label class="form-label mt-2" for="qrSize">Emblem width (in)</label>
-              <input id="qrSize" class="form-control form-control-sm" type="number" step="0.05" min="2" max="6" />
+              <input id="qrSize" class="form-control form-control-sm" type="number" step="0.05" min="1" max="6" />
               <label class="form-label mt-2" for="qrTop">From the top (in)</label>
               <input id="qrTop" class="form-control form-control-sm" type="number" step="0.05" min="0" />
               <label class="form-label mt-2" for="qrLeft">From the left (in)</label>
@@ -2800,7 +2800,7 @@
         if (!qrArt.slot) return 'Still looking for the QR spot…';
         if (qrArt.slot.error) return 'No usable QR spot in the print file.';
         var v = qrValues();
-        if (!(v.size >= 2 && v.size <= 6)) return 'Emblem width must be 2 to 6 in.';
+        if (!(v.size >= QrPrint.MIN_QR_IN && v.size <= 6)) return 'Emblem width must be ' + QrPrint.MIN_QR_IN + ' to 6 in.';
         if (v.left + v.size > a.w + 0.01 || v.top + v.size > a.h + 0.01) return 'The QR must sit inside the print area.';
         return '';
       }
@@ -2819,7 +2819,7 @@
         if (s.error === 'no_reader') return bad("Couldn't load the QR reader.", 'Check the connection and reopen QR placement, or mark the spot with a solid #FF00FF disc.');
         if (s.error === 'many_qr') return bad('Found ' + s.count + ' QR codes.', "Leave only the placeholder where each shirt's QR goes.");
         if (s.error === 'not_round') return bad('The #FF00FF area is not one round disc.', 'Use a single solid circle.');
-        if (s.error === 'too_small') return bad('The QR spot is too small.', "Make the placeholder 2 in wide: each shirt's emblem takes its size, and phones need 2 in (a spot down to 1.64 in is grown to 2 in).");
+        if (s.error === 'too_small') return bad('The QR spot is too small.', "Make the placeholder at least 1 in wide: each shirt's emblem takes its size, and phones need 1 in (2 in scans most easily).");
         if (s.error === 'erase_failed') return bad("Couldn't erase the placeholder from the print file.", 'Reopen QR placement and try again.');
         var v = qrValues();
         var off = qrSnap && (Math.abs(v.size - qrSnap.size_in) > 0.005 || Math.abs(v.top - qrSnap.top_in) > 0.005 || Math.abs(v.left - qrSnap.left_in) > 0.005);
@@ -2828,7 +2828,7 @@
           : s.kind === 'saved'
             ? '<span style="color:#1c5d68">&#10003; Saved QR spot:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in (the placeholder was taken out of this print file when it was saved)'
             : '<span style="color:#1c5d68">&#10003; ' + (qrSnap.grown ? 'Centred on' : 'Same size and place as') + ' the ' + (s.kind === 'qr' ? 'placeholder QR' : '#FF00FF disc') + ', which is erased from the print file:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in' +
-              (qrSnap.grown ? ' <span style="color:#c17a2e">(the spot is under 2 in, so the QR is grown to 2 in and covers a little of the design round it)</span>' : '');
+              (qrSnap.grown ? ' <span style="color:#c17a2e">(the spot is just under 1 in, so the QR is grown to 1 in and covers a little of the design round it)</span>' : '');
         var snapBtn = qrEl('qrSnapBtn');
         if (snapBtn) snapBtn.onclick = function() { qrSetValues(qrSnap); qrRender(); };
       }
@@ -3094,7 +3094,7 @@
           qrRender();
         });
         // Drag the QR to move it; drag its corner handle to resize it (kept square, at least
-        // 2 in, inside the print area). Positions snap to 0.05 in, like the number fields.
+        // QrPrint.MIN_QR_IN, inside the print area). Positions snap to 0.05 in, like the number fields.
         (function qrInitDrag() {
           var box = qrEl('qrStageBox'), handle = qrEl('qrStageHandle'), stage = qrEl('qrStage');
           var drag = null;
@@ -3116,7 +3116,7 @@
               qrEl('qrTop').value = Math.min(Math.max(0, snap(drag.top + dy)), snap(a.h - drag.size)).toFixed(2);
             } else {
               var max = Math.min(6, a.w - drag.left, a.h - drag.top);
-              qrEl('qrSize').value = Math.min(Math.max(2, snap(drag.size + Math.max(dx, dy))), Math.floor(max * 20) / 20).toFixed(2);
+              qrEl('qrSize').value = Math.min(Math.max(QrPrint.MIN_QR_IN, snap(drag.size + Math.max(dx, dy))), Math.floor(max * 20) / 20).toFixed(2);
             }
             qrRender();
           }
