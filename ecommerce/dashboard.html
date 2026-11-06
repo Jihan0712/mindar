@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#14191a" />
   <title>Product Dashboard | INRL</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
@@ -62,7 +63,7 @@
     .inrl-subcard-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-500); font-weight:500; margin-bottom:.6rem; }
     .inrl-section-title { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-500); font-weight:500; border-bottom:1px solid var(--line-200); padding-bottom:.4rem; margin-bottom:1.25rem; margin-top:2.25rem; }
     .inrl-section-title.first { margin-top:0; }
-    .home-locked { background:var(--surface-50); border:1px solid var(--line-200); border-left:3px solid var(--accent-500); border-radius:var(--radius-md); padding:.85rem 1.1rem; font-size:.78rem; line-height:1.55; color:var(--ink-700); margin-bottom:1.75rem; }
+    .home-locked { background:rgba(18,162,184,.06); border:1px solid rgba(18,162,184,.35); border-radius:var(--radius-md); padding:.85rem 1.1rem; font-size:.78rem; line-height:1.55; color:var(--ink-700); margin-bottom:1.75rem; }
     .home-locked strong { color:var(--ink-900); font-weight:500; }
     .home-hint { font-size:.76rem; line-height:1.55; color:var(--ink-500); margin:-.5rem 0 1rem; max-width:760px; }
     .home-media-preview { margin-top:8px; height:110px; border:1px solid var(--line-200); border-radius:6px; background:var(--dark-800); overflow:hidden; display:flex; align-items:center; justify-content:center; }
@@ -110,20 +111,6 @@
     .inrl-sidebar-footer .inrl-quicklinks a { font-size:.7rem; color:var(--paper-500); text-decoration:none; transition:color .12s; }
     .inrl-sidebar-footer .inrl-quicklinks a:hover { color:var(--accent-400); }
     .inrl-dash-main { flex:1 1 auto; min-width:0; padding:1.5rem 2rem 3rem; max-width:1400px; }
-    @media (max-width:991.98px) {
-      .inrl-dash-shell { flex-direction:column; }
-      .inrl-sidebar { position:static; width:100%; height:auto; flex-direction:row; align-items:center; flex-wrap:wrap; }
-      .inrl-sidebar-header { border-bottom:none; border-right:1px solid rgba(240,240,240,.08); padding:.65rem 1rem; }
-      .inrl-sidebar-header .inrl-brand { margin-bottom:.2rem; }
-      .inrl-sidebar-header .inrl-subtitle { display:none; }
-      .inrl-sidebar-nav { display:flex; flex-direction:row; overflow-x:auto; padding:.5rem; flex:1 1 auto; gap:.25rem; }
-      .inrl-sidebar-nav .inrl-nav-group-label { display:none; }
-      .inrl-sidebar-nav .nav-link { white-space:nowrap; }
-      .inrl-sidebar-footer { border-top:none; border-left:1px solid rgba(240,240,240,.08); display:flex; align-items:center; gap:.75rem; padding:.6rem 1rem; flex:0 0 auto; }
-      .inrl-sidebar-footer .inrl-user-row { margin-bottom:0; }
-      .inrl-sidebar-footer .inrl-quicklinks { flex-direction:row; gap:.6rem; margin-bottom:0; }
-      .inrl-dash-main { padding:1.25rem 1rem 2.5rem; }
-    }
 
     /* ---- Product designer (Create/Edit Product) ---- */
     .pd-shell { display:flex; flex-direction:column; background:var(--surface-0); border:1px solid var(--line-200); border-bottom:none; border-radius:var(--radius-md) var(--radius-md) 0 0; overflow:hidden; min-height:560px; }
@@ -148,7 +135,7 @@
     .pd-panel-title { font-family:var(--font-body); color:var(--ink-900); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:.75rem; margin-bottom:.4rem; }
 
     /* Shirt QR placer: the print area to scale, its art, and a draggable QR */
-    .qr-stage { position:relative; width:100%; max-width:min(100%, calc((100vh - 260px) * 0.75)); margin:0 auto; border:1px solid var(--line-200);
+    .qr-stage { position:relative; width:100%; max-width:min(100%, max(260px, calc((100vh - 260px) * 0.75))); margin:0 auto; border:1px solid var(--line-200);
       background:repeating-conic-gradient(#e9e9e9 0 25%, #fafafa 0 50%) 0 0 / 16px 16px; touch-action:none; user-select:none; overflow:hidden; }
     .qr-stage-art { position:absolute; pointer-events:none; }
     .qr-stage-box { position:absolute; aspect-ratio:1; border-radius:50%; background:rgba(255,255,255,.18);
@@ -239,7 +226,7 @@
 
     /* ===== FINAL console layer (Figma "INRL — FINAL", F8 · Run the shop) =====
        240 rail + fluid content on surface-2; tiles radius 12; rail items full-bleed
-       with a teal left bar; below 1024 the console asks for a larger screen. */
+       with a teal left bar; below 1024 the rail becomes a drawer behind a top bar. */
     body { background:var(--surface-2); }
     .inrl-sidebar { flex-basis:240px; width:240px; border-right:0; }
     .inrl-sidebar-header { border-bottom:0; padding:28px 20px 24px; }
@@ -269,13 +256,109 @@
     .console-head p { margin:6px 0 0; font-size:14px; color:var(--ink-700); }
     .inrl-sidebar-nav .nav-item { width:100%; }
     .inrl-sidebar-nav .nav-link { width:100%; }
-    .console-small { display:none; }
+
+    /* ---- Browser surfaces ---- */
+    ::selection { background:var(--teal-200); color:var(--ink-900); }
+    .inrl-sidebar ::selection { background:var(--teal-700); color:var(--paper-100); }
+    .btn:focus-visible, .nav-link:focus-visible, .inrl-logout-link:focus-visible, .inrl-quicklinks a:focus-visible, .console-menu-btn:focus-visible { outline:2px solid var(--accent-500); outline-offset:2px; box-shadow:none !important; }
+    .inrl-sidebar-nav .nav-link:focus-visible { outline-offset:-2px; }
+    .inrl-table td, .order-stat-value, .dash-metric-value, .dash-trend-total, .pd-bottom-price { font-variant-numeric:tabular-nums; }
+
+    /* ---- Compact console (< 1024): top bar + slide-in rail ---- */
+    .console-topbar, .console-scrim { display:none; }
     @media (max-width:1023.98px) {
-      .console-small { display:flex; position:fixed; inset:0; z-index:3000; background:var(--dark-800); color:var(--paper-300); flex-direction:column; justify-content:center; padding:32px 24px; }
-      .console-small img { height:24px; width:auto; align-self:flex-start; margin-bottom:28px; }
-      .console-small h1 { font-family:var(--font-display); text-transform:uppercase; color:var(--paper-100); font-size:36px; line-height:.96; margin:0 0 16px; letter-spacing:0; }
-      .console-small p { font-size:15px; line-height:1.6; max-width:360px; margin:0 0 24px; }
-      .console-small a { color:var(--accent-400); font-size:14px; }
+      .inrl-dash-shell { display:block; min-height:100dvh; }
+      .console-topbar { display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:1030;
+        background:var(--dark-800); color:var(--paper-100); min-height:56px;
+        padding:env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
+        box-shadow:0 1px 0 rgba(240,240,240,.08), 0 6px 18px -12px rgba(11,15,16,.6); }
+      .console-menu-btn { flex:0 0 auto; width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:none; border:0; border-radius:10px; color:var(--paper-100); }
+      .console-menu-btn:active { background:rgba(255,255,255,.08); }
+      .console-menu-btn svg { width:22px; height:22px; }
+      .console-topbar-logo { height:18px; width:auto; display:block; }
+      .console-topbar-sep { width:1px; height:20px; background:rgba(240,240,240,.18); flex:0 0 auto; }
+      .console-topbar-title { font:500 15px/1 var(--font-display); text-transform:uppercase; letter-spacing:.02em; color:var(--paper-200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+
+      .inrl-sidebar { position:fixed; top:0; bottom:0; left:0; z-index:1045; width:min(300px, 86vw); flex-basis:auto; height:100dvh;
+        padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+        transform:translateX(-100%); visibility:hidden;
+        transition:transform .32s cubic-bezier(.16,1,.3,1), visibility 0s linear .32s;
+        box-shadow:12px 0 40px -18px rgba(0,0,0,.7); overscroll-behavior:contain; }
+      .inrl-sidebar.is-open { transform:none; visibility:visible; transition:transform .32s cubic-bezier(.16,1,.3,1), visibility 0s; }
+      .inrl-sidebar-header { padding:20px 20px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+      .inrl-sidebar-header .inrl-brand { margin-bottom:0; }
+      .inrl-sidebar-nav .nav-link { min-height:48px; font-size:15px; }
+      .inrl-sidebar-footer .inrl-quicklinks a, .inrl-logout-link { min-height:44px; font-size:14px; }
+      .console-scrim { display:block; position:fixed; inset:0; z-index:1040; background:rgba(11,15,16,.55); opacity:0; pointer-events:none; transition:opacity .25s ease; }
+      .console-scrim.is-open { opacity:1; pointer-events:auto; }
+      body.console-drawer-open { overflow:hidden; }
+
+      .inrl-dash-main { max-width:none; padding:24px max(20px, env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+      .console-head h1 { font-size:26px; }
+    }
+    .console-drawer-close { width:44px; height:44px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; background:none; border:0; border-radius:10px; color:var(--paper-300); margin-right:-10px; }
+    .console-drawer-close:hover { color:var(--paper-100); background:rgba(255,255,255,.06); }
+    .console-drawer-close svg { width:20px; height:20px; }
+    @media (min-width:1024px) { .console-drawer-close { display:none; } }
+    @media (prefers-reduced-motion:reduce) { .inrl-sidebar, .inrl-sidebar.is-open, .console-scrim { transition:none; } }
+
+    /* ---- Touch: real targets, no tiny chips ---- */
+    @media (pointer:coarse) {
+      .btn { min-height:44px; }
+      .btn-sm { min-height:40px; font-size:13px !important; padding:.45rem .9rem !important; display:inline-flex; align-items:center; justify-content:center; }
+      .form-check-input { width:1.25em; height:1.25em; }
+    }
+
+    /* ---- Phone (< 768) ---- */
+    @media (max-width:767.98px) {
+      .inrl-dash-main { padding-top:20px; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); }
+      .console-head { margin-bottom:20px; }
+      .console-head h1 { font-size:24px; }
+      .console-head p { font-size:14px; line-height:1.5; }
+      /* iOS zooms into inputs under 16px */
+      .form-control, .form-select { font-size:16px !important; }
+
+      /* Card toolbars: search + filters take the full row */
+      .inrl-card-header { padding:.85rem 1rem; }
+      .inrl-card-header.flex-wrap > .d-flex { width:100%; }
+      .inrl-card-header.flex-wrap > .d-flex > .form-control,
+      .inrl-card-header.flex-wrap > .d-flex > .form-select { flex:1 1 160px; width:auto !important; }
+      .inrl-card .p-4 { padding:1.1rem 1rem !important; }
+
+      .order-stat { padding:.85rem 1rem; }
+      .order-stat-value { font-size:1.35rem; overflow-wrap:anywhere; }
+
+      /* Tables become stacked records: each cell labelled by its column (data-label set in JS) */
+      .inrl-table, .inrl-table tbody { display:block; width:100%; }
+      .inrl-table thead { display:none; }
+      .inrl-table tr { display:block; padding:12px 16px; border-bottom:1px solid var(--line-100); background:var(--surface-0); }
+      .inrl-table tr:last-child { border-bottom:0; }
+      .inrl-table td { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px 8px; padding:5px 0 !important; border:0 !important; text-align:right; max-width:none !important; white-space:normal !important; overflow-wrap:anywhere; background:transparent !important; font-size:.85rem; }
+      .inrl-table td::before { content:attr(data-label); flex:0 0 auto; margin-right:auto; padding-right:12px; text-align:left; font-size:.62rem; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-500); font-weight:500; }
+      .inrl-table td[data-label=""]::before, .inrl-table td:not([data-label])::before { display:none; }
+      .inrl-table td[data-label=""] { justify-content:flex-start; flex-wrap:wrap; text-align:left; }
+      .inrl-table td.text-end { justify-content:flex-start; flex-wrap:wrap; padding-top:10px !important; }
+      .inrl-table td.text-end::before { display:none; }
+      .inrl-table td[colspan] { display:block; text-align:center; padding:24px 8px !important; }
+      .inrl-table td[colspan]::before { display:none; }
+      .inrl-table tr:hover td { background:transparent !important; }
+      .table-responsive { overflow-x:visible; }
+
+      /* Product editor */
+      .pd-form-head { padding:1rem; }
+      .pd-back-link { margin-left:0; order:-1; width:100%; font-size:.8rem; }
+      .pd-panel { padding:1.1rem 1rem; }
+      .pd-bottombar { position:sticky; bottom:0; z-index:20; padding:.75rem 1rem calc(.75rem + env(safe-area-inset-bottom)); box-shadow:0 -8px 20px -14px rgba(11,15,16,.35); }
+      .pd-bottombar-info { width:100%; }
+      .pd-bottom-title { max-width:none; }
+      .pd-bottombar-actions { width:100%; }
+      .pd-bottombar-actions .btn { flex:1 1 auto; white-space:nowrap; padding-left:.75rem !important; padding-right:.75rem !important; }
+
+      /* Modals: QR placer and proof stack, footers wrap */
+      .qr-placer, .proof-grid { grid-template-columns:1fr; }
+      .qr-zoom { width:100%; max-width:240px; height:auto; aspect-ratio:1; }
+      .modal-footer { gap:.5rem; }
+      .modal-footer > * { margin:0 !important; }
     }
   </style>
 </head>
@@ -283,20 +366,29 @@
 
 <div class="inrl-dash-shell">
 
-  <!-- SIDEBAR -->
-  <div class="console-small" role="alert">
-    <img src="images/logo-light.svg" alt="INRL">
-    <h1>Use a larger screen.</h1>
-    <p>The console is built for a laptop or desktop &mdash; at least 1024 pixels wide. Orders, products and the homepage all need the room.</p>
-    <a href="/ecommerce/index.html">Back to the store</a>
-  </div>
+  <!-- Compact top bar (< 1024): opens the rail as a drawer -->
+  <header class="console-topbar">
+    <button type="button" class="console-menu-btn" id="consoleMenuBtn" aria-label="Open menu" aria-controls="consoleSidebar" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+    </button>
+    <img class="console-topbar-logo" src="images/logo-light.svg" alt="INRL">
+    <span class="console-topbar-sep" aria-hidden="true"></span>
+    <span class="console-topbar-title" id="consoleTopbarTitle">Products</span>
+  </header>
+  <div class="console-scrim" id="consoleScrim" aria-hidden="true"></div>
 
-  <aside class="inrl-sidebar">
+  <!-- SIDEBAR -->
+  <aside class="inrl-sidebar" id="consoleSidebar" aria-label="Console navigation">
     <div class="inrl-sidebar-header">
-      <a class="inrl-brand" href="/ecommerce/index.html">
-        <img class="inrl-brand-logo" src="images/logo-light.svg" alt="INRL">
-      </a>
-      <div class="inrl-subtitle">Product Dashboard</div>
+      <div>
+        <a class="inrl-brand" href="/ecommerce/index.html">
+          <img class="inrl-brand-logo" src="images/logo-light.svg" alt="INRL">
+        </a>
+        <div class="inrl-subtitle">Product Dashboard</div>
+      </div>
+      <button type="button" class="console-drawer-close" id="consoleDrawerClose" aria-label="Close menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
     </div>
 
     <!-- Tabs (Bootstrap tab triggers — same ids/targets as before, just styled as a sidebar) -->
@@ -983,7 +1075,7 @@
 </div><!-- /inrl-dash-shell -->
 
 <div class="modal fade" id="printfulProductModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
     <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
       <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
         <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Edit Product Design/Price</h5>
@@ -1018,7 +1110,7 @@
 </div>
 
 <div class="modal fade" id="printfulQrModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-xl">
+  <div class="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down">
     <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
       <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
         <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Shirt QR placement</h5>
@@ -1086,7 +1178,7 @@
 </div>
 
 <div class="modal fade" id="orderShirtsModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-xl">
+  <div class="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down">
     <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
       <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
         <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Shirts in this order</h5>
@@ -1140,7 +1232,7 @@
 </div>
 
 <div class="modal fade" id="printfulSyncPickerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-md-down">
     <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
       <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
         <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Import from Printful Sync Products</h5>
@@ -3695,6 +3787,73 @@
     if (s) { s.className = 'status-error'; s.textContent = 'Dashboard error: ' + (e.message || String(e)); }
     console.error('Dashboard init error:', e);
   });
+</script>
+<script>
+  // Compact console: drawer rail, top-bar section title, and labelled table cells so
+  // tables can stack into records on phones. Pure presentation — no data or API calls.
+  (function() {
+    var sidebar = document.getElementById('consoleSidebar');
+    var menuBtn = document.getElementById('consoleMenuBtn');
+    var closeBtn = document.getElementById('consoleDrawerClose');
+    var scrim = document.getElementById('consoleScrim');
+    var titleEl = document.getElementById('consoleTopbarTitle');
+    var compact = window.matchMedia('(max-width: 1023.98px)');
+
+    function setOpen(open) {
+      if (!sidebar) return;
+      sidebar.classList.toggle('is-open', open);
+      scrim.classList.toggle('is-open', open);
+      document.body.classList.toggle('console-drawer-open', open);
+      menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        var target = sidebar.querySelector('.nav-link.active') || sidebar.querySelector('.nav-link');
+        if (target) target.focus({ preventScroll: true });
+      }
+    }
+    function close(returnFocus) {
+      if (!sidebar.classList.contains('is-open')) return;
+      setOpen(false);
+      if (returnFocus) menuBtn.focus({ preventScroll: true });
+    }
+    menuBtn.addEventListener('click', function() { setOpen(true); });
+    closeBtn.addEventListener('click', function() { close(true); });
+    scrim.addEventListener('click', function() { close(true); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close(true); });
+    sidebar.addEventListener('click', function(e) {
+      if (compact.matches && e.target.closest('.nav-link')) close(false);
+    });
+    (compact.addEventListener ? compact.addEventListener.bind(compact, 'change') : compact.addListener.bind(compact))(function(e) {
+      if (!e.matches) close(false);
+    });
+
+    // Top-bar title follows the open pane; scroll back to the top on switch.
+    document.addEventListener('shown.bs.tab', function(e) {
+      var btn = e.target;
+      if (!btn || !titleEl) return;
+      var label = btn.id === 'tab-create-product' ? 'Product' : (btn.textContent || '').trim();
+      if (label) titleEl.textContent = label;
+      if (compact.matches) window.scrollTo(0, 0);
+    });
+
+    // data-label on every body cell from its column header (honours colspan).
+    function labelTable(table) {
+      var heads = Array.prototype.map.call(table.querySelectorAll('thead th'), function(th) {
+        return (th.textContent || '').trim();
+      });
+      Array.prototype.forEach.call(table.querySelectorAll('tbody tr'), function(tr) {
+        var col = 0;
+        Array.prototype.forEach.call(tr.children, function(td) {
+          if (!td.hasAttribute('data-label')) td.setAttribute('data-label', heads[col] || '');
+          col += td.colSpan || 1;
+        });
+      });
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('table.inrl-table'), function(table) {
+      labelTable(table);
+      var tbody = table.querySelector('tbody');
+      if (tbody) new MutationObserver(function() { labelTable(table); }).observe(tbody, { childList: true });
+    });
+  })();
 </script>
 </body>
 </html>
