@@ -5668,22 +5668,48 @@
       if (!catalogProductId && v.product && Number(v.product.product_id)) catalogProductId = Number(v.product.product_id);
       if (size && Number.isFinite(variantId) && variantId > 0 && !catalogVariantMap[size]) catalogVariantMap[size] = String(variantId);
     }
+    // Each placement's print file is copied once (the first variant that has it). A file
+    // without a source link (Printful leaves `url` empty on some files) is looked up by id
+    // once more. art_report says what happened to each placement, so a missing print file
+    // shows in the dashboard instead of the import quietly saying it worked.
     const art = {};
     const artErrors = [];
+    const artReport = {};
     for (const v of variants) {
       for (const f of (Array.isArray(v.files) ? v.files : [])) {
         const type = String((f && f.type) || '').toLowerCase();
-        if (!type || type === 'preview' || !f.url) continue;
+        if (!type || type === 'preview') continue;
         const placement = type === 'default' ? 'front' : type;
         if (art[placement] || !/^[a-z0-9_]{1,40}$/.test(placement)) continue;
+        const report = artReport[placement] = {
+          file_id: f.id || null, filename: f.filename || null, status: f.status || null,
+          width: f.width || null, height: f.height || null, dpi: f.dpi || null, had_url: !!f.url,
+        };
+        let url = f.url || null;
+        if (!url && f.id) {
+          try {
+            const full = await Printful.callPrintfulV1(pfEnv, 'GET', `/files/${encodeURIComponent(f.id)}`);
+            url = (full && full.result && full.result.url) || null;
+            report.lookup = url ? 'found by id' : 'no link by id either';
+          } catch (e) {
+            report.lookup = 'lookup failed: ' + String(e && e.message ? e.message : e);
+          }
+        }
+        if (!url) {
+          report.result = 'no download link from Printful';
+          continue;
+        }
         try {
-          const res = await fetch(f.url);
+          const res = await fetch(url);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const key = `products/${productId}/art-${placement}.png`;
           await ASSETS_BUCKET.put(key, await res.arrayBuffer(), { httpMetadata: { contentType: res.headers.get('content-type') || 'image/png' } });
           art[placement] = buildPublicAssetUrl(request, key);
+          report.result = 'copied';
         } catch (e) {
-          artErrors.push(`${placement}: ${String(e && e.message ? e.message : e)}`);
+          const msg = String(e && e.message ? e.message : e);
+          artErrors.push(`${placement}: ${msg}`);
+          report.result = 'download failed: ' + msg;
         }
       }
     }
@@ -5710,7 +5736,8 @@
     return jsonResponse({
       ok: true, printful_sync_variant_map: variantMap, missing, image_urls: mergedImages,
       printful_variant_map: catalogVariantMap, printful_catalog_product_id: catalogProductId,
-      printful_design_images: art, art_errors: artErrors,
+      printful_design_images: art, art_errors: artErrors, art_report: artReport,
+      file_types: [...new Set(variants.flatMap(v => (Array.isArray(v.files) ? v.files : []).map(f => String((f && f.type) || '?'))))],
     }, 200, request);
   }
 

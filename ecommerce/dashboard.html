@@ -3353,6 +3353,20 @@
         pfSyncPickerSetStatus(items.length + ' sync product(s) found.');
       }
 
+      // What the import did with the print files: a product without one can't be sold, so say so.
+      function pfImportArtSummary(res) {
+        var report = res.art_report || {};
+        var places = Object.keys(report);
+        if (!places.length) {
+          return 'No print file found in Printful (file types: ' + ((res.file_types || []).join(', ') || 'none') + ') - upload the print PNG in QR placement.';
+        }
+        return places.map(function(pl) {
+          var r = report[pl];
+          if (r.result === 'copied') return 'Print file ' + pl + ': copied' + (r.width ? ' (' + r.width + 'x' + r.height + ')' : '') + '.';
+          return 'Print file ' + pl + ': NOT copied, ' + r.result + (r.lookup ? ' (' + r.lookup + ')' : '') + '.';
+        }).join(' ');
+      }
+
       async function pfSyncPickerLinkTo(syncProductId) {
         var productId = document.getElementById('pfSyncPickerProductId').value;
         if (!productId) throw new Error('Missing product id');
@@ -3363,9 +3377,9 @@
         });
         pfSyncPickerLastResolved = { syncProductId: Number(syncProductId), map: res.printful_sync_variant_map || {} };
         renderPfSyncPickerResolved('Sync product #' + syncProductId, res.printful_sync_variant_map || {}, res.missing || [], res.image_urls || []);
-        pfSyncPickerSetStatus((res.missing && res.missing.length)
+        pfSyncPickerSetStatus(((res.missing && res.missing.length)
           ? (res.missing.length + ' size(s) need a manual variant ID (see below).')
-          : 'All sizes imported.');
+          : 'All sizes imported.') + ' ' + pfImportArtSummary(res));
         await loadPrintfulProducts();
         await refresh();
         syncOpenFormAfterLink(productId);
@@ -3387,7 +3401,7 @@
           body: { sync_product_id: pfSyncPickerLastResolved.syncProductId, sync_variant_ids: overrides },
         });
         renderPfSyncPickerResolved('Sync product #' + pfSyncPickerLastResolved.syncProductId, res.printful_sync_variant_map || {}, res.missing || [], res.image_urls || []);
-        pfSyncPickerSetStatus((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes imported.');
+        pfSyncPickerSetStatus(((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes imported.') + ' ' + pfImportArtSummary(res));
         await loadPrintfulProducts();
         await refresh();
         syncOpenFormAfterLink(productId);
