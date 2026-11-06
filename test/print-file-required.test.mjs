@@ -33,3 +33,22 @@ test('the same product with a print file passes the check', async () => {
   assert.equal(res.status, 400);
   assert.match(res.json.error, /calculate shipping/, 'stopped at the shipping quote, after the print-file check');
 });
+
+test('saving a front print file (Edit Design/Price) makes the product sellable', async () => {
+  const h = await makeHarness({ PRINTFUL_API_KEY: 'pf_test' });
+  const admin = seedUser(h, 'admin1', 'admin');
+  const buyer = seedUser(h, 'buyer1', 'client');
+  h.exec(`insert into products (id, title, slug, price_cents, is_published, image_url, printful_catalog_product_id, printful_variant_map)
+          values (24, 'Coffee Shirt', 'coffee-shirt', 2500, 1, ?, 12, ?)`, MOCKUP, JSON.stringify({ M: '4012' }));
+  h.onFetch(() => new Response('{}', { status: 500 }));
+  try {
+    const FRONT = 'https://assets.test/products/24/print/front.png';
+    const up = await h.call('POST', '/api/products/24', { token: admin, body: { printful_design_images: { front: FRONT } } });
+    assert.equal(up.status, 200);
+    const row = h.q('select image_url, printful_design_images from products where id = 24')[0];
+    assert.deepEqual(JSON.parse(row.printful_design_images), { front: FRONT });
+    assert.equal(row.image_url, MOCKUP, 'the listing photo is left alone');
+    const res = await h.call('POST', '/api/checkout/session', { token: buyer, body: { customer: CUSTOMER, cart: [{ slug: 'coffee-shirt', size: 'M', qty: 1 }] } });
+    assert.match(res.json.error, /calculate shipping/, 'past the print-file check');
+  } finally { h.restore(); }
+});

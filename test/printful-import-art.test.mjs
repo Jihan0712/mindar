@@ -9,6 +9,16 @@ import { makeHarness, seedUser } from './helpers/worker-harness.mjs';
 
 const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 const PRINT = 'https://files.cdn.printful.com/files/aaa/print-front.png';
+const PREVIEW = 'https://files.cdn.printful.com/files/aaa/print-front_preview.png';
+
+// A PNG header claiming the given size (all the import reads of a preview to measure it).
+function pngOf(width, height) {
+  const b = new Uint8Array(33);
+  b.set([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82]);
+  const dv = new DataView(b.buffer);
+  dv.setUint32(16, width); dv.setUint32(20, height);
+  return b;
+}
 
 function syncProduct(files) {
   return {
@@ -23,7 +33,7 @@ function syncProduct(files) {
   };
 }
 
-async function importWith(files, { fileById } = {}) {
+async function importWith(files, { fileById, preview } = {}) {
   const h = await makeHarness({ PRINTFUL_API_KEY: 'pf_test' });
   const token = seedUser(h, 'admin1', 'admin');
   h.exec("insert into products (id, title, slug, price_cents, is_published) values (22, 'INRL BETA', 'inrl-beta', 2500, 1)");
@@ -33,6 +43,7 @@ async function importWith(files, { fileById } = {}) {
       return fileById ? Response.json({ result: fileById }) : Response.json({ error: { message: 'Not found' } }, { status: 404 });
     }
     if (url === PRINT) return new Response(PNG, { headers: { 'content-type': 'image/png' } });
+    if (url === PREVIEW && preview) return new Response(preview, { headers: { 'content-type': 'image/png' } });
     return new Response('{}', { status: 404 });
   });
   try {
@@ -71,4 +82,20 @@ test('only mockups: the report is empty and the file types say so', async () => 
   const { res } = await importWith([MOCKUP]);
   assert.deepEqual(res.json.art_report, {});
   assert.deepEqual(res.json.file_types, ['preview']);
+});
+
+test('no link but a full-size Printful render: that is copied', async () => {
+  const file = { id: 1, type: 'default', url: null, preview_url: PREVIEW, width: 3600, height: 4800, dpi: 300 };
+  const { res, row } = await importWith([file, MOCKUP], { preview: pngOf(3600, 4800) });
+  assert.equal(res.json.art_report.front.result, 'copied');
+  assert.equal(res.json.art_report.front.source, 'Printful full-size render');
+  assert.ok(JSON.parse(row.printful_design_images).front);
+});
+
+test('no link and only a small preview: refused, never printed blurry', async () => {
+  const file = { id: 1, type: 'default', url: null, preview_url: PREVIEW, width: 3600, height: 4800, dpi: 300 };
+  const { res, row } = await importWith([file, MOCKUP], { preview: pngOf(600, 800) });
+  assert.match(res.json.art_report.front.result, /too small to print/);
+  assert.equal(res.json.art_report.front.preview, '600x800');
+  assert.equal(row.printful_design_images, null);
 });

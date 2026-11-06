@@ -5561,6 +5561,17 @@
   // variant on Printful's side (the admin designed it there), so this also pulls
   // Printful's own already-rendered preview images into the product's storefront gallery
   // — nothing else in this dashboard needs to touch a design for a product linked this way.
+  // A print file's preview stands in for it only from this width (px) when Printful gives
+  // no file size to compare with: 12 in of print area at 200 DPI.
+  const PREVIEW_MIN_PX = 2400;
+
+  // Width and height from a PNG's header, or null if the bytes aren't a PNG.
+  function pngSize(b) {
+    if (!b || b.length < 24 || b[0] !== 0x89 || b[1] !== 0x50 || b[2] !== 0x4e || b[3] !== 0x47) return null;
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    return { width: dv.getUint32(16), height: dv.getUint32(20) };
+  }
+
   async function apiPrintfulLinkSyncProduct(request, productId) {
     const { error } = await requireAdminSession(request);
     if (error) return error;
@@ -5686,24 +5697,47 @@
           width: f.width || null, height: f.height || null, dpi: f.dpi || null, had_url: !!f.url,
         };
         let url = f.url || null;
+        let previewUrl = f.preview_url || null;
         if (!url && f.id) {
           try {
             const full = await Printful.callPrintfulV1(pfEnv, 'GET', `/files/${encodeURIComponent(f.id)}`);
-            url = (full && full.result && full.result.url) || null;
+            const r = (full && full.result) || {};
+            url = r.url || null;
+            previewUrl = previewUrl || r.preview_url || null;
+            if (!report.width && r.width) { report.width = r.width; report.height = r.height || null; report.dpi = r.dpi || null; }
             report.lookup = url ? 'found by id' : 'no link by id either';
           } catch (e) {
             report.lookup = 'lookup failed: ' + String(e && e.message ? e.message : e);
           }
         }
-        if (!url) {
-          report.result = 'no download link from Printful';
-          continue;
-        }
         try {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          let bytes = null, type = null;
+          if (url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            bytes = await res.arrayBuffer(); type = res.headers.get('content-type');
+            report.source = 'print file';
+          } else if (previewUrl) {
+            // Design-maker files come without a source link; Printful's own render of the
+            // print file is used only when it is full size, never a shrunk preview.
+            const res = await fetch(previewUrl);
+            if (!res.ok) throw new Error(`preview HTTP ${res.status}`);
+            const buf = await res.arrayBuffer();
+            const dims = pngSize(new Uint8Array(buf));
+            report.preview = dims ? `${dims.width}x${dims.height}` : 'unknown size';
+            const fullSize = dims && (report.width ? dims.width >= report.width * 0.95 : dims.width >= PREVIEW_MIN_PX);
+            if (!fullSize) {
+              report.result = 'no download link from Printful, and its preview (' + report.preview + ') is too small to print';
+              continue;
+            }
+            bytes = buf; type = 'image/png';
+            report.source = 'Printful full-size render';
+          } else {
+            report.result = 'no download link from Printful';
+            continue;
+          }
           const key = `products/${productId}/art-${placement}.png`;
-          await ASSETS_BUCKET.put(key, await res.arrayBuffer(), { httpMetadata: { contentType: res.headers.get('content-type') || 'image/png' } });
+          await ASSETS_BUCKET.put(key, bytes, { httpMetadata: { contentType: type || 'image/png' } });
           art[placement] = buildPublicAssetUrl(request, key);
           report.result = 'copied';
         } catch (e) {

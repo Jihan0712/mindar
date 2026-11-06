@@ -996,8 +996,13 @@
           <input id="printfulModalTitle" class="form-control" type="text" disabled />
         </div>
         <div class="mb-3">
-          <label class="form-label" for="printfulModalPrintFileUrl">Print File URL (HTTPS)</label>
-          <input id="printfulModalPrintFileUrl" class="form-control" type="url" placeholder="https://.../design.png" />
+          <label class="form-label" for="printfulModalPrintFileUrl">Front print file</label>
+          <input id="printfulModalPrintFileUrl" class="form-control" type="url" placeholder="https://.../front.png" />
+          <label class="btn btn-sm btn-inrl-outline mt-2 mb-0" style="font-size:.62rem">Upload front print file (PNG)&#8230;
+            <input type="file" id="printfulModalPrintFile" accept="image/png" hidden />
+          </label>
+          <div class="form-text">What prints on the front: a PNG at the front print area's full size (300 DPI), the rest transparent. Printful fits it to the print area. A QR placed on the front is set in QR placement instead.</div>
+          <div id="printfulModalPrintFileStatus" class="form-text"></div>
         </div>
         <div>
           <label class="form-label" for="printfulModalRetailPrice">Retail Price (USD)</label>
@@ -1156,6 +1161,7 @@
           <div id="pfSyncPickerVariantGrid" class="vstack gap-1"></div>
           <div id="pfSyncPickerMissingHint" style="font-size:.68rem;color:#c17a2e;display:none;margin-top:6px">Some sizes couldn't be matched automatically &#8212; enter their Printful sync variant IDs above, then click "Save Overrides".</div>
           <div id="pfSyncPickerImagesHint" style="font-size:.68rem;color:#1c5d68;display:none;margin-top:6px"></div>
+          <div id="pfSyncPickerArtResult" role="status" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid;font-size:.78rem;line-height:1.4"></div>
         </div>
       </div>
       <div class="modal-footer" style="border-top:1px solid var(--line-200);justify-content:space-between">
@@ -3222,8 +3228,13 @@
         if (!p) return;
         document.getElementById('printfulModalProductId').value = String(p.id);
         document.getElementById('printfulModalTitle').value = p.title || '';
-        document.getElementById('printfulModalPrintFileUrl').value = p.image_url || '';
-        document.getElementById('printfulModalPrintFileUrl').dataset.original = p.image_url || '';
+        // The front print file (products.printful_design_images.front), not the listing photo:
+        // checkout only ever prints the print files.
+        var front = (p.printful_design_images || {}).front || '';
+        document.getElementById('printfulModalPrintFileUrl').value = front;
+        document.getElementById('printfulModalPrintFileUrl').dataset.original = front;
+        document.getElementById('printfulModalPrintFile').value = '';
+        document.getElementById('printfulModalPrintFileStatus').textContent = front ? '' : 'No front print file yet: this product cannot be sold until it has one.';
         document.getElementById('printfulModalRetailPrice').value = ((Number(p.price_cents || 0) / 100).toFixed(2));
         if (printfulModalInstance) printfulModalInstance.show();
       }
@@ -3240,7 +3251,8 @@
         const body = {};
         if (printFileUrl && printFileUrl !== originalPrintFileUrl) {
           if (!/^https:\/\//i.test(printFileUrl)) throw new Error('Print file URL must be an absolute https URL');
-          body.image_url = printFileUrl;
+          var p = printfulProducts.find(function(x) { return String(x.id) === String(id); }) || {};
+          body.printful_design_images = Object.assign({}, p.printful_design_images || {}, { front: printFileUrl });
         }
 
         if (retailPrice !== '') {
@@ -3288,6 +3300,7 @@
         document.getElementById('pfSyncPickerSearch').value = '';
         document.getElementById('pfSyncPickerResults').innerHTML = '';
         document.getElementById('pfSyncPickerResolved').style.display = 'none';
+        document.getElementById('pfSyncPickerArtResult').style.display = 'none';
         document.getElementById('pfSyncPickerSaveOverridesBtn').style.display = 'none';
         pfSyncPickerSetStatus('Search for the product you designed on printful.com.');
         pfSyncPickerLastResolved = null;
@@ -3353,18 +3366,37 @@
         pfSyncPickerSetStatus(items.length + ' sync product(s) found.');
       }
 
-      // What the import did with the print files: a product without one can't be sold, so say so.
-      function pfImportArtSummary(res) {
+      // What the import did with the print files: a product without one can't be sold, so say
+      // so, in its own box under the imported product (ok: every placement found was copied).
+      function pfImportArtResult(res) {
+        if (!res || !('art_report' in res)) {
+          return { ok: false, text: "The server didn't report on print files: the Worker is older than this dashboard. Deploy the Worker, then import again." };
+        }
         var report = res.art_report || {};
         var places = Object.keys(report);
         if (!places.length) {
-          return 'No print file found in Printful (file types: ' + ((res.file_types || []).join(', ') || 'none') + ') - upload the print PNG in QR placement.';
+          return { ok: false, text: 'No print file found in Printful (it only sent: ' + ((res.file_types || []).join(', ') || 'nothing') + '). Upload the print PNG in QR placement instead.' };
         }
-        return places.map(function(pl) {
+        var ok = true;
+        var text = places.map(function(pl) {
           var r = report[pl];
-          if (r.result === 'copied') return 'Print file ' + pl + ': copied' + (r.width ? ' (' + r.width + 'x' + r.height + ')' : '') + '.';
-          return 'Print file ' + pl + ': NOT copied, ' + r.result + (r.lookup ? ' (' + r.lookup + ')' : '') + '.';
-        }).join(' ');
+          var size = r.width ? ' ' + r.width + '×' + r.height + (r.dpi ? ' at ' + r.dpi + ' DPI' : '') : '';
+          if (r.result === 'copied') return 'Print file ' + pl + ': copied' + (size ? ' (' + size.trim() + ')' : '') + (r.source && r.source !== 'print file' ? ', from ' + r.source : '') + '.';
+          ok = false;
+          return 'Print file ' + pl + (size ? ' (' + size.trim() + ')' : '') + ': NOT copied: ' + r.result + (r.lookup ? ' (' + r.lookup + ')' : '') + '.';
+        }).join('\n');
+        return { ok: ok, text: text + (ok ? '' : '\nUpload the print PNG in QR placement instead.') };
+      }
+      function pfShowArtResult(res) {
+        var box = document.getElementById('pfSyncPickerArtResult');
+        if (!box) return;
+        var r = pfImportArtResult(res);
+        box.style.display = '';
+        box.style.whiteSpace = 'pre-line';
+        box.style.color = r.ok ? '#1c5d68' : '#b23b3b';
+        box.style.borderColor = r.ok ? '#1c5d68' : '#b23b3b';
+        box.style.background = r.ok ? 'rgba(18,162,184,.08)' : 'rgba(178,59,59,.06)';
+        box.textContent = r.text;
       }
 
       async function pfSyncPickerLinkTo(syncProductId) {
@@ -3379,7 +3411,8 @@
         renderPfSyncPickerResolved('Sync product #' + syncProductId, res.printful_sync_variant_map || {}, res.missing || [], res.image_urls || []);
         pfSyncPickerSetStatus(((res.missing && res.missing.length)
           ? (res.missing.length + ' size(s) need a manual variant ID (see below).')
-          : 'All sizes imported.') + ' ' + pfImportArtSummary(res));
+          : 'All sizes imported.'));
+        pfShowArtResult(res);
         await loadPrintfulProducts();
         await refresh();
         syncOpenFormAfterLink(productId);
@@ -3401,7 +3434,8 @@
           body: { sync_product_id: pfSyncPickerLastResolved.syncProductId, sync_variant_ids: overrides },
         });
         renderPfSyncPickerResolved('Sync product #' + pfSyncPickerLastResolved.syncProductId, res.printful_sync_variant_map || {}, res.missing || [], res.image_urls || []);
-        pfSyncPickerSetStatus(((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes imported.') + ' ' + pfImportArtSummary(res));
+        pfSyncPickerSetStatus((res.missing && res.missing.length) ? (res.missing.length + ' size(s) still unresolved.') : 'All sizes imported.');
+        pfShowArtResult(res);
         await loadPrintfulProducts();
         await refresh();
         syncOpenFormAfterLink(productId);
@@ -3534,6 +3568,28 @@
           var btn = ev.target.closest('button[data-pf-product-action="edit"]');
           if (!btn) return;
           openPrintfulProductModal(btn.getAttribute('data-id'));
+        });
+      }
+
+      // Uploading a front print file fills in its URL; Save stores it as the front print file.
+      var printfulModalPrintFile = document.getElementById('printfulModalPrintFile');
+      if (printfulModalPrintFile) {
+        printfulModalPrintFile.addEventListener('change', async function() {
+          var file = printfulModalPrintFile.files && printfulModalPrintFile.files[0];
+          var status = document.getElementById('printfulModalPrintFileStatus');
+          if (!file) return;
+          var id = (document.getElementById('printfulModalProductId').value || '').trim();
+          try {
+            if (printfulModalSaveBtn) printfulModalSaveBtn.disabled = true;
+            status.textContent = 'Uploading ' + file.name + '…';
+            var url = await uploadProductImage(file, 'products/' + id + '/print');
+            document.getElementById('printfulModalPrintFileUrl').value = url;
+            status.textContent = 'Uploaded. Press Save to use it as the front print file.';
+          } catch (e) {
+            status.textContent = e.message || String(e);
+          } finally {
+            if (printfulModalSaveBtn) printfulModalSaveBtn.disabled = false;
+          }
         });
       }
 
