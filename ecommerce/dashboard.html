@@ -1047,7 +1047,7 @@
             <label class="btn btn-sm btn-inrl-outline mt-2 mb-0" style="font-size:.62rem">Upload print file (PNG)&#8230;
               <input type="file" id="qrArtFile" accept="image/png" hidden />
             </label>
-            <div class="form-text">Export the design at the print area size (300 DPI) with a placeholder QR (any QR) where each shirt's QR goes; a solid #FF00FF disc also works. Each shirt's own emblem replaces it, sized to hide it completely.</div>
+            <div class="form-text">Export the design at the print area size (300 DPI) with a placeholder QR (any QR) where each shirt's QR goes; a solid #FF00FF disc also works. Each shirt's own emblem takes its exact size and place, and the placeholder is erased from the saved print file. Make it at least 2 in wide.</div>
             <details class="mt-3" id="qrExact">
               <summary class="form-label mb-1" style="cursor:pointer">Exact values</summary>
               <label class="form-label mt-2" for="qrPlacement">Placement</label>
@@ -2643,15 +2643,18 @@
       // ---- Shirt QR placement (products.printful_qr) ----
       // The print area is drawn to scale with the placement's art fitted whole and centred
       // (that box is saved and sent to Printful as the art's position, and used for each
-      // shirt's print file). The art marks the QR spot with a solid #FF00FF disc: the QR snaps
-      // to it, 0.03 in larger on every side so its white disc hides the marker. Save stays off
-      // until the art has loaded, can be read for print files, and has a slot. An upload is a
-      // draft: it replaces the product's print file only when Save is pressed.
+      // shirt's print file). The art marks the QR spot with a placeholder QR or a solid #FF00FF
+      // disc: each shirt's emblem takes its exact size and place, and the marker is erased from
+      // the print file (shown erased here; the erased copy is uploaded on Save and is what
+      // prints). Save stays off until the art has loaded, can be read for print files, and has
+      // a spot. An upload is a draft: it replaces the product's print file only when Save is
+      // pressed.
       var qrModalEl = document.getElementById('printfulQrModal');
       var qrModalInstance = qrModalEl ? new bootstrap.Modal(qrModalEl) : null;
       var qrPlacements = [];
       var qrProduct = null;
-      var qrArt = null;      // { url, w, h, isPhoto, canvas, readable, slot } for the selected placement
+      var qrArt = null;      // { url, w, h, isPhoto, canvas, readable, slot, clean } for the selected placement;
+                             // clean: { canvas, blob, objectUrl, url }, the art with the spot's marker erased
       var qrDraft = null;    // { placement, url } uploaded but not saved yet
       var qrSnap = null;     // { size_in, top_in, left_in } detected from the slot
       var qrArtLoadSeq = 0;
@@ -2716,12 +2719,16 @@
         if (s.error === 'no_reader') return bad("Couldn't load the QR reader.", 'Check the connection and reopen QR placement, or mark the spot with a solid #FF00FF disc.');
         if (s.error === 'many_qr') return bad('Found ' + s.count + ' QR codes.', "Leave only the placeholder where each shirt's QR goes.");
         if (s.error === 'not_round') return bad('The #FF00FF area is not one round disc.', 'Use a single solid circle.');
-        if (s.error === 'too_small') return bad('The QR spot is too small.', "Make the placeholder at least 1.7 in wide: each shirt's emblem must be 2 in.");
+        if (s.error === 'too_small') return bad('The QR spot is too small.', "Make the placeholder 2 in wide: each shirt's emblem takes its size, and phones need 2 in (a spot down to 1.64 in is grown to 2 in).");
+        if (s.error === 'erase_failed') return bad("Couldn't erase the placeholder from the print file.", 'Reopen QR placement and try again.');
         var v = qrValues();
         var off = qrSnap && (Math.abs(v.size - qrSnap.size_in) > 0.005 || Math.abs(v.top - qrSnap.top_in) > 0.005 || Math.abs(v.left - qrSnap.left_in) > 0.005);
         el.innerHTML = off
           ? '<span style="color:#c17a2e">Moved off the QR spot.</span> <button type="button" class="btn btn-sm btn-inrl-outline" id="qrSnapBtn" style="font-size:.58rem;padding:.1rem .45rem">Snap back</button>'
-          : '<span style="color:#1c5d68">&#10003; Snapped to the ' + (s.kind === 'qr' ? 'placeholder QR' : '#FF00FF disc') + ':</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in';
+          : s.kind === 'saved'
+            ? '<span style="color:#1c5d68">&#10003; Saved QR spot:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in (the placeholder was taken out of this print file when it was saved)'
+            : '<span style="color:#1c5d68">&#10003; ' + (qrSnap.grown ? 'Centred on' : 'Same size and place as') + ' the ' + (s.kind === 'qr' ? 'placeholder QR' : '#FF00FF disc') + ', which is erased from the print file:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in' +
+              (qrSnap.grown ? ' <span style="color:#c17a2e">(the spot is under 2 in, so the QR is grown to 2 in and covers a little of the design round it)</span>' : '');
         var snapBtn = qrEl('qrSnapBtn');
         if (snapBtn) snapBtn.onclick = function() { qrSetValues(qrSnap); qrRender(); };
       }
@@ -2735,7 +2742,7 @@
         var k = cv.width / rs; // canvas px per inch
         if (ab && qrArt && qrArt.canvas) {
           var ppi = qrArt.w / ab.width_in; // art px per inch
-          ctx.drawImage(qrArt.canvas, (rx - ab.left_in) * ppi, (ry - ab.top_in) * ppi, rs * ppi, rs * ppi, 0, 0, cv.width, cv.height);
+          ctx.drawImage(qrArt.clean ? qrArt.clean.canvas : qrArt.canvas, (rx - ab.left_in) * ppi, (ry - ab.top_in) * ppi, rs * ppi, rs * ppi, 0, 0, cv.width, cv.height);
         }
         var x = (v.left - rx) * k, y = (v.top - ry) * k, d = v.size * k;
         var sample = qrEl('qrShowSample').checked && qrEl('qrStageSample').complete && !qrEl('qrStageSample').hidden ? qrEl('qrStageSample') : null;
@@ -2815,11 +2822,40 @@
         if (!disc.error) disc.kind = 'disc';
         return disc;
       }
+      // The art with the spot's marker erased: a full-size canvas for the zoom and the print
+      // file, and a small preview PNG for the stage. The full-size 300 DPI PNG is only encoded
+      // when it is first needed (qrCleanArtUrl: Save or Mockup), not on every load.
+      async function qrEraseSpot(art, data, slot) {
+        var pixels = new Uint8ClampedArray(data);
+        QrPrint.eraseSpot(pixels, art.w, art.h, slot);
+        var cv = document.createElement('canvas');
+        cv.width = art.w; cv.height = art.h;
+        cv.getContext('2d').putImageData(new ImageData(pixels, art.w, art.h), 0, 0);
+        var k = Math.min(1, 1600 / Math.max(art.w, art.h)), pv = document.createElement('canvas');
+        pv.width = Math.max(1, Math.round(art.w * k)); pv.height = Math.max(1, Math.round(art.h * k));
+        pv.getContext('2d').drawImage(cv, 0, 0, pv.width, pv.height);
+        return { canvas: cv, objectUrl: URL.createObjectURL(await canvasBlob(pv)), url: null };
+      }
+      function qrDropClean(art) {
+        if (art && art.clean && art.clean.objectUrl) URL.revokeObjectURL(art.clean.objectUrl);
+      }
+      // The print file saved with the QR: the erased copy (uploaded once) when the marker was
+      // found in this file, else the file as it is.
+      async function qrCleanArtUrl() {
+        if (!qrArt.clean) return qrArt.url;
+        if (!qrArt.clean.url) {
+          var blob = await QrPrintFile.pngAt300Dpi(await canvasBlob(qrArt.clean.canvas));
+          var file = new File([blob], 'print-' + qrEl('qrPlacement').value + '-qr-spot-erased.png', { type: 'image/png' });
+          qrArt.clean.url = await uploadProductImage(file, 'products/' + qrProduct.id + '/print');
+        }
+        return qrArt.clean.url;
+      }
       // Loads the placement's art for display and for reading its pixels (which also proves it
       // can be used to build print files: a file served without CORS can't be read back).
       function qrLoadArt() {
         var seq = ++qrArtLoadSeq;
         var src = qrArtUrlFor(qrEl('qrPlacement').value);
+        qrDropClean(qrArt);
         qrArt = null; qrSnap = null;
         qrRender();
         qrShowArtHint();
@@ -2845,15 +2881,35 @@
           qrRender();
           qrShowArtHint();
           if (!art.readable) { qrSetStatus("This file can't be used for print files: re-upload it here.", true); return; }
-          qrFindSpot(art.canvas, data, art.w, art.h).then(function(slot) {
+          qrFindSpot(art.canvas, data, art.w, art.h).then(async function(slot) {
             if (seq !== qrArtLoadSeq) return;
-            art.slot = slot;
-            var a = qrCurrentArea();
+            var a = qrCurrentArea(), saved = qrProduct && qrProduct.printful_qr;
+            var savedHere = !!(saved && saved.art && saved.art.url === art.url && saved.placement === qrEl('qrPlacement').value);
+            // This exact file was saved here before, with its marker already erased (no marker
+            // left to find, and none needed: also when the QR reader couldn't load).
+            if ((slot.error === 'none' || slot.error === 'no_reader') && savedHere) {
+              art.slot = { kind: 'saved' };
+              qrSnap = { size_in: saved.size_in, top_in: saved.top_in, left_in: saved.left_in };
+              qrRender();
+              return;
+            }
             if (!slot.error && a) {
               var p = QrPrint.slotPlacement(slot, art, QrPrint.fitArtBox(a, art), a);
-              if (p.error) art.slot = { error: p.error };
-              else { qrSnap = p; qrSetValues(p); }
+              if (p.error) slot = { error: p.error };
+              else {
+                try { art.clean = await qrEraseSpot(art, data, slot); } catch (e) { slot = { error: 'erase_failed' }; }
+                if (seq !== qrArtLoadSeq) return;
+                if (!slot.error) {
+                  qrSnap = p;
+                  // Saved before with its marker still in the file (an earlier sizing rule):
+                  // keep the saved values, so the status offers Snap back instead of silently
+                  // changing what prints.
+                  qrSetValues(savedHere ? { size_in: saved.size_in, top_in: saved.top_in, left_in: saved.left_in } : p);
+                  qrEl('qrStageArt').src = art.clean.objectUrl;
+                }
+              }
             }
+            art.slot = slot;
             qrRender();
           });
         };
@@ -3021,18 +3077,21 @@
           try {
             var settings = qrSettings();
             btn.disabled = true;
+            if (qrArt.clean) qrSetStatus('Uploading the print file with the placeholder erased…');
+            var artUrl = await qrCleanArtUrl();
+            settings.art.url = artUrl;
             var body = { printful_qr: settings };
-            if (qrDraft && qrDraft.placement === settings.placement) {
-              var images = Object.assign({}, qrProduct.printful_design_images || {});
-              images[qrDraft.placement] = qrDraft.url;
+            var images = Object.assign({}, qrProduct.printful_design_images || {});
+            if (images[settings.placement] !== artUrl) {
+              images[settings.placement] = artUrl;
               body.printful_design_images = images; // art and placement change together
             }
             await apiFetch('/products/' + encodeURIComponent(qrEl('qrProductId').value), { method: 'POST', body: body });
             qrDraft = null;
-            qrSetStatus('Saved. New orders print the QR here, on this print file.');
             await loadPrintfulProducts();
             qrProduct = printfulProducts.find(function(x) { return String(x.id) === String(qrEl('qrProductId').value); }) || qrProduct;
-            qrShowArtHint();
+            qrLoadArt(); // the saved, erased file
+            qrSetStatus('Saved. New orders print the QR here, on this print file.');
           } catch (e) {
             qrSetStatus(e.message || String(e), true);
           } finally { qrUpdateSave(); }
@@ -3042,6 +3101,7 @@
           try {
             var settings = qrSettings();
             btn.disabled = true;
+            settings.art.url = await qrCleanArtUrl();
             qrEl('qrPreview').innerHTML = '';
             qrSetStatus('Asking Printful for a mockup with a sample QR (SAMP-LE00)…');
             var task = await apiFetch('/admin/printful/products/' + encodeURIComponent(qrEl('qrProductId').value) + '/mockup', {
