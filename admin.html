@@ -106,6 +106,32 @@
     .dash-metric-card { padding:1.1rem 1.25rem; }
     .dash-metric-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-500); font-weight:500; margin-bottom:.5rem; }
     .dash-metric-value { font-family:var(--font-display); font-size:1.9rem; font-weight:500; color:var(--ink-900); line-height:1; }
+    /* Existing targets table */
+    .inrl-table .trow td:first-child { box-shadow:inset 3px 0 0 transparent; }
+    .inrl-table .trow.is-active td:first-child { box-shadow:inset 3px 0 0 var(--accent-500); }
+    .tcell { display:flex; align-items:center; gap:.9rem; min-width:220px; }
+    .tcell .target-thumb { width:56px; height:56px; flex:0 0 auto; }
+    .tcell__text { min-width:0; }
+    .tcell__name { font-weight:500; font-size:.85rem; color:var(--ink-900); overflow-wrap:anywhere; }
+    .tcell__sub { font-size:.72rem; color:var(--ink-500); margin-top:2px; }
+    .tstatus { display:inline-flex; align-items:center; gap:6px; font-size:.65rem; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-500); white-space:nowrap; }
+    .tstatus::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--line-200); }
+    .tstatus.is-on { color:var(--accent-700); }
+    .tstatus.is-on::before { background:var(--accent-500); }
+    .tnum { font-variant-numeric:tabular-nums; }
+    .tactions { display:flex; gap:6px; justify-content:flex-end; align-items:center; }
+    .tactions .btn { white-space:nowrap; }
+    .tactions > .btn:first-child { min-width:96px; }
+    .tmenu > summary { list-style:none; }
+    .tmenu > summary::-webkit-details-marker { display:none; }
+    .tmenu > summary::after { content:"\25BE"; margin-left:4px; font-size:.7em; }
+    .tmenu__list { position:fixed; z-index:50; min-width:180px; background:var(--surface-0); border:1px solid var(--line-200); border-radius:10px; box-shadow:0 10px 30px rgba(20,24,26,.12); padding:6px; }
+    .tmenu__list hr { margin:4px 2px; border-color:var(--line-100); opacity:1; }
+    .tmenu__item { display:block; width:100%; text-align:left; background:none; border:0; border-radius:6px; padding:.5rem .7rem; font-size:.78rem; color:var(--ink-900); cursor:pointer; margin:0; }
+    .tmenu__item:hover, .tmenu__item:focus-visible { background:var(--surface-50); }
+    .tmenu__item--danger { color:var(--danger-500); }
+    .tmenu__item--danger:hover { background:var(--danger-500); color:#fff; }
+    .tempty { text-align:center; color:var(--ink-500) !important; padding:2.5rem 1rem !important; }
   </style>
   <script src="assets/js/auth-worker.js?v=20260205"></script>
 </head>
@@ -337,14 +363,11 @@
         <table class="table mb-0 inrl-table" style="border-collapse:collapse;">
           <thead>
             <tr id="targetsHeadRow">
-              <th class="p-3">Target Image</th>
-              <th class="p-3">Name</th>
-              <!-- Brand column inserted at runtime for admins -->
-              <th class="p-3">Product</th>
-              <th class="p-3">Created</th>
-              <th class="p-3">Active</th>
+              <th class="p-3">Target</th>
+              <th class="p-3">Status</th>
               <th class="p-3" title="Matching feature points in the compiled marker. Below 250 it detects slowly or not at all on fabric.">Tracking</th>
-              <th class="p-3 text-center">Actions</th>
+              <th class="p-3">Created</th>
+              <th class="p-3 text-end">Actions</th>
             </tr>
           </thead>
           <tbody id="targetsTable"></tbody>
@@ -676,6 +699,7 @@
   const statPublishedProducts = document.getElementById('statPublishedProducts');
   const adminStatsStatus = document.getElementById('adminStatsStatus');
   const targetsHeadRow = document.getElementById('targetsHeadRow');
+  const TARGETS_HEAD = targetsHeadRow ? targetsHeadRow.innerHTML : '';
   // timer used to clear transient status messages (so they disappear after a few seconds)
   let statusClearTimer = null;
 
@@ -700,16 +724,7 @@
         // Ensure header reflects admin state when switching to list
         try {
           if (isAdmin && targetsHeadRow) {
-            targetsHeadRow.innerHTML = `
-              <th class="p-3">Target Image</th>
-              <th class="p-3">Name</th>
-              <th class="p-3">Brand</th>
-              <th class="p-3">Product</th>
-              <th class="p-3">Created</th>
-              <th class="p-3">Active</th>
-              <th class="p-3" title="Matching feature points in the compiled marker. Below 250 it detects slowly or not at all on fabric.">Tracking</th>
-              <th class="p-3 text-center">Actions</th>
-            `;
+            targetsHeadRow.innerHTML = TARGETS_HEAD;
           }
         } catch {}
         loadTargets();
@@ -755,16 +770,7 @@
             filterEls.bar?.classList.remove('hidden');
             adminTab?.classList.remove('hidden');
             if (targetsHeadRow) {
-              targetsHeadRow.innerHTML = `
-                <th class="p-3">Target Image</th>
-                <th class="p-3">Name</th>
-                <th class="p-3">Brand</th>
-                <th class="p-3">Product</th>
-                <th class="p-3">Created</th>
-                <th class="p-3">Active</th>
-                <th class="p-3" title="Matching feature points in the compiled marker. Below 250 it detects slowly or not at all on fabric.">Tracking</th>
-                <th class="p-3 text-center">Actions</th>
-              `;
+              targetsHeadRow.innerHTML = TARGETS_HEAD;
             }
           } else {
             filterEls.bar?.classList.add('hidden');
@@ -1786,9 +1792,11 @@
               filterEls.summary.textContent = `${prefix} • ${rows.length} result${rows.length === 1 ? '' : 's'}`;
             }
           } catch {}
+          if (!rows.length) {
+            const filtered = filters.brand || filters.product || filters.clientId || (filters.uploader && filters.uploader !== 'all');
+            targetsTable.innerHTML = `<tr><td colspan="5" class="tempty">${filtered ? 'No targets match these filters.' : 'No targets yet. Create one from the Upload tab.'}</td></tr>`;
+          }
           rows.forEach((t) => {
-          const isActive = t.is_active ? "✅" : "❌";
-          const activeRowStyle = t.is_active ? 'style="border-left:3px solid #12a2b8;"' : '';
 
           // iamge display
           const candidates = [];
@@ -1821,34 +1829,48 @@
             if (!u) return u;
             try {
               // already absolute
-              if (/^https?:\/\//i.test(u) || u.startsWith('//')) return u;
+              if (/^(https?:\/\/|data:|blob:)/i.test(u) || u.startsWith('//')) return u;
               // strip leading slashes to avoid double slashes
               return 'https://' + u.replace(/^\/+/, '');
             } catch (e) { return u; }
           };
           const normalizedCandidates = uniq.map(normalizeUrl);
           const initialSrc2 = normalizedCandidates.length ? normalizedCandidates[0] : normalizeUrl(placeholder);
-          const deactivateBtn = t.is_active ? `<button onclick="setInactive('${t.id}')" class="btn btn-sm btn-inrl-outline me-1">Deactivate</button>` : '';
-          const brandCell = isAdmin ? `<td class="p-3">${t.brand || ''}</td>` : '';
+          const nameArg = encodeURIComponent(t.name || '').replace(/'/g, '%27');
+          const sub = [isAdmin ? t.brand : null, t.product].filter(Boolean).map(escapeHtml).join(' · ');
+          const created = t.created_at ? new Date(t.created_at) : null;
+          const toggleBtn = t.is_active
+            ? `<button onclick="setInactive('${t.id}')" class="btn btn-sm btn-inrl-outline">Deactivate</button>`
+            : `<button onclick="setActive('${t.id}')" class="btn btn-sm btn-inrl">Set active</button>`;
           const row = `
-            <tr ${activeRowStyle}>
+            <tr class="trow${t.is_active ? ' is-active' : ''}">
               <td class="p-3">
-                <img src="${initialSrc2}" data-src="${initialSrc2}" data-candidates="${encodeURIComponent(JSON.stringify(normalizedCandidates))}" data-name="${encodeURIComponent(t.name)}" alt="${t.name}" class="target-thumb cursor-zoom-in" />
+                <div class="tcell">
+                  <img src="${initialSrc2}" data-src="${initialSrc2}" data-candidates="${encodeURIComponent(JSON.stringify(normalizedCandidates))}" data-name="${nameArg}" alt="${escapeHtml(t.name || '')}" class="target-thumb cursor-zoom-in" />
+                  <div class="tcell__text">
+                    <div class="tcell__name">${escapeHtml(t.name || 'Untitled')}</div>
+                    ${sub ? `<div class="tcell__sub">${sub}</div>` : ''}
+                  </div>
+                </div>
               </td>
-              <td class="p-3">${t.name}</td>
-              ${brandCell}
-              <td class="p-3">${t.product || ''}</td>
-              <td class="p-3 text-secondary">${new Date(t.created_at).toLocaleString()}</td>
-              <td class="p-3">${isActive}</td>
+              <td class="p-3"><span class="tstatus${t.is_active ? ' is-on' : ''}">${t.is_active ? 'Active' : 'Inactive'}</span></td>
               <td class="p-3 small" style="white-space:nowrap;" data-mind-points="${mindArg}">…</td>
-              <td class="p-3 text-center" style="white-space:nowrap;">
-                <button onclick="setActive('${t.id}')" class="btn btn-sm btn-inrl me-1">Set Active</button>
-                ${deactivateBtn}
-                <button onclick="deleteTarget('${t.id}', '${t.name}', decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))" class="btn btn-sm btn-danger-inrl me-1">Delete</button>
-                <button onclick="copyViewer('${brandArg}','${productArg}','${t.id}')" class="btn btn-sm btn-inrl-outline me-1">Copy Link</button>
-                <button onclick="showQR('${brandArg}','${productArg}','${t.id}')" class="btn btn-sm btn-inrl-outline me-1">QR Code</button>
-                <label class="btn btn-sm btn-inrl-outline mb-0" style="cursor:pointer">Replace video<input type="file" accept="video/*" data-replace-video="${t.id}" style="display:none"></label>
-                <button data-edit-marker="${t.id}" data-image="${imageArg}" data-name="${encodeURIComponent(t.name)}" class="btn btn-sm btn-inrl-outline ms-1">Edit marker</button>
+              <td class="p-3 text-secondary tnum" style="white-space:nowrap;" title="${created ? created.toLocaleString() : ''}">${created ? created.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+              <td class="p-3">
+                <div class="tactions">
+                  ${toggleBtn}
+                  <button onclick="copyViewer('${brandArg}','${productArg}','${t.id}')" class="btn btn-sm btn-inrl-outline">Copy link</button>
+                  <button onclick="showQR('${brandArg}','${productArg}','${t.id}')" class="btn btn-sm btn-inrl-outline">QR</button>
+                  <details class="tmenu">
+                    <summary class="btn btn-sm btn-inrl-outline" aria-label="More actions for ${escapeHtml(t.name || 'this target')}">More</summary>
+                    <div class="tmenu__list" role="menu">
+                      <label class="tmenu__item" role="menuitem">Replace video<input type="file" accept="video/*" data-replace-video="${t.id}" style="display:none"></label>
+                      <button type="button" class="tmenu__item" role="menuitem" data-edit-marker="${t.id}" data-image="${imageArg}" data-name="${nameArg}">Edit marker</button>
+                      <hr>
+                      <button type="button" class="tmenu__item tmenu__item--danger" role="menuitem" onclick="deleteTarget('${t.id}', decodeURIComponent('${nameArg}'), decodeURIComponent('${mindArg}'), decodeURIComponent('${videoArg}'), decodeURIComponent('${imageArg}'))">Delete…</button>
+                    </div>
+                  </details>
+                </div>
               </td>
             </tr>`;
             targetsTable.innerHTML += row;
@@ -2086,6 +2108,33 @@
       closeImageModalBtn?.addEventListener('click', closeImageModal);
       imageModal?.addEventListener('click', (e) => { if (e.target === imageModal) closeImageModal(); });
       window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !imageModal.classList.contains('hidden')) closeImageModal(); });
+
+      // "More" menus: one open at a time, placed under their button. Fixed, so the
+      // horizontally scrolling table can't clip them.
+      function placeMenu(d) {
+        const list = d.querySelector('.tmenu__list');
+        const r = d.querySelector('summary').getBoundingClientRect();
+        const w = list.offsetWidth, h = list.offsetHeight;
+        list.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+        list.style.top = (r.bottom + 4 + h > innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+      }
+      const closeMenus = (except) => document.querySelectorAll('details.tmenu[open]').forEach(d => { if (d !== except) d.open = false; });
+      targetsTable.addEventListener('toggle', (e) => {
+        const d = e.target;
+        if (!d.classList || !d.classList.contains('tmenu') || !d.open) return;
+        closeMenus(d);
+        placeMenu(d);
+      }, true);
+      document.addEventListener('click', (e) => {
+        document.querySelectorAll('details.tmenu[open]').forEach(d => {
+          if (!d.contains(e.target) || e.target.closest('button.tmenu__item')) d.open = false;
+        });
+      });
+      // A chosen "Replace video" file closes its menu.
+      targetsTable.addEventListener('change', (e) => { if (e.target.closest('.tmenu')) closeMenus(); }, true);
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenus(); });
+      window.addEventListener('scroll', () => closeMenus(), true);
+      window.addEventListener('resize', () => closeMenus());
 
       // Delegate thumbnail click events
       targetsTable.addEventListener('click', (e) => {

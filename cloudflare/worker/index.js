@@ -2255,11 +2255,11 @@
     return qr;
   }
 
-  // Art per placement for a resolved item: the product designer's per-placement files,
-  // else the storefront photo on the front.
+  // Art per placement for a resolved item: the product's print files only. The storefront
+  // photo is never used as one: it is usually a Printful mockup (a photo of the whole shirt),
+  // which would print a picture of a shirt onto the shirt. No print files = can't be sold.
   function itemArt(it) {
-    if (it.design_images && Object.keys(it.design_images).length) return { ...it.design_images };
-    return it.image_url ? { front: it.image_url } : {};
+    return it.design_images && Object.keys(it.design_images).length ? { ...it.design_images } : {};
   }
 
   // Placements for one Printful item. With a QR, its layer is added to the QR placement
@@ -2976,18 +2976,19 @@
   // snapshot when it has one, else the product. drift is true when the product's current
   // settings differ from what the shirt was sold with. Null until QR placement is saved.
   function printFileSpec(row, line, request) {
-    const artFor = (qr, images, imageUrl) => {
-      const art = String((images && images[qr.placement]) || (qr.placement === 'front' ? imageUrl : '') || '');
+    // The placement's print file only, never the storefront photo (see itemArt).
+    const artFor = (qr, images) => {
+      const art = String((images && images[qr.placement]) || '');
       // Absolute URLs as stored (they are what the QR placer matched its art box against).
       return art ? (/^https?:\/\//i.test(art) ? art : normalizePublicUrl(art, request)) : null;
     };
     let productImages = {};
     try { productImages = row.printful_design_images ? JSON.parse(row.printful_design_images) || {} : {}; } catch {}
     const live = parsePrintfulQr(row.printful_qr);
-    const liveSpec = live ? { qr: live, art_url: artFor(live, productImages, row.product_image_url) } : null;
+    const liveSpec = live ? { qr: live, art_url: artFor(live, productImages) } : null;
     const look = orderLineLook(line);
     if (!look) return liveSpec ? { ...liveSpec, drift: false } : null;
-    const spec = { qr: look.qr, art_url: artFor(look.qr, look.design_images, look.image_url) };
+    const spec = { qr: look.qr, art_url: artFor(look.qr, look.design_images) };
     const https = u => (u ? String(u).replace(/^http:\/\//i, 'https://') : u);
     const key = q => JSON.stringify({ ...q, art: q.art ? { ...q.art, url: https(q.art.url) } : null });
     spec.drift = !liveSpec || key(liveSpec.qr) !== key(spec.qr) || https(liveSpec.art_url) !== https(spec.art_url);

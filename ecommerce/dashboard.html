@@ -1335,8 +1335,10 @@
       const missing = sizes.filter(s => mapped[s] == null);
       if (missing.length) return 'no variant: ' + missing.join(', ');
     }
-    const hasArt = !!(p.printful_design_images && Object.keys(p.printful_design_images).length) || !!p.image_url;
-    if (!hasArt) return 'no print art';
+    // Only real print files count: checkout never prints the storefront photo (usually a
+    // Printful mockup of the whole shirt) in their place.
+    const hasArt = !!(p.printful_design_images && Object.keys(p.printful_design_images).length);
+    if (!hasArt) return 'no print file';
     return '';
   }
   function isPrintfulPrintable(p) { return !printfulUnprintableReason(p); }
