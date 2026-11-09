@@ -3071,10 +3071,11 @@
         var a = qrCurrentArea();
         if (!a) return 'Pick a placement with a known print area.';
         if (!qrArt) return 'No print file for this placement yet.';
-        if (qrArt.isPhoto) return 'This is the storefront photo: upload the real print file.';
+        if (qrArt.isPhoto && !qrArt.hasAlpha) return 'This is the storefront photo: upload the real print file.';
         if (!qrArt.readable) return "This file can't be used for print files: re-upload it.";
         if (!qrArt.slot) return 'Still looking for the QR spot…';
         if (qrArt.slot.error) return 'No usable QR spot in the print file.';
+        if (qrArt.slot.kind === 'manual' && !(qrValues().size > 0)) return 'Place the QR: drag the box or type its size and position.';
         var v = qrValues();
         if (!(v.size >= QrPrint.MIN_QR_IN && v.size <= 6)) return 'Emblem width must be ' + QrPrint.MIN_QR_IN + ' to 6 in.';
         if (v.left + v.size > a.w + 0.01 || v.top + v.size > a.h + 0.01) return 'The QR must sit inside the print area.';
@@ -3091,6 +3092,10 @@
         var s = qrArt.slot;
         var bad = function(head, tail) { el.innerHTML = '<span style="color:#b23b3b">' + head + '</span> ' + tail; };
         if (!s) { el.textContent = 'Looking for the QR spot…'; return; }
+        if (s.kind === 'manual') {
+          el.innerHTML = '<span style="color:#c17a2e">No placeholder QR found in this file' + (s.why === 'no_reader' ? " (the QR reader couldn't load)" : '') + ',</span> so each shirt\'s QR prints where you place it. Nothing is erased: anything under it is covered.';
+          return;
+        }
         if (s.error === 'none') return bad('No QR spot found.', "Put a placeholder QR (any QR) where each shirt's QR goes and re-upload.");
         if (s.error === 'no_reader') return bad("Couldn't load the QR reader.", 'Check the connection and reopen QR placement, or mark the spot with a solid #FF00FF disc.');
         if (s.error === 'many_qr') return bad('Found ' + s.count + ' QR codes.', "Leave only the placeholder where each shirt's QR goes.");
@@ -3102,7 +3107,7 @@
         el.innerHTML = off
           ? '<span style="color:#c17a2e">Moved off the QR spot.</span> <button type="button" class="btn btn-sm btn-inrl-outline" id="qrSnapBtn" style="font-size:.58rem;padding:.1rem .45rem">Snap back</button>'
           : s.kind === 'saved'
-            ? '<span style="color:#1c5d68">&#10003; Saved QR spot:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in (the placeholder was taken out of this print file when it was saved)'
+            ? '<span style="color:#1c5d68">&#10003; Saved QR spot:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in' + (/qr-spot-erased/.test(qrArt.url) ? ' (the placeholder was taken out of this print file when it was saved)' : ', placed by hand')
             : '<span style="color:#1c5d68">&#10003; ' + (qrSnap.grown ? 'Centred on' : 'Same size and place as') + ' the ' + (s.kind === 'qr' ? 'placeholder QR' : '#FF00FF disc') + ', which is erased from the print file:</span> ' + qrSnap.size_in.toFixed(2) + ' in at ' + qrSnap.left_in.toFixed(2) + ', ' + qrSnap.top_in.toFixed(2) + ' in' +
               (qrSnap.grown ? ' <span style="color:#c17a2e">(the spot is just under 1 in, so the QR is grown to 1 in and covers a little of the design round it)</span>' : '');
         var snapBtn = qrEl('qrSnapBtn');
@@ -3161,7 +3166,8 @@
         var dpi = Math.round(qrArt.w / ab.width_in);
         var a = qrCurrentArea();
         var fills = Math.abs(ab.width_in - a.w) < 0.02 && Math.abs(ab.height_in - a.h) < 0.02;
-        hint.textContent = (qrDraft ? 'Unsaved upload. ' : '') + (qrArt.isPhoto ? 'Storefront photo, not a print file. ' : '') +
+        hint.textContent = (qrDraft ? 'Unsaved upload. ' : '') +
+          (qrArt.isPhoto ? (qrArt.hasAlpha ? 'Storefront photo, used as the front print file (it has a transparent background). ' : 'Storefront photo, not a print file. ') : '') +
           'Print file ' + qrArt.w + ' × ' + qrArt.h + ' px, ' + dpi + ' DPI' +
           (fills ? ', fills the print area exactly.' : '; its shape differs from the print area, so it is centred with empty margins.') +
           (dpi < 150 ? ' Too low for a sharp print: export at ' + Math.round(a.w * 300) + ' × ' + Math.round(a.h * 300) + ' px.' : '');
@@ -3175,11 +3181,14 @@
         if (detector) {
           var first = Math.min(1, 2000 / Math.max(w, h));
           var scales = first < 1 ? [first, 1] : [1];
-          for (var k = 0; k < scales.length; k++) {
-            var s = scales[k], copy = document.createElement('canvas');
+          var tries = [];
+          scales.forEach(function(s) { tries.push([s, '#808080'], [s, '#ffffff']); });
+          for (var k = 0; k < tries.length; k++) {
+            var s = tries[k][0], copy = document.createElement('canvas');
             copy.width = Math.round(w * s); copy.height = Math.round(h * s);
             var cctx = copy.getContext('2d');
-            cctx.fillStyle = '#808080'; // a QR on transparency reads on mid grey whether it is black or white
+            // A black or white QR on transparency reads on mid grey; a coloured one on white.
+            cctx.fillStyle = tries[k][1];
             cctx.fillRect(0, 0, copy.width, copy.height);
             cctx.drawImage(cv, 0, 0, copy.width, copy.height);
             var found = [];
@@ -3252,6 +3261,9 @@
             ctx.drawImage(img, 0, 0);
             data = ctx.getImageData(0, 0, art.w, art.h).data;
             art.canvas = cv; art.readable = true;
+            var clear = 0, seen = 0;
+            for (var ai = 3; ai < data.length; ai += 4 * 97) { seen++; if (data[ai] < 20) clear++; }
+            art.hasAlpha = clear / seen > 0.05; // print art, not a photo
           } catch (e) { art.readable = false; }
           qrArt = art;
           qrRender();
@@ -3266,6 +3278,12 @@
             if ((slot.error === 'none' || slot.error === 'no_reader') && savedHere) {
               art.slot = { kind: 'saved' };
               qrSnap = { size_in: saved.size_in, top_in: saved.top_in, left_in: saved.left_in };
+              qrRender();
+              return;
+            }
+            // No marker to snap to: the QR goes where it is placed by hand (as saved, or dragged).
+            if (slot.error === 'none' || slot.error === 'no_reader') {
+              art.slot = { kind: 'manual', why: slot.error };
               qrRender();
               return;
             }

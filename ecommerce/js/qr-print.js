@@ -65,6 +65,32 @@
   // are the design around it.
   function isPlaceholderPixel(r, g, b, a) { return a >= 200 && Math.max(r, g, b) - Math.min(r, g, b) <= 40; }
 
+  // A placeholder printed in one colour instead of black (a red QR, say): its ink colour, the
+  // average of the coloured dark pixels in the middle of its code, or null when the code is
+  // black. Pixels near that colour then count as placeholder too (nearInk).
+  var INK_MATCH = 90;
+  function inkColour(rgba, width, height, cx, cy, side) {
+    var step = Math.max(1, Math.round(side / 80)), half = side * 0.4, dark = 0, n = 0, sum = [0, 0, 0];
+    for (var y = Math.round(cy - half); y <= cy + half; y += step) {
+      for (var x = Math.round(cx - half); x <= cx + half; x += step) {
+        if (x < 0 || y < 0 || x >= width || y >= height) continue;
+        var i = (y * width + x) * 4, r = rgba[i], g = rgba[i + 1], b = rgba[i + 2];
+        if (rgba[i + 3] < 200 || Math.min(r, g, b) > 200) continue; // light: the code's white
+        dark++;
+        if (Math.max(r, g, b) - Math.min(r, g, b) <= 40) continue;
+        n++; sum[0] += r; sum[1] += g; sum[2] += b;
+      }
+    }
+    return dark && n / dark > 0.6 ? sum.map(function (v) { return v / n; }) : null;
+  }
+  // The ink, or a blend of it with the white backing (its anti-aliased edges).
+  function nearInk(ink, r, g, b) {
+    if (!ink) return false;
+    var span = (255 - ink[0]) + (255 - ink[1]) + (255 - ink[2]);
+    var t = span > 0 ? Math.min(1, Math.max(0, ((r - ink[0]) + (g - ink[1]) + (b - ink[2])) / span)) : 0;
+    return Math.abs(r - ink[0] - t * (255 - ink[0])) + Math.abs(g - ink[1] - t * (255 - ink[1])) + Math.abs(b - ink[2] - t * (255 - ink[2])) <= INK_MATCH * (1 - t * 0.6);
+  }
+
   // placeholderSlot(rgba, width, height, corners) -> { left, top, size, cx, cy, rays | square } in px:
   // the placeholder's own size and centre, or { error: 'too_small' } for a code under 40 px.
   // corners: the code's four corner points as a QR reader reports them. Each of RAYS rays
@@ -83,6 +109,7 @@
       side += Math.hypot(q.x - p.x, q.y - p.y) / 4;
     }
     if (!(side >= 40)) return { error: 'too_small' };
+    var ink = inkColour(rgba, width, height, cx, cy, side);
     var start = side * 0.45, cap = side * PLACEHOLDER_MAX / 2, gap = Math.max(3, Math.round(side / 60));
     var raw = [];
     for (var n = 0; n < RAYS; n++) {
@@ -91,7 +118,8 @@
       for (var r = start; r <= cap; r++) {
         var x = Math.round(cx + dx * r), y = Math.round(cy + dy * r);
         var i = (y * width + x) * 4;
-        var inside = x >= 0 && y >= 0 && x < width && y < height && isPlaceholderPixel(rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]);
+        var inside = x >= 0 && y >= 0 && x < width && y < height && (isPlaceholderPixel(rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]) ||
+          (rgba[i + 3] >= 200 && nearInk(ink, rgba[i], rgba[i + 1], rgba[i + 2])));
         if (inside) { last = r; run = 0; } else if (++run >= gap) break;
       }
       raw.push(last + 0.5);
@@ -118,14 +146,14 @@
       // of the same black or white touching it), and never past the emblem that replaces it,
       // so no design beyond the new emblem's edge is erased.
       var rays = raw.map(function (d, n) { return Math.min(d, smooth[n] + side * SPIKE_TOLERANCE, size / 2); });
-      return { left: Math.round(cx - size / 2), top: Math.round(cy - size / 2), size: Math.round(size), cx: cx, cy: cy, rays: rays };
+      return { left: Math.round(cx - size / 2), top: Math.round(cy - size / 2), size: Math.round(size), cx: cx, cy: cy, rays: rays, ink: ink };
     }
     // A plain QR: a square turned like its code, reaching its quiet zone's edge on each side.
     var sq = { ux: Math.cos(u), uy: Math.sin(u), a0: at(u + Math.PI), a1: at(u), b0: at(u - Math.PI / 2), b1: at(u + Math.PI / 2) };
     var sz = Math.max(sq.a0 + sq.a1, sq.b0 + sq.b1);
     var du = (sq.a1 - sq.a0) / 2, dv = (sq.b1 - sq.b0) / 2;
     var mx = cx + sq.ux * du - sq.uy * dv, my = cy + sq.uy * du + sq.ux * dv;
-    return { left: Math.round(mx - sz / 2), top: Math.round(my - sz / 2), size: Math.round(sz), cx: cx, cy: cy, square: sq };
+    return { left: Math.round(mx - sz / 2), top: Math.round(my - sz / 2), size: Math.round(sz), cx: cx, cy: cy, square: sq, ink: ink };
   }
 
   // eraseSpot(rgba, width, height, slot): clears the spot's marker to transparent, in place:
@@ -154,7 +182,8 @@
         var i = (y * width + x) * 4;
         if (!rgba[i + 3]) continue;
         var dx = x + 0.5 - cx, dy = y + 0.5 - cy;
-        var r = rgba[i], g = rgba[i + 1], b = rgba[i + 2], grey = Math.max(r, g, b) - Math.min(r, g, b) <= 40, hit;
+        var r = rgba[i], g = rgba[i + 1], b = rgba[i + 2], hit;
+        var grey = Math.max(r, g, b) - Math.min(r, g, b) <= 40 || nearInk(slot.ink, r, g, b);
         if (slot.rays) {
           var t = (Math.atan2(dy, dx) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * RAYS;
           var n0 = Math.floor(t) % RAYS, n1 = (n0 + 1) % RAYS;

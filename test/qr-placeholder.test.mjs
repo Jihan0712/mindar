@@ -161,3 +161,24 @@ test('a placeholder on transparency (the usual print file) ends at its own edge'
   const slot = placeholderSlot(art.px, W, H, corners);
   assert.ok(Math.abs(slot.size - (side + 60)) <= 4, `size ${slot.size}px = the ${side + 60}px white square`);
 });
+
+test('a placeholder printed in red (not black) on a transparent file is measured and erased whole', async () => {
+  const QR = await loadQr();
+  const link = 'https://shop.inrl.co/p/SAMP-LE00', L = QR.emblemLayout(link);
+  const { png, pixels } = await QR.qrPng(link, 2);
+  const em = decodeGreyAlpha(png);
+  const W = 1200, H = 1000, ox = 300, oy = 200, RED = [210, 35, 45];
+  const art = canvas(W, H, [0, 0, 0, 0]);
+  for (let y = 0; y < pixels; y++) for (let x = 0; x < pixels; x++) {
+    const a = em.alpha(x, y), t = em.grey(x, y) / 255; // white stays white, black becomes red
+    if (a) art.put(ox + x, oy + y, RED.map((c, k) => Math.round(c + (255 - c) * t)).concat(a));
+  }
+  const scale = pixels / (L.extent * 2), at = m => (m - L.half + L.extent) * scale;
+  const corners = [[0, 0], [L.size, 0], [L.size, L.size], [0, L.size]].map(([c, r]) => ({ x: ox + at(c), y: oy + at(r) }));
+  const slot = placeholderSlot(art.px, W, H, corners);
+  assert.ok(Math.abs(slot.size - pixels) <= pixels * 0.01, `size ${slot.size}px = the ${pixels}px emblem`);
+  eraseSpot(art.px, W, H, slot);
+  let left = 0;
+  for (let y = 0; y < pixels; y++) for (let x = 0; x < pixels; x++) if (em.alpha(x, y) >= 250 && art.px[((oy + y) * W + ox + x) * 4 + 3]) left++;
+  assert.equal(left, 0, 'no red placeholder pixel left');
+});
