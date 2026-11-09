@@ -10,6 +10,7 @@
   <script src="js/qr-print.js"></script>
   <script src="js/qr-print-file.js"></script>
   <script src="js/target-locate.js"></script>
+  <script src="js/marker-compile.js"></script>
   <link rel="stylesheet" type="text/css" href="css/global.css" />
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
   <style>
@@ -21,6 +22,7 @@
     .inrl-card-header { background:var(--surface-50) !important; border-bottom:1px solid var(--line-200) !important; padding:.85rem 1.25rem; font-size:.72rem; letter-spacing:.04em; color:var(--ink-500); font-weight:500; border-radius:var(--radius-md) var(--radius-md) 0 0; }
     .inrl-heading { font-family:var(--font-display); text-transform:uppercase; color:var(--ink-900); font-size:1.3rem; font-weight:500; border-left:none; padding-left:0; margin-bottom:.25rem; letter-spacing:-.01em; }
     .btn-inrl { background:var(--teal-700); border:1px solid var(--teal-700); color:var(--ink-inverse) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; letter-spacing:0; }
+    .btn-inrl:disabled,.btn-inrl.disabled { background:var(--surface-3); border-color:var(--surface-3); color:var(--ink-500) !important; opacity:1; }
     .btn-inrl:hover,.btn-inrl:focus { background:var(--teal-600); border-color:var(--teal-600); color:var(--ink-inverse) !important; }
     .btn-inrl-outline { background:transparent; border:1px solid var(--line-200); color:var(--ink-700) !important; font-family:var(--font-body); font-weight:500; border-radius:999px; }
     .btn-inrl-outline:hover,.btn-inrl-outline:focus { background:var(--surface-50); color:var(--ink-900) !important; }
@@ -165,6 +167,58 @@
     .tp-stage img { display:block; max-width:220px; max-height:260px; width:auto; height:auto; }
     .tp-box { position:absolute; border:2px solid var(--accent-500); box-shadow:0 0 0 9999px rgba(0,0,0,.45); pointer-events:none; }
     #tpPrintFig .tp-stage { overflow:hidden; }
+
+    /* Product steps */
+    .wz-steps { list-style:none; margin:0; padding:.85rem 1.5rem; display:flex; gap:.35rem; border-bottom:1px solid var(--line-100); overflow-x:auto; }
+    .wz-steps li { flex:1 1 0; min-width:96px; }
+    .wz-step { width:100%; display:flex; align-items:center; gap:.5rem; padding:.55rem .7rem; min-height:44px; border:1px solid var(--line-100); border-radius:var(--radius-sm); background:var(--surface-0); color:var(--ink-500); font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; text-align:left; cursor:pointer; transition:background-color .15s ease-out, border-color .15s ease-out, color .15s ease-out; }
+    .wz-step:hover:not(:disabled) { border-color:var(--accent-500); color:var(--ink-900); }
+    .wz-step:disabled { cursor:not-allowed; opacity:.55; }
+    .wz-step:focus-visible { outline:2px solid var(--accent-500); outline-offset:2px; }
+    .wz-num { flex:0 0 auto; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:.68rem; font-weight:700; border:1px solid currentColor; font-variant-numeric:tabular-nums; }
+    .wz-step.is-done .wz-num { background:var(--accent-700); border-color:var(--accent-700); color:#fff; }
+    .wz-step.is-current { border-color:var(--accent-700); color:var(--ink-900); background:var(--surface-50); }
+    .wz-step.is-current .wz-num { border-color:var(--accent-700); color:var(--accent-700); }
+    .wz-step.is-skipped .wz-label { text-decoration:line-through; }
+    .wz-pane { display:none; }
+    .wz-pane.is-current { display:block; }
+    .wz-two { display:grid; grid-template-columns:1fr 1.6fr; }
+    .wz-two > .pd-panel:not(:last-child) { border-right:1px solid var(--line-100); background:var(--surface-50); }
+    @media (max-width:900px) { .wz-two { grid-template-columns:1fr; } .wz-two > .pd-panel:not(:last-child) { border-right:none; border-bottom:1px solid var(--line-100); } }
+    .wz-status { font-size:.78rem; color:var(--ink-700); line-height:1.5; margin-bottom:.75rem; white-space:pre-line; }
+    .wz-status .ok { color:var(--accent-700); font-weight:500; }
+    .wz-status .bad { color:#b23b3b; font-weight:500; }
+    .wz-row { display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap; }
+    .wz-thumb img { max-width:160px; max-height:200px; display:block; }
+    .wz-seg { display:inline-flex; border:1px solid var(--line-100); border-radius:var(--radius-sm); overflow:hidden; margin-bottom:1rem; flex-wrap:wrap; }
+    .wz-seg label { display:flex; align-items:center; gap:.4rem; padding:.5rem .85rem; min-height:44px; font-size:.75rem; cursor:pointer; margin:0; }
+    .wz-seg label + label { border-left:1px solid var(--line-100); }
+    .wz-seg label:has(input:checked) { background:var(--surface-50); color:var(--ink-900); font-weight:500; }
+    .wz-seg input { accent-color:var(--accent-700); }
+    .wz-crop-wrap { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:1.25rem; align-items:start; }
+    @media (max-width:900px) { .wz-crop-wrap { grid-template-columns:1fr; } }
+    #wzCropCanvas { display:block; max-width:100%; touch-action:none; cursor:crosshair; background:var(--surface-50); border:1px solid var(--line-100); border-radius:var(--radius-sm); }
+    .wz-crop-tools { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-top:.5rem; flex-wrap:wrap; }
+    .wz-check { list-style:none; padding:0; margin:0 0 1rem; }
+    .wz-check li { display:flex; gap:.65rem; align-items:baseline; padding:.6rem 0; border-bottom:1px solid var(--line-100); font-size:.8rem; color:var(--ink-900); }
+    .wz-check li:last-child { border-bottom:none; }
+    .wz-check .wz-mark { flex:0 0 auto; width:1.1rem; font-weight:700; }
+    .wz-check .is-ok .wz-mark { color:var(--accent-700); }
+    .wz-check .is-bad .wz-mark { color:#b23b3b; }
+    .wz-check .is-skip { color:var(--ink-500); }
+    .wz-check .why { display:block; font-size:.7rem; color:var(--ink-500); margin-top:.15rem; }
+    .wz-check button { margin-left:auto; flex:0 0 auto; }
+    .wz-blocker { font-size:.7rem; color:var(--ink-500); max-width:320px; text-align:right; }
+    /* Phones: numbers only, the current step keeps its name; the hint gets its own line. */
+    @media (max-width:599.98px) {
+      .wz-steps { padding:.75rem 1rem; }
+      .wz-steps li { min-width:0; flex:0 0 auto; }
+      .wz-steps li:has(.is-current) { flex:1 1 auto; }
+      .wz-step { justify-content:center; padding:.5rem; min-width:44px; }
+      .wz-step:not(.is-current) .wz-label { display:none; }
+      .pd-bottombar-actions { flex-wrap:wrap; justify-content:flex-end; }
+      .wz-blocker { flex:1 0 100%; max-width:none; text-align:left; }
+    }
     @media (max-width:767.98px) { .pd-step-form-grid { grid-template-columns:1fr; } }
 
     .pd-bottombar { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:1px solid var(--line-200); background:var(--surface-0); border-radius:0 0 var(--radius-md) var(--radius-md); padding:.85rem 1.25rem; flex-wrap:wrap; }
@@ -651,52 +705,64 @@
           <a href="#" id="backToProductsLink" class="pd-back-link">&larr; Back to Products</a>
         </div>
 
-        <div class="pd-layout">
+        <!-- Steps: a product goes Garment -> Details -> Shirt QR -> AR -> Review, in that order.
+             The QR comes before the AR because the tracked image is cut from the print file
+             with the QR spot erased, which only exists once the QR is placed. -->
+        <ol class="wz-steps" id="wzSteps" aria-label="Product steps">
+          <li><button type="button" class="wz-step" data-wz-go="1"><span class="wz-num">1</span><span class="wz-label">Garment</span></button></li>
+          <li><button type="button" class="wz-step" data-wz-go="2"><span class="wz-num">2</span><span class="wz-label">Details</span></button></li>
+          <li><button type="button" class="wz-step" data-wz-go="3"><span class="wz-num">3</span><span class="wz-label">Shirt QR</span></button></li>
+          <li><button type="button" class="wz-step" data-wz-go="4"><span class="wz-num">4</span><span class="wz-label">AR</span></button></li>
+          <li><button type="button" class="wz-step" data-wz-go="5"><span class="wz-num">5</span><span class="wz-label">Review</span></button></li>
+        </ol>
 
-          <div class="pd-main">
+        <!-- 1 Garment -->
+        <section class="wz-pane" data-wz-pane="1">
+          <div class="pd-panel">
+            <div class="pd-panel-title">Garment</div>
+            <div class="pd-step-panel-sub">Design the piece on printful.com, then import it. Sizes, price, mockups and the print file come across with it.</div>
+            <div id="printfulSyncLinkSummary" class="wz-status"></div>
+            <button type="button" id="printfulSyncLinkBtn" class="btn btn-inrl">Import from Printful&#8230;</button>
+          </div>
+        </section>
 
-            <!-- Images -->
+        <!-- 2 Details -->
+        <section class="wz-pane" data-wz-pane="2">
+          <div class="wz-two">
             <div class="pd-panel" id="pfLinkedPhotosNote" style="display:none">
-              <div class="pd-panel-title">Storefront Photos</div>
-              <div class="pd-step-panel-sub">This product is linked to Printful &#8212; the shop shows Printful's own mockups. Re-import it from Printful to refresh them.</div>
+              <div class="pd-panel-title">Storefront photos</div>
+              <div class="pd-step-panel-sub">The shop shows Printful's mockups. Import the piece again to refresh them.</div>
             </div>
             <div class="pd-panel" id="storefrontPhotosPanel">
-              <div class="pd-panel-title">Storefront Photos</div>
-              <div class="pd-step-panel-sub">Photos shown on the storefront &#8212; the print design itself comes from Printful once this product is linked.</div>
-
-              <div>
-                <div class="row g-2">
-                  <div class="col-12">
-                    <label class="form-label" for="imageUrlInput">Image URL</label>
-                    <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label" for="imageFileInput">Upload Images</label>
-                    <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
-                    <div class="form-text">Up to 5 images shown on the shop page.</div>
-                  </div>
+              <div class="pd-panel-title">Storefront photos</div>
+              <div class="pd-step-panel-sub">Photos shown in the shop.</div>
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label" for="imageUrlInput">Image URL</label>
+                  <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="imageFileInput">Upload images</label>
+                  <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
+                  <div class="form-text">Up to 5 images.</div>
                 </div>
               </div>
             </div>
 
-            <!-- Details -->
             <div class="pd-panel">
               <div class="pd-panel-title">Details</div>
-              <div class="pd-step-panel-sub">Basic info shown on the storefront and used to link this product to a real Printful garment.</div>
-
+              <div class="pd-step-panel-sub">Shown in the shop.</div>
               <div class="pd-step-form-grid">
                 <div id="brandGroup" class="pd-span-2" style="display:none">
                   <label class="form-label" for="brandInput">Brand <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">(admin only)</span></label>
                   <input id="brandInput" class="form-control" type="text" placeholder="e.g. INRL" />
                 </div>
-
                 <div class="pd-span-2">
                   <label class="form-label" for="titleInput">Title <span style="color:#c0392b">*</span></label>
                   <input id="titleInput" class="form-control" type="text" required />
                 </div>
-
                 <div>
-                  <label class="form-label" for="categoryPreset">Category Preset</label>
+                  <label class="form-label" for="categoryPreset">Category preset</label>
                   <select id="categoryPreset" class="form-select">
                     <option value="">(custom)</option>
                     <option value="Men">Men</option>
@@ -713,7 +779,6 @@
                     <option value="Accessories"></option>
                   </datalist>
                 </div>
-
                 <div>
                   <label class="form-label" for="colorInput">Color <span style="color:#c0392b">*</span></label>
                   <input id="colorInput" class="form-control" type="text" placeholder="e.g. Green" required />
@@ -723,7 +788,6 @@
                   <input id="sizesInput" class="form-control" type="text" placeholder="e.g. S, M, L" required />
                   <div class="form-text">Comma-separated sizes.</div>
                 </div>
-
                 <div>
                   <label class="form-label" for="priceInput">Price <span style="color:#c0392b">*</span></label>
                   <div class="input-group">
@@ -738,59 +802,113 @@
                 <div>
                   <label class="form-label" for="slugInput">Slug</label>
                   <input id="slugInput" class="form-control" type="text" placeholder="e.g. black-hoodie" />
-                  <div class="form-text">AR viewer: <code>/viewer?brand=&#8230;&amp;product=&lt;slug&gt;</code></div>
+                  <div class="form-text">The shop address: <code>/product.html?slug=&lt;slug&gt;</code></div>
                 </div>
-
                 <div class="pd-span-2">
                   <label class="form-label" for="descInput">Description</label>
                   <textarea id="descInput" class="form-control" rows="3" placeholder="Optional"></textarea>
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
+        <!-- 3 Shirt QR -->
+        <section class="wz-pane" data-wz-pane="3">
+          <div class="pd-panel">
+            <div class="pd-panel-title">Shirt QR</div>
+            <div class="pd-step-panel-sub">Every shirt gets its own QR that opens its AR. Place it on the print file; the spot you mark is erased from the file, and the AR is cut from that erased file in the next step.</div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="wzHasAr" checked>
+              <label class="form-check-label" for="wzHasAr">This piece has AR</label>
+            </div>
+            <div id="wzQrBody">
+              <div class="wz-row">
+                <div class="tp-stage wz-thumb"><img id="wzQrThumb" alt="Print file" crossorigin="anonymous" /></div>
                 <div>
-                  <label class="form-label" for="targetSelect">AR Target <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">(optional)</span></label>
-                  <select id="targetSelect" class="form-select">
-                    <option value="">(none)</option>
-                  </select>
+                  <div id="wzQrStatus" class="wz-status"></div>
+                  <button type="button" id="wzPlaceQrBtn" class="btn btn-inrl">Place QR&#8230;</button>
                 </div>
-                <div class="form-check" style="align-self:end;padding-bottom:.5rem">
-                  <input class="form-check-input" type="checkbox" id="publishInput">
-                  <label class="form-check-label" for="publishInput" style="color:var(--ink-500);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Published</label>
-                </div>
-                <!-- What the linked target tracks, and where that is on this product's print file:
-                     the boxed area is what the AR locks onto and the video covers. -->
-                <div class="pd-span-2 hidden" id="targetPreview">
-                  <div class="tp-wrap">
-                    <figure class="tp-fig" id="tpPrintFig">
-                      <div class="tp-stage"><img id="tpPrintImg" alt="Print file" crossorigin="anonymous" /><div id="tpBox" class="tp-box hidden"></div></div>
-                      <figcaption>On the print</figcaption>
-                    </figure>
-                    <figure class="tp-fig">
-                      <div class="tp-stage"><img id="tpTrackedImg" alt="Tracked image" /></div>
-                      <figcaption>Tracked image</figcaption>
-                    </figure>
+              </div>
+            </div>
+            <div id="wzNoArNote" class="wz-status hidden">No QR and no AR: shirts print the design only. Next goes to Review.</div>
+          </div>
+        </section>
+
+        <!-- 4 AR -->
+        <section class="wz-pane" data-wz-pane="4">
+          <div class="pd-panel">
+            <div class="pd-panel-title">AR</div>
+            <div class="pd-step-panel-sub">Drag a box over the part of the print the phone should lock onto. The video plays over that box.</div>
+
+            <!-- Linked target: locked, because printed shirts open whatever target the product links. -->
+            <div id="wzArLinked" class="hidden">
+              <div id="wzArLinkedStatus" class="wz-status"></div>
+              <button type="button" id="wzArChangeBtn" class="btn btn-sm btn-inrl-outline">Change target&#8230;</button>
+            </div>
+
+            <div id="wzArChoose">
+              <div class="wz-seg" role="radiogroup" aria-label="Target source">
+                <label><input type="radio" name="wzArMode" value="new" checked> Make one from this print</label>
+                <label><input type="radio" name="wzArMode" value="existing"> Use an existing target</label>
+              </div>
+
+              <div id="wzArNew">
+                <div class="wz-crop-wrap">
+                  <div>
+                    <canvas id="wzCropCanvas" width="10" height="10" aria-label="Print file: drag to choose the tracked area"></canvas>
+                    <div class="wz-crop-tools">
+                      <span id="wzCropInfo" class="form-text"></span>
+                      <button type="button" id="wzCropAll" class="btn btn-sm btn-inrl-outline">Whole print</button>
+                    </div>
                   </div>
-                  <div id="tpStatus" class="form-text"></div>
+                  <div class="wz-crop-side">
+                    <label class="form-label" for="wzTargetName">Target name</label>
+                    <input id="wzTargetName" class="form-control mb-2" type="text" />
+                    <label class="form-label" for="wzVideoFile">Video (.mp4) <span style="color:#c0392b">*</span></label>
+                    <input id="wzVideoFile" class="form-control" type="file" accept="video/mp4" />
+                    <div id="wzVideoFit" class="form-text"></div>
+                    <button type="button" id="wzCreateTargetBtn" class="btn btn-inrl mt-3" disabled>Create &amp; link target</button>
+                    <div id="wzCreateStatus" class="wz-status mt-2" role="status"></div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-          </div>
-
-          <!-- Printful -->
-          <div class="pd-sidebar">
-            <div class="pd-panel">
-              <div class="pd-panel-title">Printful</div>
-              <div class="pd-step-panel-sub">Link this product to a real Printful garment &#8212; required before it can be sold and fulfilled.</div>
-
-              <div class="mb-3">
-                <label class="form-label">Import from Printful <span style="color:var(--ink-500);font-weight:400;text-transform:none;font-size:.62rem">(designed directly on printful.com)</span></label>
-                <div id="printfulSyncLinkSummary" style="font-size:.68rem;color:var(--ink-500);margin-bottom:6px">Design the product on Printful's own site first, then import it here — sizes, pricing, and preview photos come from Printful automatically.</div>
-                <button type="button" id="printfulSyncLinkBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.62rem;padding:.22rem .65rem">Import from Printful Sync Products&#8230;</button>
+              <div id="wzArExisting" class="hidden">
+                <label class="form-label" for="targetSelect">Target</label>
+                <select id="targetSelect" class="form-select" style="max-width:420px">
+                  <option value="">(none)</option>
+                </select>
               </div>
             </div>
-          </div>
 
-        </div>
+            <!-- What the linked target tracks, and where that is on this product's print file:
+                 the boxed area is what the AR locks onto and the video covers. -->
+            <div class="hidden mt-3" id="targetPreview">
+              <div class="tp-wrap">
+                <figure class="tp-fig" id="tpPrintFig">
+                  <div class="tp-stage"><img id="tpPrintImg" alt="Print file" crossorigin="anonymous" /><div id="tpBox" class="tp-box hidden"></div></div>
+                  <figcaption>On the print</figcaption>
+                </figure>
+                <figure class="tp-fig">
+                  <div class="tp-stage"><img id="tpTrackedImg" alt="Tracked image" /></div>
+                  <figcaption>Tracked image</figcaption>
+                </figure>
+              </div>
+              <div id="tpStatus" class="form-text"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5 Review -->
+        <section class="wz-pane" data-wz-pane="5">
+          <div class="pd-panel">
+            <div class="pd-panel-title">Review</div>
+            <div class="pd-step-panel-sub">Everything a sale needs. Fix anything marked, then publish.</div>
+            <ul class="wz-check" id="wzChecklist"></ul>
+            <input class="form-check-input hidden" type="checkbox" id="publishInput" aria-hidden="true" tabindex="-1">
+          </div>
+        </section>
 
       </div>
 
@@ -804,9 +922,12 @@
           </div>
         </div>
         <div class="pd-bottombar-actions">
-          <button class="btn btn-sm btn-inrl-outline" type="button" id="resetBtn">Reset</button>
-          <button class="btn btn-sm btn-inrl-outline" type="button" id="pdSaveTemplateBtn">Save template</button>
-          <button class="btn btn-inrl" type="submit" id="saveBtn">Publish</button>
+          <span id="wzBlocker" class="wz-blocker" role="status"></span>
+          <button class="btn btn-sm btn-inrl-outline hidden" type="button" id="resetBtn">Reset</button>
+          <button class="btn btn-sm btn-inrl-outline" type="button" id="wzBackBtn">Back</button>
+          <button class="btn btn-sm btn-inrl-outline" type="button" id="pdSaveTemplateBtn">Save draft</button>
+          <button class="btn btn-inrl" type="button" id="wzNextBtn">Next</button>
+          <button class="btn btn-inrl hidden" type="submit" id="saveBtn">Publish</button>
         </div>
       </div>
     </form>
@@ -1297,6 +1418,9 @@
   // margin hint next to the price field.
   let printfulProducts = [];
   let currentProductCostMap = null;
+  // The product steps (set up in main()): onLoad(product) runs whenever the editor is
+  // filled; afterSave(publish) runs after a save from the bottom bar.
+  const wzHooks = {};
 
 
 
@@ -1417,6 +1541,7 @@
     el('publishInput').checked = !!(p && p.is_published);
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
     updateTargetPreview();
+    if (wzHooks.onLoad) wzHooks.onLoad(p);
     currentProductCostMap = p ? findPrintfulCostMap(p.id) : null;
     updateMarginHint();
     pdUpdateBottomBar();
@@ -1531,8 +1656,9 @@
   // product's print file, a box round the area the AR locks onto (and the video covers).
   function tpAssetUrl(u) {
     if (!u) return '';
-    if (/^(https?:\/\/|data:|blob:)/i.test(u) || u.startsWith('//')) return u;
-    return 'https://' + u.replace(/^\/+/, '');
+    // Absolute, protocol-relative, or this site's own /api/r2/... path: use as is.
+    if (/^(https?:\/\/|data:|blob:)/i.test(u) || u.startsWith('/')) return u;
+    return 'https://' + u;
   }
   function tpPrintSource(p) {
     if (!p) return null;
@@ -1562,12 +1688,24 @@
     ctx.drawImage(img, 0, 0, w, h);
     return { gray: TargetLocate.toGray(ctx.getImageData(0, 0, w, h).data, w, h), w: w, h: h };
   }
+  // A product's record: the /products row plus the Printful fields (QR placement, print
+  // files, catalog id) that only the /admin/printful/products listing carries.
+  function productRecord(id) {
+    if (!id) return null;
+    const a = products.find(function(x) { return String(x.id) === String(id); });
+    const b = printfulProducts.find(function(x) { return String(x.id) === String(id); });
+    return (a || b) ? Object.assign({}, a || {}, b || {}) : null;
+  }
+
   let tpSeq = 0;
   const tpCache = {};
+  // Last finished comparison, read by the Review step: { targetId, found, isPhoto }.
+  let tpLast = null;
   async function updateTargetPreview() {
     const wrap = el('targetPreview');
     if (!wrap) return;
     const seq = ++tpSeq;
+    tpLast = null;
     const t = targetsById[el('targetSelect').value];
     const box = el('tpBox'), status = el('tpStatus');
     box.classList.add('hidden');
@@ -1582,8 +1720,7 @@
     const trackedUrl = tpAssetUrl(t.imageurl);
     el('tpTrackedImg').src = trackedUrl;
     const inactive = t.is_active ? '' : ' The target is inactive.';
-    const pid = el('productId').value;
-    const p = pid ? products.find(function(x) { return String(x.id) === String(pid); }) : null;
+    const p = productRecord(el('productId').value);
     const src = tpPrintSource(p);
     if (!src) {
       el('tpPrintFig').classList.add('hidden');
@@ -1607,6 +1744,8 @@
         tpCache[key] = r;
       }
       if (seq !== tpSeq) return;
+      tpLast = { targetId: t.id, found: !!r.found, isPhoto: !!src.isPhoto };
+      document.dispatchEvent(new Event('tp:done'));
       if (r.found) {
         box.style.left = (r.x * 100) + '%';
         box.style.top = (r.y * 100) + '%';
@@ -1960,32 +2099,38 @@
       return { id, created: false };
     }
 
-    async function performSave() {
+    // Publish returns to the product list; Save draft stays on the current step.
+    async function performSave(publish) {
       clearStatus();
+      const wasPublished = el('publishInput').checked;
+      if (publish) el('publishInput').checked = true;
       try {
         const result = await saveProductFromForm();
-        showStatus(result.created ? 'Product created.' : 'Product updated.', 'success');
-        setFormProduct(null, isAdmin);
+        if (result.id) el('productId').value = String(result.id);
         await refresh();
+        if (wzHooks.afterSave) await wzHooks.afterSave(publish);
+        showStatus(publish ? 'Published.' : (result.created ? 'Draft created.' : 'Draft saved.'), 'success');
+        if (publish) {
+          setFormProduct(null, isAdmin);
+          showTab('tab-products');
+        }
       } catch (e) {
+        if (publish) el('publishInput').checked = wasPublished;
         showStatus(e.message || String(e), 'error');
       }
     }
 
+    // Publish is the form's submit button (Review step only): it turns Published on first.
     el('productForm').addEventListener('submit', function(ev) {
       ev.preventDefault();
-      performSave();
+      // Enter in a field before Review must not publish.
+      if (wzHooks.canPublish && !wzHooks.canPublish()) return;
+      performSave(true);
     });
 
-    // "Publish" (the form's submit button) always forces is_published on before saving —
-    // clicking a submit button dispatches its own click event before the form's submit
-    // event, so this runs first and performSave() picks up the updated checkbox state.
-    el('saveBtn').addEventListener('click', function() { el('publishInput').checked = true; });
-
-    // "Save template" saves whatever the Published checkbox currently says (usually
-    // unchecked for a fresh product) — a plain draft save, no publish side effect.
+    // Save draft keeps the Published state the product already has.
     var pdSaveTemplateBtn = el('pdSaveTemplateBtn');
-    if (pdSaveTemplateBtn) pdSaveTemplateBtn.addEventListener('click', performSave);
+    if (pdSaveTemplateBtn) pdSaveTemplateBtn.addEventListener('click', function() { performSave(false); });
 
     el('productsTbody').addEventListener('click', async function(ev) {
       const btn = ev.target.closest('button[data-action]');
@@ -3912,6 +4057,501 @@
           }
         });
       }
+
+      // ---- Product steps: Garment -> Details -> Shirt QR -> AR -> Review ----
+      // One order for every product. The QR comes before the AR because the tracked image is
+      // cut from the print file with the QR spot erased, which only exists once the QR is
+      // placed. A product's linked target is what every printed shirt opens (apiViewerPiece
+      // joins products.ar_target_id), so once linked it is shown locked and only changes
+      // after an explicit confirm.
+      (function productSteps() {
+        var STEPS = 5;
+        var wzStep = 1;
+        var wzChanging = false;      // the user confirmed changing a linked target
+        var wzBusy = false;
+        var crop = { img: null, url: '', scale: 1, box: null, drag: null };
+        var MIN_CROP_PX = 64;
+
+        function P() { return productRecord(el('productId').value.trim()); }
+        function hasAr() { return el('wzHasAr').checked; }
+        function noArKey(id) { return 'inrl_wz_noar_' + id; }
+        function readNoAr(id) { try { return localStorage.getItem(noArKey(id)) === '1'; } catch (e) { return false; } }
+        function writeNoAr(id, v) { try { if (v) localStorage.setItem(noArKey(id), '1'); else localStorage.removeItem(noArKey(id)); } catch (e) {} }
+
+        function detailsMissing() {
+          return [['Title', 'titleInput'], ['Category', 'categoryInput'], ['Color', 'colorInput'], ['Sizing', 'sizesInput'], ['Price', 'priceInput']]
+            .filter(function(f) { return !String(el(f[1]).value || '').trim(); })
+            .map(function(f) { return f[0]; });
+        }
+        function qrInfo(p) {
+          var qr = p && p.printful_qr;
+          if (!qr) return { placed: false, stale: false, qr: null };
+          var now = (p.printful_design_images || {})[qr.placement];
+          var stale = !!(qr.art && now !== qr.art.url);
+          return { placed: true, stale: stale, qr: qr };
+        }
+        // The print file the QR sits on, with its spot erased (what prints and what the AR is cut from).
+        function cleanArtUrl(p) {
+          var qr = p && p.printful_qr;
+          var images = (p && p.printful_design_images) || {};
+          if (qr && images[qr.placement]) return images[qr.placement];
+          var first = Object.keys(images).find(function(k) { return images[k]; });
+          return first ? images[first] : '';
+        }
+        function done() {
+          var p = P();
+          var d = {};
+          d[1] = !!(p && p.printful_sync_product_id);
+          d[2] = d[1] && !detailsMissing().length;
+          var q = qrInfo(p);
+          d[3] = d[2] && (!hasAr() || (q.placed && !q.stale));
+          d[4] = d[3] && (!hasAr() || !!(p && p.ar_target_id));
+          d[5] = false;
+          return d;
+        }
+        function reachable(n, d) {
+          for (var k = 1; k < n; k++) {
+            if (!hasAr() && (k === 3 || k === 4)) continue;
+            if (!d[k]) return false;
+          }
+          return true;
+        }
+        function nextStep(n) {
+          var s = n + 1;
+          if (!hasAr() && (s === 3 || s === 4)) s = 5;
+          return Math.min(STEPS, s);
+        }
+        function prevStep(n) {
+          var s = n - 1;
+          if (!hasAr() && (s === 3 || s === 4)) s = 2;
+          return Math.max(1, s);
+        }
+
+        async function reload() {
+          await refresh();
+          try { await loadPrintfulProducts(); } catch (e) {}
+        }
+
+        function go(n) {
+          wzStep = n;
+          render();
+          var pane = document.querySelector('.wz-pane[data-wz-pane="' + n + '"]');
+          if (pane && pane.getBoundingClientRect().top < 0) pane.scrollIntoView({ block: 'start' });
+        }
+
+        // ---- per step ----
+        function renderGarment(p) {
+          var box = el('printfulSyncLinkSummary');
+          var btn = el('printfulSyncLinkBtn');
+          if (!p || !p.printful_sync_product_id) {
+            box.innerHTML = '<span class="bad">Not imported yet.</span>';
+            btn.textContent = 'Import from Printful…';
+            return;
+          }
+          var why = printfulUnprintableReason(p);
+          var images = p.printful_design_images || {};
+          var files = Object.keys(images).filter(function(k) { return images[k]; });
+          box.innerHTML = '<span class="ok">Imported</span> from Printful sync product #' + escapeHtml(String(p.printful_sync_product_id)) + '.\n' +
+            'Sizes: ' + escapeHtml(p.sizes || '—') + '\n' +
+            'Print file: ' + (files.length ? escapeHtml(files.join(', ')) : '<span class="bad">none</span>') +
+            (why ? '\n<span class="bad">Can’t be printed yet: ' + escapeHtml(why) + '.</span>' : '');
+          btn.textContent = 'Import again…';
+        }
+
+        function renderQr(p) {
+          var on = hasAr();
+          var linked = !!(p && p.ar_target_id);
+          el('wzHasAr').disabled = linked;
+          el('wzHasAr').title = linked ? 'This piece has a linked AR target; printed shirts open it.' : '';
+          el('wzQrBody').classList.toggle('hidden', !on);
+          el('wzNoArNote').classList.toggle('hidden', on);
+          if (!on) return;
+          var q = qrInfo(p);
+          var art = cleanArtUrl(p);
+          var thumb = el('wzQrThumb');
+          if (art) { if (thumb.getAttribute('src') !== tpAssetUrl(art)) thumb.src = tpAssetUrl(art); thumb.parentNode.classList.remove('hidden'); }
+          else { thumb.removeAttribute('src'); thumb.parentNode.classList.add('hidden'); }
+          var s = el('wzQrStatus');
+          if (q.placed && !q.stale) {
+            s.innerHTML = '<span class="ok">Placed</span> on ' + escapeHtml(q.qr.placement) + ', ' + escapeHtml(String(q.qr.size_in)) + ' in wide.';
+          } else if (q.stale) {
+            s.innerHTML = '<span class="bad">The print file changed after the QR was placed.</span> Place it again.';
+          } else {
+            s.innerHTML = '<span class="bad">Not placed yet.</span> Checkout refuses an AR piece without it.';
+          }
+          el('wzPlaceQrBtn').textContent = q.placed ? 'Adjust QR…' : 'Place QR…';
+        }
+
+        function renderAr(p) {
+          var t = p && p.ar_target_id ? targetsById[String(p.ar_target_id)] : null;
+          var locked = !!(p && p.ar_target_id) && !wzChanging;
+          el('wzArLinked').classList.toggle('hidden', !locked);
+          el('wzArChoose').classList.toggle('hidden', locked);
+          if (locked) {
+            el('wzArLinkedStatus').innerHTML = '<span class="ok">Linked:</span> ' + escapeHtml(t ? t.name : 'target #' + p.ar_target_id) +
+              '\nShirts printed for this piece open this target, so it stays linked.';
+          }
+          var mode = (document.querySelector('input[name="wzArMode"]:checked') || {}).value || 'new';
+          el('wzArNew').classList.toggle('hidden', locked || mode !== 'new');
+          el('wzArExisting').classList.toggle('hidden', locked || mode !== 'existing');
+          if (!locked && mode === 'new') loadCropSource(p);
+          updateCreateBtn();
+        }
+
+        function checklist() {
+          var p = P();
+          var items = [];
+          var why = p ? printfulUnprintableReason(p) : 'not imported';
+          items.push({ step: 1, label: 'Garment imported from Printful', ok: !why, why: why ? 'Can’t be printed yet: ' + why + '.' : '' });
+          var miss = detailsMissing();
+          items.push({ step: 2, label: 'Details filled in', ok: !miss.length, why: miss.length ? 'Missing: ' + miss.join(', ') + '.' : '' });
+          if (!hasAr()) {
+            items.push({ step: 3, label: 'Shirt QR', skip: true, why: 'No AR on this piece.' });
+            items.push({ step: 4, label: 'AR target', skip: true, why: 'No AR on this piece.' });
+          } else {
+            var q = qrInfo(p);
+            items.push({ step: 3, label: 'Shirt QR placed', ok: q.placed && !q.stale,
+              why: q.stale ? 'The print file changed after the QR was placed.' : (q.placed ? 'On ' + q.qr.placement + '.' : 'Not placed.') });
+            var tid = p && p.ar_target_id;
+            if (!tid) items.push({ step: 4, label: 'AR target linked', ok: false, why: 'No target linked.' });
+            else {
+              var match = tpLast && String(tpLast.targetId) === String(tid) ? tpLast : null;
+              if (!match) items.push({ step: 4, label: 'AR target linked', ok: true, why: 'Checking where its tracked area sits on the print…' });
+              else if (match.found) items.push({ step: 4, label: 'AR target linked', ok: true, why: 'Its tracked area is on the print file.' });
+              else items.push({ step: 4, label: 'AR target linked', ok: true, warn: true,
+                why: 'Its tracked image doesn’t match any part of this print file, so shirts may not start the AR. Check the AR step.' });
+            }
+          }
+          return items;
+        }
+        function renderReview() {
+          var items = checklist();
+          el('wzChecklist').innerHTML = items.map(function(it) {
+            var cls = it.skip ? 'is-skip' : (it.ok && !it.warn ? 'is-ok' : (it.warn ? 'is-bad' : 'is-bad'));
+            var mark = it.skip ? '–' : (it.ok && !it.warn ? '✓' : (it.warn ? '!' : '✗'));
+            var fix = (!it.skip && (!it.ok || it.warn)) ? '<button type="button" class="btn btn-sm btn-inrl-outline" data-wz-go="' + it.step + '">Go to step ' + it.step + '</button>' : '';
+            return '<li class="' + cls + '"><span class="wz-mark" aria-hidden="true">' + mark + '</span><span>' + escapeHtml(it.label) +
+              (it.why ? '<span class="why">' + escapeHtml(it.why) + '</span>' : '') + '</span>' + fix + '</li>';
+          }).join('');
+        }
+        function reviewOk() {
+          return checklist().every(function(it) { return it.skip || it.ok; });
+        }
+
+        function render() {
+          var p = P();
+          var d = done();
+          document.querySelectorAll('#wzSteps .wz-step').forEach(function(b) {
+            var n = Number(b.getAttribute('data-wz-go'));
+            var skipped = !hasAr() && (n === 3 || n === 4);
+            b.classList.toggle('is-current', n === wzStep);
+            b.classList.toggle('is-done', !!d[n] && n !== wzStep && !skipped);
+            b.classList.toggle('is-skipped', skipped);
+            b.disabled = skipped || !reachable(n, d);
+            if (n === wzStep) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+          });
+          document.querySelectorAll('.wz-pane').forEach(function(pane) {
+            pane.classList.toggle('is-current', Number(pane.getAttribute('data-wz-pane')) === wzStep);
+          });
+          if (wzStep === 1) renderGarment(p);
+          if (wzStep === 3) renderQr(p);
+          if (wzStep === 4) renderAr(p);
+          if (wzStep === 5) renderReview();
+
+          el('wzBackBtn').disabled = wzStep === 1;
+          var last = wzStep === STEPS;
+          el('wzNextBtn').classList.toggle('hidden', last);
+          el('saveBtn').classList.toggle('hidden', !last);
+          var blocker = '';
+          if (wzStep === 1 && !d[1]) blocker = 'Import the piece from Printful first.';
+          if (wzStep === 2 && detailsMissing().length) blocker = 'Fill in: ' + detailsMissing().join(', ') + '.';
+          if (wzStep === 3 && hasAr() && !d[3]) blocker = 'Place the QR first.';
+          if (wzStep === 4 && hasAr() && !(p && p.ar_target_id) && !(isExistingMode() && el('targetSelect').value)) blocker = 'Create or pick a target first.';
+          if (last && !reviewOk()) blocker = 'Fix the marked items to publish.';
+          el('wzBlocker').textContent = blocker;
+          el('wzNextBtn').disabled = wzBusy || (wzStep !== 2 && !!blocker);
+          el('saveBtn').disabled = wzBusy || !reviewOk();
+          el('pdSaveTemplateBtn').disabled = wzBusy;
+        }
+
+        function isExistingMode() {
+          var m = document.querySelector('input[name="wzArMode"]:checked');
+          return !!(m && m.value === 'existing');
+        }
+
+        async function onNext() {
+          if (wzBusy) return;
+          clearStatus();
+          var p = P();
+          try {
+            wzBusy = true; render();
+            if (wzStep === 2) {
+              // Details are saved on the way out, so the next steps see the real record.
+              var res = await saveProductFromForm();
+              if (res.id) el('productId').value = String(res.id);
+              await reload();
+              showStatus('Details saved.', 'success');
+            }
+            if (wzStep === 4 && hasAr() && isExistingMode()) {
+              var chosen = el('targetSelect').value;
+              if (chosen && String(chosen) !== String((p && p.ar_target_id) || '')) {
+                if (p && p.ar_target_id && !confirmTargetChange()) return;
+                await saveProductFromForm({ requireFields: false });
+                await reload();
+                wzChanging = false;
+                showStatus('Target linked.', 'success');
+              }
+            }
+            var d = done();
+            if (!d[wzStep] && !(wzStep === 4 && !hasAr()) && !(wzStep === 3 && !hasAr())) return;
+            go(nextStep(wzStep));
+          } catch (e) {
+            showStatus(e.message || String(e), 'error');
+          } finally {
+            wzBusy = false; render();
+          }
+        }
+
+        function confirmTargetChange() {
+          return confirm('Every shirt already printed for this piece opens the product’s target. Linking a different one changes what those shirts track, and a target cut from different art will not start on them.\n\nChange the target anyway?');
+        }
+
+        // ---- crop (AR step) ----
+        var canvas = el('wzCropCanvas');
+        function loadCropSource(p) {
+          var url = cleanArtUrl(p);
+          if (!url) { crop.img = null; crop.url = ''; el('wzCropInfo').textContent = 'No print file yet: import the piece or place the QR first.'; drawCrop(); return; }
+          var full = tpAssetUrl(url);
+          if (crop.url === full && crop.img) return;
+          crop.url = full; crop.img = null; crop.box = null;
+          el('wzCropInfo').textContent = 'Loading the print file…';
+          var img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = function() {
+            if (crop.url !== full) return;
+            crop.img = img;
+            var maxW = Math.max(220, Math.min(620, (canvas.parentNode.clientWidth || 620)));
+            crop.scale = Math.min(1, maxW / img.naturalWidth, (window.innerHeight * 0.6) / img.naturalHeight);
+            canvas.width = Math.round(img.naturalWidth * crop.scale);
+            canvas.height = Math.round(img.naturalHeight * crop.scale);
+            crop.box = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
+            drawCrop(); updateCreateBtn(); videoFit();
+          };
+          img.onerror = function() { if (crop.url === full) el('wzCropInfo').textContent = 'The print file didn’t load.'; };
+          img.src = full;
+        }
+        function drawCrop() {
+          var ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (!crop.img || !crop.box) return;
+          var s = crop.scale, b = crop.box;
+          ctx.drawImage(crop.img, 0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = 'rgba(0,0,0,.5)';
+          var x = b.x * s, y = b.y * s, w = b.w * s, h = b.h * s;
+          ctx.fillRect(0, 0, canvas.width, y);
+          ctx.fillRect(0, y + h, canvas.width, canvas.height - y - h);
+          ctx.fillRect(0, y, x, h);
+          ctx.fillRect(x + w, y, canvas.width - x - w, h);
+          ctx.strokeStyle = '#12a2b8'; ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, Math.max(0, w - 2), Math.max(0, h - 2));
+          var whole = isWhole();
+          el('wzCropInfo').textContent = (whole ? 'Whole print' : 'Tracked area') + ': ' + Math.round(b.w) + ' × ' + Math.round(b.h) + ' px, ' +
+            (b.w / Math.max(1, b.h)).toFixed(2) + ':1. Drag on the print to choose an area.';
+        }
+        function isWhole() {
+          var b = crop.box, i = crop.img;
+          return !!(b && i && b.x <= 0 && b.y <= 0 && b.w >= i.naturalWidth && b.h >= i.naturalHeight);
+        }
+        function clampBox(b) {
+          var iw = crop.img.naturalWidth, ih = crop.img.naturalHeight;
+          var w = Math.min(Math.max(b.w, Math.min(MIN_CROP_PX, iw)), iw);
+          var h = Math.min(Math.max(b.h, Math.min(MIN_CROP_PX, ih)), ih);
+          return { x: Math.min(Math.max(0, b.x), iw - w), y: Math.min(Math.max(0, b.y), ih - h), w: w, h: h };
+        }
+        function canvasPoint(ev) {
+          var r = canvas.getBoundingClientRect();
+          return { x: (ev.clientX - r.left) * (canvas.width / r.width) / crop.scale, y: (ev.clientY - r.top) * (canvas.height / r.height) / crop.scale };
+        }
+        function inside(pt) { var b = crop.box; return pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h; }
+        canvas.addEventListener('pointerdown', function(ev) {
+          if (!crop.img) return;
+          ev.preventDefault();
+          var pt = canvasPoint(ev);
+          crop.drag = (!isWhole() && inside(pt))
+            ? { mode: 'move', dx: pt.x - crop.box.x, dy: pt.y - crop.box.y }
+            : { mode: 'new', ax: pt.x, ay: pt.y };
+          try { canvas.setPointerCapture(ev.pointerId); } catch (e) {}
+        });
+        canvas.addEventListener('pointermove', function(ev) {
+          if (!crop.img) return;
+          var pt = canvasPoint(ev);
+          if (!crop.drag) { canvas.style.cursor = (!isWhole() && inside(pt)) ? 'move' : 'crosshair'; return; }
+          if (crop.drag.mode === 'move') crop.box = clampBox({ x: pt.x - crop.drag.dx, y: pt.y - crop.drag.dy, w: crop.box.w, h: crop.box.h });
+          else {
+            var iw = crop.img.naturalWidth, ih = crop.img.naturalHeight;
+            var bx = Math.min(Math.max(0, pt.x), iw), by = Math.min(Math.max(0, pt.y), ih);
+            crop.box = { x: Math.min(crop.drag.ax, bx), y: Math.min(crop.drag.ay, by), w: Math.abs(bx - crop.drag.ax), h: Math.abs(by - crop.drag.ay) };
+          }
+          drawCrop();
+        });
+        function endDrag() {
+          if (!crop.drag) return;
+          crop.drag = null;
+          crop.box = clampBox(crop.box);
+          drawCrop(); videoFit();
+        }
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
+        el('wzCropAll').addEventListener('click', function() {
+          if (!crop.img) return;
+          crop.box = { x: 0, y: 0, w: crop.img.naturalWidth, h: crop.img.naturalHeight };
+          drawCrop(); videoFit();
+        });
+
+        // A video whose shape differs from the tracked area plays with bars on the shirt.
+        var videoDims = null;
+        function videoFit() {
+          var out = el('wzVideoFit');
+          if (!videoDims || !crop.box) { out.textContent = ''; return; }
+          var va = videoDims.w / videoDims.h, ca = crop.box.w / crop.box.h;
+          out.textContent = Math.abs(va - ca) / ca > 0.06
+            ? 'The video is ' + va.toFixed(2) + ':1 and the tracked area ' + ca.toFixed(2) + ':1, so it plays with bars. Match the box to the video, or export the video at ' + ca.toFixed(2) + ':1.'
+            : 'The video matches the tracked area’s shape.';
+        }
+        el('wzVideoFile').addEventListener('change', function() {
+          videoDims = null; videoFit(); updateCreateBtn();
+          var f = this.files && this.files[0];
+          if (!f) return;
+          var v = document.createElement('video');
+          v.preload = 'metadata'; v.muted = true;
+          v.onloadedmetadata = function() { videoDims = { w: v.videoWidth, h: v.videoHeight }; URL.revokeObjectURL(v.src); videoFit(); };
+          v.src = URL.createObjectURL(f);
+        });
+        function updateCreateBtn() {
+          var f = el('wzVideoFile').files && el('wzVideoFile').files[0];
+          el('wzCreateTargetBtn').disabled = wzBusy || !crop.img || !f;
+        }
+
+        el('wzCreateTargetBtn').addEventListener('click', async function() {
+          var p = P();
+          var status = el('wzCreateStatus');
+          var video = el('wzVideoFile').files && el('wzVideoFile').files[0];
+          if (!p || !crop.img || !video) return;
+          if (video.type !== 'video/mp4') { status.innerHTML = '<span class="bad">Use an MP4 (H.264) video.</span>'; return; }
+          if (p.ar_target_id && !confirmTargetChange()) return;
+          wzBusy = true; render(); updateCreateBtn();
+          try {
+            var b = clampBox(crop.box);
+            var k = Math.min(1, 2048 / Math.max(b.w, b.h));
+            var c = document.createElement('canvas');
+            c.width = Math.round(b.w * k); c.height = Math.round(b.h * k);
+            c.getContext('2d').drawImage(crop.img, b.x, b.y, b.w, b.h, 0, 0, c.width, c.height);
+            status.textContent = 'Loading the compiler…';
+            var out = await MarkerCompile.compile(c, function(pct) { status.textContent = 'Compiling the tracked area… ' + Math.round(pct) + '%'; });
+            if (out.matching < MarkerCompile.MIN_MATCHING &&
+                !confirm('The tracker found only ' + out.matching + ' feature points in this area (it needs ' + MarkerCompile.MIN_MATCHING + '). It will lock slowly or not at all on a shirt.\n\nPick a busier, higher-contrast area, or use this one anyway?')) {
+              status.innerHTML = '<span class="bad">Not created: ' + out.matching + ' feature points.</span> Choose a more detailed area.';
+              return;
+            }
+            var slug = (p.slug || el('slugInput').value || 'piece').replace(/[^a-z0-9_-]/gi, '-');
+            status.textContent = 'Uploading…';
+            var markerBlob = await new Promise(function(r) { c.toBlob(r, 'image/png'); });
+            var urls = await Promise.all([
+              uploadProductImage(new File([out.buffer], slug + '-ar.mind', { type: 'application/octet-stream' }), 'minds'),
+              uploadProductImage(new File([markerBlob], slug + '-ar.png', { type: 'image/png' }), 'images'),
+              uploadProductImage(video, 'videos'),
+            ]);
+            var body = { name: (el('wzTargetName').value || '').trim() || p.title || slug, mind_url: urls[0], image_url: urls[1], video_url: urls[2] };
+            if (p.slug) body.product = p.slug;
+            if (isAdmin && el('brandInput').value.trim()) body.brand = el('brandInput').value.trim();
+            status.textContent = 'Creating the target…';
+            var res = await apiFetch('/targets', { method: 'POST', body: body });
+            var id = res && res.item && res.item.id;
+            if (!id) throw new Error('The target was created but no id came back. Pick it under "Use an existing target".');
+            await loadTargets();
+            el('targetSelect').value = String(id);
+            await saveProductFromForm({ requireFields: false });
+            await reload();
+            wzChanging = false;
+            el('wzVideoFile').value = ''; videoDims = null;
+            status.innerHTML = '<span class="ok">Target created and linked</span> (' + out.matching + ' feature points).';
+            updateTargetPreview();
+          } catch (e) {
+            status.innerHTML = '<span class="bad">' + escapeHtml(e.message || String(e)) + '</span>';
+          } finally {
+            wzBusy = false; render(); updateCreateBtn();
+          }
+        });
+
+        // ---- wiring ----
+        document.getElementById('wzSteps').addEventListener('click', function(ev) {
+          var b = ev.target.closest('[data-wz-go]');
+          if (b && !b.disabled) go(Number(b.getAttribute('data-wz-go')));
+        });
+        el('wzChecklist').addEventListener('click', function(ev) {
+          var b = ev.target.closest('[data-wz-go]');
+          if (b) go(Number(b.getAttribute('data-wz-go')));
+        });
+        el('wzNextBtn').addEventListener('click', onNext);
+        el('wzBackBtn').addEventListener('click', function() { go(prevStep(wzStep)); });
+        el('wzHasAr').addEventListener('change', function() {
+          var id = el('productId').value.trim();
+          if (id) writeNoAr(id, !hasAr());
+          render();
+        });
+        document.querySelectorAll('input[name="wzArMode"]').forEach(function(r) { r.addEventListener('change', render); });
+        el('targetSelect').addEventListener('change', render);
+        el('wzArChangeBtn').addEventListener('click', function() {
+          if (!confirmTargetChange()) return;
+          wzChanging = true; render();
+        });
+        el('wzPlaceQrBtn').addEventListener('click', async function() {
+          var id = el('productId').value.trim();
+          if (!id) return;
+          if (!printfulProducts.some(function(x) { return String(x.id) === id; })) {
+            try { await loadPrintfulProducts(); } catch (e) {}
+          }
+          openQrModal(id);
+        });
+        ['titleInput', 'categoryInput', 'colorInput', 'sizesInput', 'priceInput'].forEach(function(id) {
+          el(id).addEventListener('input', function() { if (wzStep === 2) render(); });
+        });
+        // Coming back from a modal (QR placement, Printful import): the record changed.
+        [qrModalEl, pfSyncPickerModalEl].forEach(function(m) {
+          if (m) m.addEventListener('hidden.bs.modal', async function() { await reload(); render(); });
+        });
+        document.addEventListener('tp:done', function() { if (wzStep === 5) render(); });
+
+        wzHooks.onLoad = function(p) {
+          wzChanging = false;
+          crop.url = ''; crop.img = null; crop.box = null;
+          el('wzVideoFile').value = ''; videoDims = null; el('wzVideoFit').textContent = '';
+          el('wzCreateStatus').textContent = '';
+          el('wzTargetName').value = (p && p.title) || '';
+          var rec = p ? productRecord(p.id) || p : null;
+          // A published piece with no QR and no target is a plain one; a new piece has AR.
+          var plain = rec && rec.ar_target_id == null && !rec.printful_qr && (rec.is_published || readNoAr(rec.id));
+          el('wzHasAr').checked = !plain;
+          var existing = document.querySelector('input[name="wzArMode"][value="new"]');
+          if (existing) existing.checked = true;
+          // Open on the first step that still needs work.
+          var d = done();
+          var first = 5;
+          for (var n = 1; n <= 4; n++) {
+            if (!hasAr() && (n === 3 || n === 4)) continue;
+            if (!d[n]) { first = n; break; }
+          }
+          wzStep = rec ? first : 1;
+          render();
+        };
+        wzHooks.afterSave = async function() {
+          try { await loadPrintfulProducts(); } catch (e) {}
+          render();
+        };
+        wzHooks.canPublish = function() { return wzStep === STEPS && reviewOk(); };
+
+        wzHooks.onLoad(productRecord(el('productId').value.trim()));
+      })();
     }
   })().catch(function(e) {
     const s = document.getElementById('status');
