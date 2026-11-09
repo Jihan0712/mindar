@@ -3824,7 +3824,7 @@
     let sql = `
       select t.id, t.user_id, u.email as uploader_email, u.role as uploader_role,
         t.name, t.product, t.mind_url, t.video_url, t.image_url,
-        t.is_active, t.created_at, b.name as brand
+        t.is_active, t.created_at, t.updated_at, t.version, b.name as brand
       from targets t
       left join brands b on b.id = t.brand_id
       left join users u on u.id = t.user_id
@@ -3866,6 +3866,8 @@
       imageurl: r.image_url,
       is_active: !!r.is_active,
       created_at: r.created_at,
+      updated_at: r.updated_at || r.created_at,
+      version: r.version || 1,
       brand: r.brand || null
     }));
     return jsonResponse({ items }, 200, request);

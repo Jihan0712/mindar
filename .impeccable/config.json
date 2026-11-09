@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "admin.html"
+        ],
+        "createdAt": "2026-11-09T08:58:36.171Z",
+        "reason": "Claude: #imageModalImg sits in a hidden modal and gets its src from JS (updateImageModalDisplay) before the modal is ever shown; it never renders empty"
+      }
+    ]
+  }
+}
