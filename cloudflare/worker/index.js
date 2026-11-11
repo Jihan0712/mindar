@@ -1288,8 +1288,14 @@
       return new Response(JSON.stringify({ ok: true, worker: true }), { status: 200, headers });
     }
 
-    // Asset GET from R2
+    // Asset GET from R2. HEAD answers the same headers with no body, so link checkers and
+    // link previews see the file exists instead of a 404.
     if (request.method === 'GET') return handleGet(request);
+    if (request.method === 'HEAD') {
+      const res = await handleGet(request);
+      if (res.body) res.body.cancel().catch(() => {});
+      return new Response(null, { status: res.status, headers: res.headers });
+    }
     return new Response('Not Found', { status: 404 });
   }
 

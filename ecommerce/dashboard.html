@@ -2346,13 +2346,19 @@
           escapeHtml(String(id)) + '">' + escapeHtml(String(status || 'linked')) + '</span>';
       }
 
+      // Money and fulfilment numbers only count orders that were actually paid: an abandoned
+      // checkout (pending_payment, created, unpaid) or one cancelled before payment is not a sale.
+      function isPaidOrder(o) { return !!o && o.payment_status === 'paid'; }
+      function awaitsFulfilment(o) { return isPaidOrder(o) && (o.status === 'created' || o.status === 'pending_fulfillment'); }
+
       function renderOrderStats(orders) {
         var total = orders.length;
-        var revenue = orders.reduce(function(a, o) { return a + (Number(o.total_cents) || 0); }, 0);
-        var pending = orders.filter(function(o) { return o.status === 'created' || o.status === 'pending_fulfillment'; }).length;
+        var paidOrders = orders.filter(isPaidOrder);
+        var revenue = paidOrders.reduce(function(a, o) { return a + (Number(o.total_cents) || 0); }, 0);
+        var pending = orders.filter(awaitsFulfilment).length;
         var shipped = orders.filter(function(o) { return o.status === 'shipped'; }).length;
         var canceled = orders.filter(function(o) { return o.status === 'canceled'; }).length;
-        var avg = total ? Math.round(revenue / total) : 0;
+        var avg = paidOrders.length ? Math.round(revenue / paidOrders.length) : 0;
         var pfLinked = orders.filter(function(o) { return !!o.printful_order_id; }).length;
         var todayStr = new Date().toISOString().slice(0, 10);
         var today = orders.filter(function(o) { return o.created_at && o.created_at.slice(0, 10) === todayStr; }).length;
@@ -2777,8 +2783,9 @@
       // at all, so they're intentionally not represented here.
       function computeDashboardMetrics() {
         var cur = (allOrders[0] && allOrders[0].currency) || 'USD';
-        var totalRevenue = allOrders.reduce(function(a, o) { return a + (Number(o.total_cents) || 0); }, 0);
-        var pending = allOrders.filter(function(o) { return o.status === 'created' || o.status === 'pending_fulfillment'; });
+        var paid = allOrders.filter(isPaidOrder);
+        var totalRevenue = paid.reduce(function(a, o) { return a + (Number(o.total_cents) || 0); }, 0);
+        var pending = allOrders.filter(awaitsFulfilment);
         var now = Date.now();
         var delayedPending = pending.filter(function(o) {
           if (!o.created_at) return false;
@@ -2794,7 +2801,7 @@
         var linkedProducts = products.filter(isProductPfLinked).length;
         var unlinkedPublished = products.filter(function(p) { return p.is_published && !isProductPfLinked(p); }).length;
 
-        var flaggedOrders = allOrders.filter(function(o) {
+        var flaggedOrders = paid.filter(function(o) {
           var s = (o.printful_status || '').toLowerCase();
           return s === 'failed' || s === 'error' || s === 'returned' || s === 'cancelled';
         }).length;
@@ -2803,7 +2810,7 @@
         for (var i = 6; i >= 0; i--) days.push(new Date(now - i * 86400000).toISOString().slice(0, 10));
         var byDay = {};
         days.forEach(function(d) { byDay[d] = 0; });
-        allOrders.forEach(function(o) {
+        paid.forEach(function(o) {
           var d = o.created_at ? o.created_at.slice(0, 10) : null;
           if (d && Object.prototype.hasOwnProperty.call(byDay, d)) byDay[d] += (Number(o.total_cents) || 0);
         });
@@ -2811,7 +2818,7 @@
 
         var last7Cut = now - 7 * 86400000, prev7Cut = now - 14 * 86400000;
         var last7 = 0, prev7 = 0;
-        allOrders.forEach(function(o) {
+        paid.forEach(function(o) {
           if (!o.created_at) return;
           var t = new Date(o.created_at).getTime();
           if (isNaN(t)) return;
@@ -2821,7 +2828,7 @@
         var revenueTrendPct = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : null;
 
         return {
-          cur: cur, totalRevenue: totalRevenue, ordersCount: allOrders.length,
+          cur: cur, totalRevenue: totalRevenue, ordersCount: allOrders.length, paidCount: paid.length,
           pending: pending.length, delayedPending: delayedPending,
           ordersToday: ordersToday, ordersYesterday: ordersYesterday,
           linkedProducts: linkedProducts, totalProducts: products.length, unlinkedPublished: unlinkedPublished,
@@ -2948,7 +2955,7 @@
         var revEl = document.getElementById('dashRevenueValue');
         if (revEl) revEl.textContent = formatMoney(m.totalRevenue, m.cur);
         var revCapEl = document.getElementById('dashRevenueCaption');
-        if (revCapEl) revCapEl.textContent = 'From your last ' + m.ordersCount + ' order' + (m.ordersCount === 1 ? '' : 's');
+        if (revCapEl) revCapEl.textContent = 'From ' + m.paidCount + ' paid order' + (m.paidCount === 1 ? '' : 's');
         var revChipEl = document.getElementById('dashRevenueChip');
         if (revChipEl) {
           if (m.revenueTrendPct === null) revChipEl.style.display = 'none';
