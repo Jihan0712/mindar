@@ -11,3 +11,6 @@ node_modules/
 # Optional OS files
 .DS_Store
 Thumbs.db
+
+# Project-only wrangler login (XDG_CONFIG_HOME for this repo); holds an OAuth token
+.wrangler-home/
