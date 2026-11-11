@@ -9,6 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
   <script src="js/qr-print.js"></script>
   <script src="js/qr-print-file.js"></script>
+  <script src="js/qr-find.js"></script>
   <script src="js/target-locate.js"></script>
   <script src="js/marker-compile.js"></script>
   <link rel="stylesheet" type="text/css" href="css/global.css" />
@@ -3172,35 +3173,32 @@
           (fills ? ', fills the print area exactly.' : '; its shape differs from the print area, so it is centred with empty margins.') +
           (dpi < 150 ? ' Too low for a sharp print: export at ' + Math.round(a.w * 300) + ' × ' + Math.round(a.h * 300) + ' px.' : '');
       }
-      // Finds where each shirt's QR goes: a placeholder QR left in the design (any QR; read on a
-      // grey-backed copy at most 2000 px, then at full size), else a #FF00FF disc. Two or more
-      // QR codes is an error, since only one spot can be meant.
+      // Finds where each shirt's QR goes: a placeholder QR left in the design (any QR, any colour;
+      // QrFind.findCodes), else a #FF00FF disc. Two or more QR codes is an error, since only one
+      // spot can be meant.
       async function qrFindSpot(cv, data, w, h) {
         var detector = null;
         try { detector = await getQrDetector(); } catch (e) {}
+        var codes = [];
         if (detector) {
-          var first = Math.min(1, 2000 / Math.max(w, h));
-          var scales = first < 1 ? [first, 1] : [1];
-          var tries = [];
-          scales.forEach(function(s) { tries.push([s, '#808080'], [s, '#ffffff']); });
-          for (var k = 0; k < tries.length; k++) {
-            var s = tries[k][0], copy = document.createElement('canvas');
-            copy.width = Math.round(w * s); copy.height = Math.round(h * s);
-            var cctx = copy.getContext('2d');
-            // A black or white QR on transparency reads on mid grey; a coloured one on white.
-            cctx.fillStyle = tries[k][1];
-            cctx.fillRect(0, 0, copy.width, copy.height);
-            cctx.drawImage(cv, 0, 0, copy.width, copy.height);
-            var found = [];
-            try { found = await detector.detect(await canvasBlob(copy)); } catch (e) {}
-            if (found.length > 1) return { error: 'many_qr', count: found.length };
-            var pts = found.length ? found[0].cornerPoints : null;
-            if (pts && pts.length === 4) {
-              var slot = QrPrint.placeholderSlot(data, w, h, pts.map(function(p) { return { x: p.x / s, y: p.y / s }; }));
-              if (!slot.error) slot.kind = 'qr';
-              return slot;
-            }
-          }
+          // Decoded by the QR reader, in any colour: several views of the file, then tiles, then
+          // a full-resolution re-read for exact corners (js/qr-find.js).
+          codes = await QrFind.findCodes({
+            width: w, height: h, view: QrFind.canvasViews(cv),
+            // The canvas itself (~20 ms a read); a PNG of it (~1 s to encode) only if refused.
+            detect: async function(c) {
+              try { return await detector.detect(c); } catch (e) { return detector.detect(await canvasBlob(c)); }
+            },
+          });
+        }
+        // Nothing decoded (or no reader): look for a QR by its finder eyes alone. A restyled,
+        // recoloured or partly covered placeholder that no longer decodes still has them.
+        if (!codes.length) codes = QrFind.findByLook(data, w, h);
+        if (codes.length > 1) return { error: 'many_qr', count: codes.length };
+        if (codes.length === 1) {
+          var slot = QrPrint.placeholderSlot(data, w, h, codes[0].corners);
+          if (!slot.error) slot.kind = 'qr';
+          return slot;
         }
         var disc = QrPrint.findSlot(data, w, h);
         if (disc.error === 'none' && !detector) return { error: 'no_reader' };
