@@ -148,8 +148,12 @@
       var rays = raw.map(function (d, n) { return Math.min(d, smooth[n] + side * SPIKE_TOLERANCE, size / 2); });
       return { left: Math.round(cx - size / 2), top: Math.round(cy - size / 2), size: Math.round(size), cx: cx, cy: cy, rays: rays, ink: ink };
     }
-    // A plain QR: a square turned like its code, reaching its quiet zone's edge on each side.
-    var sq = { ux: Math.cos(u), uy: Math.sin(u), a0: at(u + Math.PI), a1: at(u), b0: at(u - Math.PI / 2), b1: at(u + Math.PI / 2) };
+    // A plain QR: a square turned like its code, reaching its quiet zone's edge on each side,
+    // and never inside the code itself. A code exported as dark modules only (light ones
+    // transparent) has gaps wider than the edge search allows, so on its own the search can
+    // stop a module or two in and leave the code's outer ring behind when it is erased.
+    var half = side / 2, edgeAt = function (a) { return Math.max(at(a), half); };
+    var sq = { ux: Math.cos(u), uy: Math.sin(u), a0: edgeAt(u + Math.PI), a1: edgeAt(u), b0: edgeAt(u - Math.PI / 2), b1: edgeAt(u + Math.PI / 2) };
     var sz = Math.max(sq.a0 + sq.a1, sq.b0 + sq.b1);
     var du = (sq.a1 - sq.a0) / 2, dv = (sq.b1 - sq.b0) / 2;
     var mx = cx + sq.ux * du - sq.uy * dv, my = cy + sq.uy * du + sq.ux * dv;

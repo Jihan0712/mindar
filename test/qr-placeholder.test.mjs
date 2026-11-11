@@ -162,6 +162,34 @@ test('a placeholder on transparency (the usual print file) ends at its own edge'
   assert.ok(Math.abs(slot.size - (side + 60)) <= 4, `size ${slot.size}px = the ${side + 60}px white square`);
 });
 
+// A QR exported as its dark modules only (light modules transparent, no quiet zone), as design
+// tools often do. Its light modules are gaps wider than the edge search's tolerance, so the edge
+// used to be found inside the code and its outer ring of modules was left round the new emblem.
+for (const [name, ink] of [['black', [0, 0, 0, 255]], ['teal', [14, 143, 163, 255]]]) {
+  test(`a ${name} QR with transparent light modules and no quiet zone is erased whole`, () => {
+    const W = 1400, H = 1400, mod = 20, n = 29, side = mod * n, x0 = 410, y0 = 410;
+    const art = canvas(W, H, [0, 0, 0, 0]);
+    const finder = (c, r, fc, fr) => {
+      const u = c - fc, v = r - fr;
+      if (u < 0 || v < 0 || u > 6 || v > 6) return null;
+      return u === 0 || v === 0 || u === 6 || v === 6 || (u >= 2 && u <= 4 && v >= 2 && v <= 4);
+    };
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      let dark = finder(c, r, 0, 0) ?? finder(c, r, n - 7, 0) ?? finder(c, r, 0, n - 7);
+      if (dark === null) dark = ((c * 7 + r * 13 + c * r) % 5) < 2; // fixed, uneven data modules
+      if (!dark) continue;
+      for (let y = 0; y < mod; y++) for (let x = 0; x < mod; x++) art.put(x0 + c * mod + x, y0 + r * mod + y, ink);
+    }
+    const corners = [{ x: x0, y: y0 }, { x: x0 + side, y: y0 }, { x: x0 + side, y: y0 + side }, { x: x0, y: y0 + side }];
+    const slot = placeholderSlot(art.px, W, H, corners);
+    assert.ok(slot.size >= side - 2, `size ${slot.size}px covers the ${side}px code`);
+    eraseSpot(art.px, W, H, slot);
+    let left = 0;
+    for (let i = 0; i < art.px.length; i += 4) if (art.px[i + 3]) left++;
+    assert.equal(left, 0, 'no module of the placeholder left');
+  });
+}
+
 test('a placeholder printed in red (not black) on a transparent file is measured and erased whole', async () => {
   const QR = await loadQr();
   const link = 'https://shop.inrl.co/p/SAMP-LE00', L = QR.emblemLayout(link);
