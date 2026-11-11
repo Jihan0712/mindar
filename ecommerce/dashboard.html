@@ -2110,7 +2110,21 @@
         if (result.id) el('productId').value = String(result.id);
         await refresh();
         if (wzHooks.afterSave) await wzHooks.afterSave(publish);
-        showStatus(publish ? 'Published.' : (result.created ? 'Draft created.' : 'Draft saved.'), 'success');
+        // A target made in the AR step starts switched off, and the shop's "See it in action"
+        // (viewer?product=) only plays an active one, so publishing switches it on. Shirts'
+        // own QR links play either way. A refusal (e.g. a brand's active-target limit) doesn't
+        // undo the publish; it is said instead.
+        var arNote = '';
+        var tid = el('targetSelect').value;
+        if (publish && tid && targetsById[tid] && !targetsById[tid].is_active) {
+          try {
+            await apiFetch('/targets/' + encodeURIComponent(tid) + '/activate', { method: 'POST' });
+            await loadTargets();
+          } catch (e) {
+            arNote = ' Its AR target could not be switched on (' + (e.message || e) + '), so "See it in action" stays off until it is activated in the AR console.';
+          }
+        }
+        showStatus((publish ? 'Published.' : (result.created ? 'Draft created.' : 'Draft saved.')) + arNote, arNote ? 'error' : 'success');
         if (publish) {
           setFormProduct(null, isAdmin);
           showTab('tab-products');
