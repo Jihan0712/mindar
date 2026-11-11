@@ -844,14 +844,19 @@
     // Black ink on a white backing shaped like the outer ring, transparent outside it, edges
     // anti-aliased. sizeIn is recomputed from the pixel width so Printful prints the image at
     // exactly its size.
-    async function qrPng(text, sizeIn) {
+    // With ink ('#rrggbb', the placeholder QR's colour) it is an 8-bit RGBA PNG instead: the
+    // same emblem in that ink with no backing at all, so the shirt shows through the code's
+    // light modules, margin and the gaps between rings.
+    async function qrPng(text, sizeIn, ink) {
       const L = emblemLayout(text);
       const px = Math.max(64, Math.round(Number(sizeIn) * 300));
       const scale = px / (L.extent * 2); // pixels per module
       const codeReach = L.half + 0.5;
-      const raw = new Uint8Array(px * (px * 2 + 1));
+      const rgb = /^#[0-9a-f]{6}$/i.test(String(ink || '')) ? [1, 3, 5].map(i => parseInt(ink.slice(i, i + 2), 16)) : null;
+      const chans = rgb ? 4 : 2;
+      const raw = new Uint8Array(px * (px * chans + 1));
       for (let yPx = 0; yPx < px; yPx++) {
-        const rowStart = yPx * (px * 2 + 1);
+        const rowStart = yPx * (px * chans + 1);
         const y = (yPx + 0.5) / scale - L.extent;
         for (let xPx = 0; xPx < px; xPx++) {
           const x = (xPx + 0.5) / scale - L.extent;
@@ -862,13 +867,19 @@
             const d = Math.abs(x) < codeReach && Math.abs(y) < codeReach ? codeDistance(L, x, y) : ringDistance(L, x, y);
             ink = Math.min(1, Math.max(0, 0.5 - d * scale));
           }
-          raw[rowStart + 1 + xPx * 2] = Math.round(255 * (1 - ink));
-          raw[rowStart + 2 + xPx * 2] = Math.round(255 * Math.max(back, ink));
+          if (rgb) {
+            const at = rowStart + 1 + xPx * 4;
+            raw[at] = rgb[0]; raw[at + 1] = rgb[1]; raw[at + 2] = rgb[2];
+            raw[at + 3] = Math.round(255 * ink);
+          } else {
+            raw[rowStart + 1 + xPx * 2] = Math.round(255 * (1 - ink));
+            raw[rowStart + 2 + xPx * 2] = Math.round(255 * Math.max(back, ink));
+          }
         }
       }
       const ihdr = new Uint8Array(13);
       const dv = new DataView(ihdr.buffer);
-      dv.setUint32(0, px); dv.setUint32(4, px); ihdr[8] = 8; ihdr[9] = 4; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+      dv.setUint32(0, px); dv.setUint32(4, px); ihdr[8] = 8; ihdr[9] = rgb ? 6 : 4; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
       const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', ihdr), pngChunk('IDAT', await deflate(raw)), pngChunk('IEND', new Uint8Array(0))];
       const png = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
       let o = 0; for (const p of parts) { png.set(p, o); o += p.length; }
@@ -2242,7 +2253,16 @@
       if (box.left_in + box.width_in > out.area_width_in + 0.01 || box.top_in + box.height_in > out.area_height_in + 0.01) return null;
       out.art = box;
     }
+    // The placeholder QR's ink colour (#rrggbb), when it was printed in a colour rather than
+    // black: each shirt's QR is then printed in that ink on a transparent background. None (or
+    // anything that isn't a #rrggbb colour) keeps the classic black-on-white emblem.
+    const ink = parseInk(q.ink);
+    if (ink) out.ink = ink;
     return out;
+  }
+  function parseInk(v) {
+    const s = String(v == null ? '' : v).trim().toLowerCase();
+    return /^#[0-9a-f]{6}$/.test(s) && s !== '#000000' ? s : null;
   }
 
   // The saved art box applies only to the exact art file it was placed with; a new file for
@@ -2586,7 +2606,7 @@
   // Renders one shirt's QR at its placement's size (2.5 in when there is none yet) and
   // stores it; the printed size is kept on the R2 object. Returns the stored URL.
   async function storeUnitQr(unit, qr, base, request) {
-    const { png, sizeIn } = await QR.qrPng(pieceLink(base, unit.claim_code), qr ? qr.size_in : 2.5);
+    const { png, sizeIn } = await QR.qrPng(pieceLink(base, unit.claim_code), qr ? qr.size_in : 2.5, qr && qr.ink);
     // A new file name every render: QR images are served as immutable (cached for a year), so
     // a re-rendered QR under the old name would keep showing the old picture.
     const key = `qr/${unit.claim_code}-${Date.now().toString(36)}.png`;
@@ -4646,15 +4666,17 @@
     );
   }
 
-  // GET /api/admin/qr-sample?size_in=2.5 — a sample emblem (the SAMP-LE00 link) at a given
-  // width, for the QR placer to draw where each shirt's own emblem will go. Every emblem has
-  // the same round rim, so the sample shows the exact outline any customer's will have.
+  // GET /api/admin/qr-sample?size_in=2.5[&ink=%23rrggbb] — a sample emblem (the SAMP-LE00
+  // link) at a given width, for the QR placer to draw where each shirt's own emblem will go.
+  // Every emblem has the same round rim, so the sample shows the exact outline any customer's
+  // will have; with ink, in that colour on a transparent background, as it will print.
   async function apiAdminQrSample(request) {
     const { error } = await requireAdminSession(request);
     if (error) return error;
-    const sizeIn = Number(new URL(request.url).searchParams.get('size_in'));
+    const params = new URL(request.url).searchParams;
+    const sizeIn = Number(params.get('size_in'));
     if (!(sizeIn >= 1 && sizeIn <= 6)) return jsonResponse({ error: 'size_in must be 1 to 6' }, 400, request);
-    const { png } = await QR.qrPng(pieceLink(publicSiteBase(request), 'SAMP-LE00'), sizeIn);
+    const { png } = await QR.qrPng(pieceLink(publicSiteBase(request), 'SAMP-LE00'), sizeIn, parseInk(params.get('ink')));
     return new Response(png, { status: 200, headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=3600' } });
   }
 
@@ -5868,7 +5890,7 @@
     const artPosition = imageUrl ? artLayerPosition(qr, requestedPlacement, imageUrl) : null;
     const layers = imageUrl ? [artPosition ? { type: 'file', url: imageUrl, position: artPosition } : { type: 'file', url: imageUrl }] : [];
     if (qr) {
-      const sample = await QR.qrPng(pieceLink(publicSiteBase(request), 'SAMP-LE00'), qr.size_in);
+      const sample = await QR.qrPng(pieceLink(publicSiteBase(request), 'SAMP-LE00'), qr.size_in, qr.ink);
       const sampleKey = `qr/sample-${sample.pixels}-${Date.now().toString(36)}.png`;
       await ASSETS_BUCKET.put(sampleKey, sample.png, { httpMetadata: { contentType: 'image/png' } });
       layers.push(qrPrintLayer(qr, buildPublicAssetUrl(request, sampleKey), sample.sizeIn).layer);
