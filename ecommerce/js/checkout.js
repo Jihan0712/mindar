@@ -82,6 +82,53 @@
     el.addEventListener('change', saveDetails);
   });
 
+  /* Shipping and total from the same pricing the charge uses (/api/checkout/quote),
+     so the Total here is what Stripe takes. Asked again whenever the address or bag
+     changes; until the address is complete the total is left blank, not understated. */
+  const shipEl = document.getElementById('coShipping');
+  const totalEl = document.getElementById('coTotal');
+  let quoteTimer = null, quoteSeq = 0;
+  function cents(n, cur) { return window.INRL ? INRL.moneyFromCents(n, cur) : '$' + (n / 100).toFixed(2); }
+  function showQuote(ship, total) {
+    if (shipEl) shipEl.textContent = ship;
+    if (totalEl) totalEl.textContent = total;
+  }
+  function addressReady() {
+    return FIELDS.every(id => { const el = document.getElementById(id); return !el || (el.value.trim() && el.checkValidity()); });
+  }
+  async function quote() {
+    const items = Cart.list().filter(i => i.slug);
+    if (!items.length || !addressReady()) { quoteSeq++; showQuote('Add your address', '—'); return; }
+    const seq = ++quoteSeq;
+    showQuote('Calculating…', '—');
+    const val = id => (document.getElementById(id) ? document.getElementById(id).value.trim() : '');
+    try {
+      const res = await fetch(`${window.MINDAR_API_BASE || ''}/api/checkout/quote`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cart: items.map(i => ({ slug: i.slug, size: i.size || null, qty: i.qty })),
+          customer: {
+            firstName: val('firstName'), lastName: val('lastName'), email: val('email'), address: val('address'),
+            city: val('city'), country: val('country'), state: val('state'), zip: val('zip'),
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (seq !== quoteSeq) return;
+      if (!res.ok) { showQuote('Not available', '—'); if (data.error) setStatus(data.error, true); return; }
+      showQuote(data.shipping_cents ? cents(data.shipping_cents, data.currency) : 'Free', cents(data.total_cents, data.currency));
+      setStatus(DEFAULT_NOTE);
+    } catch (err) {
+      if (seq === quoteSeq) showQuote('Could not calculate', '—');
+    }
+  }
+  function requote() { clearTimeout(quoteTimer); quoteTimer = setTimeout(quote, 400); }
+  FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('input', requote); el.addEventListener('change', requote); }
+  });
+  document.addEventListener('cart:change', requote);
+
   async function placeOrder(e) {
     e.preventDefault();
     if (!validate()) { setStatus('Some details are missing — they are marked in red.', true); return; }
@@ -141,10 +188,12 @@
       if (!user) { if (Cart.list().length) toSignIn(); return; }
       const el = document.getElementById('email');
       if (user.email && el && !el.value) el.value = user.email;
+      requote();
     }).catch(() => {});
   }
   document.addEventListener('cart:change', syncEmpty);
   if (window.CartUI) CartUI.render();
   syncEmpty();
+  requote();
   if (form) form.addEventListener('submit', placeOrder);
 })();

@@ -325,8 +325,15 @@
         if (!sold && first) selectSize(first);
       }
 
+      /* purchasable comes from the API (same rule checkout enforces). A piece that isn't set up
+         to ship yet can't go in the bag, so nobody finds out only at Place order. */
+      var notForSale = !sold && p.purchasable === false;
       var addBtns = [document.getElementById('addToBag'), document.getElementById('addToBagM')];
-      addBtns.forEach(function (b) { b.disabled = sold; if (sold) b.textContent = 'Sold out'; });
+      addBtns.forEach(function (b) {
+        b.disabled = sold || notForSale;
+        if (sold) b.textContent = 'Sold out';
+        else if (notForSale) b.textContent = 'Not on sale yet';
+      });
 
       /* video — only T-shirts whose print is set up for one say anything about it */
       var note = document.getElementById('layerNote');
@@ -353,7 +360,7 @@
     }
 
     function addToBag() {
-      if (!P || INRL.isSoldOut(P)) return;
+      if (!P || INRL.isSoldOut(P) || P.purchasable === false) return;
       var sizes = INRL.parseSizes(P);
       if (sizes.length && !size) { toast('Choose a size first'); return; }
       var map = INRL.parseVariantMap(P);

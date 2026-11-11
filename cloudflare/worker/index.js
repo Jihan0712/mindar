@@ -1315,6 +1315,7 @@
 
     // Orders (shop)
     if (request.method === 'POST' && pathname === '/api/checkout/session')     return apiCreateCheckoutSession(request);
+    if (request.method === 'POST' && pathname === '/api/checkout/quote')       return apiCheckoutQuote(request);
     if (request.method === 'POST' && pathname === '/api/orders')               return apiCreateOrder(request);
     if (request.method === 'GET'  && /^\/api\/orders\/([^/]+)\/status$/.test(pathname)) {
       const id = decodeURIComponent(pathname.split('/')[3]);
@@ -2648,6 +2649,79 @@
     }
   }
 
+  // Prices a cart exactly as checkout charges it: every line re-resolved from D1, refused
+  // when it could never ship, plus Printful's shipping quote for the address. Shared by
+  // POST /api/checkout/session (the charge) and POST /api/checkout/quote (the total the
+  // checkout page shows), so what the customer sees is what Stripe takes.
+  // Returns { customer, resolvedItems, itemsCents, currency, shipping, totalCents } or { error }.
+  async function priceCheckout(body, request) {
+    let customer;
+    try { customer = validateCustomer(body); }
+    catch (e) { return { error: String(e && e.message ? e.message : e) }; }
+
+    const cartIn = Array.isArray(body.cart) ? body.cart : [];
+    if (!cartIn.length) return { error: 'cart is required' };
+    if (cartIn.length > 50) return { error: 'Too many cart items' };
+
+    let resolvedItems;
+    try {
+      resolvedItems = [];
+      for (const raw of cartIn) resolvedItems.push(await resolveOrderItemFromD1(raw, request));
+    } catch (e) {
+      return { error: String(e && e.message ? e.message : e) };
+    }
+
+    // Refuse to charge for anything that could never actually ship: every line needs a
+    // Printful catalog variant for its size and art, and an AR line also needs its QR
+    // settings (submitPrintfulOrder would otherwise fail after the customer paid).
+    const unfulfillable = resolvedItems
+      .filter(it => !it.catalog_variant_id || !Object.keys(itemArt(it)).length || (it.has_ar && !it.qr))
+      .map(it => it.slug);
+    if (unfulfillable.length) {
+      return { error: `Not available for purchase yet: ${unfulfillable.join(', ')}` };
+    }
+
+    const itemsCents = resolvedItems.reduce((sum, it) => sum + it.price_cents * it.qty, 0);
+    if (!Number.isFinite(itemsCents) || itemsCents <= 0) return { error: 'Invalid cart pricing' };
+
+    const currency = (resolvedItems[0] && resolvedItems[0].currency) || 'USD';
+
+    // Printful bills the store for shipping on every order — charge the customer the same
+    // quote. total_cents includes it, so the webhook's amount_total check still holds, and
+    // resume-payment recovers it as total_cents minus the items.
+    let shipping;
+    try {
+      shipping = await quoteShippingCents(resolvedItems, customer, currency);
+    } catch (e) {
+      console.error('[checkout] Shipping quote failed:', String(e && e.message ? e.message : e));
+      return { error: "We couldn't calculate shipping to that address. Check the country, state and ZIP and try again." };
+    }
+    const totalCents = itemsCents + shipping.cents;
+    return { customer, resolvedItems, itemsCents, currency, shipping, totalCents };
+  }
+
+  // POST /api/checkout/quote — the checkout page's shipping and total for the address typed
+  // so far. Same pricing as the charge (priceCheckout); creates nothing.
+  async function apiCheckoutQuote(request) {
+    const ip = getClientIP(request);
+    if (!rateLimitCheck('quote:' + ip, 30)) {
+      return jsonResponse({ error: 'Too many requests. Please try again later.' }, 429, request);
+    }
+    const sess = await getSessionUser(request);
+    if (!sess || !sess.user) return jsonResponse({ error: 'Sign in to check out.' }, 401, request);
+    const priced = await priceCheckout(await readJson(request), request);
+    if (priced.error) return jsonResponse({ error: priced.error }, 400, request);
+    return jsonResponse({
+      currency: priced.currency,
+      items_cents: priced.itemsCents,
+      shipping_cents: priced.shipping.cents,
+      shipping_name: priced.shipping.name,
+      min_days: priced.shipping.minDays,
+      max_days: priced.shipping.maxDays,
+      total_cents: priced.totalCents,
+    }, 200, request);
+  }
+
   // POST /api/checkout/session — the real customer checkout entry point. Resolves every
   // cart line from D1 (price, design file, Printful catalog variant — never the client's
   // values), records a pending_payment order, and creates a hosted Stripe Checkout Session.
@@ -2667,49 +2741,9 @@
     if (!sess || !sess.user) return jsonResponse({ error: 'Sign in to check out.' }, 401, request);
 
     const body = await readJson(request);
-
-    let customer;
-    try { customer = validateCustomer(body); }
-    catch (e) { return jsonResponse({ error: String(e && e.message ? e.message : e) }, 400, request); }
-
-    const cartIn = Array.isArray(body.cart) ? body.cart : [];
-    if (!cartIn.length) return jsonResponse({ error: 'cart is required' }, 400, request);
-    if (cartIn.length > 50) return jsonResponse({ error: 'Too many cart items' }, 400, request);
-
-    let resolvedItems;
-    try {
-      resolvedItems = [];
-      for (const raw of cartIn) resolvedItems.push(await resolveOrderItemFromD1(raw, request));
-    } catch (e) {
-      return jsonResponse({ error: String(e && e.message ? e.message : e) }, 400, request);
-    }
-
-    // Refuse to charge for anything that could never actually ship: every line needs a
-    // Printful catalog variant for its size and art, and an AR line also needs its QR
-    // settings (submitPrintfulOrder would otherwise fail after the customer paid).
-    const unfulfillable = resolvedItems
-      .filter(it => !it.catalog_variant_id || !Object.keys(itemArt(it)).length || (it.has_ar && !it.qr))
-      .map(it => it.slug);
-    if (unfulfillable.length) {
-      return jsonResponse({ error: `Not available for purchase yet: ${unfulfillable.join(', ')}` }, 400, request);
-    }
-
-    const itemsCents = resolvedItems.reduce((sum, it) => sum + it.price_cents * it.qty, 0);
-    if (!Number.isFinite(itemsCents) || itemsCents <= 0) return jsonResponse({ error: 'Invalid cart pricing' }, 400, request);
-
-    const currency = (resolvedItems[0] && resolvedItems[0].currency) || 'USD';
-
-    // Printful bills the store for shipping on every order — charge the customer the same
-    // quote. total_cents includes it, so the webhook's amount_total check still holds, and
-    // resume-payment recovers it as total_cents minus the items.
-    let shipping;
-    try {
-      shipping = await quoteShippingCents(resolvedItems, customer, currency);
-    } catch (e) {
-      console.error('[checkout] Shipping quote failed:', String(e && e.message ? e.message : e));
-      return jsonResponse({ error: "We couldn't calculate shipping to that address. Check the country, state and ZIP and try again." }, 400, request);
-    }
-    const totalCents = itemsCents + shipping.cents;
+    const priced = await priceCheckout(body, request);
+    if (priced.error) return jsonResponse({ error: priced.error }, 400, request);
+    const { customer, resolvedItems, itemsCents, currency, shipping, totalCents } = priced;
     const siteUrl = String(body.site_url || new URL(request.url).origin).replace(/\/$/, '');
 
     const orderId = randomId('ord_');
@@ -3342,6 +3376,19 @@
     from products p
     left join brands b on b.id = p.brand_id`;
 
+  // Whether checkout would accept this product at all — the product-level half of the rule
+  // in priceCheckout: a Printful variant, a print file, and QR settings when it has AR. The
+  // shop uses it to keep "Add to bag" off for a piece that can't ship yet.
+  function productPurchasable(r) {
+    const map = safeJsonParse(r.printful_variant_map);
+    const hasVariant = Number(r.printful_sync_variant_id) > 0
+      || (map && typeof map === 'object' && Object.values(map).some(v => Number(v) > 0));
+    const art = safeJsonParse(r.printful_design_images);
+    const hasArt = !!(art && typeof art === 'object' && Object.values(art).some(Boolean));
+    const qrOk = r.ar_target_id == null || !!parsePrintfulQr(r.printful_qr);
+    return !!(hasVariant && hasArt && qrOk);
+  }
+
   // The one API shape for a product row — list, get, create and update all return it.
   function shapeProduct(r) {
     const imageUrls = parseImageUrlsFromRow(r.image_urls);
@@ -3362,6 +3409,7 @@
       image_url: firstUrl || (r.has_image_data ? `/api/product-image?id=${encodeURIComponent(r.id)}&i=0` : null),
       image_urls: imageUrls,
       is_published: !!r.is_published,
+      purchasable: productPurchasable(r),
       ar_target_id: r.ar_target_id == null ? null : Number(r.ar_target_id),
       printful_sync_product_id: r.printful_sync_product_id || null,
       printful_sync_variant_id: r.printful_sync_variant_id || null,

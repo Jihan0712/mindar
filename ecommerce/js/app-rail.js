@@ -31,7 +31,7 @@
       + '<div class="rail__foot">'
       +   '<div class="rail__user"><span class="av" aria-hidden="true">' + esc(initial) + '</span><div>' + esc(email) + '<small>Owner</small></div></div>'
       +   '<a href="shop.html">' + I.store + 'Store</a>'
-      +   '<a href="/">' + I.camera + 'Open the camera</a>'
+      +   '<a href="/viewer">' + I.camera + 'Open the camera</a>'
       +   '<button type="button" data-rail-signout>' + I.out + 'Sign out</button>'
       + '</div>';
     const so = el.querySelector('[data-rail-signout]');

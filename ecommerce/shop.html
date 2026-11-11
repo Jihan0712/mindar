@@ -76,6 +76,12 @@
       var sortEl = document.getElementById('shopSortSelect');
 
       function norm(s) { return String(s || '').trim().toLowerCase(); }
+      /* Whole-word match, so "Men" finds "Men" and "Men's tees" but not "Women". */
+      function inCategory(p, cat) {
+        cat = norm(cat); if (!cat) return true;
+        var c = norm(p && p.category);
+        return c === cat || c.split(/[^a-z0-9]+/).indexOf(cat) !== -1;
+      }
       function state() {
         var u = new URL(location.href);
         return { cat: (u.searchParams.get('category') || '').trim(), q: (u.searchParams.get('q') || '').trim(), sort: (u.searchParams.get('sort') || 'relevance').trim() };
@@ -113,7 +119,7 @@
         if (!ALL) return;
         var soldOut = ALL.filter(INRL.isSoldOut).length;
         countEl.textContent = ALL.length + ' T-shirt' + (ALL.length === 1 ? '' : 's') + (soldOut ? ' · ' + soldOut + ' sold out' : '');
-        var list = ALL.filter(function (p) { return !s.cat || norm(p.category).indexOf(norm(s.cat)) !== -1; })
+        var list = ALL.filter(function (p) { return inCategory(p, s.cat); })
                       .filter(function (p) { return matches(p, s.q); });
         list = sortItems(list, s.sort);
 
@@ -154,7 +160,7 @@
         chips.forEach(function (c) {
           var cat = norm(c.getAttribute('data-cat'));
           if (!cat) return;
-          var backed = items.some(function (p) { return norm(p.category).indexOf(cat) !== -1; });
+          var backed = items.some(function (p) { return inCategory(p, cat); });
           c.hidden = !backed;
           if (backed) live++;
         });
