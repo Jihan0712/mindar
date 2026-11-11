@@ -115,6 +115,9 @@
       });
       const data = await res.json().catch(() => ({}));
       if (seq !== quoteSeq) return;
+      // A Worker without the quote endpoint (deployed separately from these pages) answers 404:
+      // say shipping is added on the payment page, as before, rather than show an error.
+      if (res.status === 404) { showQuote('Added on the payment page', '—'); return; }
       if (!res.ok) { showQuote('Not available', '—'); if (data.error) setStatus(data.error, true); return; }
       showQuote(data.shipping_cents ? cents(data.shipping_cents, data.currency) : 'Free', cents(data.total_cents, data.currency));
       setStatus(DEFAULT_NOTE);
