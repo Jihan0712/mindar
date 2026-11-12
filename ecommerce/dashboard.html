@@ -1520,9 +1520,14 @@
     if (trigger && window.bootstrap && bootstrap.Tab) bootstrap.Tab.getOrCreateInstance(trigger).show();
   }
 
-  function setFormProduct(p, isAdmin) {
+  // The form header: "Edit: <title>" for a saved product, "Create Product" for a new one.
+  function setFormHeading(p) {
     const formHeading = el('productFormHeading');
     if (formHeading) formHeading.textContent = p ? ('Edit: ' + (p.title || 'Product')) : 'Create Product';
+  }
+
+  function setFormProduct(p, isAdmin) {
+    setFormHeading(p);
     el('productId').value = p ? String(p.id) : '';
     if (isAdmin) el('brandInput').value = (p && p.brand) ? p.brand : (el('brandInput').value || '');
     el('titleInput').value = p ? (p.title || '') : '';
@@ -2109,6 +2114,11 @@
         const result = await saveProductFromForm();
         if (result.id) el('productId').value = String(result.id);
         await refresh();
+        // The header follows a rename (and a new draft becomes "Edit: <title>"), from the
+        // product as saved.
+        var savedId = el('productId').value;
+        var savedP = products.find(function(x) { return String(x.id) === savedId; });
+        if (savedId) setFormHeading(savedP || { title: el('titleInput').value.trim() });
         if (wzHooks.afterSave) await wzHooks.afterSave(publish);
         // A target made in the AR step starts switched off, and the shop's "See it in action"
         // (viewer?product=) only plays an active one, so publishing switches it on. Shirts'
