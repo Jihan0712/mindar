@@ -97,7 +97,13 @@
       .ar-qr-card { background: rgba(240,240,240,.05); border-radius: var(--radius-md); padding: 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
       .ar-qr-card canvas { border-radius: 8px; flex-shrink: 0; }
       .ar-qr-card strong { display: block; color: var(--paper-100); font-size: 14px; margin-bottom: 4px; }
-      .ar-qr-card span { color: var(--paper-500); font-size: 12px; }
+      .ar-qr-card span { color: var(--paper-300); font-size: 12px; }
+      /* The print the camera tracks: a thumbnail in the same card style as the QR card. */
+      .ar-print-card { background: rgba(240,240,240,.05); border-radius: var(--radius-md); padding: 20px; display: none; align-items: center; gap: 16px; margin-bottom: 28px; }
+      .ar-print-card.is-ready { display: flex; }
+      .ar-print-card img { width: 92px; height: 132px; object-fit: contain; background: #000; border-radius: 8px; flex-shrink: 0; }
+      .ar-print-card strong { display: block; color: var(--paper-100); font-size: 14px; margin-bottom: 4px; }
+      .ar-print-card span { color: var(--paper-300); font-size: 12px; }
       .ar-product-card { display: flex; align-items: center; gap: 16px; padding-top: 24px; border-top: 1px solid rgba(240,240,240,.1); }
       .ar-product-card img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
       .ar-product-card .ph { width: 56px; height: 56px; border-radius: 8px; background: rgba(240,240,240,.08); flex-shrink: 0; }
@@ -672,6 +678,18 @@
           QRCode.toCanvas(qrCanvas, window.location.href, { width: 92, margin: 1, color: { dark: '#0b0f10', light: '#ffffff' } }, function (err) { if (err) console.warn('QR render failed', err); });
         }
 
+        // The image the camera tracks; the card shows only once it has loaded.
+        const printCard = el.querySelector('#desktopPrintCard');
+        if (activeTarget && activeTarget.imageurl) {
+          const printImg = new Image();
+          printImg.alt = 'The print on this T-shirt';
+          printImg.decoding = 'async';
+          printImg.addEventListener('load', () => printCard.classList.add('is-ready'), { once: true });
+          printImg.addEventListener('error', () => printCard.remove(), { once: true });
+          printImg.src = activeTarget.imageurl;
+          printCard.prepend(printImg);
+        }
+
         const productCard = el.querySelector('#desktopProductCard');
         if (activeTarget && activeTarget.product_title) {
           productCard.style.display = 'flex';
@@ -828,6 +846,12 @@
             <div>
               <strong>Open it on your phone</strong>
               <span>Scan this with your phone, open the link and point the camera at the print.</span>
+            </div>
+          </div>
+          <div class="ar-print-card" id="desktopPrintCard">
+            <div>
+              <strong>The print</strong>
+              <span>This is what your phone&rsquo;s camera looks for on the T-shirt.</span>
             </div>
           </div>
           <div class="ar-product-card" id="desktopProductCard" style="display:none">
