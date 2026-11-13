@@ -101,7 +101,18 @@
       /* The print the camera tracks: a thumbnail in the same card style as the QR card. */
       .ar-print-card { background: rgba(240,240,240,.05); border-radius: var(--radius-md); padding: 20px; display: none; align-items: center; gap: 16px; margin-bottom: 28px; }
       .ar-print-card.is-ready { display: flex; }
-      .ar-print-card img { width: 92px; height: 132px; object-fit: contain; background: #000; border-radius: 8px; flex-shrink: 0; }
+      .ar-print-thumb { padding: 0; border: 0; background: none; border-radius: 8px; flex-shrink: 0; cursor: zoom-in; position: relative; }
+      .ar-print-thumb img { display: block; width: 92px; height: 132px; object-fit: contain; background: #000; border-radius: 8px; transition: transform .15s ease, box-shadow .15s ease; }
+      .ar-print-thumb:hover img { transform: scale(1.03); box-shadow: 0 0 0 2px var(--accent-400); }
+      .ar-print-thumb:focus-visible { outline: 2px solid var(--accent-400); outline-offset: 3px; }
+      .ar-print-thumb .zoom { position: absolute; right: 6px; bottom: 6px; width: 24px; height: 24px; border-radius: 999px; background: rgba(11,15,16,.7); color: var(--paper-100); display: flex; align-items: center; justify-content: center; }
+      /* Full-size view of the print. Native <dialog>: Esc closes it and focus stays inside. */
+      .ar-print-view { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; width: 100vw; height: 100vh; overflow: hidden; }
+      .ar-print-view::backdrop { background: rgba(11,15,16,.92); }
+      .ar-print-view[open] { display: flex; align-items: center; justify-content: center; }
+      .ar-print-view img { max-width: calc(100vw - 96px); max-height: calc(100vh - 96px); object-fit: contain; background: #000; border-radius: 8px; cursor: zoom-out; }
+      .ar-print-view .close { position: fixed; top: 20px; right: 20px; width: 44px; height: 44px; border-radius: 999px; border: 1px solid rgba(240,240,240,.3); background: rgba(11,15,16,.6); color: var(--paper-100); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+      .ar-print-view .close:hover, .ar-print-view .close:focus-visible { background: rgba(240,240,240,.12); outline: none; }
       .ar-print-card strong { display: block; color: var(--paper-100); font-size: 14px; margin-bottom: 4px; }
       .ar-print-card span { color: var(--paper-300); font-size: 12px; }
       .ar-product-card { display: flex; align-items: center; gap: 16px; padding-top: 24px; border-top: 1px solid rgba(240,240,240,.1); }
@@ -687,7 +698,19 @@
           printImg.addEventListener('load', () => printCard.classList.add('is-ready'), { once: true });
           printImg.addEventListener('error', () => printCard.remove(), { once: true });
           printImg.src = activeTarget.imageurl;
-          printCard.prepend(printImg);
+          const thumb = el.querySelector('#desktopPrintThumb');
+          thumb.prepend(printImg);
+
+          // Click the thumbnail for the full-size print; click anywhere or press Esc to close.
+          const view = el.querySelector('#desktopPrintView');
+          const big = new Image();
+          big.alt = 'The print on this T-shirt, full size';
+          thumb.addEventListener('click', () => {
+            if (!big.src) { big.src = activeTarget.imageurl; view.prepend(big); }
+            view.showModal();
+          });
+          view.addEventListener('click', () => view.close());
+          view.addEventListener('close', () => thumb.focus());
         }
 
         const productCard = el.querySelector('#desktopProductCard');
@@ -849,9 +872,12 @@
             </div>
           </div>
           <div class="ar-print-card" id="desktopPrintCard">
+            <button type="button" class="ar-print-thumb" id="desktopPrintThumb" aria-label="View the print full size">
+              <span class="zoom" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></span>
+            </button>
             <div>
               <strong>The print</strong>
-              <span>This is what your phone&rsquo;s camera looks for on the T-shirt.</span>
+              <span>This is what your phone&rsquo;s camera looks for on the T-shirt. Click it to see it full size.</span>
             </div>
           </div>
           <div class="ar-product-card" id="desktopProductCard" style="display:none">
@@ -861,6 +887,11 @@
           </div>
         </div>
       </div>
+      <dialog class="ar-print-view" id="desktopPrintView" aria-label="The print, full size">
+        <button type="button" class="close" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </dialog>
     </div>
   </body>
 </html>
