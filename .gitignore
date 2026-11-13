@@ -14,3 +14,6 @@ Thumbs.db
 
 # Project-only wrangler login (XDG_CONFIG_HOME for this repo); holds an OAuth token
 .wrangler-home/
+ecommerce/assets/
+# Browser-tool logs
+.playwright-mcp/

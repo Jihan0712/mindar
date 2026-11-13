@@ -978,12 +978,6 @@ textarea.form-control {
   z-index: 0;
   width: 100%; height: 600px;
 }
-.background.pattern-bg {
-  background: url(images/pattern-bg.png) no-repeat;
-}
-.background.normal-bg {
-  background: url(images/newsletter-image.jpg) no-repeat;
-}
 
 .title-xlarge {
   font-size: calc(2rem + 10vw);

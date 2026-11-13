@@ -1,4 +1,0 @@
-[submodule "mind-ar-js"]
-	path = mind-ar-js
-	url = https://github.com/hiukim/mind-ar-js.git
-	branch = master
