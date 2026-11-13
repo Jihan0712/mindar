@@ -17,3 +17,5 @@ Thumbs.db
 ecommerce/assets/
 # Browser-tool logs
 .playwright-mcp/
+# Teammate's INRL2 project, copied in for reference only (has local Wrangler state)
+teammate/
