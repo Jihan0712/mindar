@@ -107,7 +107,7 @@ export async function makeHarness(vars = {}) {
       }), env, { waitUntil() {} });
       const text = await res.text();
       let json = null; try { json = JSON.parse(text); } catch {}
-      return { status: res.status, json, text };
+      return { status: res.status, json, text, headers: res.headers };
     },
   };
 }

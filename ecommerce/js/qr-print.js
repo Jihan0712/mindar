@@ -222,6 +222,19 @@
     return { left_in: r((area.w - w) / 2), top_in: r((area.h - h) / 2), width_in: r(w), height_in: r(h) };
   }
 
+  // sizedArtBox(area, art, widthIn, align) -> the art at widthIn inches wide (never wider or
+  // taller than fits whole), centred left to right, at the top of the print area (align 'top')
+  // or in its middle. Lets a design file smaller than the print area sit where it was placed
+  // on Printful (e.g. 10 in wide at the top), leaving room below for the shirt's QR.
+  function sizedArtBox(area, art, widthIn, align) {
+    var fit = fitArtBox(area, art);
+    var want = Number(widthIn);
+    var w = want > 0 ? Math.min(want, fit.width_in) : fit.width_in;
+    var h = w * art.h / art.w;
+    var r = function (n) { return Math.round(n * 10000) / 10000; };
+    return { left_in: r((area.w - w) / 2), top_in: align === 'top' ? 0 : r((area.h - h) / 2), width_in: r(w), height_in: r(h) };
+  }
+
   // slotPlacement(slot, art, box, area) -> { size_in, top_in, left_in } or { error }.
   // The emblem takes the spot's own size and centre, clamped to the print area. A spot under
   // MIN_QR_IN is grown to it round the same centre (grown: true; the emblem then covers a
@@ -272,7 +285,7 @@
     };
   }
 
-  var api = { DPI: DPI, MIN_QR_IN: MIN_QR_IN, MIN_SPOT_IN: MIN_SPOT_IN, PLACEHOLDER_MAX: PLACEHOLDER_MAX, EMBLEM_PER_CODE_MIN: EMBLEM_PER_CODE_MIN, EMBLEM_PER_CODE_MAX: EMBLEM_PER_CODE_MAX, isMarker: isMarker, findSlot: findSlot, placeholderSlot: placeholderSlot, eraseSpot: eraseSpot, fitArtBox: fitArtBox, slotPlacement: slotPlacement, printFileName: printFileName, testSheetLayout: testSheetLayout };
+  var api = { DPI: DPI, MIN_QR_IN: MIN_QR_IN, MIN_SPOT_IN: MIN_SPOT_IN, PLACEHOLDER_MAX: PLACEHOLDER_MAX, EMBLEM_PER_CODE_MIN: EMBLEM_PER_CODE_MIN, EMBLEM_PER_CODE_MAX: EMBLEM_PER_CODE_MAX, isMarker: isMarker, findSlot: findSlot, placeholderSlot: placeholderSlot, eraseSpot: eraseSpot, fitArtBox: fitArtBox, sizedArtBox: sizedArtBox, slotPlacement: slotPlacement, printFileName: printFileName, testSheetLayout: testSheetLayout };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.QrPrint = api;
 })(this);

@@ -3398,7 +3398,7 @@
            p.is_published, p.ar_target_id, p.printful_sync_product_id, p.printful_sync_variant_id,
            p.printful_variant_map, p.printful_design_images, p.printful_design_layers,
            p.printful_catalog_product_id, p.printful_qr,
-           p.created_at, p.updated_at, b.name as brand
+           p.created_at, p.updated_at, p.brand_id, b.name as brand
     from products p
     left join brands b on b.id = p.brand_id`;
 
@@ -3496,8 +3496,10 @@
       ...params
     );
     const items = rows.map(shapeProduct);
+    // The dashboard's list (drafts included) must never be served stale: a product just
+    // published or unpublished would still show its old state.
     return canSeeUnpublished
-      ? jsonResponse({ items }, 200, request)
+      ? withCache(jsonResponse({ items }, 200, request), 'private, no-store')
       : withCache(jsonResponse({ items }, 200, request), 'public, max-age=30, s-maxage=120');
   }
 
@@ -3506,7 +3508,17 @@
     if (!raw) return jsonResponse({ error: 'Product reference required' }, 400, request);
     const byId = isDigits(raw);
     const row = await dbGet(`${PRODUCT_SELECT} where ${byId ? 'p.id' : 'p.slug'} = ?`, byId ? Number(raw) : raw);
-    if (!row || !row.is_published) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (!row) return jsonResponse({ error: 'Not found' }, 404, request);
+    if (!row.is_published) {
+      // A draft is shown only to whoever can edit it (an admin, or a brand user for their own
+      // brand's piece), so it can be checked on the real product page before it is published.
+      // Never cached: shoppers asking for the same address still get Not found.
+      const sess = await getSessionUser(request);
+      const role = sess && sess.user && sess.user.role;
+      const canPreview = role === 'admin' || (role === 'brand' && row.brand_id != null && sessionOwnsBrand(sess, row.brand_id));
+      if (!canPreview) return jsonResponse({ error: 'Not found' }, 404, request);
+      return withCache(jsonResponse({ product: shapeProduct(row) }, 200, request), 'private, no-store');
+    }
     return withCache(jsonResponse({ product: shapeProduct(row) }, 200, request), 'public, max-age=60, s-maxage=300');
   }
 

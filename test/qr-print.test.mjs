@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import QrPrint from '../ecommerce/js/qr-print.js';
 
-const { findSlot, fitArtBox, slotPlacement, printFileName, testSheetLayout } = QrPrint;
+const { findSlot, fitArtBox, sizedArtBox, slotPlacement, printFileName, testSheetLayout } = QrPrint;
 
 // An RGBA image filled with dark art, with optional magenta shapes painted in.
 function image(w, h, paint = () => false) {
@@ -40,6 +40,22 @@ test('findSlot ignores pinks and reds in the art that are not the marker', () =>
 test('fitArtBox fills an exact-size file and centres a narrower one', () => {
   assert.deepEqual(fitArtBox({ w: 12, h: 16 }, { w: 3600, h: 4800 }), { left_in: 0, top_in: 0, width_in: 12, height_in: 16 });
   assert.deepEqual(fitArtBox({ w: 12, h: 16 }, { w: 849, h: 1199 }), { left_in: 0.3353, top_in: 0, width_in: 11.3294, height_in: 16 });
+});
+
+test('sizedArtBox: a design file set to a width, at the top or in the middle, never bigger than fits', () => {
+  const area = { w: 12, h: 16 }, art = { w: 1157, h: 1500 };
+  // 10 in wide at the top, centred left to right: room left below it for the QR.
+  assert.deepEqual(sizedArtBox(area, art, 10, 'top'), { left_in: 1, top_in: 0, width_in: 10, height_in: 12.9646 });
+  // In the middle: (16 - 12.96456…) / 2 from the top.
+  assert.deepEqual(sizedArtBox(area, art, 10, 'centre'), { left_in: 1, top_in: 1.5177, width_in: 10, height_in: 12.9646 });
+  // Wider than fits is capped at the fitted size; no width means the fitted size.
+  assert.deepEqual(sizedArtBox(area, art, 40, 'centre'), fitArtBox(area, art));
+  assert.deepEqual(sizedArtBox(area, art, 0, 'centre'), fitArtBox(area, art));
+  // The box always stays inside the print area.
+  for (const w of [1, 5, 11.9, 12]) for (const al of ['top', 'centre']) {
+    const b = sizedArtBox(area, art, w, al);
+    assert.ok(b.left_in >= 0 && b.top_in >= 0 && b.left_in + b.width_in <= 12.0001 && b.top_in + b.height_in <= 16.0001, JSON.stringify(b));
+  }
 });
 
 test('slotPlacement: the emblem takes the spot\'s own size and centre', () => {

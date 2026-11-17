@@ -187,6 +187,13 @@
     .wz-two > .pd-panel:not(:last-child) { border-right:1px solid var(--line-100); background:var(--surface-50); }
     @media (max-width:900px) { .wz-two { grid-template-columns:1fr; } .wz-two > .pd-panel:not(:last-child) { border-right:none; border-bottom:1px solid var(--line-100); } }
     .wz-status { font-size:.78rem; color:var(--ink-700); line-height:1.5; margin-bottom:.75rem; white-space:pre-line; }
+    .wz-checklist-tips { font-size:.78rem; color:var(--ink-700); line-height:1.5; border:1px solid var(--line-200); border-radius:var(--radius-md); padding:.6rem .8rem; }
+    .wz-checklist-tips summary { cursor:pointer; font-weight:600; color:var(--ink-900); }
+    .wz-checklist-tips ul { margin:.5rem 0 0; padding-left:1.1rem; }
+    .wz-checklist-tips li + li { margin-top:.35rem; }
+    .pf-size-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    .pf-size-chips span { font-size:.68rem; font-weight:700; letter-spacing:.04em; padding:.25em .6em; border:1px solid #1c5d68; color:#1c5d68; border-radius:999px; }
+    .pf-size-chips span.is-missing { border-color:#b26a1f; color:#7a4a17; }
     .wz-status .ok { color:var(--accent-700); font-weight:500; }
     .wz-status .bad { color:#b23b3b; font-weight:500; }
     .wz-row { display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap; }
@@ -576,7 +583,7 @@
       <div class="inrl-card dash-metric-card">
         <div class="dash-metric-top">
           <div class="dash-metric-icon tone-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
-          <div class="dash-metric-label">Printful Linked</div>
+          <div class="dash-metric-label">Ready to print</div>
         </div>
         <div class="dash-metric-value" id="dashLinkedValue">&mdash;</div>
         <div class="dash-metric-caption" id="dashLinkedCaption"></div>
@@ -650,7 +657,7 @@
       <div class="col-6 col-lg-3">
         <div class="order-stat">
           <div class="order-stat-value" id="statProductsLinked">0</div>
-          <div class="order-stat-label">Printful Linked</div>
+          <div class="order-stat-label">Ready to print</div>
         </div>
       </div>
     </div>
@@ -680,7 +687,7 @@
               <th class="text-end">Actions</th>
             </tr>
           </thead>
-          <tbody id="productsTbody"></tbody>
+          <tbody id="productsTbody"><tr><td colspan="9" class="text-center p-4" style="color:var(--ink-500)">Loading products&#8230;</td></tr></tbody>
         </table>
       </div>
       <div class="d-flex justify-content-between align-items-center px-3 py-2" id="productsPaginationBar" style="border-top:1px solid var(--line-200)">
@@ -721,9 +728,21 @@
         <section class="wz-pane" data-wz-pane="1">
           <div class="pd-panel">
             <div class="pd-panel-title">Garment</div>
-            <div class="pd-step-panel-sub">Design the piece on printful.com, then import it. Sizes, price, mockups and the print file come across with it.</div>
+            <div class="pd-step-panel-sub">Design the piece on printful.com (pick the garment, add your design, Publish to the INRL AR store), then import it here. Sizes, price and mockups come across with it.</div>
+            <details class="wz-checklist-tips mb-3">
+              <summary>Before you design: what makes a piece print and scan well</summary>
+              <ul>
+                <li><strong>The design file:</strong> a PNG (or WebP) with a transparent background, at 300 DPI for its printed size (12 in wide = 3600 px). Keep your original: Printful doesn't hand back files uploaded in its design maker, so you upload the same file again in step 3.</li>
+                <li><strong>The shirt's QR:</strong> leave a clear spot at least 1 in wide (2 in scans most easily) with a placeholder QR (any QR) in it, and nothing drawn over it. Each shirt's own QR prints there in the placeholder's colour. No spot? You can place the QR by hand in step 3.</li>
+                <li><strong>Contrast:</strong> a dark print on a light shirt, or a light print on a dark one. The camera needs it to find the print.</li>
+                <li><strong>Busy, irregular art</strong> tracks best: lots of detail, no big flat areas, no repeating pattern.</li>
+              </ul>
+            </details>
             <div id="printfulSyncLinkSummary" class="wz-status"></div>
-            <button type="button" id="printfulSyncLinkBtn" class="btn btn-inrl">Import from Printful&#8230;</button>
+            <div class="d-flex flex-wrap gap-2">
+              <a class="btn btn-inrl-outline" href="https://www.printful.com/dashboard/custom-products" target="_blank" rel="noopener">Open Printful &#8599;</a>
+              <button type="button" id="printfulSyncLinkBtn" class="btn btn-inrl">Import from Printful&#8230;</button>
+            </div>
           </div>
         </section>
 
@@ -766,6 +785,7 @@
                   <label class="form-label" for="categoryPreset">Category preset</label>
                   <select id="categoryPreset" class="form-select">
                     <option value="">(custom)</option>
+                    <option value="Unisex">Unisex (shows under Men and Women)</option>
                     <option value="Men">Men</option>
                     <option value="Women">Women</option>
                     <option value="Accessories">Accessories</option>
@@ -775,6 +795,7 @@
                   <label class="form-label" for="categoryInput">Category <span style="color:#c0392b">*</span></label>
                   <input id="categoryInput" class="form-control" type="text" placeholder="e.g. Women" list="categoryDatalist" required />
                   <datalist id="categoryDatalist">
+                    <option value="Unisex"></option>
                     <option value="Men"></option>
                     <option value="Women"></option>
                     <option value="Accessories"></option>
@@ -866,8 +887,9 @@
                   <div class="wz-crop-side">
                     <label class="form-label" for="wzTargetName">Target name</label>
                     <input id="wzTargetName" class="form-control mb-2" type="text" />
-                    <label class="form-label" for="wzVideoFile">Video (.mp4) <span style="color:#c0392b">*</span></label>
+                    <label class="form-label" for="wzVideoFile">Starter video (.mp4) <span style="color:#c0392b">*</span></label>
                     <input id="wzVideoFile" class="form-control" type="file" accept="video/mp4" />
+                    <div class="form-text">Plays in the shop's &ldquo;See it in action&rdquo; and on each new shirt until its owner picks their own. Any brand or demo video works; a video the shape of the boxed area fills it without bars.</div>
                     <div id="wzVideoFit" class="form-text"></div>
                     <button type="button" id="wzCreateTargetBtn" class="btn btn-inrl mt-3" disabled>Create &amp; link target</button>
                     <div id="wzCreateStatus" class="wz-status mt-2" role="status"></div>
@@ -1255,7 +1277,7 @@
 </div>
 
 <div class="modal fade" id="printfulQrModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl modal-fullscreen-md-down">
     <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
       <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
         <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Shirt QR placement</h5>
@@ -1279,6 +1301,9 @@
           </div>
           <!-- 2: slot close-up, 3: status and actions -->
           <div class="qr-placer-side">
+            <label class="form-label mb-1" for="qrPlacement">Prints on</label>
+            <select id="qrPlacement" class="form-select form-select-sm"></select>
+            <div class="form-text mb-2" id="qrAreaHint"></div>
             <div class="form-label mb-1">Slot close-up (4&times;)</div>
             <canvas id="qrZoom" class="qr-zoom" width="240" height="240" aria-hidden="true"></canvas>
             <label class="form-check mt-2 mb-0" style="font-size:.72rem">
@@ -1286,15 +1311,36 @@
             </label>
             <div id="qrStageHint" class="form-text mt-2"></div>
             <div id="qrSlotStatus" class="mt-2" style="font-size:.72rem"></div>
-            <label class="btn btn-sm btn-inrl-outline mt-2 mb-0" style="font-size:.62rem">Upload print file (PNG)&#8230;
-              <input type="file" id="qrArtFile" accept="image/png" hidden />
+            <label class="btn btn-sm btn-inrl-outline mt-2 mb-0" style="font-size:.62rem">Upload design file (PNG or WebP)&#8230;
+              <input type="file" id="qrArtFile" accept="image/png,image/webp" hidden />
             </label>
-            <div class="form-text">Export the design at the print area size (300 DPI) with a placeholder QR (any QR) where each shirt's QR goes; a solid #FF00FF disc also works. Each shirt's own emblem takes its exact size and place, and the placeholder is erased from the saved print file. Make it at least 1 in wide (2 in scans most easily).</div>
+            <div class="form-text">Upload the same file you designed with on Printful. Set its size below to match Printful, then check the QR. Best of all: a transparent PNG at 300 DPI with a placeholder QR (any QR, at least 1 in, 2 in scans most easily) where each shirt's QR goes: each shirt's own QR takes its exact size, place and colour, and the placeholder is erased. No placeholder? Drag the QR box where it should print.</div>
+            <div class="qr-art-size mt-2" id="qrArtSize" hidden>
+              <div class="form-label mb-1">Design on the shirt</div>
+              <div class="d-flex gap-2 align-items-end">
+                <div style="flex:1">
+                  <label class="form-text d-block mb-1" for="qrArtWidth">Width (in)</label>
+                  <input id="qrArtWidth" class="form-control form-control-sm" type="number" step="0.25" min="1" />
+                </div>
+                <div style="flex:1">
+                  <label class="form-text d-block mb-1" for="qrArtAlign">Sits</label>
+                  <select id="qrArtAlign" class="form-select form-select-sm">
+                    <option value="top">At the top</option>
+                    <option value="centre">In the middle</option>
+                  </select>
+                </div>
+              </div>
+              <label class="form-text d-block mt-2 mb-1" for="qrInkMode">Each shirt's QR prints</label>
+              <div class="d-flex gap-2 align-items-center">
+                <select id="qrInkMode" class="form-select form-select-sm" style="flex:1">
+                  <option value="">Black on a white backing</option>
+                  <option value="ink">In a colour, no backing</option>
+                </select>
+                <input type="color" id="qrInkPick" value="#b64445" class="form-control form-control-color form-control-sm" title="QR colour" aria-label="QR colour" />
+              </div>
+            </div>
             <details class="mt-3" id="qrExact">
               <summary class="form-label mb-1" style="cursor:pointer">Exact values</summary>
-              <label class="form-label mt-2" for="qrPlacement">Placement</label>
-              <select id="qrPlacement" class="form-select form-select-sm"></select>
-              <div class="form-text" id="qrAreaHint"></div>
               <label class="form-label mt-2" for="qrSize">Emblem width (in)</label>
               <input id="qrSize" class="form-control form-control-sm" type="number" step="0.05" min="1" max="6" />
               <label class="form-label mt-2" for="qrTop">From the top (in)</label>
@@ -1377,17 +1423,17 @@
 </div>
 
 <div class="modal fade" id="printfulSyncPickerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-md-down">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-md-down">
     <div class="modal-content" style="background:var(--surface-0);border:1px solid var(--line-200);border-radius:var(--radius-lg);color:var(--ink-900);">
       <div class="modal-header" style="border-bottom:1px solid var(--line-200);">
-        <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Import from Printful Sync Products</h5>
+        <h5 class="modal-title" style="font-family:var(--font-display);text-transform:uppercase;color:var(--ink-900)">Import from Printful</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="pfSyncPickerProductId" />
-        <div class="form-text mb-2">Products you designed and saved directly on printful.com.</div>
+        <div class="form-text mb-2">Pieces published to the INRL AR store on printful.com, newest first. Click one to import it. Not there? <a href="https://www.printful.com/dashboard/custom-products" target="_blank" rel="noopener">Design it on Printful &#8599;</a></div>
         <div class="input-group mb-3">
-          <input id="pfSyncPickerSearch" class="form-control" type="text" placeholder="Search your Printful sync products&#8230;" />
+          <input id="pfSyncPickerSearch" class="form-control" type="text" placeholder="Search by name&#8230;" />
           <button type="button" id="pfSyncPickerSearchBtn" class="btn btn-inrl-outline">Search</button>
         </div>
         <div id="pfSyncPickerStatus" style="font-size:.7rem;color:var(--ink-500);margin-bottom:8px"></div>
@@ -1395,7 +1441,11 @@
         <div id="pfSyncPickerResolved" style="display:none;margin-top:14px">
           <div style="font-size:.7rem;color:var(--ink-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Imported product</div>
           <div id="pfSyncPickerResolvedName" style="font-size:.8rem;margin-bottom:8px"></div>
-          <div id="pfSyncPickerVariantGrid" class="vstack gap-1"></div>
+          <div id="pfSyncPickerSizeChips" class="pf-size-chips"></div>
+          <details id="pfSyncPickerVariantDetails">
+            <summary style="font-size:.68rem;color:var(--ink-500);cursor:pointer">Printful variant numbers (only needed if a size didn't match)</summary>
+            <div id="pfSyncPickerVariantGrid" class="vstack gap-1 mt-2"></div>
+          </details>
           <div id="pfSyncPickerMissingHint" style="font-size:.68rem;color:#c17a2e;display:none;margin-top:6px">Some sizes couldn't be matched automatically &#8212; enter their Printful sync variant IDs above, then click "Save Overrides".</div>
           <div id="pfSyncPickerImagesHint" style="font-size:.68rem;color:#1c5d68;display:none;margin-top:6px"></div>
           <div id="pfSyncPickerArtResult" role="status" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid;font-size:.78rem;line-height:1.4"></div>
@@ -1436,7 +1486,7 @@
     else { thumb.src = ''; thumb.classList.add('hidden'); }
   }
 
-  const CATEGORY_PRESETS = ['Men', 'Women', 'Accessories'];
+  const CATEGORY_PRESETS = ['Unisex', 'Men', 'Women', 'Accessories'];
 
   function normalizeCategoryValue(v) {
     return String(v || '').trim().toLowerCase();
@@ -1725,7 +1775,7 @@
     wrap.classList.remove('hidden');
     const trackedUrl = tpAssetUrl(t.imageurl);
     el('tpTrackedImg').src = trackedUrl;
-    const inactive = t.is_active ? '' : ' The target is inactive.';
+    const inactive = t.is_active ? '' : ' Its preview in the shop ("See it in action") switches on when you publish; shirts\' own QR codes work either way.';
     const p = productRecord(el('productId').value);
     const src = tpPrintSource(p);
     if (!src) {
@@ -1831,7 +1881,11 @@
         '<td><span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + (p.is_published ? '#1c5d68' : 'var(--ink-500)') + '">' + (p.is_published ? 'Yes' : 'No') + '</span></td>' +
         '<td>' + (isPfLinked
           ? '<span style="color:#1c5d68;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">LINKED</span>'
-          : '<span title="' + escapeHtml(printfulUnprintableReason(p)) + '" style="background:#2a2a2a;color:var(--ink-500);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">UNLINKED</span>') + '</td>' +
+          : (p.printful_sync_product_id
+            // Linked to a Printful piece, but something it needs to print is missing (usually
+            // the print file): say what, rather than calling it unlinked.
+            ? '<span title="Linked to Printful, but can’t be printed yet: ' + escapeHtml(printfulUnprintableReason(p)) + '. Open it to fix." style="background:#fbf1e4;color:#7a4a17;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">' + escapeHtml(printfulUnprintableReason(p) === 'no print file' ? 'NO PRINT FILE' : 'INCOMPLETE') + '</span>'
+            : '<span title="' + escapeHtml(printfulUnprintableReason(p)) + '" style="background:#2a2a2a;color:var(--ink-500);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.3em .55em">UNLINKED</span>')) + '</td>' +
         '<td>' +
           '<a href="' + storeLink + '" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">Store</a> ' +
           (hasTarget ? '<a href="' + viewerLink + '" class="btn btn-sm btn-inrl" style="font-size:.6rem;padding:.2rem .5rem" target="_blank" rel="noopener">AR</a>' : '<span style="font-size:.62rem;color:var(--line-200)">&#8212;</span>') +
@@ -2105,6 +2159,23 @@
       return { id, created: false };
     }
 
+    // A target made in the AR step starts switched off, and the shop's "See it in action"
+    // (viewer?product=) only plays an active one, so publishing (from the wizard or the
+    // product list) switches it on. Shirts' own QR links play either way. A refusal (e.g. a
+    // brand's active-target limit) doesn't undo the publish; it is said instead.
+    // Returns '' or a sentence to add to the status.
+    async function switchOnTargetForPublish(targetId) {
+      var tid = targetId == null ? '' : String(targetId);
+      if (!tid || !targetsById[tid] || targetsById[tid].is_active) return '';
+      try {
+        await apiFetch('/targets/' + encodeURIComponent(tid) + '/activate', { method: 'POST' });
+        await loadTargets();
+        return '';
+      } catch (e) {
+        return ' Its AR target could not be switched on (' + (e.message || e) + '), so "See it in action" stays off until it is activated in the AR console.';
+      }
+    }
+
     // Publish returns to the product list; Save draft stays on the current step.
     async function performSave(publish) {
       clearStatus();
@@ -2120,20 +2191,7 @@
         var savedP = products.find(function(x) { return String(x.id) === savedId; });
         if (savedId) setFormHeading(savedP || { title: el('titleInput').value.trim() });
         if (wzHooks.afterSave) await wzHooks.afterSave(publish);
-        // A target made in the AR step starts switched off, and the shop's "See it in action"
-        // (viewer?product=) only plays an active one, so publishing switches it on. Shirts'
-        // own QR links play either way. A refusal (e.g. a brand's active-target limit) doesn't
-        // undo the publish; it is said instead.
-        var arNote = '';
-        var tid = el('targetSelect').value;
-        if (publish && tid && targetsById[tid] && !targetsById[tid].is_active) {
-          try {
-            await apiFetch('/targets/' + encodeURIComponent(tid) + '/activate', { method: 'POST' });
-            await loadTargets();
-          } catch (e) {
-            arNote = ' Its AR target could not be switched on (' + (e.message || e) + '), so "See it in action" stays off until it is activated in the AR console.';
-          }
-        }
+        var arNote = publish ? await switchOnTargetForPublish(el('targetSelect').value) : '';
         showStatus((publish ? 'Published.' : (result.created ? 'Draft created.' : 'Draft saved.')) + arNote, arNote ? 'error' : 'success');
         if (publish) {
           setFormProduct(null, isAdmin);
@@ -2171,12 +2229,18 @@
       }
 
       if (action === 'toggle' && p) {
+        var publish = !p.is_published;
+        btn.disabled = true;
         try {
-          await apiFetch('/products/' + encodeURIComponent(id), { method: 'POST', body: { is_published: !p.is_published } });
+          await apiFetch('/products/' + encodeURIComponent(id), { method: 'POST', body: { is_published: publish } });
+          // Same as the wizard's Publish: switch its AR target on, so the shop's "See it in
+          // action" plays (shirts' own QR links play either way).
+          var arNote = publish ? await switchOnTargetForPublish(p.ar_target_id) : '';
           await refresh();
+          showStatus((publish ? '“' + (p.title || 'Product') + '” is published: it is in the shop now.' : '“' + (p.title || 'Product') + '” is unpublished: it is out of the shop.') + arNote, arNote ? 'error' : 'success');
         } catch (e) {
           showStatus(e.message || String(e), 'error');
-        }
+        } finally { btn.disabled = false; }
         return;
       }
 
@@ -2823,7 +2887,13 @@
 
         var isProductPfLinked = isPrintfulPrintable;
         var linkedProducts = products.filter(isProductPfLinked).length;
-        var unlinkedPublished = products.filter(function(p) { return p.is_published && !isProductPfLinked(p); }).length;
+        var unprintable = products.filter(function(p) { return p.is_published && !isProductPfLinked(p); });
+        var unlinkedPublished = unprintable.length;
+        // Name each one and what it lacks ("Coffee Shirt: no print file"), not just a count.
+        var unprintableWhy = unprintable.length
+          ? unprintable.slice(0, 3).map(function(p) { return (p.title || 'Untitled') + ': ' + printfulUnprintableReason(p); }).join(' · ') +
+            (unprintable.length > 3 ? ' · …' : '') + '. Checkout refuses them until fixed.'
+          : '';
 
         var flaggedOrders = paid.filter(function(o) {
           var s = (o.printful_status || '').toLowerCase();
@@ -2855,7 +2925,7 @@
           cur: cur, totalRevenue: totalRevenue, ordersCount: allOrders.length, paidCount: paid.length,
           pending: pending.length, delayedPending: delayedPending,
           ordersToday: ordersToday, ordersYesterday: ordersYesterday,
-          linkedProducts: linkedProducts, totalProducts: products.length, unlinkedPublished: unlinkedPublished,
+          linkedProducts: linkedProducts, totalProducts: products.length, unlinkedPublished: unlinkedPublished, unprintableWhy: unprintableWhy,
           flaggedOrders: flaggedOrders, days: days, trend: trend, revenueTrendPct: revenueTrendPct
         };
       }
@@ -2884,8 +2954,8 @@
           items.push({
             key: 'unlinked', tone: 'red',
             icon: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-            title: m.unlinkedPublished + ' published product' + (m.unlinkedPublished === 1 ? '' : 's') + ' not linked to Printful',
-            sub: 'Live on the storefront but can’t be fulfilled until linked.',
+            title: m.unlinkedPublished + ' published product' + (m.unlinkedPublished === 1 ? '' : 's') + ' can’t be printed yet',
+            sub: m.unprintableWhy || 'Live on the storefront but can’t be fulfilled until fixed.',
             action: 'Review products', onClick: function() { showTab('tab-products'); }
           });
         }
@@ -3012,7 +3082,7 @@
         var linkEl = document.getElementById('dashLinkedValue');
         if (linkEl) linkEl.textContent = m.linkedProducts + ' / ' + m.totalProducts;
         var linkCapEl = document.getElementById('dashLinkedCaption');
-        if (linkCapEl) linkCapEl.textContent = m.unlinkedPublished > 0 ? (m.unlinkedPublished + ' published without a link') : 'All published products linked';
+        if (linkCapEl) linkCapEl.textContent = m.unlinkedPublished > 0 ? (m.unlinkedPublished + ' published but not printable yet') : 'Every published product can be printed';
 
         renderDashboardAttention(m);
         renderDashboardRecentOrders();
@@ -3064,6 +3134,15 @@
       var qrArt = null;      // { url, w, h, isPhoto, canvas, readable, slot, clean } for the selected placement;
                              // clean: { canvas, blob, objectUrl, url }, the art with the spot's marker erased
       var qrDraft = null;    // { placement, url } uploaded but not saved yet
+      var qrArtFit = null;   // { width_in, align: 'top'|'centre' }: the design's size on the shirt (null: fitted whole, centred)
+      // product id -> placements its last Printful import found print files for. Kept in this
+      // browser, so the QR step still opens on the right side after a reload or a day later.
+      var pfImportPlacements = {};
+      try { pfImportPlacements = JSON.parse(localStorage.getItem('inrl.pfImportPlacements') || '{}') || {}; } catch (e) {}
+      function rememberImportPlacements(productId, placements) {
+        pfImportPlacements[String(productId)] = placements;
+        try { localStorage.setItem('inrl.pfImportPlacements', JSON.stringify(pfImportPlacements)); } catch (e) {}
+      }
       var qrSnap = null;     // { size_in, top_in, left_in } detected from the slot
       var qrInk = null;      // '#rrggbb': the placeholder QR's colour, which each shirt's QR is printed in (null: black)
       var qrArtLoadSeq = 0;
@@ -3106,7 +3185,42 @@
       function qrArtBox() {
         var a = qrCurrentArea();
         if (!a || !qrArt) return null;
-        return Object.assign({ url: qrArt.url }, QrPrint.fitArtBox(a, qrArt));
+        var box = qrArtFit ? QrPrint.sizedArtBox(a, qrArt, qrArtFit.width_in, qrArtFit.align) : QrPrint.fitArtBox(a, qrArt);
+        return Object.assign({ url: qrArt.url }, box);
+      }
+      // The "Design on the shirt" controls follow the art box (and its largest size).
+      function qrSyncArtSize() {
+        var wrap = qrEl('qrArtSize'), a = qrCurrentArea(), ab = qrArtBox();
+        wrap.hidden = !(ab && qrArt && qrArt.readable && !qrArt.isPhoto);
+        if (wrap.hidden) return;
+        var input = qrEl('qrArtWidth');
+        input.max = QrPrint.fitArtBox(a, qrArt).width_in.toFixed(2);
+        if (document.activeElement !== input) input.value = ab.width_in.toFixed(2);
+        qrEl('qrArtAlign').value = qrArtFit ? qrArtFit.align : (ab.top_in < 0.005 ? 'top' : 'centre');
+        // The QR's colour: taken from a coloured placeholder when there is one, else chosen here.
+        qrEl('qrInkMode').value = qrInk ? 'ink' : '';
+        if (qrInk) qrEl('qrInkPick').value = qrInk;
+        qrEl('qrInkPick').disabled = !qrInk;
+      }
+      function qrInkChanged() {
+        var on = qrEl('qrInkMode').value === 'ink';
+        qrEl('qrInkPick').disabled = !on;
+        var hex = String(qrEl('qrInkPick').value || '').toLowerCase();
+        qrSetInk(on && /^#[0-9a-f]{6}$/.test(hex) && hex !== '#000000' ? hex : null);
+        qrRender();
+      }
+      // Changing the design's size or place moves a QR spot found in it along with it.
+      function qrArtSizeChanged() {
+        var a = qrCurrentArea();
+        if (!a || !qrArt) return;
+        qrArtFit = { width_in: Number(qrEl('qrArtWidth').value) || 0, align: qrEl('qrArtAlign').value };
+        var s = qrArt.slot;
+        if (s && !s.error && (s.kind === 'qr' || s.kind === 'disc')) {
+          var p = QrPrint.slotPlacement(s, qrArt, qrArtBox(), a);
+          if (!p.error) { qrSnap = p; qrSetValues(p); }
+        }
+        qrRender();
+        qrShowArtHint();
       }
       function qrValues() {
         return { size: Number(qrEl('qrSize').value) || 0, top: Number(qrEl('qrTop').value) || 0, left: Number(qrEl('qrLeft').value) || 0 };
@@ -3143,7 +3257,7 @@
         var bad = function(head, tail) { el.innerHTML = '<span style="color:#b23b3b">' + head + '</span> ' + tail; };
         if (!s) { el.textContent = 'Looking for the QR spot…'; return; }
         if (s.kind === 'manual') {
-          el.innerHTML = '<span style="color:#c17a2e">No placeholder QR found in this file' + (s.why === 'no_reader' ? " (the QR reader couldn't load)" : '') + ',</span> so each shirt\'s QR prints where you place it. Nothing is erased: anything under it is covered.';
+          el.innerHTML = '<span style="color:#c17a2e">No placeholder QR found in this file' + (s.why === 'no_reader' ? " (the QR reader couldn't load)" : '') + ',</span> so each shirt\'s QR prints where you place it. Nothing is erased: anything under it is covered.' + qrInkNote();
           return;
         }
         if (s.error === 'none') return bad('No QR spot found.', "Put a placeholder QR (any QR) where each shirt's QR goes and re-upload.");
@@ -3204,13 +3318,15 @@
         box.setAttribute('aria-valuetext', 'QR ' + v.size.toFixed(2) + ' inches wide, ' + v.left.toFixed(2) + ' from the left, ' + v.top.toFixed(2) + ' from the top');
         qrRenderZoom();
         qrSlotStatus();
+        qrSyncArtSize();
         qrUpdateSave();
       }
       function qrShowArtHint() {
         var hint = qrEl('qrStageHint');
         var ab = qrArtBox();
+        qrSyncArtSize();
         if (!qrArt || !ab) {
-          hint.textContent = 'No print file for this placement yet.';
+          hint.textContent = 'No print file for this placement yet: upload the design file below.';
           return;
         }
         var dpi = Math.round(qrArt.w / ab.width_in);
@@ -3218,9 +3334,9 @@
         var fills = Math.abs(ab.width_in - a.w) < 0.02 && Math.abs(ab.height_in - a.h) < 0.02;
         hint.textContent = (qrDraft ? 'Unsaved upload. ' : '') +
           (qrArt.isPhoto ? (qrArt.hasAlpha ? 'Storefront photo, used as the front print file (it has a transparent background). ' : 'Storefront photo, not a print file. ') : '') +
-          'Print file ' + qrArt.w + ' × ' + qrArt.h + ' px, ' + dpi + ' DPI' +
-          (fills ? ', fills the print area exactly.' : '; its shape differs from the print area, so it is centred with empty margins.') +
-          (dpi < 150 ? ' Too low for a sharp print: export at ' + Math.round(a.w * 300) + ' × ' + Math.round(a.h * 300) + ' px.' : '');
+          'Print file ' + qrArt.w + ' × ' + qrArt.h + ' px, printed ' + ab.width_in.toFixed(2) + ' × ' + ab.height_in.toFixed(2) + ' in at ' + dpi + ' DPI' +
+          (fills ? ', filling the print area exactly.' : '.') +
+          (dpi < 150 ? ' Too low for a sharp print (aim for 300 DPI): ask for a ' + Math.round(ab.width_in * 300) + ' px wide export, or print it smaller.' : '');
       }
       // Finds where each shirt's QR goes: a placeholder QR left in the design (any QR, any colour;
       // QrFind.findCodes), else a #FF00FF disc. Two or more QR codes is an error, since only one
@@ -3288,7 +3404,7 @@
         var seq = ++qrArtLoadSeq;
         var src = qrArtUrlFor(qrEl('qrPlacement').value);
         qrDropClean(qrArt);
-        qrArt = null; qrSnap = null; qrInk = null;
+        qrArt = null; qrSnap = null; qrInk = null; qrArtFit = null;
         qrRender();
         qrShowArtHint();
         if (!src) return;
@@ -3313,6 +3429,11 @@
             art.hasAlpha = clear / seen > 0.05; // print art, not a photo
           } catch (e) { art.readable = false; }
           qrArt = art;
+          // The design's size on the shirt: as saved with this exact file, else fitted whole.
+          var savedQr = qrProduct && qrProduct.printful_qr;
+          qrArtFit = savedQr && savedQr.art && savedQr.art.url === art.url && savedQr.placement === qrEl('qrPlacement').value
+            ? { width_in: Number(savedQr.art.width_in), align: Number(savedQr.art.top_in) < 0.005 ? 'top' : 'centre' }
+            : null;
           qrRender();
           qrShowArtHint();
           if (!art.readable) { qrSetStatus("This file can't be used for print files: re-upload it here.", true); return; }
@@ -3338,7 +3459,7 @@
             // A coloured placeholder QR: each shirt's QR is printed in its colour.
             if (!slot.error) qrSetInk(slot.kind === 'qr' ? qrInkHex(slot.ink) : null);
             if (!slot.error && a) {
-              var p = QrPrint.slotPlacement(slot, art, QrPrint.fitArtBox(a, art), a);
+              var p = QrPrint.slotPlacement(slot, art, qrArtBox(), a);
               if (p.error) slot = { error: p.error };
               else {
                 try { art.clean = await qrEraseSpot(art, data, slot); } catch (e) { slot = { error: 'erase_failed' }; }
@@ -3417,12 +3538,22 @@
         qrSetStatus('Loading placements…');
         try {
           var res = await apiFetch('/admin/printful/catalog/' + encodeURIComponent(p.printful_catalog_product_id) + '/placements');
-          qrPlacements = (res && res.placements) || [];
+          // Printful lists some placements more than once (one per technique): one option each.
+          var seenPl = {};
+          qrPlacements = ((res && res.placements) || []).filter(function(pl) {
+            if (!pl || !pl.placement || seenPl[pl.placement]) return false;
+            return (seenPl[pl.placement] = true);
+          });
           sel.innerHTML = qrPlacements.map(function(pl) {
             return '<option value="' + escapeHtml(pl.placement) + '">' + escapeHtml(pl.display_name || pl.placement) + '</option>';
           }).join('');
+          // Open on where this piece actually prints: the saved QR, a print file on hand, or the
+          // placements the Printful import reported (e.g. a back-only design), before Front.
+          var has = function(v) { return v && qrPlacements.some(function(x) { return x.placement === v; }); };
           var art = p.printful_design_images ? Object.keys(p.printful_design_images) : [];
-          sel.value = saved ? saved.placement : (art[0] || (qrPlacements.some(function(x) { return x.placement === 'front'; }) ? 'front' : (qrPlacements[0] && qrPlacements[0].placement) || ''));
+          var imported = (pfImportPlacements[String(p.id)] || []).filter(has);
+          sel.value = saved && has(saved.placement) ? saved.placement
+            : (art.filter(has)[0] || imported[0] || (has('front') ? 'front' : (qrPlacements[0] && qrPlacements[0].placement) || ''));
           qrShowArea();
           qrSetStatus(saved ? 'Saved settings loaded.' : 'Not saved yet — checkout refuses this product until it is.');
         } catch (e) {
@@ -3430,7 +3561,19 @@
         }
       }
       if (qrModalEl) {
-        qrEl('qrPlacement').addEventListener('change', qrShowArea);
+        // A file uploaded before switching placement goes with the switch, instead of
+        // staying behind on the placement it was uploaded for.
+        qrEl('qrPlacement').addEventListener('change', function() {
+          var to = qrEl('qrPlacement').value;
+          var moved = qrDraft && qrDraft.placement !== to;
+          if (moved) qrDraft.placement = to;
+          qrShowArea();
+          if (moved) qrSetStatus('Your uploaded file moved to ' + (qrEl('qrPlacement').selectedOptions[0] || {}).textContent + ' (not saved yet).');
+        });
+        qrEl('qrArtWidth').addEventListener('input', qrArtSizeChanged);
+        qrEl('qrArtAlign').addEventListener('change', qrArtSizeChanged);
+        qrEl('qrInkMode').addEventListener('change', qrInkChanged);
+        qrEl('qrInkPick').addEventListener('input', qrInkChanged);
         qrEl('qrShowSample').addEventListener('change', qrLoadSample);
         qrEl('qrCentreBtn').addEventListener('click', function() {
           var a = qrCurrentArea();
@@ -3503,9 +3646,18 @@
           input.value = '';
           if (!file || !qrProduct) return;
           var placement = qrEl('qrPlacement').value;
-          if (!placement) { qrSetStatus('Pick a placement first.', true); return; }
-          if (file.type !== 'image/png') { qrSetStatus('Upload a PNG: JPEG blurs the #FF00FF slot marker.', true); return; }
+          if (!placement) { qrSetStatus('Pick where it prints first.', true); return; }
+          if (file.type !== 'image/png' && file.type !== 'image/webp') { qrSetStatus('Upload a PNG or WebP with a transparent background. A JPEG has no transparency (it would print a white box) and blurs the QR spot.', true); return; }
           try {
+            // WebP is turned into a PNG here, so print files are always PNG.
+            if (file.type === 'image/webp') {
+              qrSetStatus('Converting the WebP to PNG…');
+              var bmp = await createImageBitmap(file);
+              var cvt = document.createElement('canvas');
+              cvt.width = bmp.width; cvt.height = bmp.height;
+              cvt.getContext('2d').drawImage(bmp, 0, 0);
+              file = new File([await canvasBlob(cvt)], String(file.name || 'design').replace(/\.webp$/i, '') + '.png', { type: 'image/png' });
+            }
             qrSetStatus('Uploading print file…');
             var url = await uploadProductImage(file, 'products/' + qrProduct.id + '/print');
             qrDraft = { placement: placement, url: url };
@@ -3739,9 +3891,10 @@
         document.getElementById('pfSyncPickerResolved').style.display = 'none';
         document.getElementById('pfSyncPickerArtResult').style.display = 'none';
         document.getElementById('pfSyncPickerSaveOverridesBtn').style.display = 'none';
-        pfSyncPickerSetStatus('Search for the product you designed on printful.com.');
         pfSyncPickerLastResolved = null;
         if (pfSyncPickerModalInstance) pfSyncPickerModalInstance.show();
+        // List what's there straight away; the search box only narrows it down.
+        pfSyncPickerSearch().catch(function(e) { pfSyncPickerSetStatus(e.message || String(e)); });
       }
 
       function renderPfSyncPickerResults(items) {
@@ -3764,6 +3917,13 @@
         document.getElementById('pfSyncPickerResolved').style.display = '';
         document.getElementById('pfSyncPickerResolvedName').textContent = name || '';
         var sizes = Object.keys(variantMap || {}).concat(missing || []);
+        // The sizes as plain chips; Printful's own variant numbers only matter when a size
+        // didn't match, so they stay folded away unless one needs typing in.
+        document.getElementById('pfSyncPickerSizeChips').innerHTML = sizes.map(function(size) {
+          var isMissing = (missing || []).indexOf(size) !== -1;
+          return '<span class="' + (isMissing ? 'is-missing' : '') + '" title="' + (isMissing ? 'Not matched: type its Printful variant number below' : 'Imported') + '">' + escapeHtml(size) + (isMissing ? ' ?' : '') + '</span>';
+        }).join('');
+        document.getElementById('pfSyncPickerVariantDetails').open = !!(missing && missing.length);
         var grid = document.getElementById('pfSyncPickerVariantGrid');
         grid.innerHTML = sizes.map(function(size) {
           var val = variantMap && variantMap[size] != null ? String(variantMap[size]) : '';
@@ -3805,24 +3965,30 @@
 
       // What the import did with the print files: a product without one can't be sold, so say
       // so, in its own box under the imported product (ok: every placement found was copied).
+      // In plain words, with Printful's own details folded underneath for whoever needs them.
       function pfImportArtResult(res) {
         if (!res || !('art_report' in res)) {
           return { ok: false, text: "The server didn't report on print files: the Worker is older than this dashboard. Deploy the Worker, then import again." };
         }
         var report = res.art_report || {};
         var places = Object.keys(report);
+        var name = function(pl) { return pl === 'front' ? 'front' : pl === 'back' ? 'back' : pl.replace(/_/g, ' '); };
         if (!places.length) {
-          return { ok: false, text: 'No print file found in Printful (it only sent: ' + ((res.file_types || []).join(', ') || 'nothing') + '). Upload the print PNG in QR placement instead.' };
+          return { ok: false, text: 'Printful sent no print file for this piece. Next: in step 3 (Shirt QR), upload your design file.',
+            detail: 'File types Printful sent: ' + ((res.file_types || []).join(', ') || 'none') + '.' };
         }
-        var ok = true;
-        var text = places.map(function(pl) {
+        var copied = places.filter(function(pl) { return report[pl].result === 'copied'; });
+        var missing = places.filter(function(pl) { return report[pl].result !== 'copied'; });
+        var detail = places.map(function(pl) {
           var r = report[pl];
-          var size = r.width ? ' ' + r.width + '×' + r.height + (r.dpi ? ' at ' + r.dpi + ' DPI' : '') : '';
-          if (r.result === 'copied') return 'Print file ' + pl + ': copied' + (size ? ' (' + size.trim() + ')' : '') + (r.source && r.source !== 'print file' ? ', from ' + r.source : '') + '.';
-          ok = false;
-          return 'Print file ' + pl + (size ? ' (' + size.trim() + ')' : '') + ': NOT copied: ' + r.result + (r.lookup ? ' (' + r.lookup + ')' : '') + '.';
+          var size = r.width ? r.width + '×' + r.height + ' px' : '';
+          return name(pl) + (size ? ' (' + size + ')' : '') + ': ' + (r.result === 'copied' ? 'copied' + (r.source && r.source !== 'print file' ? ' from ' + r.source : '') : r.result + (r.lookup ? ' (' + r.lookup + ')' : '')) + '.';
         }).join('\n');
-        return { ok: ok, text: text + (ok ? '' : '\nUpload the print PNG in QR placement instead.') };
+        if (!missing.length) return { ok: true, text: 'Print file' + (copied.length > 1 ? 's' : '') + ' copied for the ' + copied.map(name).join(' and ') + '.', detail: detail };
+        return { ok: false,
+          text: 'Printful prints this piece on the ' + places.map(name).join(' and ') + ', but didn\'t share the ' + missing.map(name).join(' and ') + ' print file (it keeps files uploaded in its design maker to itself).' +
+            '\nNext: in step 3 (Shirt QR), upload the same design file you used on Printful, and set its size to match.',
+          detail: detail };
       }
       function pfShowArtResult(res) {
         var box = document.getElementById('pfSyncPickerArtResult');
@@ -3830,10 +3996,10 @@
         var r = pfImportArtResult(res);
         box.style.display = '';
         box.style.whiteSpace = 'pre-line';
-        box.style.color = r.ok ? '#1c5d68' : '#b23b3b';
-        box.style.borderColor = r.ok ? '#1c5d68' : '#b23b3b';
-        box.style.background = r.ok ? 'rgba(18,162,184,.08)' : 'rgba(178,59,59,.06)';
-        box.textContent = r.text;
+        box.style.color = r.ok ? '#1c5d68' : '#7a4a17';
+        box.style.borderColor = r.ok ? '#1c5d68' : '#b26a1f';
+        box.style.background = r.ok ? 'rgba(18,162,184,.08)' : 'rgba(178,106,31,.08)';
+        box.innerHTML = escapeHtml(r.text) + (r.detail ? '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:.68rem">Printful details</summary><div style="font-size:.68rem;white-space:pre-line">' + escapeHtml(r.detail) + '</div></details>' : '');
       }
 
       async function pfSyncPickerLinkTo(syncProductId) {
@@ -3845,10 +4011,13 @@
           body: { sync_product_id: Number(syncProductId) },
         });
         pfSyncPickerLastResolved = { syncProductId: Number(syncProductId), map: res.printful_sync_variant_map || {} };
-        renderPfSyncPickerResolved('Sync product #' + syncProductId, res.printful_sync_variant_map || {}, res.missing || [], res.image_urls || []);
+        rememberImportPlacements(productId, Object.keys(res.art_report || {}));
+        var pickedRow = document.querySelector('.pf-sync-picker-row[data-sync-id="' + String(syncProductId) + '"]');
+        var pickedName = pickedRow ? (pickedRow.querySelector(':scope > div > div') || {}).textContent : '';
+        renderPfSyncPickerResolved((pickedName || 'Printful piece') + ' (#' + syncProductId + ')', res.printful_sync_variant_map || {}, res.missing || [], res.image_urls || []);
         pfSyncPickerSetStatus(((res.missing && res.missing.length)
-          ? (res.missing.length + ' size(s) need a manual variant ID (see below).')
-          : 'All sizes imported.'));
+          ? (res.missing.length + ' size(s) need a Printful variant number (see below).')
+          : 'Imported. All sizes came across.'));
         pfShowArtResult(res);
         await loadPrintfulProducts();
         await refresh();
@@ -4261,6 +4430,9 @@
               '\nShirts printed for this piece open this target, so it stays linked.';
           }
           var mode = (document.querySelector('input[name="wzArMode"]:checked') || {}).value || 'new';
+          // The target is named after the piece as it is now (the title may have changed since
+          // the import), unless a name was typed in by hand.
+          if (!el('wzTargetName').dataset.typed) el('wzTargetName').value = el('titleInput').value.trim() || (p && p.title) || '';
           el('wzArNew').classList.toggle('hidden', locked || mode !== 'new');
           el('wzArExisting').classList.toggle('hidden', locked || mode !== 'existing');
           if (!locked && mode === 'new') loadCropSource(p);
@@ -4585,6 +4757,7 @@
         ['titleInput', 'categoryInput', 'colorInput', 'sizesInput', 'priceInput'].forEach(function(id) {
           el(id).addEventListener('input', function() { if (wzStep === 2) render(); });
         });
+        el('wzTargetName').addEventListener('input', function() { this.dataset.typed = '1'; });
         // Coming back from a modal (QR placement, Printful import): the record changed.
         [qrModalEl, pfSyncPickerModalEl].forEach(function(m) {
           if (m) m.addEventListener('hidden.bs.modal', async function() { await reload(); render(); });
@@ -4597,6 +4770,7 @@
           el('wzVideoFile').value = ''; videoDims = null; el('wzVideoFit').textContent = '';
           el('wzCreateStatus').textContent = '';
           el('wzTargetName').value = (p && p.title) || '';
+          delete el('wzTargetName').dataset.typed;
           var rec = p ? productRecord(p.id) || p : null;
           // A published piece with no QR and no target is a plain one; a new piece has AR.
           var plain = rec && rec.ar_target_id == null && !rec.printful_qr && (rec.is_published || readNoAr(rec.id));

@@ -27,6 +27,7 @@
     .stars svg{color:var(--accent-500)}.stars .off{color:var(--surface-4)}
     .pd-price{font-size:20px;color:var(--ink-900);margin-bottom:20px}
     .pd-lead{font-size:15px;line-height:1.6;color:var(--ink-700);max-width:600px;margin-bottom:28px}
+    .pd-draft{margin:0 0 20px;padding:10px 14px;border-left:3px solid #b26a1f;background:#fbf1e4;color:#4a2c0c;font-size:14px;line-height:1.5}
     .opt-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
     .sizes{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
     .size{min-width:48px;height:48px;padding:0 14px;border:1px solid var(--surface-4);border-radius:8px;background:var(--surface-0);color:var(--ink-900);font-size:14px;cursor:pointer}
@@ -100,6 +101,7 @@
         </div>
 
         <div>
+          <p class="pd-draft" id="pdDraft" role="status" hidden><strong>Draft.</strong> Only you can see this page: shoppers can&rsquo;t until it is published in the dashboard.</p>
           <p class="t-label" id="pdKicker" style="color:var(--ink-700)"></p>
           <h1 class="t-task" id="pdTitle">Loading&hellip;</h1>
           <div class="stars" id="pdStars" hidden></div>
@@ -304,8 +306,11 @@
       document.getElementById('pdLead').textContent = p.summary || firstSentence;
       document.getElementById('pdDesc').textContent = desc || 'No description yet.';
 
+      document.getElementById('pdDraft').hidden = p.is_published !== false;
       images = (Array.isArray(p.image_urls) && p.image_urls.length ? p.image_urls : (p.image_url ? [p.image_url] : [])).map(INRL.imageUrl);
-      var thumbs = images.length > 1 ? images : [images[0] || '', '', '', ''];
+      // One photo: no thumbnail row (it would be one picture and three empty boxes).
+      var thumbs = images.length > 1 ? images : [];
+      document.getElementById('galleryThumbs').hidden = thumbs.length < 2;
       document.getElementById('galleryThumbs').innerHTML = thumbs.slice(0, 4).map(function (u, i) {
         return '<button type="button" aria-label="Image ' + (i + 1) + '" aria-current="' + (i === 0) + '"' + (u || images.length ? '' : ' disabled') + '>' + (u ? '<img src="' + esc(u) + '" alt="" onerror="this.remove()">' : '') + '</button>';
       }).join('');
@@ -327,7 +332,7 @@
 
       /* purchasable comes from the API (same rule checkout enforces). A piece that isn't set up
          to ship yet can't go in the bag, so nobody finds out only at Place order. */
-      var notForSale = !sold && p.purchasable === false;
+      var notForSale = !sold && (p.purchasable === false || p.is_published === false);
       var addBtns = [document.getElementById('addToBag'), document.getElementById('addToBagM')];
       addBtns.forEach(function (b) {
         b.disabled = sold || notForSale;

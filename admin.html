@@ -237,13 +237,13 @@
 
     <ul class="nav flex-column inrl-sidebar-nav">
       <li class="nav-item">
-        <button id="uploadTab" class="nav-link bg-blue-600">
+        <button id="uploadTab" class="nav-link">
           <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
           Upload Target
         </button>
       </li>
       <li class="nav-item">
-        <button id="listTab" class="nav-link">
+        <button id="listTab" class="nav-link bg-blue-600">
           <svg class="inrl-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7l8 4 8-4Z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg>
           Existing Targets
         </button>
@@ -364,7 +364,7 @@
   </div>
 
   <!-- UPLOAD SECTION -->
-  <section id="uploadSection">
+  <section id="uploadSection" class="hidden">
     <h2 class="inrl-heading">Upload AR Target</h2>
 
     <!-- Step 1 -->
@@ -434,7 +434,7 @@
   </section>
 
   <!-- LIST SECTION -->
-  <section id="listSection" class="hidden">
+  <section id="listSection">
     <h2 class="inrl-heading">Existing Targets</h2>
 
     <!-- Admin-only filters -->
@@ -2272,7 +2272,10 @@
 
       (async () => {
         await initAdminContext();
-        loadTargets();
+        // Open on the targets (what is live, and the Set active / Deactivate switches);
+        // #upload opens the upload form instead.
+        if (location.hash === '#upload') { uploadTab.click(); loadTargets(); }
+        else listTab.click();
       })();
 
       // ---------- Image Modal Logic ----------

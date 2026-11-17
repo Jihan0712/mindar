@@ -76,11 +76,13 @@
       var sortEl = document.getElementById('shopSortSelect');
 
       function norm(s) { return String(s || '').trim().toLowerCase(); }
-      /* Whole-word match, so "Men" finds "Men" and "Men's tees" but not "Women". */
+      /* Whole-word match, so "Men" finds "Men" and "Men's tees" but not "Women". A Unisex
+         piece is for everyone, so it shows under Men and under Women too. */
       function inCategory(p, cat) {
         cat = norm(cat); if (!cat) return true;
-        var c = norm(p && p.category);
-        return c === cat || c.split(/[^a-z0-9]+/).indexOf(cat) !== -1;
+        var words = norm(p && p.category).split(/[^a-z0-9]+/);
+        if (norm(p && p.category) === cat || words.indexOf(cat) !== -1) return true;
+        return (cat === 'men' || cat === 'women') && words.indexOf('unisex') !== -1;
       }
       function state() {
         var u = new URL(location.href);
