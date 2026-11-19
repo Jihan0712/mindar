@@ -6,9 +6,9 @@ live site**. Each open item says where the problem is and what "done" looks like
 
 Last updated: 2026-11-19
 
-**Status:** 33 done · 23 open · 3 won't fix · plus 5 ideas
+**Status:** 34 done · 22 open · 4 won't fix · plus 5 ideas
 
-Key: `[x]` done and checked live · `[ ]` open · `[-]` won't fix (outside our code)
+Key: `[x]` done and checked live · `[ ]` open · `[-]` won't fix (outside our code, or no longer applies)
 
 ---
 
@@ -132,10 +132,13 @@ pushed the same way. Our tools never showed the mismatch:
   under it is joined up again (lines and white fill). Test: `test/qr-placeholder.test.mjs`.
 - [x] **The live Fingerprints Tee print file had the old cut.** *Fixed 2026-11-19:* rebuilt with
   the clean erase (bar border and fill kept); shirt QR 1.4 in, #b64445, decodes.
-- [ ] **The colour read from a textured placeholder comes out lighter** (#cb7677 from a
-  #b64445 badge: antialiased edges are averaged in).
-  *Done when:* the ink is taken from the badge's solid pixels, or the admin sets it with the
-  QR colour control.
+- [-] **The colour read from a textured placeholder comes out lighter** (#cb7677 from a
+  #b64445 badge). *No longer applies:* placeholders aren't read any more (next item).
+- [x] **Finding and erasing a placeholder QR looked bad on real designs.** *Changed
+  2026-11-19:* the QR step no longer looks for or erases a QR in the design. Upload a clean
+  design (no QR in it), then place each shirt's QR yourself: drag it, type exact values, or use
+  a quick spot (below the design / over it); pick its colour with the QR colour control. The
+  design is printed exactly as uploaded.
 
 ## 4. AR stability
 
