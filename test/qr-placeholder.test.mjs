@@ -210,3 +210,51 @@ test('a placeholder printed in red (not black) on a transparent file is measured
   for (let y = 0; y < pixels; y++) for (let x = 0; x < pixels; x++) if (em.alpha(x, y) >= 250 && art.px[((oy + y) * W + ox + x) * 4 + 3]) left++;
   assert.equal(left, 0, 'no red placeholder pixel left');
 });
+
+// A coloured placeholder drawn over the design (a designer's red QR badge sitting on a bar with
+// a black border and a white fill, its light modules transparent): only the placeholder's own
+// colour is erased, every shade of it, and what ran under it is joined up again, so no black
+// line or white fill is lost and no red is left (2026-11-19, Fingerprints Tee).
+test('a red placeholder over a black-bordered white bar: red erased, border and fill kept', async () => {
+  const QR = await loadQr();
+  const { size, modules } = QR.qrMatrix('https://shop.inrl.co/p/SAMP-LE00');
+  const W = 900, H = 600, mod = 8, side = size * mod, x0 = 330, y0 = 150;
+  const RED = [182, 68, 69], BLACK = [0, 0, 0, 255], WHITE = [255, 255, 255, 255];
+  const art = canvas(W, H, [0, 0, 0, 0]);
+  // The bar: white fill, 6 px black border, running right through the placeholder.
+  const bx0 = 60, by0 = y0 + 40, bx1 = 840, by1 = y0 + side - 40;
+  for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) {
+    const edge = y - by0 < 6 || by1 - y < 6 || x - bx0 < 6 || bx1 - x < 6;
+    art.put(x, y, edge ? BLACK : WHITE);
+  }
+  // The placeholder on top: red dark modules (soft edges), light modules transparent.
+  for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+    if (modules[r * size + c] !== 1) continue;
+    for (let y = 0; y < mod; y++) for (let x = 0; x < mod; x++) {
+      const edge = x === 0 || y === 0 || x === mod - 1 || y === mod - 1;
+      art.put(x0 + c * mod + x, y0 + r * mod + y, RED.concat(edge ? 120 : 255));
+    }
+  }
+  const before = Uint8ClampedArray.from(art.px);
+  const corners = [{ x: x0, y: y0 }, { x: x0 + side, y: y0 }, { x: x0 + side, y: y0 + side }, { x: x0, y: y0 + side }];
+  const slot = placeholderSlot(art.px, W, H, corners);
+  assert.ok(slot.ink, 'a coloured placeholder');
+  eraseSpot(art.px, W, H, slot);
+  let red = 0, darkLost = 0, holesInBar = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, [r, g, b, a] = art.px.subarray(i, i + 4);
+    if (a > 10 && r - Math.max(g, b) > 40) red++;
+    const wasBlack = before[i + 3] === 255 && before[i] === 0 && before[i + 1] === 0;
+    if (wasBlack && !(a === 255 && r < 60 && g < 60 && b < 60)) darkLost++;
+    const inBar = x >= bx0 && x <= bx1 && y >= by0 && y <= by1;
+    if (inBar && a < 200) holesInBar++;
+  }
+  assert.equal(red, 0, 'no red placeholder pixel left');
+  assert.equal(darkLost, 0, 'no black design pixel lost');
+  assert.equal(holesInBar, 0, 'the bar under the placeholder is filled again, no hole');
+  // The border is joined across where the placeholder was.
+  for (const x of [x0 + 10, x0 + side / 2, x0 + side - 10]) {
+    const i = ((by0 + 2) * W + x) * 4;
+    assert.ok(art.px[i + 3] === 255 && art.px[i] < 60, `top border at x=${x} is black again`);
+  }
+});

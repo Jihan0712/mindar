@@ -4,9 +4,9 @@ Problems found while reviewing the shop as a customer, adding a product as an ad
 (Fingerprints Tee), and checking the AR. Tick an item when it is fixed **and checked on the
 live site**. Each open item says where the problem is and what "done" looks like.
 
-Last updated: 2026-11-18
+Last updated: 2026-11-19
 
-**Status:** 25 done · 21 open · 3 won't fix · plus 5 ideas
+**Status:** 32 done · 24 open · 3 won't fix · plus 5 ideas
 
 Key: `[x]` done and checked live · `[ ]` open · `[-]` won't fix (outside our code)
 
@@ -108,6 +108,36 @@ Found while adding Fingerprints Tee on 2026-11-13. Fixed in commit `3ff4a2f` (li
 - [-] Clicking an import row wrote something to the clipboard. *(Not from our code; reopen if
   it happens again.)*
 
+### Why the print didn't fill Printful's print area (2026-11-19)
+
+The design had no clear spot for the shirt's QR, so it was shrunk to 10 in to fit a QR below
+it; Printful's low-resolution warning (shown even at 116 DPI, above its own 75 DPI limit)
+pushed the same way. Our tools never showed the mismatch:
+
+- [x] **The import doesn't read where the design sits on Printful**, so our print layout and
+  Printful's can differ silently (only ours prints; Printful's is the shop photo).
+  *Fixed:* the QR step shows Printful's mockup under our layout to compare.
+- [x] **The QR step doesn't say how much of the print area the design fills.**
+  *Fixed:* "Fills 83% of the print width" plus a "Make it full width" button.
+- [x] **Nothing warns that placing the QR will shrink or cover the design.**
+  *Fixed:* with no placeholder, the QR step offers "Shrink the design, QR below it" or "Full
+  width, QR over the design" (or the neck label).
+- [x] **The QR finder missed the design's own placeholder QR** (a 1157 px export leaves it
+  ~2 px per module, under a fingerprint swirl). *Fixed:* when nothing is found in a small file,
+  the QR step looks again on a 2x then 3x enlarged copy; the badge is now found, the shirt's
+  QR takes its place (1.21 in) and it is erased under it.
+- [x] **Erasing a coloured placeholder took the design under it and left red behind** (the
+  bar's black border and white fill went; dark and faint red stayed). *Fixed:* only the
+  placeholder's own colour is erased (every shade), out to where its ink ends, and what ran
+  under it is joined up again (lines and white fill). Test: `test/qr-placeholder.test.mjs`.
+- [ ] **The live Fingerprints Tee print file still has the old cut** (its badge was erased with a
+  plain circle that also took the end of the bar).
+  *Done when:* the print file is rebuilt with the clean erase.
+- [ ] **The colour read from a textured placeholder comes out lighter** (#cb7677 from a
+  #b64445 badge: antialiased edges are averaged in).
+  *Done when:* the ink is taken from the badge's solid pixels, or the admin sets it with the
+  QR colour control.
+
 ## 4. AR stability
 
 - [x] Compared our stabiliser with the teammate's INRL2 code: same filters, gyroscope fusion
@@ -122,12 +152,20 @@ Found while adding Fingerprints Tee on 2026-11-13. Fixed in commit `3ff4a2f` (li
 
 - [x] Created, published, Unisex, AR target 47 switched on, shirt QR red on the back.
 - [ ] **Test print and scan** one shirt (per-shirt red QR opens the AR; tracking on fabric).
-- [ ] **Print resolution is ~116 DPI** at 10 in wide.
-  *Done when:* a 300 DPI export (3000 px wide) replaces it in the QR step.
+- [x] The design now fills the print area (12 in wide); each shirt's QR (1.4 in, red) prints
+  over the design's own QR badge at the end of the bar, which is erased under it. A real shirt
+  QR on this print decodes (jsQR).
+- [ ] **Print resolution is ~96 DPI** at 12 in wide.
+  *Done when:* a 300 DPI export (3600 px wide) replaces it in the QR step.
+- [x] Printful's own copy set to 12 in wide at the top (matches what prints).
+- [ ] **Shop photo still shows the old 10 in mockup.**
+  *Done when:* the piece is re-imported in the dashboard (Garment → Import from Printful) once
+  Printful has regenerated its mockups.
 - [ ] Starter video is widescreen, so it plays with bars over the tall print. Optional: a
   portrait video.
-- [ ] Four leftover copies of the design in storage (`designs/…fingerprints-back.png`,
-  `designs/…fingerprints-print-area.png`, and two unused uploads under `products/27/print/`).
+- [ ] Five leftover copies of the design in storage (`designs/…fingerprints-back.png`,
+  `designs/…fingerprints-print-area.png`, two unused uploads under `products/27/print/`, and
+  the old 10 in print file `images/1794555182779-print-back-qr-spot-erased.png`).
   *Done when:* removed (only after confirming nothing references them).
 
 ## 6. Catalogue and housekeeping

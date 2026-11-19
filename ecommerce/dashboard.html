@@ -152,6 +152,9 @@
     .qr-stage-handle { position:absolute; right:-6px; bottom:-6px; width:14px; height:14px; background:#12a2b8;
       border:2px solid #fff; cursor:nwse-resize; }
     .qr-placer { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:1.25rem; align-items:start; }
+    .qr-pf-mock { margin:0 auto; max-width:320px; }
+    .qr-pf-mock img { display:block; width:100%; border:1px solid var(--line-200); border-radius:var(--radius-md); background:var(--surface-50); }
+    .qr-spot-choice { padding:.5rem .6rem; border:1px solid #b26a1f; border-radius:var(--radius-md); background:rgba(178,106,31,.06); }
     .proof-grid { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:1.25rem; align-items:start; }
     .proof-preview { width:100%; max-height:calc(100vh - 260px); object-fit:contain; border:1px solid var(--line-200);
       background:repeating-conic-gradient(#e9e9e9 0 25%, #fafafa 0 50%) 0 0 / 16px 16px; }
@@ -1298,6 +1301,12 @@
                 <div id="qrStageHandle" class="qr-stage-handle" title="Drag to resize"></div>
               </div>
             </div>
+            <!-- Printful's own mockup (the shop photo): only our layout above prints, so the two
+                 should match; a different size here means one of them needs changing. -->
+            <figure class="qr-pf-mock mt-3" id="qrPfMock" hidden>
+              <img id="qrPfMockImg" alt="Printful's mockup of this piece" loading="lazy" />
+              <figcaption class="form-text">Printful's mockup (the shop photo). Shirts print the layout above; if the design is a different size here, change it on Printful (or here) so they match, then import again.</figcaption>
+            </figure>
           </div>
           <!-- 2: slot close-up, 3: status and actions -->
           <div class="qr-placer-side">
@@ -1329,6 +1338,18 @@
                     <option value="centre">In the middle</option>
                   </select>
                 </div>
+              </div>
+              <div class="d-flex gap-2 align-items-center mt-1">
+                <span id="qrArtCover" class="form-text m-0" style="flex:1"></span>
+                <button type="button" id="qrArtFullBtn" class="btn btn-sm btn-inrl-outline" style="font-size:.6rem;white-space:nowrap" hidden>Make it full width</button>
+              </div>
+              <div id="qrSpotChoice" class="qr-spot-choice mt-2" hidden>
+                <div class="form-text mb-1"><strong>No free spot for the QR in this design.</strong> Pick one (you can still drag the QR after):</div>
+                <div class="d-flex flex-wrap gap-1">
+                  <button type="button" class="btn btn-sm btn-inrl-outline" data-qr-spot="below" style="font-size:.6rem">Shrink the design, QR below it</button>
+                  <button type="button" class="btn btn-sm btn-inrl-outline" data-qr-spot="over" style="font-size:.6rem">Full width, QR over the design</button>
+                </div>
+                <div class="form-text mt-1">Or print the QR on the neck label: choose &ldquo;Inside label&rdquo; under Prints on.</div>
               </div>
               <label class="form-text d-block mt-2 mb-1" for="qrInkMode">Each shirt's QR prints</label>
               <div class="d-flex gap-2 align-items-center">
@@ -3197,10 +3218,41 @@
         input.max = QrPrint.fitArtBox(a, qrArt).width_in.toFixed(2);
         if (document.activeElement !== input) input.value = ab.width_in.toFixed(2);
         qrEl('qrArtAlign').value = qrArtFit ? qrArtFit.align : (ab.top_in < 0.005 ? 'top' : 'centre');
+        // How much of the print area the design uses, so a shrunk print never goes unnoticed.
+        var fitW = QrPrint.fitArtBox(a, qrArt).width_in;
+        var pct = Math.round(ab.width_in / a.w * 100);
+        var cover = qrEl('qrArtCover');
+        cover.textContent = 'Fills ' + pct + '% of the print width (' + ab.width_in.toFixed(2) + ' of ' + a.w + ' in).';
+        cover.style.color = pct < 90 ? '#7a4a17' : '';
+        qrEl('qrArtFullBtn').hidden = ab.width_in >= fitW - 0.01;
+        // No placeholder QR: offer the two ways to make room for each shirt's QR.
+        qrEl('qrSpotChoice').hidden = !(qrArt.slot && qrArt.slot.kind === 'manual');
         // The QR's colour: taken from a coloured placeholder when there is one, else chosen here.
         qrEl('qrInkMode').value = qrInk ? 'ink' : '';
         if (qrInk) qrEl('qrInkPick').value = qrInk;
         qrEl('qrInkPick').disabled = !qrInk;
+      }
+      // A design with no free QR spot: shrink it so a QR fits below it, or keep it full width
+      // and print the QR over its bottom-right corner. Either way the QR can still be dragged.
+      var QR_SPOT_IN = 1.5;
+      function qrPlaceSpot(kind) {
+        var a = qrCurrentArea();
+        if (!a || !qrArt) return;
+        var fit = QrPrint.fitArtBox(a, qrArt), s = QR_SPOT_IN, gap = 0.25, b;
+        if (kind === 'below') {
+          qrArtFit = { width_in: Math.min(fit.width_in, (a.h - s - 2 * gap) * qrArt.w / qrArt.h), align: 'top' };
+          b = qrArtBox();
+          qrSetValues({ size_in: s, top_in: b.height_in + (a.h - b.height_in - s) / 2, left_in: (a.w - s) / 2 });
+          qrSetStatus('Design shrunk to ' + b.width_in.toFixed(2) + ' in wide so the QR fits below it. Drag the QR to adjust, then Save.');
+        } else {
+          qrArtFit = { width_in: fit.width_in, align: 'top' };
+          b = qrArtBox();
+          qrSetValues({ size_in: s, top_in: Math.max(0, Math.min(a.h - s, b.top_in + b.height_in - s - 0.3)), left_in: Math.max(0, b.left_in + b.width_in - s - 0.4) });
+          qrSetStatus('Design at full width; the QR prints over its bottom-right corner. Drag it onto the part you want it to cover, then Save.');
+        }
+        qrShowArtHint();
+        qrRender();
+        qrLoadSample();
       }
       function qrInkChanged() {
         var on = qrEl('qrInkMode').value === 'ink';
@@ -3359,6 +3411,22 @@
         // Nothing decoded (or no reader): look for a QR by its finder eyes alone. A restyled,
         // recoloured or partly covered placeholder that no longer decodes still has them.
         if (!codes.length) codes = QrFind.findByLook(data, w, h);
+        // A small export (a 1157 px design, say) leaves a placeholder only ~2 px per module, too
+        // coarse to check its pattern: look again on a smoothly enlarged copy, in file px after.
+        // Twice the size first, then three times (a 1157 px design's placeholder needs 3x).
+        [2, 3].forEach(function(k) {
+          if (codes.length || Math.max(w, h) * k > 4800 * 1.5) return;
+          try {
+            var big = document.createElement('canvas');
+            big.width = w * k; big.height = h * k;
+            var bctx = big.getContext('2d', { willReadFrequently: true });
+            bctx.imageSmoothingEnabled = true; bctx.imageSmoothingQuality = 'high';
+            bctx.drawImage(cv, 0, 0, big.width, big.height);
+            codes = QrFind.findByLook(bctx.getImageData(0, 0, big.width, big.height).data, big.width, big.height).map(function(c) {
+              return Object.assign({}, c, { corners: c.corners.map(function(p) { return { x: p.x / k, y: p.y / k }; }) });
+            });
+          } catch (e) { codes = []; }
+        });
         if (codes.length > 1) return { error: 'many_qr', count: codes.length };
         if (codes.length === 1) {
           var slot = QrPrint.placeholderSlot(data, w, h, codes[0].corners);
@@ -3526,6 +3594,10 @@
         qrEl('qrSize').value = saved ? saved.size_in : '';
         qrEl('qrTop').value = saved ? saved.top_in : '';
         qrEl('qrLeft').value = saved ? saved.left_in : '';
+        // Printful's mockup (the shop photo) under our layout, to compare the design's size.
+        var mock = /printful\.com/.test(String(p.image_url || '')) ? p.image_url : '';
+        qrEl('qrPfMock').hidden = !mock;
+        if (mock) qrEl('qrPfMockImg').src = mock;
         var sel = qrEl('qrPlacement');
         sel.innerHTML = '';
         qrPlacements = [];
@@ -3573,6 +3645,17 @@
         qrEl('qrArtWidth').addEventListener('input', qrArtSizeChanged);
         qrEl('qrArtAlign').addEventListener('change', qrArtSizeChanged);
         qrEl('qrInkMode').addEventListener('change', qrInkChanged);
+        qrEl('qrArtFullBtn').addEventListener('click', function() {
+          var a = qrCurrentArea();
+          if (!a || !qrArt) return;
+          qrEl('qrArtWidth').value = QrPrint.fitArtBox(a, qrArt).width_in.toFixed(2);
+          qrArtSizeChanged();
+          if (qrArt.slot && qrArt.slot.kind === 'manual') qrSetStatus('Design at full width. Check the QR still sits where you want it.');
+        });
+        qrEl('qrSpotChoice').addEventListener('click', function(ev) {
+          var b = ev.target.closest('[data-qr-spot]');
+          if (b) qrPlaceSpot(b.getAttribute('data-qr-spot'));
+        });
         qrEl('qrInkPick').addEventListener('input', qrInkChanged);
         qrEl('qrShowSample').addEventListener('change', qrLoadSample);
         qrEl('qrCentreBtn').addEventListener('click', function() {

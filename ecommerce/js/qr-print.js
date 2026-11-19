@@ -83,6 +83,37 @@
     }
     return dark && n / dark > 0.6 ? sum.map(function (v) { return v / n; }) : null;
   }
+  // A coloured placeholder's own pixels, by hue: every shade of its ink, dark or light, solid
+  // or blended into transparency or white at its edges (the averaged ink alone misses its
+  // darkest and lightest pixels), and never black, grey or another colour of the design.
+  var INK_HUE_DEG = 28, INK_MIN_CHROMA = 35;
+  function hueOf(r, g, b) {
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h;
+    if (!d) return null;
+    if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+  }
+  function inkShade(ink, r, g, b, a) {
+    if (!ink || a < 12 || Math.max(r, g, b) - Math.min(r, g, b) < INK_MIN_CHROMA) return false;
+    var dh = Math.abs(hueOf(r, g, b) - hueOf(ink[0], ink[1], ink[2]));
+    return Math.min(dh, 360 - dh) <= INK_HUE_DEG;
+  }
+  // The white backing a coloured placeholder may sit on (not light grey design).
+  function nearWhite(r, g, b, a) { return a >= 200 && Math.min(r, g, b) >= 240 && Math.max(r, g, b) - Math.min(r, g, b) <= 12; }
+  // The ink blended towards white (its soft edges on a white backing): close to the blend
+  // (nearInk) and still visibly its hue, so light grey design never counts.
+  function inkBlend(ink, r, g, b, a) {
+    if (!ink || a < 200 || Math.max(r, g, b) - Math.min(r, g, b) < 10 || !nearInk(ink, r, g, b)) return false;
+    var dh = Math.abs(hueOf(r, g, b) - hueOf(ink[0], ink[1], ink[2]));
+    return Math.min(dh, 360 - dh) <= INK_HUE_DEG;
+  }
+  // Its hue, however faint (a near-white pixel with a trace of the ink).
+  function tinted(ink, r, g, b) {
+    var h = hueOf(r, g, b);
+    if (!ink || h === null) return false;
+    var dh = Math.abs(h - hueOf(ink[0], ink[1], ink[2]));
+    return Math.min(dh, 360 - dh) <= INK_HUE_DEG;
+  }
   // The ink, or a blend of it with the white backing (its anti-aliased edges).
   function nearInk(ink, r, g, b) {
     if (!ink) return false;
@@ -118,8 +149,12 @@
       for (var r = start; r <= cap; r++) {
         var x = Math.round(cx + dx * r), y = Math.round(cy + dy * r);
         var i = (y * width + x) * 4;
-        var inside = x >= 0 && y >= 0 && x < width && y < height && (isPlaceholderPixel(rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]) ||
-          (rgba[i + 3] >= 200 && nearInk(ink, rgba[i], rgba[i + 1], rgba[i + 2])));
+        // A coloured placeholder is traced by its own colour (and a white backing), so black or
+        // grey design touching it (a bar's outline) doesn't count as part of it.
+        var inside = x >= 0 && y >= 0 && x < width && y < height && (ink
+          ? inkShade(ink, rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]) || nearWhite(rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]) ||
+            inkBlend(ink, rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3])
+          : isPlaceholderPixel(rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]));
         if (inside) { last = r; run = 0; } else if (++run >= gap) break;
       }
       raw.push(last + 0.5);
@@ -146,18 +181,24 @@
       // of the same black or white touching it), and never past the emblem that replaces it,
       // so no design beyond the new emblem's edge is erased.
       var rays = raw.map(function (d, n) { return Math.min(d, smooth[n] + side * SPIKE_TOLERANCE, size / 2); });
-      return { left: Math.round(cx - size / 2), top: Math.round(cy - size / 2), size: Math.round(size), cx: cx, cy: cy, rays: rays, ink: ink };
+      // A coloured placeholder is erased out to where its own ink ends, even past the new
+      // emblem's edge (a badge ring wider than the emblem), since only its colour is erased.
+      var inkRays = ink ? raw.map(function (d, n) { return Math.min(d, smooth[n] + side * SPIKE_TOLERANCE); }) : null;
+      return { left: Math.round(cx - size / 2), top: Math.round(cy - size / 2), size: Math.round(size), cx: cx, cy: cy, rays: rays, inkRays: inkRays, ink: ink };
     }
     // A plain QR: a square turned like its code, reaching its quiet zone's edge on each side,
     // and never inside the code itself. A code exported as dark modules only (light ones
     // transparent) has gaps wider than the edge search allows, so on its own the search can
     // stop a module or two in and leave the code's outer ring behind when it is erased.
     var half = side / 2, edgeAt = function (a) { return Math.max(at(a), half); };
+    // A coloured placeholder's own ink is erased out to where it ends (its ring or badge too),
+    // ray by ray, and white only inside the code itself (see eraseSpot).
+    var inkRaysSq = ink ? raw.map(function (d, n) { return Math.max(half, Math.min(d, smooth[n] + side * SPIKE_TOLERANCE)); }) : null;
     var sq = { ux: Math.cos(u), uy: Math.sin(u), a0: edgeAt(u + Math.PI), a1: edgeAt(u), b0: edgeAt(u - Math.PI / 2), b1: edgeAt(u + Math.PI / 2) };
     var sz = Math.max(sq.a0 + sq.a1, sq.b0 + sq.b1);
     var du = (sq.a1 - sq.a0) / 2, dv = (sq.b1 - sq.b0) / 2;
     var mx = cx + sq.ux * du - sq.uy * dv, my = cy + sq.uy * du + sq.ux * dv;
-    return { left: Math.round(mx - sz / 2), top: Math.round(my - sz / 2), size: Math.round(sz), cx: cx, cy: cy, square: sq, ink: ink };
+    return { left: Math.round(mx - sz / 2), top: Math.round(my - sz / 2), size: Math.round(sz), cx: cx, cy: cy, square: sq, inkRays: inkRaysSq, codeHalf: half, ink: ink };
   }
 
   // eraseSpot(rgba, width, height, slot): clears the spot's marker to transparent, in place:
@@ -176,11 +217,16 @@
       return Math.abs(rgba[i] - rgba[j]) + Math.abs(rgba[i + 1] - rgba[j + 1]) + Math.abs(rgba[i + 2] - rgba[j + 2]) <= RIM_MATCH;
     };
     var cx = slot.cx, cy = slot.cy, reach, sq = slot.square;
-    if (slot.rays) reach = Math.max.apply(null, slot.rays) + 3;
+    // A coloured placeholder: only its own colour (and a white backing) is erased, out to where
+    // its ink ends; black, grey and other colours of the design inside that edge stay.
+    var coloured = !!slot.ink, outer = slot.inkRays || slot.rays;
+    if (coloured && outer) reach = Math.max(Math.max.apply(null, outer), sq ? Math.hypot(Math.max(sq.a0, sq.a1), Math.max(sq.b0, sq.b1)) : 0) + 6;
+    else if (slot.rays) reach = Math.max.apply(null, slot.rays) + 3;
     else if (sq) reach = Math.hypot(Math.max(sq.a0, sq.a1), Math.max(sq.b0, sq.b1)) + 3;
     else { cx = slot.left + slot.size / 2; cy = slot.top + slot.size / 2; reach = slot.size / 2 + 3; }
     var x0 = Math.max(0, Math.floor(cx - reach)), x1 = Math.min(width - 1, Math.ceil(cx + reach));
     var y0 = Math.max(0, Math.floor(cy - reach)), y1 = Math.min(height - 1, Math.ceil(cy + reach));
+    var bw = x1 - x0 + 1, erased = coloured ? new Uint8Array(bw * (y1 - y0 + 1)) : null;
     for (var y = y0; y <= y1; y++) {
       for (var x = x0; x <= x1; x++) {
         var i = (y * width + x) * 4;
@@ -188,7 +234,26 @@
         var dx = x + 0.5 - cx, dy = y + 0.5 - cy;
         var r = rgba[i], g = rgba[i + 1], b = rgba[i + 2], hit;
         var grey = Math.max(r, g, b) - Math.min(r, g, b) <= 40 || nearInk(slot.ink, r, g, b);
-        if (slot.rays) {
+        if (coloured) {
+          // Ink (any shade, or blended towards white): anywhere within the furthest point its ink
+          // reaches (a ridged badge's gaps stop single rays short; only this colour is erased,
+          // so the whole circle is safe). White: only an emblem's own backing, inside its traced
+          // outline; a plain coloured QR keeps any white under it (design fill, which backs the
+          // new QR). Near-white with only a trace of the ink (its faint halo on white design)
+          // goes back to the white it was, so no pink haze is left round the new QR.
+          var a0 = rgba[i + 3], d0 = Math.hypot(dx, dy);
+          var tc = (Math.atan2(dy, dx) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * RAYS;
+          var c0 = Math.floor(tc) % RAYS;
+          var inEmblem = !!slot.rays && d0 <= Math.max(slot.rays[c0], slot.rays[(c0 + 1) % RAYS]) + 2;
+          if (inkShade(slot.ink, r, g, b, a0) || inkBlend(slot.ink, r, g, b, a0)) hit = d0 <= reach;
+          else if (inEmblem && (nearWhite(r, g, b, a0) || (Math.min(r, g, b) >= 200 && tinted(slot.ink, r, g, b)))) hit = true;
+          else {
+            hit = false;
+            if (a0 >= 200 && d0 <= reach && Math.min(r, g, b) >= 180 && Math.max(r, g, b) - Math.min(r, g, b) >= 3 && tinted(slot.ink, r, g, b)) {
+              rgba[i] = rgba[i + 1] = rgba[i + 2] = Math.max(r, g, b);
+            }
+          }
+        } else if (slot.rays) {
           var t = (Math.atan2(dy, dx) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * RAYS;
           var n0 = Math.floor(t) % RAYS, n1 = (n0 + 1) % RAYS;
           var d = Math.hypot(dx, dy), edge = Math.max(slot.rays[n0], slot.rays[n1]);
@@ -208,9 +273,57 @@
         } else {
           hit = Math.hypot(dx, dy) <= reach && r - g >= 90 && b - g >= 90;
         }
-        if (hit) rgba[i] = rgba[i + 1] = rgba[i + 2] = rgba[i + 3] = 0;
+        if (hit) {
+          rgba[i] = rgba[i + 1] = rgba[i + 2] = rgba[i + 3] = 0;
+          if (coloured) erased[(y - y0) * bw + (x - x0)] = 1;
+        }
       }
     }
+    if (coloured) healErased(rgba, width, height, erased, x0, y0, bw, y1 - y0 + 1);
+  }
+
+  // A coloured placeholder is often drawn over the design (a badge on a bar's border and its
+  // white fill): erasing it leaves gaps in what ran under it. Each erased stretch, along rows
+  // then columns, whose two ends are the same opaque colour is filled with that colour, so
+  // lines are joined up and fills closed again; stretches open to transparency stay clear.
+  var HEAL_MATCH = 60;
+  function healErased(rgba, width, height, erased, x0, y0, bw, bh) {
+    var opaqueAt = function (x, y) {
+      if (x < 0 || y < 0 || x >= width || y >= height) return null;
+      var i = (y * width + x) * 4;
+      return rgba[i + 3] >= 200 ? i : null;
+    };
+    var fill = function (list, i, j) {
+      if (Math.abs(rgba[i] - rgba[j]) + Math.abs(rgba[i + 1] - rgba[j + 1]) + Math.abs(rgba[i + 2] - rgba[j + 2]) > HEAL_MATCH) return;
+      // Two light ends (white design): plain white, not the trace of ink they may carry.
+      var light = Math.min(rgba[i], rgba[i + 1], rgba[i + 2], rgba[j], rgba[j + 1], rgba[j + 2]) >= 180;
+      var white = Math.max(rgba[i], rgba[i + 1], rgba[i + 2], rgba[j], rgba[j + 1], rgba[j + 2]);
+      for (var k = 0; k < list.length; k++) {
+        var p = list[k];
+        for (var c = 0; c < 4; c++) rgba[p + c] = light && c < 3 ? white : Math.round((rgba[i + c] + rgba[j + c]) / 2);
+        erased[list.idx[k]] = 0;
+      }
+    };
+    var pass = function (alongRows) {
+      var outerN = alongRows ? bh : bw, innerN = alongRows ? bw : bh;
+      for (var o = 0; o < outerN; o++) {
+        var run = [], idx = [];
+        for (var n = 0; n <= innerN; n++) {
+          var bx = alongRows ? n : o, by = alongRows ? o : n;
+          var on = n < innerN && erased[by * bw + bx];
+          if (on) { run.push(((y0 + by) * width + x0 + bx) * 4); idx.push(by * bw + bx); continue; }
+          if (run.length) {
+            var sx = alongRows ? x0 + n - run.length - 1 : x0 + o, sy = alongRows ? y0 + o : y0 + n - run.length - 1;
+            var ex = alongRows ? x0 + n : x0 + o, ey = alongRows ? y0 + o : y0 + n;
+            var a = opaqueAt(sx, sy), b = opaqueAt(ex, ey);
+            if (a !== null && b !== null) { run.idx = idx; fill(run, a, b); }
+            run = []; idx = [];
+          }
+        }
+      }
+    };
+    pass(true);
+    pass(false);
   }
 
   // fitArtBox(area, art) -> the art drawn whole and centred in the print area, in inches.
