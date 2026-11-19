@@ -6,7 +6,7 @@ live site**. Each open item says where the problem is and what "done" looks like
 
 Last updated: 2026-11-19
 
-**Status:** 34 done · 22 open · 4 won't fix · plus 5 ideas
+**Status:** 35 done · 22 open · 4 won't fix · plus 5 ideas
 
 Key: `[x]` done and checked live · `[ ]` open · `[-]` won't fix (outside our code, or no longer applies)
 
@@ -14,11 +14,15 @@ Key: `[x]` done and checked live · `[ ]` open · `[-]` won't fix (outside our c
 
 ## 1. Customers: blockers (people get stuck)
 
-- [ ] **iPhone videos are refused.** The add-your-video page only takes MP4, up to 10 MB and
+- [x] **iPhone videos are refused.** The add-your-video page only took MP4, up to 10 MB and
   30 s. iPhones save `.MOV`, and a 15 s clip is often 20–40 MB.
-  *Where:* `ecommerce/piece.html` (`MAX`, `MAX_SECONDS`, the format check in `choose()`).
-  *Done when:* an iPhone `.MOV` of any normal length can be picked and plays on the shirt
-  (converted/shrunk automatically, with a simple trim to 30 s).
+  *Fixed 2026-11-19:* any phone video is accepted. It is converted on the buyer's phone
+  (`ecommerce/js/video-prep.js`, Mediabunny) to an H.264 MP4 under 10 MB, 720p, 30 fps, rotation
+  baked in; a longer video gets a slider to pick its 30 seconds. An MP4 that already fits is
+  uploaded as it is. Tested: a 25.6 MB HEVC .MOV (34 s) became 9.1 MB in ~2 s and plays in the
+  viewer. Test: `test/video-prep.test.mjs`.
+- [ ] **Try a real iPhone video on a real iPhone** (Safari): pick it, trim it, add it, scan.
+  *Done when:* it plays on the shirt with sound.
 - [ ] **No emails after purchase.** The only email sent is the password reset. The
   confirmation page even promises "we'll email you as soon as it clears".
   *Where:* `cloudflare/worker/index.js` (`sendMail`, the Stripe and Printful webhooks).

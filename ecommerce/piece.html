@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="css/global.css">
   <link rel="stylesheet" href="css/site.css">
   <script src="/assets/js/auth-worker.js?v=20260205"></script>
+  <!-- The video converter's AAC extension imports "mediabunny" by name (js/video-prep.js). -->
+  <script type="importmap">{ "imports": { "mediabunny": "/ecommerce/js/vendor/mediabunny/mediabunny.min.mjs" } }</script>
   <style>
     .two{display:grid;gap:16px}
     @media (min-width:1024px){.two{grid-template-columns:minmax(0,620px) minmax(0,1fr);gap:16px;align-items:start}}
@@ -52,6 +54,15 @@
     .drop strong{font:500 18px/1.3 var(--font-body);color:var(--ink-900);margin:14px 0 6px}
     .drop p{margin:0;font-size:14px}
     .drop .t-small{margin-top:10px}
+    .drop.is-chosen{min-height:220px}
+    .trim{background:var(--surface-0);padding:18px;display:grid;gap:12px;margin-top:16px}
+    .trim[hidden]{display:none}
+    .trim strong{font-weight:500;color:var(--ink-900);font-size:14px}
+    .trim p{margin:0;font-size:13px}
+    .trim video{width:100%;max-height:360px;background:#000;border-radius:var(--radius-sm)}
+    .trim video[hidden]{display:none}
+    .trim input[type=range]{width:100%;accent-color:var(--accent-700);min-height:32px}
+    .trim__row{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--ink-500)}
     .drop--bad{border-color:var(--danger-500);background:#fbe5e5;cursor:default}
     .drop--bad:hover{background:#fbe5e5}
     .drop--bad h3{font:500 22px/1.2 var(--font-display);color:var(--ink-900);text-transform:none;margin:16px 0 8px}
@@ -145,8 +156,14 @@
               <svg width="30" height="34" viewBox="0 0 30 34" aria-hidden="true"><path d="M15 34V6M3 16L15 3l12 13z" fill="var(--accent-500)" stroke="var(--accent-500)" stroke-width="2"/></svg>
               <strong id="dropTitle">Drop a file here</strong>
               <p id="dropSub">or choose one from your device</p>
-              <p class="t-small">Video only &middot; MP4, H.264 &middot; up to 10 MB &middot; vertical works best on a T-shirt</p>
+              <p class="t-small" id="dropHint">Any video from your phone, including iPhone videos &middot; we make it fit (MP4, under 10 MB, up to 30 seconds) &middot; vertical works best on a T-shirt</p>
             </label>
+            <div class="trim" id="trim" hidden>
+              <div><strong>Choose the 30 seconds to use</strong><p id="trimWhy"></p></div>
+              <video id="trimPreview" muted playsinline preload="metadata" controls></video>
+              <input type="range" id="trimStart" min="0" step="0.1" value="0" aria-label="Start of the part to use">
+              <div class="trim__row tnum"><span id="trimFrom"></span><span id="trimTo"></span></div>
+            </div>
             <div class="drop drop--bad" id="bad" hidden role="alert">
               <svg width="54" height="54" viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="25" fill="none" stroke="var(--danger-500)" stroke-width="2"/><path d="M19 19l16 16M35 19L19 35" stroke="var(--danger-500)" stroke-width="2"/></svg>
               <h3 id="badName"></h3>
@@ -202,12 +219,16 @@
   <script src="js/auth-forms.js"></script>
   <script src="js/qr-print.js"></script>
   <script src="js/qr-print-file.js"></script>
+  <script src="js/video-prep.js"></script>
   <script>
   (function () {
     var esc = INRL.esc;
     var qs = new URLSearchParams(location.search);
     var id = qs.get('id');
     var P = null, chosen = null, xhr = null;
+    // chosenInfo: what's in the chosen file (VideoPrep.inspect); prep: its VideoPrep.plan when it
+    // has to be converted first; converting: the running conversion (for Cancel).
+    var chosenInfo = null, prep = null, converting = null, chooseSeq = 0;
     var justAdded = qs.get('added') === '1';
     var MAX = 10 * 1024 * 1024, MAX_SECONDS = 30;
     var views = { layer: document.getElementById('vLayer'), replace: document.getElementById('vReplace'), publish: document.getElementById('vPublish') };
@@ -339,27 +360,90 @@
       });
     }
 
+    function setPublish(on) { ['publishTop', 'publishM'].forEach(function (x) { document.getElementById(x).disabled = !on; }); }
+    var clock = VideoPrep.clock;
+    function joinAnd(a) { return a.length < 2 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+    function isFormat(r) { return r === 'format' || r === 'codec' || r === 'audio'; }
+
+    // What's in the file, read by the converter. If the converter can't load, the browser's own
+    // reading is used and only an MP4 that already fits is accepted (as before the converter).
+    async function readFile(file) {
+      try { var info = await VideoPrep.inspect(file); info.via = 'converter'; return info; }
+      catch (e) {
+        var m = await probe(file);
+        return m.ok ? { ok: true, via: 'browser', duration: m.duration, width: m.w, height: m.h } : { ok: false, why: 'unreadable', via: 'browser' };
+      }
+    }
+
     async function choose(file) {
+      var seq = ++chooseSeq;
       var ext = (file.name.split('.').pop() || '').toUpperCase();
-      var meta = await probe(file);
-      var isMp4 = /mp4/i.test(file.type) || ext === 'MP4' || ext === 'M4V';
-      var checks = [
-        { k: 'Format', want: 'MP4, H.264', bad: !isMp4 || !meta.ok, got: !isMp4 ? (ext || file.type || 'Unknown') : (!meta.ok ? 'Can’t be played' : '—') },
-        { k: 'Size', want: 'Up to 10 MB', bad: file.size > MAX, got: mb(file.size) },
-        { k: 'Shape', want: 'Vertical works best', bad: false, got: meta.ok && meta.w && meta.w > meta.h ? 'Landscape' : '—' },
-        { k: 'Length', want: 'Under 30 seconds', bad: meta.ok && meta.duration > MAX_SECONDS, got: meta.ok && meta.duration ? '0:' + String(Math.round(meta.duration)).padStart(2, '0') : '—' },
-      ];
-      var bad = checks.filter(function (c) { return c.bad; });
-      if (bad.length) return reject(file, ext, checks, bad);
-      chosen = file;
+      resetChosen();
+      document.getElementById('drop').classList.add('is-chosen');
       document.getElementById('dropTitle').textContent = file.name;
-      document.getElementById('dropSub').textContent = mb(file.size) + (meta.duration ? ' · 0:' + String(Math.round(meta.duration)).padStart(2, '0') : '') + ' · ready to add';
-      ['publishTop', 'publishM'].forEach(function (x) { document.getElementById(x).disabled = false; });
+      document.getElementById('dropSub').textContent = mb(file.size) + ' · checking your video…';
+      var info = await readFile(file);
+      if (seq !== chooseSeq) return; // another file was chosen meanwhile
+      var p = info.ok ? VideoPrep.plan({ name: file.name, type: file.type, size: file.size, duration: info.duration, videoCodec: info.videoCodec, audioCodec: info.audioCodec, width: info.width, height: info.height }) : null;
+      var canFix = info.ok && info.via === 'converter' && info.canDecode !== false;
+      if (!info.ok || (p.action === 'convert' && !canFix)) return reject(file, ext, info, p);
+      chosen = file; chosenInfo = info; prep = p.action === 'convert' ? p : null;
+      var sub = [mb(file.size), clock(info.duration)];
+      if (prep) {
+        var todo = [];
+        if (prep.reasons.some(isFormat)) todo.push('turn it into an MP4');
+        if (prep.reasons.indexOf('size') >= 0 || prep.reasons.indexOf('resolution') >= 0) todo.push('shrink it to under 10 MB');
+        if (prep.trim) todo.push('use the 30 seconds you pick below');
+        sub.push('ready: we’ll ' + joinAnd(todo) + ' when you add it');
+      } else sub.push('ready to add');
+      if (info.width > info.height) sub.push('landscape plays smaller on a T-shirt');
+      document.getElementById('dropSub').textContent = sub.join(' · ');
+      if (prep && prep.trim) showTrim(file, info);
+      setPublish(true);
       AuthForms.status('', '', document.getElementById('rStatus'));
     }
 
-    // W-10 · Upload rejected
-    function reject(file, ext, checks, bad) {
+    /* ---------- pick the 30 seconds of a longer video ---------- */
+    var trimUrl = null, converted = null;
+    var trimEl = document.getElementById('trim'), trimV = document.getElementById('trimPreview'), trimR = document.getElementById('trimStart');
+    function trimWin() { return VideoPrep.trimWindow(chosenInfo.duration, parseFloat(trimR.value)); }
+    function trimLabel() {
+      var w = trimWin();
+      document.getElementById('trimFrom').textContent = 'From ' + clock(w.start);
+      document.getElementById('trimTo').textContent = 'to ' + clock(w.end) + ' of ' + clock(chosenInfo.duration);
+    }
+    function showTrim(file, info) {
+      trimEl.hidden = false;
+      document.getElementById('trimWhy').textContent = 'Your video is ' + clock(info.duration) + ' long and a T-shirt plays up to 30 seconds. Slide to choose where it starts.';
+      trimR.max = String(Math.max(0, info.duration - VideoPrep.LIMITS.maxSeconds));
+      trimR.value = '0';
+      trimUrl = URL.createObjectURL(file);
+      trimV.hidden = false;
+      trimV.onerror = function () { trimV.hidden = true; }; // a format this browser converts but can't preview
+      trimV.src = trimUrl;
+      trimLabel();
+    }
+    trimR.addEventListener('input', function () {
+      trimLabel();
+      if (!trimV.hidden && trimV.readyState) { try { trimV.currentTime = trimWin().start; } catch (e) {} }
+    });
+    // The preview loops inside the chosen part.
+    trimV.addEventListener('timeupdate', function () {
+      if (!chosenInfo) return;
+      var w = trimWin();
+      if (trimV.currentTime > w.end || trimV.currentTime < w.start - 0.25) trimV.currentTime = w.start;
+    });
+    function resetChosen() {
+      chosen = null; chosenInfo = null; prep = null; converted = null;
+      trimEl.hidden = true;
+      trimV.removeAttribute('src'); try { trimV.load(); } catch (e) {}
+      if (trimUrl) { URL.revokeObjectURL(trimUrl); trimUrl = null; }
+      document.getElementById('drop').classList.remove('is-chosen');
+      setPublish(false);
+    }
+
+    // W-10 · Upload rejected: a file that isn't a readable video, or one this browser can't convert.
+    function reject(file, ext, info, p) {
       document.getElementById('drop').hidden = true;
       document.getElementById('bad').hidden = false;
       document.getElementById('replaceSide').hidden = true;
@@ -368,25 +452,34 @@
       document.getElementById('rMeta').textContent = name().toUpperCase() + ' · that file cannot be used';
       document.getElementById('badName').textContent = file.name;
       document.getElementById('badMeta').textContent = mb(file.size) + ' · ' + (ext || 'unknown type');
-      var why = bad.map(function (c) { return c.k === 'Format' ? 'it is ' + (ext ? 'a' + (/^[AEIOU]/.test(ext) ? 'n ' : ' ') + ext : 'not a video this page can read') : c.k === 'Size' ? 'it is over the limit' : 'it runs longer than 30 seconds'; });
-      document.getElementById('badWhy').textContent = (bad.length === 1 ? 'One problem: ' : bad.length === 2 ? 'Two problems: ' : 'Three problems: ') + why.join(' and ') + '. Export it as MP4 (H.264), keep it under 10 MB and under 30 seconds.';
+      var reasons = (p && p.reasons) || [];
+      var noRead = !info.ok || info.canDecode === false;
+      var checks = [
+        { k: 'Video', want: 'Opens in this browser', bad: noRead, got: !info.ok ? (info.why === 'no-video' ? 'No video in it' : 'Can’t be read') : info.canDecode === false ? 'Not in this browser' : 'OK' },
+        { k: 'Format', want: 'MP4, H.264', bad: reasons.some(isFormat), got: reasons.some(isFormat) ? (ext || file.type || 'Unknown') : '—' },
+        { k: 'Size', want: 'Up to 10 MB', bad: reasons.indexOf('size') >= 0, got: mb(file.size) },
+        { k: 'Length', want: 'Up to 30 seconds', bad: !!(p && p.trim), got: info.ok && info.duration ? clock(info.duration) : '—' },
+      ];
+      document.getElementById('badWhy').textContent = !info.ok
+        ? 'This file can’t be read as a video. Choose another file.'
+        : 'This browser can’t convert ' + (info.canDecode === false ? 'this video’s format' : 'videos') + '. Open this page in Safari on your iPhone, or in Chrome, and choose it again. Or export it as an MP4 (H.264) under 10 MB and 30 seconds.';
       document.getElementById('checks').innerHTML = checks.map(function (c) {
         return '<div class="checks__row' + (c.bad ? ' is-bad' : '') + '"><i></i><span class="k">' + c.k + '</span><span>' + c.want + '</span><span class="r tnum">' + esc(c.got) + '</span></div>';
       }).join('');
       var cur = current();
       document.getElementById('untouchedTitle').textContent = cur ? 'V' + cur.version + ' is untouched' : 'Nothing was replaced';
       document.getElementById('untouchedBody').textContent = cur
-        ? 'Nothing was replaced. Your T-shirt still shows “' + layerName(cur) + '” until a file passes these checks.'
-        : 'Nothing was uploaded. Your T-shirt keeps its default film until a file passes these checks.';
+        ? 'Nothing was replaced. Your T-shirt still shows “' + layerName(cur) + '” until a file can be used.'
+        : 'Nothing was uploaded. Your T-shirt keeps its default film until a file can be used.';
     }
     function resetReplace() {
-      chosen = null; fileIn.value = '';
+      chooseSeq++;
+      resetChosen(); fileIn.value = '';
       document.getElementById('drop').hidden = false; document.getElementById('bad').hidden = true;
       document.getElementById('replaceSide').hidden = false; document.getElementById('rejectSide').hidden = true;
       document.getElementById('publishTop').hidden = false;
       document.getElementById('dropTitle').textContent = 'Drop a file here';
       document.getElementById('dropSub').textContent = 'or choose one from your device';
-      ['publishTop', 'publishM'].forEach(function (x) { document.getElementById(x).disabled = true; });
       render();
     }
     document.getElementById('chooseAnother').addEventListener('click', function () { resetReplace(); fileIn.click(); });
@@ -396,53 +489,95 @@
     });
 
     /* ---------- W-07 · processing ---------- */
-    function steps(state) {
-      var rows = [['Uploaded', state >= 1], ['Checked for size and format', true], ['Published to ' + P.claim_code, state >= 2]];
-      document.getElementById('steps').innerHTML = rows.map(function (r, i) {
-        var done = r[1], working = !done && (i === 0 || (i === 2 && state === 1));
-        return '<div class="checks__row' + (done || working ? '' : ' is-wait') + '" style="grid-template-columns:14px 1fr auto"><i></i><span' + (working ? ' style="font-weight:500"' : '') + '>' + esc(r[0]) + '</span><span class="r">' + (done ? 'Done' : working ? 'Working' : '—') + '</span></div>';
+    var STAGES = [];
+    // stage: the row being worked on (rows before it are done; STAGES.length = all done).
+    function steps(stage) {
+      document.getElementById('steps').innerHTML = STAGES.map(function (label, i) {
+        var done = i < stage, working = i === stage;
+        return '<div class="checks__row' + (done || working ? '' : ' is-wait') + '" style="grid-template-columns:14px 1fr auto"><i></i><span' + (working ? ' style="font-weight:500"' : '') + '>' + esc(label) + '</span><span class="r">' + (done ? 'Done' : working ? 'Working' : '—') + '</span></div>';
       }).join('');
     }
-    function publish() {
+    function setBar(frac, text) {
+      var pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
+      document.querySelector('#pubBar i').style.width = pct + '%';
+      document.getElementById('pubBar').setAttribute('aria-valuenow', pct);
+      document.getElementById('pubPct').textContent = text;
+    }
+    async function publish() {
       if (!chosen) { AuthForms.status('Choose a file first.', 'error', document.getElementById('rStatus')); return; }
-      var cur = current();
+      var cur = current(), rStatus = document.getElementById('rStatus');
       show('publish');
       document.getElementById('pubMeta').textContent = subline() + (cur ? ' · replacing V' + cur.version : '');
       document.getElementById('pubName').textContent = chosen.name;
       document.getElementById('pubStillTitle').textContent = cur ? 'Current video during processing' : 'Default film during processing';
-      steps(0);
-      var fd = new FormData(); fd.append('file', chosen); fd.append('label', chosen.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 80));
+      STAGES = [prep ? 'Made ready for your T-shirt (MP4, under 10 MB)' : 'Checked for size and format', 'Uploaded', 'Published to ' + P.claim_code];
+      var file = chosen;
+      if (prep) {
+        var start = prep.trim ? trimWin().start : 0;
+        if (converted && converted.start === start) file = converted.file; // a retry after a failed upload
+        else {
+          steps(0);
+          document.getElementById('pubState').textContent = 'Getting it ready';
+          document.getElementById('pubKeep').textContent = 'Keep this tab open. Your video is converted on this device, then uploaded. If you close the tab, nothing changes on your T-shirt.';
+          setBar(0, 'Converting on this device…');
+          try {
+            var out = await VideoPrep.convert(chosen, chosenInfo, {
+              start: start,
+              onConversion: function (c) { converting = c; },
+              onProgress: function (f) { setBar(f, Math.round(f * 100) + '% · converting on this device'); },
+            });
+            file = new File([out.blob], out.name, { type: 'video/mp4' });
+            converted = { start: start, file: file };
+          } catch (e) {
+            show('replace');
+            AuthForms.status(e.cancelled ? 'Cancelled. Nothing was replaced.' : (e.message || 'The video couldn’t be converted.') + ' Nothing was replaced.', e.cancelled ? '' : 'error', rStatus);
+            return;
+          } finally {
+            converting = null;
+          }
+        }
+      }
+      upload(file);
+    }
+    function upload(file) {
+      steps(1);
+      document.getElementById('pubState').textContent = 'Uploading';
+      document.getElementById('pubKeep').textContent = 'Keep this tab open. If you close it the upload stops and your T-shirt keeps its current video.';
+      setBar(0, mb(file.size) + ' to upload');
+      var rStatus = document.getElementById('rStatus');
+      var fd = new FormData(); fd.append('file', file, file.name); fd.append('label', chosen.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 80));
       xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/pieces/' + encodeURIComponent(id) + '/layer');
       xhr.withCredentials = true;
       xhr.upload.onprogress = function (e) {
         if (!e.lengthComputable) return;
         var pct = Math.round(e.loaded / e.total * 100);
-        document.querySelector('#pubBar i').style.width = pct + '%';
-        document.getElementById('pubBar').setAttribute('aria-valuenow', pct);
-        document.getElementById('pubPct').textContent = pct + '% · ' + mb(e.loaded) + ' of ' + mb(e.total);
-        if (pct === 100) { document.getElementById('pubState').textContent = 'Publishing'; steps(1); }
+        setBar(e.loaded / e.total, pct + '% · ' + mb(e.loaded) + ' of ' + mb(e.total));
+        if (pct === 100) { document.getElementById('pubState').textContent = 'Publishing'; steps(2); }
       };
       xhr.onload = function () {
         var d = {}; try { d = JSON.parse(xhr.responseText); } catch (e) {}
         if (xhr.status >= 200 && xhr.status < 300) {
-          steps(2);
+          steps(3);
           document.getElementById('pubState').textContent = 'Live';
           document.getElementById('pubKeep').textContent = 'Done. People who point their phone’s camera at the print now see V' + d.version + '.';
           setTimeout(function () { location.href = 'piece.html?id=' + encodeURIComponent(id) + '&added=1'; }, 1200);
         } else {
           show('replace');
-          AuthForms.status('The upload failed: ' + (d.error || 'server error ' + xhr.status) + '. Nothing was replaced.', 'error', document.getElementById('rStatus'));
+          AuthForms.status('The upload failed: ' + (d.error || 'server error ' + xhr.status) + '. Nothing was replaced.', 'error', rStatus);
         }
       };
-      xhr.onerror = function () { show('replace'); AuthForms.status('The connection dropped. Nothing was replaced — try again.', 'error', document.getElementById('rStatus')); };
-      xhr.onabort = function () { show('replace'); AuthForms.status('Upload cancelled. Nothing was replaced.', '', document.getElementById('rStatus')); };
+      xhr.onerror = function () { show('replace'); AuthForms.status('The connection dropped. Nothing was replaced — try again.', 'error', rStatus); };
+      xhr.onabort = function () { show('replace'); AuthForms.status('Upload cancelled. Nothing was replaced.', '', rStatus); };
       xhr.send(fd);
     }
     document.getElementById('publishTop').addEventListener('click', publish);
     document.getElementById('publishM').addEventListener('click', publish);
-    document.getElementById('cancelUpload').addEventListener('click', function () { if (xhr) xhr.abort(); });
-    window.addEventListener('beforeunload', function (e) { if (xhr && xhr.readyState > 0 && xhr.readyState < 4) { e.preventDefault(); e.returnValue = ''; } });
+    document.getElementById('cancelUpload').addEventListener('click', function () {
+      if (converting) converting.cancel();
+      else if (xhr) xhr.abort();
+    });
+    window.addEventListener('beforeunload', function (e) { if (converting || (xhr && xhr.readyState > 0 && xhr.readyState < 4)) { e.preventDefault(); e.returnValue = ''; } });
 
     document.addEventListener('click', function (e) {
       if (e.target.closest('[data-go-replace]')) { justAdded = false; resetReplace(); show('replace'); }
