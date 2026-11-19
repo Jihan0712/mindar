@@ -6,7 +6,7 @@ live site**. Each open item says where the problem is and what "done" looks like
 
 Last updated: 2026-11-19
 
-**Status:** 32 done · 24 open · 3 won't fix · plus 5 ideas
+**Status:** 33 done · 23 open · 3 won't fix · plus 5 ideas
 
 Key: `[x]` done and checked live · `[ ]` open · `[-]` won't fix (outside our code)
 
@@ -130,9 +130,8 @@ pushed the same way. Our tools never showed the mismatch:
   bar's black border and white fill went; dark and faint red stayed). *Fixed:* only the
   placeholder's own colour is erased (every shade), out to where its ink ends, and what ran
   under it is joined up again (lines and white fill). Test: `test/qr-placeholder.test.mjs`.
-- [ ] **The live Fingerprints Tee print file still has the old cut** (its badge was erased with a
-  plain circle that also took the end of the bar).
-  *Done when:* the print file is rebuilt with the clean erase.
+- [x] **The live Fingerprints Tee print file had the old cut.** *Fixed 2026-11-19:* rebuilt with
+  the clean erase (bar border and fill kept); shirt QR 1.4 in, #b64445, decodes.
 - [ ] **The colour read from a textured placeholder comes out lighter** (#cb7677 from a
   #b64445 badge: antialiased edges are averaged in).
   *Done when:* the ink is taken from the badge's solid pixels, or the admin sets it with the
@@ -163,9 +162,9 @@ pushed the same way. Our tools never showed the mismatch:
   Printful has regenerated its mockups.
 - [ ] Starter video is widescreen, so it plays with bars over the tall print. Optional: a
   portrait video.
-- [ ] Five leftover copies of the design in storage (`designs/…fingerprints-back.png`,
+- [ ] Six leftover copies of the design in storage (`designs/…fingerprints-back.png`,
   `designs/…fingerprints-print-area.png`, two unused uploads under `products/27/print/`, and
-  the old 10 in print file `images/1794555182779-print-back-qr-spot-erased.png`).
+  the old 10 in and 12 in print files `images/1794555182779-…` and `images/1795071465589-…`).
   *Done when:* removed (only after confirming nothing references them).
 
 ## 6. Catalogue and housekeeping
