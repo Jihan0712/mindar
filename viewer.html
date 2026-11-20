@@ -11,6 +11,7 @@
     <!-- Frame lock + gyroscope fusion + One Euro anti-jitter on MindAR's pose (ported from INRL2). -->
     <script src="assets/js/ar-stabilizer.js"></script>
     <script src="assets/js/ar-ready.js"></script>
+    <script src="assets/js/ar-presence.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 
     <link rel="stylesheet" type="text/css" href="ecommerce/css/global.css">
@@ -522,26 +523,32 @@
           notRecognisedTimer = setTimeout(() => { showState('notrecognised'); }, 10000);
         }
 
-        target.addEventListener('targetFound', () => {
-          lastTargetVisible = true;
-          clearTimeout(notRecognisedTimer);
-          showState('found');
-          const bar = document.getElementById('foundProgressBar');
-          if (bar) { bar.style.width = '0%'; requestAnimationFrame(() => { bar.style.width = '100%'; }); }
-          clearTimeout(foundPulseTimer);
-          foundPulseTimer = setTimeout(() => {
-            showState('playing');
-            aframeVideoAsset.play().catch((e) => { console.warn('play blocked (no user gesture):', e); });
-          }, 320);
+        // A miss shorter than the gyroscope coast (0.6 s) changes nothing on screen; only a
+        // real loss pauses the video and shows the scanning screen (assets/js/ar-presence.js).
+        const presence = window.INRLArPresence.createPresence({
+          graceMs: 600,
+          onFound: () => {
+            lastTargetVisible = true;
+            clearTimeout(notRecognisedTimer);
+            showState('found');
+            const bar = document.getElementById('foundProgressBar');
+            if (bar) { bar.style.width = '0%'; requestAnimationFrame(() => { bar.style.width = '100%'; }); }
+            clearTimeout(foundPulseTimer);
+            foundPulseTimer = setTimeout(() => {
+              showState('playing');
+              aframeVideoAsset.play().catch((e) => { console.warn('play blocked (no user gesture):', e); });
+            }, 320);
+          },
+          onLost: () => {
+            lastTargetVisible = false;
+            clearTimeout(foundPulseTimer);
+            aframeVideoAsset.pause();
+            showState('scanning');
+            startNotRecognisedTimer();
+          },
         });
-
-        target.addEventListener('targetLost', () => {
-          lastTargetVisible = false;
-          clearTimeout(foundPulseTimer);
-          aframeVideoAsset.pause();
-          showState('scanning');
-          startNotRecognisedTimer();
-        });
+        target.addEventListener('targetFound', () => presence.found());
+        target.addEventListener('targetLost', () => presence.lost());
 
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) aframeVideoAsset.pause();
