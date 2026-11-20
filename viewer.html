@@ -10,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <!-- Frame lock + gyroscope fusion + One Euro anti-jitter on MindAR's pose (ported from INRL2). -->
     <script src="assets/js/ar-stabilizer.js"></script>
+    <script src="assets/js/ar-ready.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 
     <link rel="stylesheet" type="text/css" href="ecommerce/css/global.css">
@@ -589,8 +590,13 @@
           }
           showState('scanning');
           startNotRecognisedTimer();
+          let sys;
           try {
-            const sys = scene.systems && scene.systems['mindar-image-system'];
+            // The scene (and MindAR's ui) loads a few seconds after the button shows: wait
+            // for it, or start() throws "reading 'showLoading'" (assets/js/ar-ready.js).
+            sys = await window.INRLArReady.whenArReady(scene, 20000);
+          } catch (e) { showArDiagnostic('AR not ready', e); return; }
+          try {
             if (sys && sys.start) {
               // start() is async: it acquires the camera again and downloads the
               // .mind. Both can fail well after this call returns, and until now
