@@ -153,6 +153,18 @@
     .qr-placer { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:1.25rem; align-items:start; }
     .qr-pf-mock { margin:0 auto; max-width:320px; }
     .qr-pf-mock img { display:block; width:100%; border:1px solid var(--line-200); border-radius:var(--radius-md); background:var(--surface-50); }
+    .gallery-edit { list-style:none; display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); gap:.6rem; padding:0; margin:0 0 .75rem; }
+    .gallery-edit li { position:relative; border:1px solid var(--line-200); background:var(--surface-50); cursor:grab; }
+    .gallery-edit li.is-dragging { opacity:.4; }
+    .gallery-edit li.is-drop { outline:2px dashed #12a2b8; outline-offset:2px; }
+    .gallery-edit img { display:block; width:100%; aspect-ratio:4/5; object-fit:cover; pointer-events:none; }
+    .gallery-edit .g-num { position:absolute; top:4px; left:4px; font-size:.58rem; font-weight:700; padding:.1rem .35rem; background:rgba(0,0,0,.65); color:#fff; letter-spacing:.04em; }
+    .gallery-edit li:first-child .g-num { background:#12a2b8; }
+    .gallery-edit .g-tools { display:flex; justify-content:space-between; gap:2px; padding:3px; background:#fff; border-top:1px solid var(--line-200); }
+    .gallery-edit .g-tools button { flex:1; border:0; background:transparent; font-size:.75rem; line-height:1.4; padding:.15rem 0; color:var(--ink-700); }
+    .gallery-edit .g-tools button:hover:not(:disabled) { background:var(--surface-50); }
+    .gallery-edit .g-tools button:disabled { opacity:.3; }
+    .gallery-edit .g-tools .g-del:hover { color:#b23b3b; }
     .qr-spot-choice { padding:.5rem .6rem; border:1px solid #b26a1f; border-radius:var(--radius-md); background:rgba(178,106,31,.06); }
     .proof-grid { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:1.25rem; align-items:start; }
     .proof-preview { width:100%; max-height:calc(100vh - 260px); object-fit:contain; border:1px solid var(--line-200);
@@ -751,24 +763,25 @@
         <!-- 2 Details -->
         <section class="wz-pane" data-wz-pane="2">
           <div class="wz-two">
-            <div class="pd-panel" id="pfLinkedPhotosNote" style="display:none">
-              <div class="pd-panel-title">Storefront photos</div>
-              <div class="pd-step-panel-sub">The shop shows Printful's mockups. Import the piece again to refresh them.</div>
-            </div>
             <div class="pd-panel" id="storefrontPhotosPanel">
               <div class="pd-panel-title">Storefront photos</div>
-              <div class="pd-step-panel-sub">Photos shown in the shop.</div>
-              <div class="row g-2">
-                <div class="col-12">
-                  <label class="form-label" for="imageUrlInput">Image URL</label>
-                  <input id="imageUrlInput" class="form-control" type="url" placeholder="https://&#8230;" />
-                </div>
-                <div class="col-12">
-                  <label class="form-label" for="imageFileInput">Upload images</label>
-                  <input id="imageFileInput" class="form-control" type="file" accept="image/*" multiple />
-                  <div class="form-text">Up to 5 images.</div>
+              <div class="pd-step-panel-sub">Shown in the shop in this order; the first is the main photo. Drag to rearrange, or use the arrows.</div>
+              <!-- The gallery's first photo, kept in step with the arrangement below (the bottom
+                   bar's thumbnail and the save payload read it). -->
+              <input type="hidden" id="imageUrlInput" value="" />
+              <ol id="galleryList" class="gallery-edit" aria-label="Storefront photos, in shop order"></ol>
+              <div id="galleryEmpty" class="form-text mb-2">No photos yet.</div>
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <label class="btn btn-sm btn-inrl-outline mb-0" id="galleryUploadLabel" style="cursor:pointer">Upload photos&#8230;
+                  <input id="galleryFileInput" type="file" accept="image/*" multiple hidden />
+                </label>
+                <div class="input-group input-group-sm" style="flex:1;min-width:200px">
+                  <input id="galleryUrlInput" class="form-control" type="url" placeholder="or paste an image URL" />
+                  <button type="button" id="galleryUrlAddBtn" class="btn btn-inrl-outline">Add</button>
                 </div>
               </div>
+              <div id="galleryStatus" class="form-text mt-1" role="status" aria-live="polite"></div>
+              <div id="pfLinkedPhotosNote" class="form-text mt-1" style="display:none">Importing the piece from Printful again replaces these with Printful's mockups.</div>
             </div>
 
             <div class="pd-panel">
@@ -1506,6 +1519,148 @@
     else { thumb.src = ''; thumb.classList.add('hidden'); }
   }
 
+  // ---- Storefront photo gallery ----
+  // The shop shows a product's image_urls in order, the first as the main photo. The admin
+  // arranges them here; the order is saved with the product (image_urls, image_url = first).
+  const GALLERY_MAX = 5;
+  let galleryUrls = [];
+
+  function productGalleryUrls(p) {
+    const list = Array.isArray(p.image_urls) ? p.image_urls.filter(Boolean).map(String) : [];
+    if (!list.length && p.image_url) list.push(String(p.image_url));
+    return list.slice(0, GALLERY_MAX);
+  }
+
+  function gallerySet(urls) {
+    galleryUrls = (urls || []).slice(0, GALLERY_MAX);
+    galleryRender();
+  }
+
+  function galleryStatus(text, bad) {
+    const s = el('galleryStatus');
+    s.textContent = text || '';
+    s.style.color = bad ? '#b23b3b' : '';
+  }
+
+  function galleryMove(from, to) {
+    if (to < 0 || to >= galleryUrls.length || from === to) return;
+    const [u] = galleryUrls.splice(from, 1);
+    galleryUrls.splice(to, 0, u);
+    galleryRender();
+  }
+
+  function galleryRender() {
+    const list = el('galleryList');
+    const n = galleryUrls.length;
+    list.innerHTML = galleryUrls.map(function(u, i) {
+      const label = i === 0 ? 'Main' : String(i + 1);
+      return '<li draggable="true" data-g="' + i + '">' +
+        '<span class="g-num">' + label + '</span>' +
+        '<img src="' + escapeHtml(u) + '" alt="Photo ' + (i + 1) + '" loading="lazy" />' +
+        '<div class="g-tools">' +
+          '<button type="button" data-g-act="left" title="Move earlier" aria-label="Move photo ' + (i + 1) + ' earlier"' + (i === 0 ? ' disabled' : '') + '>&larr;</button>' +
+          '<button type="button" data-g-act="main" title="Make main photo" aria-label="Make photo ' + (i + 1) + ' the main photo"' + (i === 0 ? ' disabled' : '') + '>&#9733;</button>' +
+          '<button type="button" data-g-act="right" title="Move later" aria-label="Move photo ' + (i + 1) + ' later"' + (i === n - 1 ? ' disabled' : '') + '>&rarr;</button>' +
+          '<button type="button" class="g-del" data-g-act="del" title="Remove" aria-label="Remove photo ' + (i + 1) + '">&times;</button>' +
+        '</div></li>';
+    }).join('');
+    el('galleryEmpty').style.display = n ? 'none' : '';
+    const full = n >= GALLERY_MAX;
+    el('galleryFileInput').disabled = full;
+    el('galleryUploadLabel').classList.toggle('disabled', full);
+    el('galleryUrlAddBtn').disabled = full;
+    el('imageUrlInput').value = galleryUrls[0] || '';
+    pdUpdateBottomBar();
+  }
+
+  function galleryAdd(urls) {
+    const room = GALLERY_MAX - galleryUrls.length;
+    const fresh = urls.filter(function(u) { return galleryUrls.indexOf(u) === -1; });
+    galleryUrls = galleryUrls.concat(fresh.slice(0, Math.max(0, room)));
+    galleryRender();
+    if (fresh.length > room) galleryStatus('Up to ' + GALLERY_MAX + ' photos; ' + (fresh.length - room) + ' not added.', true);
+  }
+
+  (function wireGallery() {
+    const list = el('galleryList');
+    list.addEventListener('click', function(ev) {
+      const b = ev.target.closest('[data-g-act]');
+      if (!b) return;
+      const i = Number(b.closest('[data-g]').getAttribute('data-g'));
+      const act = b.getAttribute('data-g-act');
+      if (act === 'left') galleryMove(i, i - 1);
+      else if (act === 'right') galleryMove(i, i + 1);
+      else if (act === 'main') galleryMove(i, 0);
+      else if (act === 'del') { galleryUrls.splice(i, 1); galleryRender(); }
+      galleryStatus('Not saved yet: Next or Save draft saves the order.');
+    });
+    let dragFrom = -1;
+    list.addEventListener('dragstart', function(ev) {
+      const li = ev.target.closest('[data-g]');
+      if (!li) return;
+      dragFrom = Number(li.getAttribute('data-g'));
+      li.classList.add('is-dragging');
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/plain', String(dragFrom));
+    });
+    list.addEventListener('dragover', function(ev) {
+      const li = ev.target.closest('[data-g]');
+      if (!li || dragFrom < 0) return;
+      ev.preventDefault();
+      list.querySelectorAll('.is-drop').forEach(function(x) { if (x !== li) x.classList.remove('is-drop'); });
+      li.classList.add('is-drop');
+    });
+    list.addEventListener('drop', function(ev) {
+      const li = ev.target.closest('[data-g]');
+      if (!li || dragFrom < 0) return;
+      ev.preventDefault();
+      const to = Number(li.getAttribute('data-g'));
+      const from = dragFrom;
+      dragFrom = -1;
+      galleryMove(from, to);
+      galleryStatus('Not saved yet: Next or Save draft saves the order.');
+    });
+    list.addEventListener('dragend', function() {
+      dragFrom = -1;
+      list.querySelectorAll('.is-dragging, .is-drop').forEach(function(x) { x.classList.remove('is-dragging', 'is-drop'); });
+    });
+    el('galleryFileInput').addEventListener('change', async function() {
+      const input = this;
+      const files = Array.from(input.files || []);
+      input.value = '';
+      if (!files.length) return;
+      if (files.some(function(f) { return !String(f.type || '').toLowerCase().startsWith('image/'); })) {
+        galleryStatus('Only image files can be added.', true);
+        return;
+      }
+      const room = GALLERY_MAX - galleryUrls.length;
+      if (room <= 0) { galleryStatus('Up to ' + GALLERY_MAX + ' photos. Remove one first.', true); return; }
+      try {
+        const urls = [];
+        for (const f of files.slice(0, room)) {
+          galleryStatus('Uploading ' + (urls.length + 1) + ' of ' + Math.min(files.length, room) + '…');
+          urls.push(await uploadProductImage(f));
+        }
+        galleryAdd(urls);
+        if (files.length <= room) galleryStatus('Added. Not saved yet: Next or Save draft saves the photos.');
+        else galleryStatus('Up to ' + GALLERY_MAX + ' photos; ' + (files.length - room) + ' not added.', true);
+      } catch (e) {
+        galleryStatus(e.message || String(e), true);
+      }
+    });
+    function addUrl() {
+      const input = el('galleryUrlInput');
+      const u = input.value.trim();
+      if (!u) return;
+      if (!/^https?:\/\//i.test(u)) { galleryStatus('Paste a full https:// image URL.', true); return; }
+      input.value = '';
+      galleryAdd([u]);
+      galleryStatus('Added. Not saved yet: Next or Save draft saves the photos.');
+    }
+    el('galleryUrlAddBtn').addEventListener('click', addUrl);
+    el('galleryUrlInput').addEventListener('keydown', function(ev) { if (ev.key === 'Enter') { ev.preventDefault(); addUrl(); } });
+  })();
+
   const CATEGORY_PRESETS = ['Unisex', 'Men', 'Women', 'Accessories'];
 
   function normalizeCategoryValue(v) {
@@ -1607,12 +1762,9 @@
     el('slugInput').value = p ? (p.slug || '') : '';
     el('priceInput').value = p ? ((Number(p.price_cents || 0) / 100).toFixed(2)) : '';
     el('currencyInput').value = p ? (p.currency || 'USD') : 'USD';
-    el('imageUrlInput').value = p ? (p.image_url || '') : '';
-    el('imageFileInput').value = '';
-    // Printful-linked products use Printful's mockups as their gallery — no manual uploads.
-    const pfLinked = !!(p && p.printful_sync_product_id);
-    el('storefrontPhotosPanel').style.display = pfLinked ? 'none' : '';
-    el('pfLinkedPhotosNote').style.display = pfLinked ? '' : 'none';
+    gallerySet(p ? productGalleryUrls(p) : []);
+    // Printful-linked products start from Printful's mockups; a re-import replaces the gallery.
+    el('pfLinkedPhotosNote').style.display = (p && p.printful_sync_product_id) ? '' : 'none';
     el('descInput').value = p ? (p.description || '') : '';
     el('publishInput').checked = !!(p && p.is_published);
     el('targetSelect').value = (p && p.ar_target_id != null) ? String(p.ar_target_id) : '';
@@ -2134,7 +2286,6 @@
     async function saveProductFromForm(opts) {
       const requireFields = !opts || opts.requireFields !== false;
       const id = el('productId').value.trim();
-      const imageFiles = el('imageFileInput').files ? Array.from(el('imageFileInput').files) : [];
       const body = {
         title: el('titleInput').value.trim(),
         category: el('categoryInput').value.trim(),
@@ -2143,7 +2294,9 @@
         slug: el('slugInput').value.trim(),
         price: el('priceInput').value,
         currency: el('currencyInput').value,
-        image_url: el('imageUrlInput').value.trim(),
+        // The gallery in the order arranged; the first is the main photo.
+        image_urls: galleryUrls.slice(0, GALLERY_MAX),
+        image_url: galleryUrls[0] || '',
         description: el('descInput').value.trim(),
         is_published: el('publishInput').checked,
         ar_target_id: el('targetSelect').value ? Number(el('targetSelect').value) : null,
@@ -2156,19 +2309,6 @@
         requireField('Color', body.color);
         requireField('Sizing', body.sizes);
         requireField('Price', body.price);
-      }
-
-      if (imageFiles.length > 5) throw new Error('Max 5 images per product');
-      if (imageFiles.length) {
-        for (const f of imageFiles) {
-          if (!String(f.type || '').toLowerCase().startsWith('image/')) throw new Error('Invalid image file');
-        }
-        const urls = [];
-        for (const f of imageFiles) {
-          urls.push(await uploadProductImage(f));
-        }
-        body.image_urls = urls;
-        body.image_url = urls[0] || '';
       }
 
       if (!id) {
