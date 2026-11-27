@@ -5035,7 +5035,7 @@
     const siteUrl = String(body.site_url || new URL(request.url).origin).replace(/\/$/, '');
 
     const row = await dbGet(
-      `select id, user_id, email, currency, total_cents, items_json, payment_status
+      `select id, user_id, email, currency, total_cents, items_json, payment_status, stripe_session_id
        from orders where id = ?`,
       rawId
     );
@@ -5062,6 +5062,21 @@
     const currency = row.currency || 'USD';
     const itemsCents = items.reduce((sum, it) => sum + (Number(it.price_cents) || 0) * (Number(it.qty) || 0), 0);
     const shippingCents = Math.max(0, (Number(row.total_cents) || 0) - itemsCents);
+
+    // Close the order's previous payment page first, so the customer can't pay both (the
+    // webhook would accept only one and the other charge would never be refunded). If it was
+    // already paid, the webhook just hasn't arrived yet: don't offer a second payment.
+    if (row.stripe_session_id) {
+      try {
+        const old = await Stripe.getCheckoutSession(stripeEnv(), row.stripe_session_id);
+        if (old.status === 'complete') {
+          return jsonResponse({ error: 'This order was already paid; your confirmation is on its way.' }, 409, request);
+        }
+        if (old.status === 'open') await Stripe.expireCheckoutSession(stripeEnv(), row.stripe_session_id);
+      } catch (e) {
+        return jsonResponse({ error: `Could not close the previous payment page: ${String(e && e.message ? e.message : e)}` }, 502, request);
+      }
+    }
 
     let session;
     try {
